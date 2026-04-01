@@ -1,99 +1,98 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   
-  /* Apple Midnight Palette */
-  --color-theme-bg: #000000;
-  --color-theme-card: #0c0c0c;
-  --color-theme-header: rgba(0, 0, 0, 0.7);
-  --color-theme-glass: rgba(20, 20, 25, 0.6);
-  --color-theme-border: rgba(255, 255, 255, 0.08);
-  --color-theme-border-bright: rgba(255, 255, 255, 0.15);
-  --color-theme-primary: #ffffff;
-  --color-theme-secondary: #86868b;
-  --color-theme-muted: #424245;
-  --color-theme-accent: #0071e3; /* Apple Blue */
-  --color-theme-accent-glow: rgba(0, 113, 227, 0.3);
-  --color-theme-sidebar: #050505;
-  --color-theme-active: rgba(0, 113, 227, 0.15);
+  /* High-Tech Midnight Palette */
+  --color-theme-bg: #050505;
+  --color-theme-card: #0d0d0d;
+  --color-theme-header: #0a0a0a;
+  --color-theme-glass: rgba(13, 13, 13, 0.9);
+  --color-theme-border: #1a1a1a;
+  --color-theme-border-bright: #262626;
+  --color-theme-primary: #e5e5e5;
+  --color-theme-secondary: #a3a3a3;
+  --color-theme-muted: #525252;
+  --color-theme-accent: #0071e3; 
+  --color-theme-accent-glow: rgba(0, 113, 227, 0.2);
+  --color-theme-sidebar: #080808;
+  --color-theme-active: #171717;
   
-  /* Status Colors */
-  --color-status-success: #30d158;
-  --color-status-warning: #ff9f0a;
-  --color-status-error: #ff453a;
-  --color-status-info: #64d2ff;
+  /* Precision Status Colors */
+  --color-status-success: #22c55e;
+  --color-status-warning: #f59e0b;
+  --color-status-error: #ef4444;
+  --color-status-info: #3b82f6;
 }
 
 @layer base {
   body {
     background-color: var(--color-theme-bg);
     color: var(--color-theme-primary);
-    @apply font-sans antialiased selection:bg-theme-accent-glow;
-    letter-spacing: -0.015em;
+    @apply font-sans antialiased;
+    font-size: 13px;
+    letter-spacing: -0.01em;
   }
 }
 
 @layer components {
-  .apple-glass {
-    @apply backdrop-blur-[20px] bg-theme-glass border border-theme-border shadow-2xl;
-  }
-  
   .apple-card {
-    @apply bg-theme-card border border-theme-border rounded-[18px] p-6 transition-all duration-300 hover:border-theme-border-bright;
+    @apply bg-theme-card border border-theme-border rounded-lg p-4 transition-colors hover:border-theme-border-bright;
   }
 
   .btn-apple-primary {
-    @apply px-6 py-2.5 bg-theme-primary text-black rounded-full font-semibold transition-all duration-300 hover:opacity-90 active:scale-95 disabled:opacity-30;
+    @apply px-4 py-1.5 bg-theme-primary text-black rounded font-semibold text-xs transition-opacity hover:opacity-90 active:scale-[0.98] disabled:opacity-20;
   }
 
   .btn-apple-secondary {
-    @apply px-6 py-2.5 bg-white/5 border border-theme-border text-theme-primary rounded-full font-medium transition-all duration-300 hover:bg-white/10 active:scale-95;
+    @apply px-4 py-1.5 bg-white/[0.03] border border-theme-border text-theme-primary rounded font-medium text-xs transition-colors hover:bg-white/[0.06] active:scale-[0.98];
   }
 
   .sidebar-item {
-    @apply flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 text-theme-secondary hover:text-theme-primary hover:bg-white/5;
+    @apply flex items-center gap-2.5 px-3 py-2 rounded transition-colors text-theme-secondary hover:text-theme-primary hover:bg-white/[0.03];
   }
 
   .sidebar-item-active {
-    @apply text-theme-accent bg-theme-active shadow-sm;
+    @apply text-theme-primary bg-theme-active border-l-2 border-theme-accent rounded-l-none;
+  }
+
+  .input-apple {
+    @apply w-full bg-white/[0.02] border border-theme-border rounded p-2 text-xs text-theme-primary placeholder:text-theme-muted focus:border-theme-accent outline-none transition-all;
   }
 }
 
-/* Ag-Grid Overrides for Apple Style */
+/* Ag-Grid: Precision Dark Configuration */
 .ag-theme-quartz-dark {
-  --ag-background-color: var(--color-theme-bg);
-  --ag-header-background-color: var(--color-theme-bg);
-  --ag-odd-row-background-color: var(--color-theme-sidebar);
-  --ag-border-color: var(--color-theme-border);
-  --ag-row-border-color: var(--color-theme-border);
-  --ag-font-family: 'Inter', sans-serif;
-  --ag-font-size: 13px;
-  --ag-header-foreground-color: var(--color-theme-secondary);
-  --ag-data-color: var(--color-theme-primary);
-  --ag-selected-row-background-color: var(--color-theme-active);
-  --ag-row-hover-color: rgba(255, 255, 255, 0.03);
+  --ag-background-color: #0d0d0d !important;
+  --ag-header-background-color: #0a0a0a !important;
+  --ag-odd-row-background-color: #0f0f0f !important;
+  --ag-border-color: #1a1a1a !important;
+  --ag-row-border-color: #1a1a1a !important;
+  --ag-font-family: 'Inter', sans-serif !important;
+  --ag-font-size: 12px !important;
+  --ag-header-foreground-color: #a3a3a3 !important;
+  --ag-data-color: #e5e5e5 !important;
+  --ag-selected-row-background-color: rgba(0, 113, 227, 0.1) !important;
+  --ag-row-hover-color: rgba(255, 255, 255, 0.02) !important;
+  --ag-header-height: 36px !important;
+  --ag-row-height: 40px !important;
+  --ag-list-item-height: 32px !important;
 }
 
 .ag-grid-apple {
-  border: none !important;
-}
-.ag-header {
-  border-bottom: 1px solid var(--color-theme-border) !important;
+  border: 1px solid #1a1a1a !important;
+  border-radius: 4px !important;
 }
 
-/* React Flow Overrides */
-.react-flow__node {
-  @apply !border-none !bg-transparent !p-0 !rounded-none;
-}
-
+/* React Flow Precision Styling */
 .react-flow__edge-path {
   @apply stroke-theme-muted;
+  stroke-width: 2 !important;
 }
 
 .react-flow__controls {
-  @apply !bg-theme-card !border-theme-border !shadow-2xl !rounded-xl overflow-hidden;
+  @apply !bg-theme-card !border-theme-border !shadow-none !rounded-none !m-2;
 }
 
 .react-flow__controls-button {
@@ -101,17 +100,14 @@
 }
 
 /* Utilities */
-.text-gradient {
-  background: linear-gradient(135deg, #ffffff 0%, #a1a1a6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
 .custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 4px;
+  height: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--color-theme-muted);
-  border-radius: 10px;
+  background: #262626;
+  border-radius: 2px;
 }

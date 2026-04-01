@@ -17,76 +17,50 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
   const columnDefs: ColDef[] = useMemo(() => [
     { 
       field: 'name', 
-      headerName: 'Initiative Name', 
+      headerName: 'NODE_ID', 
       flex: 2,
       cellRenderer: (p: any) => (
-        <div className="flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-theme-accent shadow-[0_0_8px_rgba(0,113,227,0.5)]" />
-          <span className="font-semibold text-theme-primary">{p.value}</span>
+        <div className="flex items-center gap-2 h-full">
+          <div className="w-1.5 h-1.5 rounded-full bg-theme-accent" />
+          <span className="font-bold text-white text-[11px] truncate uppercase">{p.value}</span>
         </div>
       )
     },
     { 
       field: 'status', 
-      headerName: 'Lifecycle Status', 
-      flex: 1.5,
+      headerName: 'LIFECYCLE', 
+      flex: 1.2,
       cellRenderer: (p: any) => (
-        <div className="flex items-center gap-2">
-          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-            p.value.includes('Automated') ? 'bg-status-success/10 text-status-success border border-status-success/20' : 
-            p.value.includes('Automation') ? 'bg-theme-accent/10 text-theme-accent border border-theme-accent/20' : 
-            'bg-theme-muted/10 text-theme-secondary border border-theme-border'
-          }`}>
-            {p.value}
-          </span>
-        </div>
+        <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border ${
+          p.value.includes('Automated') ? 'text-status-success border-status-success/20 bg-status-success/5' : 
+          p.value.includes('Automation') ? 'text-theme-accent border-theme-accent/20 bg-theme-accent/5' : 
+          'text-theme-muted border-theme-border bg-white/5'
+        }`}>
+          {p.value}
+        </span>
       )
     },
     { 
-      field: 'frequency_per_month', 
-      headerName: 'Freq/Mo', 
+      field: 'total_roi_saved_hours', 
+      headerName: 'YIELD_H/MO', 
       flex: 0.8,
       type: 'numericColumn',
-      valueFormatter: (p: any) => `${p.value}x`
-    },
-    { 
-      field: 'total_roi_saved_hours', 
-      headerName: 'ROI (Hrs/Mo)', 
-      flex: 1,
-      type: 'numericColumn',
       cellRenderer: (p: any) => (
-        <span className="font-mono font-bold text-theme-accent">
+        <span className="font-mono font-black text-theme-accent text-[11px]">
           {p.value?.toFixed(1)}h
         </span>
       )
     },
     {
-      headerName: 'Actions',
-      flex: 1,
+      headerName: 'OPS',
+      flex: 0.8,
       sortable: false,
       filter: false,
       cellRenderer: (p: any) => (
-        <div className="flex items-center gap-2 h-full py-1">
-          <button 
-            onClick={() => onSelect(p.data)}
-            className="p-2 hover:bg-theme-accent/10 text-theme-secondary hover:text-theme-accent rounded-lg transition-all"
-            title="Edit Workflow"
-          >
-            <Zap size={15} />
-          </button>
-          <button 
-            className="p-2 hover:bg-white/5 text-theme-secondary hover:text-theme-primary rounded-lg transition-all"
-            title="Download Report"
-          >
-            <FileText size={15} />
-          </button>
-          <button 
-            onClick={() => onDelete(p.data.id)}
-            className="p-2 hover:bg-status-error/10 text-theme-secondary hover:text-status-error rounded-lg transition-all"
-            title="Archive"
-          >
-            <Trash2 size={15} />
-          </button>
+        <div className="flex items-center justify-end gap-1 h-full">
+          <button onClick={() => onSelect(p.data)} className="p-1 hover:text-theme-accent transition-colors"><Zap size={12} /></button>
+          <button className="p-1 hover:text-theme-primary transition-colors"><FileText size={12} /></button>
+          <button onClick={() => onDelete(p.data.id)} className="p-1 hover:text-status-error transition-colors"><Trash2 size={12} /></button>
         </div>
       )
     }
@@ -99,19 +73,17 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
   }), []);
 
   return (
-    <div className="apple-card overflow-hidden !p-0 border border-theme-border/50 shadow-2xl">
-      <div className="ag-theme-quartz-dark h-[500px] w-full ag-grid-apple">
-        <AgGridReact
-          rowData={workflows}
-          columnDefs={columnDefs}
-          defaultColDef={defaultColDef}
-          animateRows={true}
-          rowSelection="multiple"
-          headerHeight={48}
-          rowHeight={60}
-          suppressCellFocus={true}
-        />
-      </div>
+    <div className="ag-theme-quartz-dark h-[400px] w-full ag-grid-apple">
+      <AgGridReact
+        rowData={workflows}
+        columnDefs={columnDefs}
+        defaultColDef={defaultColDef}
+        animateRows={false}
+        rowSelection="multiple"
+        headerHeight={32}
+        rowHeight={36}
+        suppressCellFocus={true}
+      />
     </div>
   );
 };

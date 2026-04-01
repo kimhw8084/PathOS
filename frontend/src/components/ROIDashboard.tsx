@@ -1,118 +1,128 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
-import { Zap, Clock } from 'lucide-react';
+import { Zap, Clock, Trophy, Activity, ShieldAlert, Cpu, BarChart3, Layers } from 'lucide-react';
 
 interface ROIDashboardProps {
   workflows: any[];
 }
 
-const COLORS = ['#0071e3', '#30d158', '#ff9f0a', '#bf5af2', '#64d2ff'];
+const COLORS = ['#0071e3', '#22c55e', '#f59e0b', '#8b5cf6', '#06b6d4', '#ef4444'];
+
+const StatBox = ({ icon: Icon, label, value, subValue, colorClass = "text-theme-primary" }: any) => (
+  <div className="bg-theme-card border border-theme-border p-3 rounded flex flex-col gap-1 hover:border-theme-border-bright transition-colors">
+    <div className="flex items-center gap-2 text-theme-secondary opacity-60">
+      <Icon size={12} />
+      <span className="text-[10px] font-bold uppercase tracking-widest">{label}</span>
+    </div>
+    <div className="flex items-baseline gap-2">
+      <span className={`text-xl font-black italic tracking-tighter ${colorClass}`}>{value}</span>
+      {subValue && <span className="text-[10px] text-theme-muted font-mono">{subValue}</span>}
+    </div>
+  </div>
+);
 
 const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows }) => {
-  const chartData = workflows.map(wf => ({
-    name: wf.name.length > 15 ? wf.name.substring(0, 12) + '...' : wf.name,
+  const sortedWorkflows = [...workflows].sort((a, b) => (b.total_roi_saved_hours || 0) - (a.total_roi_saved_hours || 0));
+  const leaderboard = sortedWorkflows.slice(0, 10);
+  
+  const chartData = leaderboard.map(wf => ({
+    name: wf.name.length > 12 ? wf.name.substring(0, 10) + '..' : wf.name,
     roi: wf.total_roi_saved_hours
-  })).sort((a, b) => b.roi - a.roi).slice(0, 5);
+  }));
 
   const statusData = [
-    { name: 'Completed', value: workflows.filter(wf => wf.status.includes('Automated')).length },
-    { name: 'Active', value: workflows.filter(wf => wf.status.includes('Automation')).length },
-    { name: 'Backlog', value: workflows.filter(wf => wf.status.includes('Created')).length },
+    { name: 'Deployed', value: workflows.filter(wf => wf.status === 'Fully Automated').length },
+    { name: 'Active Dev', value: workflows.filter(wf => ['In Automation', 'Verification', 'Partially Automated'].includes(wf.status)).length },
+    { name: 'Backlog', value: workflows.filter(wf => !wf.status.includes('Automated') && wf.status !== 'In Automation').length },
   ].filter(d => d.value > 0);
 
+  const totalMonthlySavings = workflows.reduce((acc, wf) => acc + (wf.total_roi_saved_hours || 0), 0);
+  const totalTasks = workflows.reduce((acc, wf) => acc + (wf.tasks?.length || 0), 0);
+  const totalBlockers = workflows.reduce((acc, wf) => acc + (wf.tasks?.reduce((tAcc: number, t: any) => tAcc + (t.blockers?.length || 0), 0) || 0), 0);
+  const avgComplexity = workflows.length > 0 ? (totalTasks / workflows.length).toFixed(1) : 0;
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-      {/* Primary ROI Metric */}
-      <div className="lg:col-span-12 apple-card flex flex-col md:flex-row items-center justify-between gap-10 bg-gradient-to-br from-[#0c0c0c] to-[#000000]">
-        <div className="flex-1 space-y-2 text-center md:text-left">
-          <span className="text-[10px] font-bold text-theme-accent uppercase tracking-[0.2em] mb-2 block">Total Ecosystem Savings</span>
-          <div className="text-6xl font-bold tracking-tight text-white mb-2">
-            {workflows.reduce((acc, wf) => acc + (wf.total_roi_saved_hours || 0), 0).toFixed(0)}
-            <span className="text-3xl text-theme-secondary opacity-50 ml-2">h/mo</span>
+    <div className="space-y-4">
+      {/* High-Density Stat Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <StatBox icon={Zap} label="Yield Impact" value={`${totalMonthlySavings.toFixed(0)}h`} subValue="RECLAIMED/MO" colorClass="text-theme-accent" />
+        <StatBox icon={Activity} label="Automation" value={`${(workflows.length > 0 ? (workflows.filter(wf => wf.status.includes('Automated')).length / workflows.length) * 100 : 0).toFixed(0)}%`} subValue="DENSITY" />
+        <StatBox icon={Cpu} label="Sys Nodes" value={totalTasks} subValue="ACTIVE_TASKS" />
+        <StatBox icon={ShieldAlert} label="Blockers" value={totalBlockers} subValue="CRITICAL_PATHS" colorClass="text-status-error" />
+        <StatBox icon={Layers} label="Complexity" value={avgComplexity} subValue="STEPS/NODE" />
+        <StatBox icon={BarChart3} label="Ecosystem" value={workflows.length} subValue="TOTAL_INITIATIVES" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Performance Visualization - Narrower */}
+        <div className="lg:col-span-2 apple-card flex flex-col gap-4">
+          <div className="flex items-center gap-2 border-b border-theme-border pb-2 mb-2">
+            <BarChart3 size={14} className="text-theme-accent" />
+            <h3 className="text-[11px] font-black uppercase tracking-widest text-theme-secondary">Reclaimed Capacity Index</h3>
           </div>
-          <p className="text-theme-secondary text-sm max-w-md">Aggregate automated time retrieval across all Metrology operation nodes.</p>
+          <div className="h-[180px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 0, right: 0, left: -30, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="2 2" stroke="#1a1a1a" vertical={false} />
+                <XAxis dataKey="name" hide />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#525252', fontSize: 9 }} />
+                <Tooltip 
+                  contentStyle={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '4px', padding: '8px' }}
+                  itemStyle={{ fontSize: '10px', fontWeight: 'bold', color: '#0071e3' }}
+                  labelStyle={{ fontSize: '10px', color: '#a3a3a3', marginBottom: '4px' }}
+                />
+                <Bar dataKey="roi" radius={[2, 2, 0, 0]} barSize={24}>
+                  {chartData.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} fillOpacity={0.8} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-theme-accent/10 flex items-center justify-center text-theme-accent animate-pulse">
-            <Zap size={32} />
+
+        {/* Lifecycle Distribution - Narrower */}
+        <div className="apple-card flex flex-col gap-4">
+          <div className="flex items-center gap-2 border-b border-theme-border pb-2 mb-2">
+            <Clock size={14} className="text-theme-accent" />
+            <h3 className="text-[11px] font-black uppercase tracking-widest text-theme-secondary">Ecosystem Status</h3>
+          </div>
+          <div className="flex-1 flex items-center justify-center relative min-h-[180px]">
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-2xl font-black text-white italic">{workflows.length}</span>
+              <span className="text-[8px] uppercase tracking-widest text-theme-muted">Units</span>
+            </div>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={statusData} cx="50%" cy="50%" innerRadius={55} outerRadius={70} paddingAngle={4} dataKey="value" stroke="none">
+                  {statusData.map((_, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #1a1a1a', borderRadius: '4px' }} />
+              </PieChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* Main Charts */}
-      <div className="lg:col-span-7 apple-card min-h-[400px]">
-        <div className="flex items-center gap-2 mb-8">
-          <Zap size={18} className="text-theme-accent" />
-          <h3 className="text-sm font-bold tracking-tight uppercase opacity-60">Top 5 ROI Initiatives (Hrs Saved/Mo)</h3>
+      {/* Leaderboard - High Density Table Style */}
+      <div className="apple-card">
+        <div className="flex items-center gap-2 border-b border-theme-border pb-2 mb-3">
+          <Trophy size={14} className="text-status-warning" />
+          <h3 className="text-[11px] font-black uppercase tracking-widest text-theme-secondary">High-Yield Initiative Node Ranking</h3>
         </div>
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f1f23" vertical={false} />
-              <XAxis 
-                dataKey="name" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#86868b', fontSize: 10, fontWeight: 500 }} 
-                dy={15}
-              />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: '#86868b', fontSize: 10 }}
-              />
-              <Tooltip 
-                cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                contentStyle={{ background: 'rgba(0,0,0,0.85)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', color: '#fff' }}
-                itemStyle={{ color: '#0071e3' }}
-              />
-              <Bar dataKey="roi" radius={[6, 6, 0, 0]} barSize={40}>
-                {chartData.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div className="lg:col-span-5 apple-card min-h-[400px] flex flex-col">
-        <div className="flex items-center gap-2 mb-8">
-          <Clock size={18} className="text-theme-accent" />
-          <h3 className="text-sm font-bold tracking-tight uppercase opacity-60">Automation Lifecycle Distribution</h3>
-        </div>
-        <div className="flex-1 flex items-center justify-center relative">
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-3xl font-bold text-white">{workflows.length}</span>
-            <span className="text-[10px] uppercase tracking-widest text-theme-secondary">Projects</span>
-          </div>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={statusData}
-                cx="50%"
-                cy="50%"
-                innerRadius={75}
-                outerRadius={95}
-                paddingAngle={8}
-                dataKey="value"
-                stroke="none"
-              >
-                {statusData.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip 
-                contentStyle={{ background: 'rgba(0,0,0,0.85)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', color: '#fff' }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="grid grid-cols-3 gap-2 mt-4">
-          {statusData.map((d, i) => (
-            <div key={d.name} className="flex flex-col items-center p-3 rounded-2xl bg-white/[0.02] border border-white/[0.02]">
-              <span className="text-[10px] font-bold opacity-30 uppercase tracking-widest mb-1">{d.name}</span>
-              <span className="text-lg font-bold" style={{ color: COLORS[i % COLORS.length] }}>{d.value}</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
+          {leaderboard.map((wf, idx) => (
+            <div key={wf.id} className="flex items-center justify-between py-1.5 border-b border-white/[0.03] hover:bg-white/[0.02] px-2 rounded transition-colors group">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-[10px] font-mono text-theme-muted w-4 font-bold">{idx + 1}.</span>
+                <h4 className="text-xs font-bold text-theme-primary truncate uppercase tracking-tight group-hover:text-theme-accent">{wf.name}</h4>
+              </div>
+              <div className="flex items-center gap-4 shrink-0">
+                <span className="text-[9px] text-theme-muted uppercase font-black opacity-40">{wf.trigger_type}</span>
+                <span className="text-xs font-mono font-black text-theme-accent italic">+{wf.total_roi_saved_hours?.toFixed(1)}h/mo</span>
+              </div>
             </div>
           ))}
         </div>

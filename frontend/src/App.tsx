@@ -5,8 +5,11 @@ import {
   Settings, 
   History, 
   Workflow as WorkflowIcon,
-  Search,
   Menu,
+  ChevronLeft,
+  Bell,
+  Command,
+  Database
 } from 'lucide-react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Toaster, toast } from 'react-hot-toast';
@@ -18,14 +21,17 @@ import WorkflowBuilder from './components/WorkflowBuilder';
 
 const queryClient = new QueryClient();
 
-// Sidebar Item Component
 const SidebarItem = ({ icon: Icon, label, active, onClick, open }: { icon: any, label: string, active?: boolean, onClick: () => void, open: boolean }) => (
   <button 
     onClick={onClick}
-    className={`w-full sidebar-item ${active ? 'sidebar-item-active' : ''} ${!open ? 'justify-center px-0' : ''}`}
+    className={`w-full sidebar-item ${active ? 'sidebar-item-active' : ''} ${!open ? 'justify-center' : 'px-3'} group`}
   >
-    <Icon size={20} className={active ? 'text-theme-accent' : 'text-theme-secondary'} />
-    {open && <span className="font-medium truncate text-sm">{label}</span>}
+    <Icon size={16} className={active ? 'text-theme-primary' : 'text-theme-secondary group-hover:text-theme-primary'} />
+    {open && (
+      <span className="font-medium text-[12px] tracking-tight">
+        {label}
+      </span>
+    )}
   </button>
 );
 
@@ -36,28 +42,19 @@ const PathOSApp: React.FC = () => {
   
   const queryClient = useQueryClient();
 
-  // Queries
-  const { data: workflows = [] } = useQuery({ 
-    queryKey: ['workflows'], 
-    queryFn: workflowsApi.list 
-  });
-  
-  const { data: taxonomy = [] } = useQuery({ 
-    queryKey: ['taxonomy'], 
-    queryFn: taxonomyApi.list 
-  });
+  const { data: workflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowsApi.list });
+  const { data: taxonomy = [] } = useQuery({ queryKey: ['taxonomy'], queryFn: taxonomyApi.list });
 
-  // Mutations
   const createMutation = useMutation({
     mutationFn: workflowsApi.create,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
-      toast.success("Initiative Initialized!");
+      toast.success("Protocol Initialized", { style: { background: '#0d0d0d', color: '#fff', border: '1px solid #1a1a1a', fontSize: '12px' } });
       setSelectedWorkflow(data);
       setActiveTab('builder');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Failed to create workflow.");
+      toast.error(error.response?.data?.detail || "Intake failed.");
     }
   });
 
@@ -65,13 +62,9 @@ const PathOSApp: React.FC = () => {
     mutationFn: workflowsApi.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
-      toast.success("Workflow archived.");
+      toast.success("Node archived.");
     }
   });
-
-  const handleIntakeSuccess = (data: any) => {
-    createMutation.mutate(data);
-  };
 
   const handleSelectWorkflow = (wf: any) => {
     setSelectedWorkflow(wf);
@@ -80,90 +73,89 @@ const PathOSApp: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-theme-bg text-theme-primary overflow-hidden font-sans">
-      <Toaster position="top-right" toastOptions={{
-        style: { background: '#0c0c0c', color: '#ffffff', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', borderRadius: '14px' }
-      }} />
+      <Toaster position="bottom-right" />
 
-      {/* Sidebar */}
-      <aside className={`
-        ${isSidebarOpen ? 'w-60' : 'w-20'} 
-        bg-theme-sidebar/50 backdrop-blur-xl border-r border-theme-border flex flex-col transition-all duration-500 ease-[cubic-bezier(0.25, 1, 0.5, 1)]
-      `}>
-        <div className="p-6 flex items-center gap-4">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-theme-accent to-[#64d2ff] flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-theme-accent/20 shrink-0">
-            P
-          </div>
-          {isSidebarOpen && <span className="text-xl font-bold tracking-tight text-gradient">PathOS</span>}
+      {/* Sidebar - Compact Professional */}
+      <aside className={`${isSidebarOpen ? 'w-52' : 'w-14'} bg-theme-sidebar border-r border-theme-border flex flex-col transition-all duration-200 z-30`}>
+        <div className="h-12 flex items-center px-4 border-b border-theme-border gap-2">
+          <div className="w-6 h-6 rounded bg-theme-accent flex items-center justify-center text-white font-bold text-xs shrink-0">P</div>
+          {isSidebarOpen && <span className="font-bold text-sm tracking-tight">PathOS <span className="text-[10px] text-theme-muted font-normal uppercase tracking-wider">v1.0</span></span>}
         </div>
 
-        <nav className="flex-1 px-4 space-y-1.5 py-6">
-          <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} open={isSidebarOpen} />
+        <nav className="flex-1 p-2 space-y-1">
+          <SidebarItem icon={LayoutDashboard} label="Operations" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} open={isSidebarOpen} />
           <SidebarItem icon={PlusCircle} label="New Intake" active={activeTab === 'intake'} onClick={() => { setSelectedWorkflow(null); setActiveTab('intake'); }} open={isSidebarOpen} />
           <SidebarItem icon={WorkflowIcon} label="Registry" active={activeTab === 'registry'} onClick={() => setActiveTab('registry')} open={isSidebarOpen} />
           <SidebarItem icon={History} label="Audit Logs" active={activeTab === 'audit'} onClick={() => setActiveTab('audit')} open={isSidebarOpen} />
         </nav>
 
-        <div className="p-4 border-t border-theme-border/50">
-          <SidebarItem icon={Settings} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} open={isSidebarOpen} />
+        <div className="p-2 border-t border-theme-border">
+          <SidebarItem icon={Settings} label="System Config" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} open={isSidebarOpen} />
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col overflow-hidden relative">
-        {/* Header */}
-        <header className="h-16 bg-theme-bg/60 backdrop-blur-md border-b border-theme-border/50 flex items-center justify-between px-8 z-10 sticky top-0">
-          <div className="flex items-center gap-6">
-            <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-white/5 rounded-full text-theme-secondary transition-all">
-              <Menu size={18} />
+      {/* Main Area */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Header - Narrow Technical */}
+        <header className="h-12 bg-theme-header border-b border-theme-border flex items-center justify-between px-4 z-20">
+          <div className="flex items-center gap-4">
+            <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="text-theme-secondary hover:text-theme-primary transition-colors">
+              {isSidebarOpen ? <ChevronLeft size={16} /> : <Menu size={16} />}
             </button>
-            <h1 className="text-sm font-semibold tracking-wide uppercase text-theme-secondary opacity-80">{activeTab === 'builder' ? `Workflow Builder` : activeTab}</h1>
+            <div className="h-4 w-px bg-theme-border" />
+            <h1 className="text-[11px] font-bold tracking-widest uppercase text-theme-secondary">
+              {activeTab === 'builder' ? `Architect / ${selectedWorkflow?.name}` : activeTab}
+            </h1>
           </div>
 
-          <div className="flex items-center gap-6">
-            <div className="relative group hidden md:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted group-focus-within:text-theme-accent transition-colors" size={15} />
+          <div className="flex items-center gap-4">
+            <div className="relative hidden md:block">
+              <Command size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-theme-muted" />
               <input 
                 type="text" 
-                placeholder="Search resources..." 
-                className="bg-white/5 border border-theme-border rounded-full pl-10 pr-4 py-1.5 text-xs focus:outline-none focus:border-theme-accent/40 w-56 transition-all focus:w-72"
+                placeholder="Search..." 
+                className="bg-white/5 border border-theme-border rounded px-8 py-1 text-[11px] focus:outline-none focus:border-theme-accent/50 w-48 transition-all"
               />
             </div>
-            <div className="w-8 h-8 rounded-full bg-white/5 border border-theme-border flex items-center justify-center text-[10px] font-bold text-theme-secondary hover:text-theme-primary hover:border-theme-border-bright cursor-pointer transition-all">
-              HK
-            </div>
+            <button className="text-theme-secondary hover:text-theme-primary transition-colors relative">
+              <Bell size={16} />
+              <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-status-error rounded-full" />
+            </button>
+            <div className="w-6 h-6 rounded bg-theme-active border border-theme-border flex items-center justify-center text-[9px] font-bold text-theme-secondary">HK</div>
           </div>
         </header>
 
-        {/* Content Region */}
-        <div className="flex-1 overflow-auto custom-scrollbar p-10">
-          <div className="max-w-6xl mx-auto">
+        {/* Content - High Density */}
+        <div className="flex-1 overflow-auto custom-scrollbar p-6">
+          <div className="max-w-[1600px] mx-auto">
             {activeTab === 'dashboard' && (
-              <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="mb-2">
-                  <h2 className="text-4xl font-bold tracking-tight text-white mb-2">Operations Hub</h2>
-                  <p className="text-theme-secondary text-lg font-medium opacity-60">Metrology Automation Lifecycle & Prioritization</p>
-                </div>
+              <div className="space-y-6">
                 <ROIDashboard workflows={workflows} />
-                <div className="mt-14 space-y-6">
-                  <div className="flex items-center justify-between px-1">
-                    <h3 className="text-lg font-bold text-white tracking-tight">Recent Initiatives</h3>
-                    <button onClick={() => setActiveTab('registry')} className="text-xs font-semibold text-theme-accent hover:underline">View All Registry</button>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-theme-border pb-2">
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-theme-secondary flex items-center gap-2">
+                      <Database size={14} /> Active Automation Nodes
+                    </h3>
+                    <button onClick={() => setActiveTab('registry')} className="text-[10px] font-bold text-theme-accent hover:underline">Full Registry</button>
                   </div>
-                  <WorkflowRegistry workflows={workflows.slice(0, 5)} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} />
+                  <WorkflowRegistry workflows={workflows.slice(0, 8)} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} />
                 </div>
               </div>
             )}
 
             {activeTab === 'intake' && (
-              <IntakeGatekeeper taxonomy={taxonomy} onSuccess={handleIntakeSuccess} />
+              <IntakeGatekeeper taxonomy={taxonomy} onSuccess={(data) => createMutation.mutate(data)} />
             )}
 
             {activeTab === 'registry' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold">Automation Registry</h2>
-                  <button onClick={() => setActiveTab('intake')} className="btn-primary flex items-center gap-2">
-                    <PlusCircle size={18} /> New Workflow
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-theme-border pb-3">
+                  <div>
+                    <h2 className="text-lg font-bold tracking-tight">Automation Registry</h2>
+                    <p className="text-[11px] text-theme-secondary uppercase tracking-wider">System-wide index of all metrology automation nodes</p>
+                  </div>
+                  <button onClick={() => setActiveTab('intake')} className="btn-apple-primary flex items-center gap-2">
+                    <PlusCircle size={14} /> Register Node
                   </button>
                 </div>
                 <WorkflowRegistry workflows={workflows} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} />
@@ -173,7 +165,10 @@ const PathOSApp: React.FC = () => {
             {activeTab === 'builder' && selectedWorkflow && (
               <WorkflowBuilder 
                 initialTasks={selectedWorkflow.tasks || []} 
-                onSave={(tasks) => workflowsApi.updateTasks(selectedWorkflow.id, tasks).then(() => toast.success("Workflow Saved!"))} 
+                onSave={(tasks) => workflowsApi.updateTasks(selectedWorkflow.id, tasks).then(() => {
+                  toast.success("Strategy Saved");
+                  queryClient.invalidateQueries({ queryKey: ['workflows'] });
+                })} 
               />
             )}
           </div>

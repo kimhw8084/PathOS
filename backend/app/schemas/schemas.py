@@ -13,6 +13,20 @@ class TaxonomyRead(TaxonomyBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
 
+class BlockerBase(BaseModel):
+    blocking_entity: str
+    reason: str
+    average_delay_minutes: float = 0.0
+    standard_mitigation: str
+
+class BlockerCreate(BlockerBase):
+    task_id: Optional[int] = None
+
+class BlockerRead(BlockerBase):
+    id: int
+    task_id: int
+    model_config = ConfigDict(from_attributes=True)
+
 class TaskBase(BaseModel):
     name: str = Field(..., min_length=1)
     description: str
@@ -26,10 +40,12 @@ class TaskBase(BaseModel):
 
 class TaskCreate(TaskBase):
     workflow_id: int
+    blockers: Optional[List[BlockerCreate]] = []
 
 class TaskRead(TaskBase):
     id: int
     workflow_id: int
+    blockers: List[BlockerRead] = []
     model_config = ConfigDict(from_attributes=True)
 
 class WorkflowBase(BaseModel):
