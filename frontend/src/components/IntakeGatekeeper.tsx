@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertCircle, CheckCircle2, ChevronRight, Info } from 'lucide-react';
+import { CheckCircle2, ChevronRight, ShieldAlert, Sparkles } from 'lucide-react';
 
 interface IntakeGatekeeperProps {
   onSuccess: (data: any) => void;
@@ -10,191 +10,157 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: '',
-    trigger_type: '',
-    trigger_description: '',
-    frequency: 1,
+    category: '',
+    description: '',
+    repeatability_check: false,
     output_type: '',
     output_description: '',
-    repeatability_check: false
+    frequency_per_month: 20
   });
-  const [error, setError] = useState<string | null>(null);
 
-  const triggerTypes = taxonomy.filter(t => t.category === 'TriggerType');
-  const outputTypes = taxonomy.filter(t => t.category === 'OutputType');
+  const categories = Array.from(new Set(taxonomy.map(t => t.category)));
 
   const handleNext = () => {
-    if (step === 1) {
-      if (!formData.name || !formData.trigger_type || !formData.trigger_description) {
-        setError("Please fill in all trigger details.");
-        return;
-      }
-    }
-    
-    if (step === 2) {
-      if (!formData.output_type || !formData.output_description) {
-        setError("Please define the measurable output.");
-        return;
-      }
-    }
-
-    setError(null);
-    setStep(step + 1);
-  };
-
-  const handleSubmit = () => {
-    if (!formData.repeatability_check) {
-      setError("Workflows must be repeatable processes. One-off troubleshooting or isolated incidents should be handled via Jira.");
-      return;
-    }
-    onSuccess(formData);
+    if (step < 3) setStep(step + 1);
+    else onSuccess(formData);
   };
 
   return (
-    <div className="max-w-2xl mx-auto py-10">
-      <div className="mb-8 flex items-center justify-between">
-        <h2 className="text-2xl font-bold">New Workflow Intake</h2>
-        <div className="flex gap-2">
-          {[1, 2, 3].map(i => (
-            <div key={i} className={`h-1.5 w-8 rounded-full transition-all ${step >= i ? 'bg-theme-accent' : 'bg-theme-border'}`} />
-          ))}
+    <div className="max-w-3xl mx-auto py-10 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+      <div className="text-center mb-12">
+        <div className="inline-flex items-center justify-center p-3 rounded-2xl bg-theme-accent/10 text-theme-accent mb-6 shadow-2xl shadow-theme-accent/20">
+          <Sparkles size={32} />
         </div>
+        <h2 className="text-4xl font-extrabold tracking-tight text-white mb-3">Initiative Intake</h2>
+        <p className="text-theme-secondary text-lg opacity-60">Architecting new automation nodes for the Metrology Ecosystem.</p>
       </div>
 
-      <div className="glass-panel rounded-2xl p-8 space-y-6">
-        {error && (
-          <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-3 text-red-400 text-sm">
-            <AlertCircle size={18} />
-            {error}
-          </div>
-        )}
+      {/* Step Indicator */}
+      <div className="flex items-center justify-center gap-4 mb-12">
+        {[1, 2, 3].map(i => (
+          <React.Fragment key={i}>
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all duration-500 ${step >= i ? 'bg-theme-accent text-white shadow-lg shadow-theme-accent/30 scale-110' : 'bg-white/5 text-theme-muted border border-theme-border'}`}>
+              {step > i ? <CheckCircle2 size={18} /> : i}
+            </div>
+            {i < 3 && <div className={`w-12 h-0.5 rounded-full transition-all duration-500 ${step > i ? 'bg-theme-accent' : 'bg-theme-border'}`} />}
+          </React.Fragment>
+        ))}
+      </div>
 
+      <div className="apple-card p-10 bg-theme-bg/40 backdrop-blur-3xl shadow-3xl border border-white/5 transition-all duration-500">
         {step === 1 && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <div>
-              <label className="block text-sm font-medium text-theme-secondary mb-1.5">Workflow Name</label>
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="space-y-4">
+              <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-theme-accent px-1">Definition</label>
               <input 
-                type="text" 
-                placeholder="e.g., CD-SEM Recipe Deploiment"
-                className="w-full bg-theme-input border border-theme-border rounded-xl px-4 py-2.5 focus:outline-none focus:border-theme-accent/50"
+                className="w-full bg-white/5 border border-theme-border rounded-2xl p-4 text-lg font-medium text-white placeholder:text-theme-muted focus:border-theme-accent/50 outline-none transition-all focus:bg-white/[0.08]"
+                placeholder="Name of this initiative..."
                 value={formData.name}
                 onChange={e => setFormData({...formData, name: e.target.value})}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-theme-secondary mb-1.5">Trigger Type</label>
-                <select 
-                  className="w-full bg-theme-input border border-theme-border rounded-xl px-4 py-2.5 focus:outline-none"
-                  value={formData.trigger_type}
-                  onChange={e => setFormData({...formData, trigger_type: e.target.value})}
-                >
-                  <option value="">Select Trigger...</option>
-                  {triggerTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
+            
+            <div className="space-y-4">
+              <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-theme-accent px-1">Taxonomy Category</label>
+              <div className="grid grid-cols-2 gap-3">
+                {categories.map(cat => (
+                  <button 
+                    key={cat}
+                    onClick={() => setFormData({...formData, category: cat})}
+                    className={`p-4 rounded-2xl border text-sm font-semibold transition-all duration-300 ${formData.category === cat ? 'bg-theme-accent/10 border-theme-accent text-theme-accent shadow-lg shadow-theme-accent/10' : 'bg-white/5 border-theme-border text-theme-secondary hover:border-theme-border-bright hover:bg-white/10'}`}
+                  >
+                    {cat}
+                  </button>
+                ))}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-theme-secondary mb-1.5">Monthly Frequency</label>
-                <input 
-                  type="number" 
-                  className="w-full bg-theme-input border border-theme-border rounded-xl px-4 py-2.5 focus:outline-none"
-                  value={formData.frequency}
-                  onChange={e => setFormData({...formData, frequency: parseInt(e.target.value)})}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-theme-secondary mb-1.5">Trigger Description</label>
-              <textarea 
-                placeholder="What exactly happens to start this work?"
-                className="w-full bg-theme-input border border-theme-border rounded-xl px-4 py-2.5 min-h-[100px] focus:outline-none"
-                value={formData.trigger_description}
-                onChange={e => setFormData({...formData, trigger_description: e.target.value})}
-              />
             </div>
           </div>
         )}
 
         {step === 2 && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-            <div>
-              <label className="block text-sm font-medium text-theme-secondary mb-1.5">Output Type</label>
-              <select 
-                className="w-full bg-theme-input border border-theme-border rounded-xl px-4 py-2.5 focus:outline-none"
-                value={formData.output_type}
-                onChange={e => setFormData({...formData, output_type: e.target.value})}
-              >
-                <option value="">Select Output...</option>
-                {outputTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="p-6 rounded-2xl bg-status-warning/5 border border-status-warning/20 flex gap-4">
+              <ShieldAlert className="text-status-warning shrink-0" size={24} />
+              <div>
+                <h4 className="text-status-warning font-bold text-sm mb-1 uppercase tracking-tight">The Gatekeeper Protocol</h4>
+                <p className="text-xs text-status-warning/80 leading-relaxed font-medium">PathOS only tracks repeatable, high-frequency workflows. One-off troubleshooting should proceed via Jira.</p>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-theme-secondary mb-1.5">Measurable Outcome</label>
-              <textarea 
-                placeholder="What is the final, measurable product of this workflow?"
-                className="w-full bg-theme-input border border-theme-border rounded-xl px-4 py-2.5 min-h-[120px] focus:outline-none"
-                value={formData.output_description}
-                onChange={e => setFormData({...formData, output_description: e.target.value})}
+
+            <button 
+              onClick={() => setFormData({...formData, repeatability_check: !formData.repeatability_check})}
+              className={`w-full p-6 rounded-2xl border flex items-center justify-between transition-all duration-300 ${formData.repeatability_check ? 'bg-status-success/10 border-status-success text-status-success shadow-lg shadow-status-success/10' : 'bg-white/5 border-theme-border text-theme-secondary hover:border-theme-border-bright'}`}
+            >
+              <div className="flex flex-col items-start text-left">
+                <span className="font-bold text-lg">Repeatable Process?</span>
+                <span className="text-xs opacity-60">Confirm this follows a standard SOP or procedure.</span>
+              </div>
+              {formData.repeatability_check && <CheckCircle2 size={24} />}
+            </button>
+
+            <div className="space-y-4">
+              <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-theme-accent px-1">Cycle Frequency (Per Month)</label>
+              <input 
+                type="number"
+                className="w-full bg-white/5 border border-theme-border rounded-2xl p-4 text-xl font-mono font-bold text-white focus:border-theme-accent/50 outline-none transition-all"
+                value={formData.frequency_per_month}
+                onChange={e => setFormData({...formData, frequency_per_month: parseInt(e.target.value) || 0})}
               />
-              <p className="text-xs text-theme-muted mt-2 flex items-center gap-1.5">
-                <Info size={14} />
-                Must produce a final state (e.g. 'Recipe available on tool', 'Lot released in MES')
-              </p>
             </div>
           </div>
         )}
 
         {step === 3 && (
-          <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-            <div className={`p-6 rounded-2xl border transition-all ${formData.repeatability_check ? 'bg-green-500/10 border-green-500/30' : 'bg-theme-input border-theme-border'}`}>
-              <div className="flex items-center gap-4">
-                <input 
-                  type="checkbox" 
-                  id="repeatability"
-                  className="w-6 h-6 rounded-lg accent-theme-accent"
-                  checked={formData.repeatability_check}
-                  onChange={e => setFormData({...formData, repeatability_check: e.target.checked})}
-                />
-                <label htmlFor="repeatability" className="font-bold text-lg cursor-pointer">
-                  This is a standardized, repeatable process.
-                </label>
-              </div>
-              <p className="text-theme-secondary text-sm mt-3 ml-10">
-                I confirm that this sequence follows a defined procedure and is not an ad-hoc troubleshooting task.
-              </p>
+          <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="space-y-4">
+              <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-theme-accent px-1">Primary Output Product</label>
+              <select 
+                className="w-full bg-theme-bg border border-theme-border rounded-2xl p-4 text-white focus:border-theme-accent/50 outline-none appearance-none transition-all cursor-pointer"
+                value={formData.output_type}
+                onChange={e => setFormData({...formData, output_type: e.target.value})}
+              >
+                <option value="">Select Output Class...</option>
+                <option value="Recipe">Automation Recipe (CD-SEM/OVL)</option>
+                <option value="Analysis">Structured Data Report</option>
+                <option value="Optimization">Parameter Tuning Configuration</option>
+                <option value="Documentation">Knowledge Base Entry (Wiki)</option>
+              </select>
             </div>
 
-            {!formData.repeatability_check && (
-              <div className="bg-orange-500/10 border border-orange-500/30 p-4 rounded-xl text-orange-200 text-sm flex gap-3">
-                <AlertCircle size={20} className="shrink-0" />
-                <span>
-                  <strong>Wait!</strong> If this is personal one-off work, PathOS cannot quantify its ROI for the automation backlog.
-                </span>
-              </div>
-            )}
+            <div className="space-y-4">
+              <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-theme-accent px-1">Outcome Specification</label>
+              <textarea 
+                className="w-full bg-white/5 border border-theme-border rounded-2xl p-4 text-sm font-medium text-white placeholder:text-theme-muted focus:border-theme-accent/50 outline-none transition-all h-32 resize-none leading-relaxed"
+                placeholder="What exactly is delivered at the end of this workflow?"
+                value={formData.output_description}
+                onChange={e => setFormData({...formData, output_description: e.target.value})}
+              />
+            </div>
           </div>
         )}
 
-        <div className="flex justify-between pt-4">
-          <button 
-            disabled={step === 1}
-            onClick={() => setStep(step - 1)}
-            className="btn-secondary disabled:opacity-0"
-          >
-            Previous
-          </button>
-          
-          {step < 3 ? (
-            <button onClick={handleNext} className="btn-primary flex items-center gap-2">
-              Next Step <ChevronRight size={18} />
-            </button>
-          ) : (
+        <div className="mt-12 flex items-center justify-between gap-6 pt-8 border-t border-white/5">
+          {step > 1 ? (
             <button 
-              onClick={handleSubmit} 
-              className={`btn-primary flex items-center gap-2 ${!formData.repeatability_check ? 'opacity-50 cursor-not-allowed' : ''}`}
+              onClick={() => setStep(step - 1)}
+              className="px-8 py-3 text-sm font-bold text-theme-secondary hover:text-white transition-colors"
             >
-              Initialize Initiative <CheckCircle2 size={18} />
+              Back
             </button>
-          )}
+          ) : <div />}
+          
+          <button 
+            onClick={handleNext}
+            disabled={
+              (step === 1 && (!formData.name || !formData.category)) ||
+              (step === 2 && !formData.repeatability_check) ||
+              (step === 3 && (!formData.output_type || !formData.output_description))
+            }
+            className="btn-apple-primary shadow-2xl shadow-theme-accent/20 flex items-center gap-3 disabled:opacity-20 disabled:cursor-not-allowed group"
+          >
+            {step === 3 ? "Initialize Strategy" : "Next Protocol"}
+            <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform" />
+          </button>
         </div>
       </div>
     </div>

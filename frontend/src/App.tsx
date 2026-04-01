@@ -22,14 +22,10 @@ const queryClient = new QueryClient();
 const SidebarItem = ({ icon: Icon, label, active, onClick, open }: { icon: any, label: string, active?: boolean, onClick: () => void, open: boolean }) => (
   <button 
     onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-      active 
-        ? 'bg-theme-accent text-white shadow-lg shadow-theme-accent/20' 
-        : 'text-theme-secondary hover:bg-white/5 hover:text-theme-primary'
-    }`}
+    className={`w-full sidebar-item ${active ? 'sidebar-item-active' : ''} ${!open ? 'justify-center px-0' : ''}`}
   >
-    <Icon size={20} />
-    {open && <span className="font-medium truncate">{label}</span>}
+    <Icon size={20} className={active ? 'text-theme-accent' : 'text-theme-secondary'} />
+    {open && <span className="font-medium truncate text-sm">{label}</span>}
   </button>
 );
 
@@ -83,73 +79,76 @@ const PathOSApp: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-theme-bg text-theme-primary overflow-hidden">
+    <div className="flex h-screen bg-theme-bg text-theme-primary overflow-hidden font-sans">
       <Toaster position="top-right" toastOptions={{
-        style: { background: '#1a1b26', color: '#c0caf5', border: '1px solid #292e42' }
+        style: { background: '#0c0c0c', color: '#ffffff', border: '1px solid rgba(255,255,255,0.1)', backdropFilter: 'blur(20px)', borderRadius: '14px' }
       }} />
 
       {/* Sidebar */}
       <aside className={`
-        ${isSidebarOpen ? 'w-64' : 'w-20'} 
-        bg-theme-sidebar border-r border-theme-border flex flex-col transition-all duration-300 ease-in-out
+        ${isSidebarOpen ? 'w-60' : 'w-20'} 
+        bg-theme-sidebar/50 backdrop-blur-xl border-r border-theme-border flex flex-col transition-all duration-500 ease-[cubic-bezier(0.25, 1, 0.5, 1)]
       `}>
-        <div className="p-6 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl system-gradient flex items-center justify-center text-white font-bold text-xl shadow-lg shrink-0">
+        <div className="p-6 flex items-center gap-4">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-theme-accent to-[#64d2ff] flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-theme-accent/20 shrink-0">
             P
           </div>
-          {isSidebarOpen && <span className="text-xl font-bold tracking-tighter">PathOS</span>}
+          {isSidebarOpen && <span className="text-xl font-bold tracking-tight text-gradient">PathOS</span>}
         </div>
 
-        <nav className="flex-1 px-3 space-y-2 py-4">
+        <nav className="flex-1 px-4 space-y-1.5 py-6">
           <SidebarItem icon={LayoutDashboard} label="Dashboard" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} open={isSidebarOpen} />
           <SidebarItem icon={PlusCircle} label="New Intake" active={activeTab === 'intake'} onClick={() => { setSelectedWorkflow(null); setActiveTab('intake'); }} open={isSidebarOpen} />
           <SidebarItem icon={WorkflowIcon} label="Registry" active={activeTab === 'registry'} onClick={() => setActiveTab('registry')} open={isSidebarOpen} />
           <SidebarItem icon={History} label="Audit Logs" active={activeTab === 'audit'} onClick={() => setActiveTab('audit')} open={isSidebarOpen} />
         </nav>
 
-        <div className="p-4 border-t border-theme-border">
+        <div className="p-4 border-t border-theme-border/50">
           <SidebarItem icon={Settings} label="Settings" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} open={isSidebarOpen} />
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden relative">
         {/* Header */}
-        <header className="h-16 bg-theme-header backdrop-blur-md border-b border-theme-border flex items-center justify-between px-6 z-10">
-          <div className="flex items-center gap-4">
-            <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-white/5 rounded-lg text-theme-secondary transition-all">
-              <Menu size={20} />
+        <header className="h-16 bg-theme-bg/60 backdrop-blur-md border-b border-theme-border/50 flex items-center justify-between px-8 z-10 sticky top-0">
+          <div className="flex items-center gap-6">
+            <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-white/5 rounded-full text-theme-secondary transition-all">
+              <Menu size={18} />
             </button>
-            <h1 className="text-lg font-semibold capitalize tracking-wide">{activeTab === 'builder' ? `Building: ${selectedWorkflow?.name}` : activeTab}</h1>
+            <h1 className="text-sm font-semibold tracking-wide uppercase text-theme-secondary opacity-80">{activeTab === 'builder' ? `Workflow Builder` : activeTab}</h1>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted" size={16} />
+          <div className="flex items-center gap-6">
+            <div className="relative group hidden md:block">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted group-focus-within:text-theme-accent transition-colors" size={15} />
               <input 
                 type="text" 
-                placeholder="Search registry..." 
-                className="bg-theme-input border border-theme-border rounded-full pl-10 pr-4 py-1.5 text-xs focus:outline-none focus:border-theme-accent/50 w-64 transition-all"
+                placeholder="Search resources..." 
+                className="bg-white/5 border border-theme-border rounded-full pl-10 pr-4 py-1.5 text-xs focus:outline-none focus:border-theme-accent/40 w-56 transition-all focus:w-72"
               />
             </div>
-            <div className="w-8 h-8 rounded-full bg-theme-accent/20 border border-theme-accent/30 flex items-center justify-center text-xs font-bold text-theme-accent">
+            <div className="w-8 h-8 rounded-full bg-white/5 border border-theme-border flex items-center justify-center text-[10px] font-bold text-theme-secondary hover:text-theme-primary hover:border-theme-border-bright cursor-pointer transition-all">
               HK
             </div>
           </div>
         </header>
 
         {/* Content Region */}
-        <div className="flex-1 overflow-auto p-8 custom-scrollbar">
-          <div className="max-w-7xl mx-auto">
+        <div className="flex-1 overflow-auto custom-scrollbar p-10">
+          <div className="max-w-6xl mx-auto">
             {activeTab === 'dashboard' && (
-              <div className="space-y-4">
-                <div className="mb-8">
-                  <h2 className="text-3xl font-bold tracking-tight">Metrology Operations Hub</h2>
-                  <p className="text-theme-secondary mt-1">ROI Tracking & Automation Backlog Priority</p>
+              <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                <div className="mb-2">
+                  <h2 className="text-4xl font-bold tracking-tight text-white mb-2">Operations Hub</h2>
+                  <p className="text-theme-secondary text-lg font-medium opacity-60">Metrology Automation Lifecycle & Prioritization</p>
                 </div>
                 <ROIDashboard workflows={workflows} />
-                <div className="mt-12">
-                  <h3 className="text-lg font-bold mb-4">Latest Active Initiatives</h3>
+                <div className="mt-14 space-y-6">
+                  <div className="flex items-center justify-between px-1">
+                    <h3 className="text-lg font-bold text-white tracking-tight">Recent Initiatives</h3>
+                    <button onClick={() => setActiveTab('registry')} className="text-xs font-semibold text-theme-accent hover:underline">View All Registry</button>
+                  </div>
                   <WorkflowRegistry workflows={workflows.slice(0, 5)} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} />
                 </div>
               </div>
@@ -173,9 +172,8 @@ const PathOSApp: React.FC = () => {
 
             {activeTab === 'builder' && selectedWorkflow && (
               <WorkflowBuilder 
-                workflow={selectedWorkflow} 
                 initialTasks={selectedWorkflow.tasks || []} 
-                onSave={() => toast.success("Workflow saved & ROI updated.")}
+                onSave={(tasks) => workflowsApi.updateTasks(selectedWorkflow.id, tasks).then(() => toast.success("Workflow Saved!"))} 
               />
             )}
           </div>

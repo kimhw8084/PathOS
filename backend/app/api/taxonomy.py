@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import List
+from typing import List, Optional
 from ..database import get_db
 from ..models.models import TaxonomyEnum
 from ..schemas.schemas import TaxonomyRead

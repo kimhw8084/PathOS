@@ -8,11 +8,13 @@ import ReactFlow, {
   ReactFlowProvider,
   useNodesState,
   useEdgesState,
-  MarkerType
+  MarkerType,
+  Handle,
+  BackgroundVariant
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import dagre from 'dagre';
-import { List, GitGraph, Plus, Save, Trash2, ChevronUp, ChevronDown, AlertCircle, Workflow as LucideWorkflow } from 'lucide-react';
+import { List, GitGraph, Plus, Save, Trash2, ChevronUp, ChevronDown, Workflow as LucideWorkflow, Cpu, Clock } from 'lucide-react';
 
 interface Task {
   id: string | number;
@@ -27,19 +29,48 @@ interface Task {
 }
 
 interface WorkflowBuilderProps {
-  workflow: any;
   initialTasks: Task[];
   onSave: (tasks: Task[]) => void;
 }
 
+// --- Custom Apple Node Component ---
+const AppleNode = ({ data }: { data: { label: string, system: string, tat: number } }) => (
+  <div className="apple-glass rounded-2xl min-w-[220px] p-4 shadow-2xl relative overflow-hidden group border border-white/10 hover:border-white/20 transition-all duration-300">
+    <div className="absolute top-0 left-0 w-1 h-full bg-theme-accent shadow-[0_0_10px_rgba(0,113,227,0.5)]" />
+    
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold text-theme-secondary uppercase tracking-widest flex items-center gap-1">
+          <Cpu size={10} /> {data.system || "System"}
+        </span>
+        <span className="text-[10px] font-bold text-theme-accent flex items-center gap-1">
+          <Clock size={10} /> {data.tat}m
+        </span>
+      </div>
+      
+      <h4 className="text-sm font-semibold text-white tracking-tight leading-snug truncate">
+        {data.label}
+      </h4>
+    </div>
+    
+    <Handle type="target" position={Position.Top} className="!w-2 !h-2 !bg-theme-border !border-none" />
+    <Handle type="source" position={Position.Bottom} className="!w-2 !h-2 !bg-theme-accent !border-none" />
+  </div>
+);
+
+const nodeTypes = {
+  apple: AppleNode,
+};
+
+// --- Dagre Layout Logic ---
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-const nodeWidth = 220;
-const nodeHeight = 80;
+const nodeWidth = 240;
+const nodeHeight = 100;
 
 const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
-  dagreGraph.setGraph({ rankdir: 'TB', marginx: 50, marginy: 50 });
+  dagreGraph.setGraph({ rankdir: 'TB', marginx: 100, marginy: 100, nodesep: 50, ranksep: 80 });
 
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
@@ -55,12 +86,10 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
     const nodeWithPosition = dagreGraph.node(node.id);
     node.targetPosition = Position.Top;
     node.sourcePosition = Position.Bottom;
-
     node.position = {
       x: nodeWithPosition.x - nodeWidth / 2,
       y: nodeWithPosition.y - nodeHeight / 2,
     };
-
     return node;
   });
 
@@ -71,24 +100,19 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
   const [view, setView] = useState<'list' | 'flow'>('list');
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   
-  // ReactFlow state
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-  // Sync tasks to ReactFlow
   useEffect(() => {
     const newNodes: Node[] = tasks.map((task) => ({
       id: `${task.id}`,
-      data: { label: (
-        <div className="flex flex-col text-left">
-          <span className="font-bold text-xs truncate">{task.name}</span>
-          <span className="text-[10px] opacity-60">{task.target_system}</span>
-          <span className="text-[10px] text-theme-accent mt-1">{task.tat_minutes}m</span>
-        </div>
-      )},
-      position: { x: 0, y: 0 }, // Dagre will layout
-      className: 'glass-card border-none text-theme-primary w-[200px] !p-3 !rounded-xl text-xs',
-      style: { border: '1px solid var(--glass-border)' }
+      type: 'apple',
+      data: { 
+        label: task.name,
+        system: task.target_system,
+        tat: task.tat_minutes
+      },
+      position: { x: 0, y: 0 },
     }));
 
     const newEdges: Edge[] = [];
@@ -97,8 +121,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
         id: `e${tasks[i].id}-${tasks[i+1].id}`,
         source: `${tasks[i].id}`,
         target: `${tasks[i+1].id}`,
-        markerEnd: { type: MarkerType.ArrowClosed, color: '#7aa2f7' },
-        style: { stroke: '#7aa2f7', strokeWidth: 2 }
+        animated: true,
+        markerEnd: { 
+          type: MarkerType.ArrowClosed, 
+          color: '#424245',
+          width: 20,
+          height: 20
+        },
+        style: { stroke: '#424245', strokeWidth: 1.5 }
       });
     }
 
@@ -110,7 +140,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
   const addTask = () => {
     const newTask: Task = {
       id: `new-${Date.now()}`,
-      name: 'New Task',
+      name: 'New Operation Step',
       description: '',
       target_system: '',
       tat_minutes: 0,
@@ -129,12 +159,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
   const moveTask = (index: number, direction: 'up' | 'down') => {
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= tasks.length) return;
-    
     const newTasks = [...tasks];
     const temp = newTasks[index];
     newTasks[index] = newTasks[newIndex];
     newTasks[newIndex] = temp;
-    
     setTasks(newTasks.map((t, i) => ({...t, order_index: i})));
   };
 
@@ -143,84 +171,93 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
   };
 
   return (
-    <div className="flex flex-col h-[700px] glass-panel rounded-2xl overflow-hidden border-none">
-      <div className="h-14 border-b border-theme-border flex items-center justify-between px-6 bg-white/5">
-        <div className="flex items-center gap-2">
-          <LucideWorkflow size={18} className="text-theme-accent" />
-          <h3 className="font-bold text-sm tracking-wide">TASK SEQUENCE BUILDER</h3>
+    <div className="apple-card !p-0 overflow-hidden border border-theme-border/50 shadow-2xl h-[750px] flex flex-col bg-theme-bg/40 backdrop-blur-3xl">
+      {/* Builder Toolbar */}
+      <div className="h-16 border-b border-theme-border/50 flex items-center justify-between px-8 bg-theme-header/30 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <LucideWorkflow size={20} className="text-theme-accent" />
+          <h3 className="font-bold text-sm tracking-tight text-white uppercase">Automation Sequence</h3>
         </div>
         
-        <div className="flex items-center gap-4">
-          <div className="flex bg-theme-input border border-theme-border rounded-lg p-0.5">
+        <div className="flex items-center gap-6">
+          <div className="flex bg-white/5 border border-theme-border/50 rounded-full p-1">
             <button 
               onClick={() => setView('list')}
-              className={`flex items-center gap-2 px-3 py-1 text-xs rounded-md transition-all ${view === 'list' ? 'bg-theme-accent text-white' : 'text-theme-secondary hover:text-theme-primary'}`}
+              className={`flex items-center gap-2 px-4 py-1.5 text-xs rounded-full transition-all duration-300 font-semibold ${view === 'list' ? 'bg-theme-primary text-black' : 'text-theme-secondary hover:text-white'}`}
             >
               <List size={14} /> List
             </button>
             <button 
               onClick={() => setView('flow')}
-              className={`flex items-center gap-2 px-3 py-1 text-xs rounded-md transition-all ${view === 'flow' ? 'bg-theme-accent text-white' : 'text-theme-secondary hover:text-theme-primary'}`}
+              className={`flex items-center gap-2 px-4 py-1.5 text-xs rounded-full transition-all duration-300 font-semibold ${view === 'flow' ? 'bg-theme-primary text-black' : 'text-theme-secondary hover:text-white'}`}
             >
               <GitGraph size={14} /> Flow
             </button>
           </div>
-          <button onClick={() => onSave(tasks)} className="btn-primary py-1.5 px-3 text-xs flex items-center gap-2 shadow-sm">
-            <Save size={14} /> Sync to Hub
+          <button 
+            onClick={() => onSave(tasks)} 
+            className="btn-apple-primary text-xs py-2 shadow-lg shadow-theme-accent/10 flex items-center gap-2"
+          >
+            <Save size={14} /> Sync Strategy
           </button>
         </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
         {view === 'list' ? (
-          <div className="flex-1 flex flex-col p-6 overflow-auto custom-scrollbar bg-black/10">
-            <div className="space-y-3 mb-6">
+          <div className="flex-1 flex flex-col p-10 overflow-auto custom-scrollbar bg-black/5">
+            <div className="space-y-4 mb-8">
               {tasks.map((task, index) => (
-                <div key={task.id} className="glass-card flex items-start gap-4 hover:bg-white/10 group animate-in slide-in-from-left-4 duration-300" style={{ animationDelay: `${index * 50}ms` }}>
-                  <div className="flex flex-col gap-1 items-center justify-center p-1 bg-white/5 rounded border border-theme-border mt-1">
-                    <button onClick={() => moveTask(index, 'up')} className="hover:text-theme-accent disabled:opacity-20" disabled={index === 0}><ChevronUp size={16} /></button>
-                    <span className="text-[10px] font-bold opacity-30">{index + 1}</span>
-                    <button onClick={() => moveTask(index, 'down')} className="hover:text-theme-accent disabled:opacity-20" disabled={index === tasks.length - 1}><ChevronDown size={16} /></button>
+                <div key={task.id} className="apple-card !p-5 flex items-start gap-6 hover:bg-white/5 group animate-in slide-in-from-left-4 duration-500 stagger" style={{ animationDelay: `${index * 60}ms` }}>
+                  <div className="flex flex-col gap-2 items-center justify-center py-2 px-1 bg-white/5 rounded-xl border border-theme-border transition-all hover:border-theme-accent/50 w-10">
+                    <button onClick={() => moveTask(index, 'up')} className="text-theme-secondary hover:text-theme-accent disabled:opacity-10" disabled={index === 0}><ChevronUp size={16} /></button>
+                    <span className="text-[11px] font-bold text-theme-accent">{index + 1}</span>
+                    <button onClick={() => moveTask(index, 'down')} className="text-theme-secondary hover:text-theme-accent disabled:opacity-10" disabled={index === tasks.length - 1}><ChevronDown size={16} /></button>
                   </div>
                   
-                  <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="col-span-1">
+                  <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-8">
+                    <div className="md:col-span-4 flex flex-col gap-3">
                       <input 
-                        className="w-full bg-transparent border-b border-theme-border p-1 text-sm font-bold focus:border-theme-accent outline-none" 
+                        className="w-full bg-transparent border-b border-theme-border/50 py-1 text-base font-bold text-white focus:border-theme-accent outline-none transition-all" 
                         value={task.name} 
                         onChange={(e) => updateTask(task.id, 'name', e.target.value)}
-                        placeholder="Task Name"
+                        placeholder="Step Action Target"
                       />
-                      <input 
-                        className="w-full bg-transparent border-b border-white/5 p-1 text-[10px] text-theme-muted focus:border-theme-accent outline-none mt-1" 
-                        value={task.target_system} 
-                        onChange={(e) => updateTask(task.id, 'target_system', e.target.value)}
-                        placeholder="System/Software"
-                      />
+                      <div className="flex items-center gap-2">
+                        <Cpu size={12} className="text-theme-muted" />
+                        <input 
+                          className="flex-1 bg-transparent border-b border-transparent py-1 text-xs text-theme-secondary focus:border-theme-accent/40 outline-none transition-all italic" 
+                          value={task.target_system} 
+                          onChange={(e) => updateTask(task.id, 'target_system', e.target.value)}
+                          placeholder="Application / System Name"
+                        />
+                      </div>
                     </div>
-                    <div className="col-span-2">
+                    
+                    <div className="md:col-span-5">
                        <textarea 
-                        className="w-full bg-transparent border border-white/5 rounded-lg p-2 text-xs text-theme-secondary focus:border-theme-accent outline-none min-h-[60px]" 
+                        className="w-full bg-white/5 border border-theme-border/30 rounded-xl p-3 text-xs text-theme-secondary focus:border-theme-accent/50 outline-none min-h-[70px] resize-none leading-relaxed transition-all" 
                         value={task.description} 
                         onChange={(e) => updateTask(task.id, 'description', e.target.value)}
-                        placeholder="Detailed steps..."
+                        placeholder="Define the technical execution steps here..."
                       />
                     </div>
-                    <div className="col-span-1 grid grid-cols-2 gap-2">
-                      <div className="flex flex-col">
-                        <span className="text-[9px] text-theme-muted uppercase font-bold px-1">TAT (m)</span>
+                    
+                    <div className="md:col-span-3 grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-[9px] text-theme-muted uppercase font-bold tracking-widest px-1">TAT (min)</span>
                         <input 
                           type="number" 
-                          className="w-full bg-white/5 rounded px-2 py-1 text-xs text-theme-accent outline-none" 
+                          className="w-full bg-white/5 border border-theme-border/50 rounded-lg px-3 py-2 text-sm text-theme-accent font-bold outline-none focus:border-theme-accent transition-all" 
                           value={task.tat_minutes} 
                           onChange={(e) => updateTask(task.id, 'tat_minutes', parseFloat(e.target.value))}
                         />
                       </div>
-                      <div className="flex flex-col">
-                        <span className="text-[9px] text-theme-muted uppercase font-bold px-1">Error %</span>
+                      <div className="flex flex-col gap-1.5">
+                        <span className="text-[9px] text-theme-muted uppercase font-bold tracking-widest px-1">Fail Probability</span>
                         <input 
                           type="number" 
-                          className="w-full bg-white/5 rounded px-2 py-1 text-xs text-red-400 outline-none" 
+                          className="w-full bg-white/5 border border-theme-border/50 rounded-lg px-3 py-2 text-sm text-status-error font-bold outline-none focus:border-status-error transition-all" 
                           value={task.error_probability} 
                           onChange={(e) => updateTask(task.id, 'error_probability', parseFloat(e.target.value))}
                         />
@@ -230,9 +267,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
 
                   <button 
                     onClick={() => removeTask(task.id)}
-                    className="p-2 text-theme-muted opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all self-center"
+                    className="p-3 text-theme-muted opacity-0 group-hover:opacity-100 hover:text-status-error transform transition-all duration-300 hover:scale-110 self-center"
                   >
-                    <Trash2 size={16} />
+                    <Trash2 size={18} />
                   </button>
                 </div>
               ))}
@@ -240,31 +277,36 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
 
             <button 
               onClick={addTask}
-              className="w-full py-4 border-2 border-dashed border-theme-border rounded-2xl flex items-center justify-center gap-2 text-theme-muted hover:border-theme-accent/50 hover:text-theme-accent transition-all group"
+              className="w-full py-10 border border-dashed border-theme-border rounded-[22px] flex flex-col items-center justify-center gap-3 text-theme-secondary hover:border-theme-accent/40 hover:text-theme-primary transition-all duration-500 bg-white/[0.02] group"
             >
-              <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
-              <span className="font-medium">Append New Task Node</span>
+              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 group-hover:bg-theme-accent/10 transition-all duration-300">
+                <Plus size={24} className="text-theme-muted group-hover:text-theme-accent transition-colors" />
+              </div>
+              <span className="font-semibold text-sm tracking-tight">Expand Automation Stack</span>
             </button>
           </div>
         ) : (
-          <div className="flex-1 bg-black/20 relative">
+          <div className="flex-1 relative bg-theme-bg/10">
             <ReactFlow
               nodes={nodes}
               edges={edges}
+              nodeTypes={nodeTypes}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               fitView
               className="bg-transparent"
             >
-              <Background color="#292e42" gap={20} />
-              <Controls className="bg-theme-header border-theme-border fill-theme-primary" />
+              <Background variant={BackgroundVariant.Dots} color="#1f1f23" gap={25} size={1} />
+              <Controls className="!bg-theme-card !border-theme-border !rounded-2xl !shadow-2xl overflow-hidden" />
             </ReactFlow>
-            <div className="absolute top-4 right-4 bg-theme-header/80 backdrop-blur rounded-lg p-3 border border-theme-border shadow-xl pointer-events-none z-10 max-w-[200px]">
-              <div className="flex gap-2 items-center text-xs font-bold text-theme-secondary mb-2 uppercase tracking-widest">
-                <AlertCircle size={14} className="text-theme-accent" /> Node Strategy
+            
+            {/* Design Insight Overlay */}
+            <div className="absolute bottom-8 right-8 apple-glass rounded-2xl p-4 max-w-[240px] pointer-events-none z-10 border border-white/10 shadow-3xl animate-in fade-in duration-1000">
+              <div className="flex gap-2 items-center text-[10px] font-bold text-theme-accent mb-2 uppercase tracking-[0.2em]">
+                System Intelligence
               </div>
-              <p className="text-[10px] text-theme-muted leading-tight">
-                PathOS auto-relocates nodes using Dagre logic to prevent overlaps and maintain readability. Changes are synced bi-directionally.
+              <p className="text-[11px] text-theme-secondary leading-relaxed opacity-80">
+                Neural graph layout active. PathOS employs **Dagre-engine** positioning to optimize node distancing and sequence hierarchy.
               </p>
             </div>
           </div>
@@ -274,7 +316,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
   );
 };
 
-// Wrap in provider for ReactFlow use
 const WrappedWorkflowBuilder: React.FC<WorkflowBuilderProps> = (props) => (
   <ReactFlowProvider>
     <WorkflowBuilder {...props} />

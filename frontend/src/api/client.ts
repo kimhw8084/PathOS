@@ -14,6 +14,7 @@ export const workflowsApi = {
   get: (id: number) => apiClient.get(`/workflows/${id}`).then(res => res.data),
   create: (data: any) => apiClient.post('/workflows', data).then(res => res.data),
   delete: (id: number) => apiClient.delete(`/workflows/${id}`).then(res => res.data),
+  updateTasks: (id: number, tasks: any[]) => apiClient.put(`/tasks/workflow/${id}/sync`, tasks).then(res => res.data),
 };
 
 export const taxonomyApi = {
