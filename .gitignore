@@ -1,0 +1,28 @@
+# Dependency Directories
+node_modules/
+backend/venv/
+__pycache__/
+*.pyc
+
+# Local State & Databases
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+.DS_Store
+
+# AI & Gemini Internals
+.gemini/
+brain/
+implementation_plan.md
+task.md
+walkthrough.md
+
+# PathOS Internal Documentation (Per User Request)
+law.md
+project.md
+reference/
+
+# Exclude all .md files except README.md (if it existed)
+*.md
+!README.md
