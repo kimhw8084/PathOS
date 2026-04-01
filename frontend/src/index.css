@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Nordic Frost (PathOS Default Dark) */
+  --bg-primary: #1a1b26;
+  --bg-header: rgba(26, 27, 38, 0.85);
+  --glass-bg: rgba(36, 40, 59, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --text-primary: #c0caf5;
+  --text-secondary: #a9b1d6;
+  --text-muted: #565f89;
+  --accent-primary: #7aa2f7;
+  --accent-glow: rgba(122, 162, 247, 0.25);
+  --sidebar-bg: #16161e;
+  --panel-item-bg: #24283b;
+  --input-bg: #1a1b26;
+  
+  /* Status Colors */
+  --status-created: #565f89;
+  --status-review: #bb9af7;
+  --status-automation: #7aa2f7;
+  --status-done: #9ece6a;
+  --status-error: #f7768e;
+}
+
+@layer base {
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    @apply font-sans antialiased selection:bg-accent-glow;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-theme-glass backdrop-blur-md border border-theme-border shadow-xl;
+  }
+  
+  .glass-card {
+    @apply bg-theme-glass backdrop-blur-sm border border-theme-border rounded-xl p-4 transition-all hover:border-theme-accent/50;
+  }
+
+  .btn-primary {
+    @apply px-4 py-2 bg-theme-accent text-white rounded-lg font-medium transition-all hover:opacity-90 active:scale-95 disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 border border-theme-border text-theme-secondary rounded-lg font-medium transition-all hover:bg-white/5 active:scale-95;
+  }
+}
+
+.system-gradient {
+  background: linear-gradient(135deg, var(--accent-primary) 0%, #414868 100%);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
+}
+
+/* Animations */
+.animate-glow {
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    box-shadow: 0 0 10px -5px var(--accent-primary);
+  }
+  to {
+    box-shadow: 0 0 20px 2px var(--accent-glow);
+  }
+}

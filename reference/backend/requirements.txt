@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+pydantic-settings
+websockets
+python-multipart
+pandas
+openpyxl
+aiosqlite
+alembic
+greenlet
+pytest
+pytest-asyncio
+httpx
+anyio

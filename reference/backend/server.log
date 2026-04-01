@@ -1,0 +1,7 @@
+INFO:     Started server process [47547]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+Creating site with name: Site-1
+Found existing site with name: Site-1
+INFO:     127.0.0.1:60109 - "POST /api/v1/sites/ HTTP/1.1" 400 Bad Request
