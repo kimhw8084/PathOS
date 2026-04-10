@@ -8,12 +8,8 @@ import {
   HelpCircle,
   ChevronLeft,
   ChevronRight,
-  Bell,
-  Search,
-  LogOut,
   X,
-  Zap,
-  RefreshCw
+  Layers
 } from 'lucide-react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Toaster, toast } from 'react-hot-toast';

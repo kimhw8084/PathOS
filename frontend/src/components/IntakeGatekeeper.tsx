@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldAlert, Zap, Target, ArrowRight, ChevronLeft, 
-  Layout, CheckCircle2, XCircle, Box
+  Layout, CheckCircle2, XCircle, Box, Clock
 } from 'lucide-react';
 import { settingsApi } from '../api/client';
 
@@ -228,7 +228,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
 
           <div className="apple-card space-y-6">
             <div className="flex items-center gap-3 text-theme-accent border-b border-theme-border/50 pb-3">
-              <Timer size={18} />
+              <Clock size={18} />
               <span className="text-hint text-theme-accent">Operational Cadence</span>
             </div>
             <div className="space-y-2.5">
