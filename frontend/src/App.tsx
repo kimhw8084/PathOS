@@ -19,12 +19,13 @@ import {
 } from 'lucide-react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Toaster, toast } from 'react-hot-toast';
-import { workflowsApi, taxonomyApi, client } from './api/client';
+import { workflowsApi, taxonomyApi, apiClient as client, setGlobalReporter } from './api/client';
 import IntakeGatekeeper from './components/IntakeGatekeeper';
 import WorkflowRegistry from './components/WorkflowRegistry';
 import ROIDashboard from './components/ROIDashboard';
 import WorkflowBuilder from './components/WorkflowBuilder';
 import SettingsView from './components/SettingsView';
+import { ErrorFortressProvider, useErrorFortress } from './components/ErrorFortress';
 
 const queryClient = new QueryClient();
 
@@ -187,6 +188,11 @@ const PathOSApp: React.FC = () => {
   const [showHelp, setShowHelp] = useState(false);
   
   const queryClient = useQueryClient();
+  const { reportError } = useErrorFortress();
+
+  useEffect(() => {
+    setGlobalReporter(reportError);
+  }, [reportError]);
 
   const { data: workflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowsApi.list });
   const { data: taxonomy = [] } = useQuery({ queryKey: ['taxonomy'], queryFn: taxonomyApi.list });
@@ -364,7 +370,9 @@ const PathOSApp: React.FC = () => {
 
 const App: React.FC = () => (
   <QueryClientProvider client={queryClient}>
-    <PathOSApp />
+    <ErrorFortressProvider>
+      <PathOSApp />
+    </ErrorFortressProvider>
   </QueryClientProvider>
 );
 

@@ -9,6 +9,20 @@ export const apiClient = axios.create({
   },
 });
 
+// Global reference for the error reporting function
+let reportErrorGlobal: any = null;
+export const setGlobalReporter = (fn: any) => { reportErrorGlobal = fn; };
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (reportErrorGlobal && error.response?.data) {
+      reportErrorGlobal(error.response.data, 'backend');
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const workflowsApi = {
   list: () => apiClient.get('/workflows').then(res => res.data),
   get: (id: number) => apiClient.get(`/workflows/${id}`).then(res => res.data),

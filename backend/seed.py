@@ -4,7 +4,7 @@ import random
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from app.database import Base, DATABASE_URL
-from app.models.models import TaxonomyEnum, Workflow, Task, Blocker, TaskError, AutomationStatus
+from app.models.models import TaxonomyEnum, Workflow, Task, Blocker, TaskError, AutomationStatus, SystemParameter
 
 async def seed_data():
     engine = create_async_engine(DATABASE_URL)
@@ -13,14 +13,38 @@ async def seed_data():
     async with AsyncSessionLocal() as session:
         # 1. Clear existing data
         from sqlalchemy import delete
+        await session.execute(delete(SystemParameter))
         await session.execute(delete(Blocker))
         await session.execute(delete(TaskError))
         await session.execute(delete(Task))
         await session.execute(delete(Workflow))
         await session.execute(delete(TaxonomyEnum))
         await session.commit()
+        
+        # 2. System Parameters (Dynamic Connectors)
+        params = [
+            {
+                "key": "TOOL_ID",
+                "label": "Specific Tool ID",
+                "description": "Dynamic retrieval of active metrology tool IDs from production database.",
+                "is_dynamic": True,
+                "python_code": "import random\nresult = [f'CDSEM_{i:02d}' for i in range(1, 15)] + [f'OVL_{i:02d}' for i in range(1, 8)]",
+                "manual_values": []
+            },
+            {
+                "key": "WAFER_SIZE",
+                "label": "Wafer Size (mm)",
+                "description": "Standard production wafer sizes.",
+                "is_dynamic": False,
+                "python_code": None,
+                "manual_values": ["300", "200", "150"]
+            }
+        ]
+        for p in params:
+            session.add(SystemParameter(**p))
+        await session.flush()
 
-        # 2. Comprehensive Taxonomy Seeding
+        # 3. Comprehensive Taxonomy Seeding
         taxonomy_data = [
             # Trigger Types
             {"category": "TriggerType", "label": "OOC/OOS Alarm", "value": "ooc_oos_alarm", "description": "Out of Control/Spec alarm from FDC/SPC."},

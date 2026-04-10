@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { settingsApi } from '../api/client';
 import { toast } from 'react-hot-toast';
+import { useErrorFortress } from './ErrorFortress';
 
 const SettingsView: React.FC = () => {
   const [parameters, setParameters] = useState<any[]>([]);
@@ -13,6 +14,7 @@ const SettingsView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [executing, setExecuting] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
+  const { reportError } = useErrorFortress();
 
   useEffect(() => {
     loadParameters();
@@ -49,8 +51,16 @@ const SettingsView: React.FC = () => {
     try {
       const result = await settingsApi.executeParameter(selectedKey);
       setTestResult(result);
-      if (result.error) toast.error("Execution failed");
-      else toast.success("Retrieval successful");
+      if (result.error) {
+        toast.error("Execution failed");
+        reportError({
+          detail: `Python execution error in ${selectedKey}`,
+          type: "RuntimeError",
+          traceback: result.error
+        }, 'backend');
+      } else {
+        toast.success("Retrieval successful");
+      }
       // Refresh list to show cached values
       loadParameters();
     } catch (err) {

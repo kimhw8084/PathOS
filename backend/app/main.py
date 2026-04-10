@@ -49,20 +49,25 @@ app.add_middleware(
 # Global Exception Handler (Ironclad Fortress)
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    tb = traceback.format_exc()
     logger.error(f"Global Exception caught: {str(exc)}")
-    logger.error(traceback.format_exc())
+    logger.error(tb)
+    
+    status_code = 500
+    detail = str(exc)
     
     if isinstance(exc, HTTPException):
-        return JSONResponse(
-            status_code=exc.status_code,
-            content={"detail": exc.detail, "type": "HTTPException"}
-        )
-    
+        status_code = exc.status_code
+        detail = exc.detail
+
     return JSONResponse(
-        status_code=500,
+        status_code=status_code,
         content={
-            "detail": "An internal server error occurred. The PathOS Fortress has logged the event.",
-            "type": "InternalServerError"
+            "detail": detail,
+            "type": exc.__class__.__name__,
+            "traceback": tb,
+            "path": request.url.path,
+            "method": request.method
         }
     )
 
