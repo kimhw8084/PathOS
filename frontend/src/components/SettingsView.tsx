@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Settings, Code, Type, Play, Save, 
   CheckCircle2, XCircle, RefreshCw, Terminal, 
-  Plus, Box, Info, ShieldAlert
+  Box, Info, ShieldAlert, Clock, AlertTriangle, ChevronRight, History
 } from 'lucide-react';
 import { settingsApi } from '../api/client';
 import { toast } from 'react-hot-toast';
@@ -13,7 +13,8 @@ const SettingsView: React.FC = () => {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [executing, setExecuting] = useState(false);
-  const [testResult, setTestResult] = useState<any>(null);
+  const [logs, setLogs] = useState<any[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
   const { reportError } = useErrorFortress();
 
   useEffect(() => {
@@ -34,54 +35,61 @@ const SettingsView: React.FC = () => {
 
   const selectedParam = parameters.find(p => p.key === selectedKey);
 
+  useEffect(() => {
+    if (selectedKey && showLogs) {
+      loadLogs(selectedKey);
+    }
+  }, [selectedKey, showLogs]);
+
+  const loadLogs = async (key: string) => {
+    try {
+      const data = await settingsApi.getParameterLogs(key);
+      setLogs(data);
+    } catch (err) {
+      toast.error("Failed to load logs");
+    }
+  };
+
   const handleUpdate = async (key: string, data: any) => {
     try {
       const updated = await settingsApi.updateParameter(key, data);
       setParameters(parameters.map(p => p.key === key ? updated : p));
-      toast.success("Settings synchronized");
+      toast.success("Configuration synchronized");
     } catch (err) {
-      toast.error("Failed to update");
+      toast.error("Update failed");
     }
   };
 
-  const handleTest = async () => {
+  const handleExecute = async () => {
     if (!selectedKey) return;
     setExecuting(true);
-    setTestResult(null);
     try {
       const result = await settingsApi.executeParameter(selectedKey);
-      setTestResult(result);
-      if (result.error) {
+      if (result.status === 'FAILED') {
         toast.error("Execution failed");
-        reportError({
-          detail: `Python execution error in ${selectedKey}`,
-          type: "RuntimeError",
-          traceback: result.error
-        }, 'backend');
+      } else if (result.status === 'DISCREPANCY') {
+        toast.error("Discrepancy detected");
       } else {
-        toast.success("Retrieval successful");
+        toast.success("Logic executed successfully");
       }
-      // Refresh list to show cached values
       loadParameters();
+      if (showLogs) loadLogs(selectedKey);
     } catch (err) {
-      toast.error("Test execution failed");
+      toast.error("Execution error");
     } finally {
       setExecuting(false);
     }
   };
 
-  const addNewParameter = () => {
-    const newKey = `NEW_PARAM_${Date.now()}`;
-    const newParam = {
-      key: newKey,
-      label: "New Parameter",
-      description: "Define usage...",
-      is_dynamic: false,
-      manual_values: [],
-      python_code: "# result = ['Item 1', 'Item 2']",
-    };
-    setParameters([...parameters, newParam]);
-    setSelectedKey(newKey);
+  const handleResolve = async (action: 'CONFIRM' | 'IGNORE') => {
+    if (!selectedKey) return;
+    try {
+      await settingsApi.resolveDiscrepancy(selectedKey, action);
+      toast.success(action === 'CONFIRM' ? "Changes applied" : "Changes ignored");
+      loadParameters();
+    } catch (err) {
+      toast.error("Resolution failed");
+    }
   };
 
   if (loading) return (
@@ -92,94 +100,133 @@ const SettingsView: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto animate-apple-in space-y-10 pb-20">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between border-b border-theme-border/50 pb-8">
         <div>
           <h2 className="text-header-main mb-2">System Configuration</h2>
-          <p className="text-subtext">Manage global parameters and secure data connectors.</p>
+          <p className="text-subtext">Manage global parameters and automated data connectors.</p>
         </div>
-        <button onClick={addNewParameter} className="btn-apple-primary flex items-center gap-2">
-          <Plus size={16} /> Add Parameter
-        </button>
+        <div className="flex items-center gap-4">
+           <span className="text-hint bg-status-success/10 text-status-success px-4 py-2 rounded-full border border-status-success/20">Background Engine Active</span>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-        {/* Sidebar */}
-        <div className="lg:col-span-4 space-y-4">
-          <div className="apple-card !p-3 space-y-1 bg-black/20">
-            <div className="p-3 mb-2 border-b border-theme-border/50">
-               <span className="text-hint">Active Parameters</span>
+        <div className="lg:col-span-4 space-y-6">
+          <div className="apple-card !p-3 space-y-1 bg-black/20 border-theme-border">
+            <div className="p-4 mb-2 border-b border-theme-border/50 flex items-center justify-between">
+               <span className="text-hint uppercase tracking-widest text-theme-secondary font-black">Authorized Parameters</span>
+               <span className="text-[10px] bg-theme-accent/20 text-theme-accent px-2 py-0.5 rounded-md">FIXED</span>
             </div>
             {parameters.map(p => (
               <button
                 key={p.key}
-                onClick={() => setSelectedKey(p.key)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all group ${selectedKey === p.key ? 'bg-theme-accent/10 border border-theme-accent/30 text-white' : 'text-theme-secondary hover:bg-white/[0.04] hover:text-white border border-transparent'}`}
+                onClick={() => { setSelectedKey(p.key); setShowLogs(false); }}
+                className={`w-full flex items-center justify-between px-4 py-4 rounded-xl transition-all group ${selectedKey === p.key ? 'bg-theme-accent/10 border border-theme-accent/30 text-white' : 'text-theme-secondary hover:bg-white/[0.04] hover:text-white border border-transparent'}`}
               >
-                <div className="flex items-center gap-3">
-                  {p.is_dynamic ? <Code size={16} className="text-theme-accent" /> : <Type size={16} className="text-theme-muted" />}
-                  <span className="text-subtext font-bold truncate max-w-[160px]">{p.label}</span>
+                <div className="flex items-center gap-4">
+                  <div className={`p-2 rounded-lg ${selectedKey === p.key ? 'bg-theme-accent text-white' : 'bg-white/5 text-theme-muted'}`}>
+                    {p.is_dynamic ? <Code size={16} /> : <Type size={16} />}
+                  </div>
+                  <div className="flex flex-col items-start">
+                    <span className="text-[13px] font-black tracking-tight">{p.label}</span>
+                    <span className="text-[9px] opacity-40 font-mono">{p.key}</span>
+                  </div>
                 </div>
-                {selectedKey === p.key && <CheckCircle2 size={14} className="text-theme-accent" />}
+                {p.has_discrepancy && <AlertTriangle size={16} className="text-status-warning animate-pulse" />}
+                {selectedKey === p.key && <ChevronRight size={16} className="text-theme-accent" />}
               </button>
             ))}
           </div>
-          
-          <div className="apple-card bg-theme-accent/[0.03] border-theme-accent/10">
-            <div className="flex items-center gap-3 mb-3">
+
+          <div className="apple-card !bg-theme-accent/[0.03] border-theme-accent/10 space-y-4">
+            <div className="flex items-center gap-3">
               <ShieldAlert size={18} className="text-theme-accent" />
-              <h4 className="text-subtext font-bold text-white">Privacy Standard</h4>
+              <h4 className="text-[11px] font-black uppercase tracking-widest text-white">System Integrity</h4>
             </div>
-            <p className="text-hint normal-case tracking-tight leading-relaxed opacity-70">
-              Your Python scripts execute locally within the PathOS environment. No proprietary data retrieval logic is shared with the LLM or stored outside your local instance.
+            <p className="text-[11px] text-theme-secondary leading-relaxed opacity-70">
+              Parameter keys are locked to the PathOS core specification. Dynamic logic executes every hour to synchronize with hardware databases.
             </p>
           </div>
         </div>
 
-        {/* Editor Area */}
         <div className="lg:col-span-8">
           {selectedParam ? (
-            <div className="space-y-8">
-              <div className="apple-card space-y-8">
-                <div className="flex items-center justify-between border-b border-theme-border/50 pb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="p-3 bg-theme-accent/10 rounded-2xl">
+            <div className="space-y-8 animate-in fade-in duration-500">
+              <div className="apple-card space-y-8 border-theme-border bg-white/[0.01]">
+                <div className="flex items-center justify-between border-b border-theme-border/50 pb-8">
+                  <div className="flex items-center gap-5">
+                    <div className="p-4 bg-theme-accent/10 rounded-2xl border border-theme-accent/20">
                       <Box size={24} className="text-theme-accent" />
                     </div>
                     <div>
-                      <h3 className="text-header-sub">{selectedParam.label}</h3>
-                      <span className="text-hint normal-case font-mono opacity-50">{selectedParam.key}</span>
+                      <h3 className="text-header-sub !text-white">{selectedParam.label}</h3>
+                      <span className="text-hint normal-case font-mono opacity-40">{selectedParam.key}</span>
                     </div>
                   </div>
-                  <div className="flex bg-white/[0.04] p-1 rounded-full border border-theme-border">
+                  <div className="flex bg-black/40 p-1.5 rounded-2xl border border-theme-border shadow-inner">
                     <button 
                       onClick={() => handleUpdate(selectedParam.key, { ...selectedParam, is_dynamic: false })}
-                      className={`px-4 py-1.5 text-hint rounded-full transition-all flex items-center gap-2 ${!selectedParam.is_dynamic ? 'bg-theme-accent text-white shadow-lg' : 'text-theme-muted hover:text-white'}`}
+                      className={`px-5 py-2 text-hint rounded-xl transition-all flex items-center gap-2.5 ${!selectedParam.is_dynamic ? 'bg-theme-accent text-white shadow-lg' : 'text-theme-muted hover:text-white'}`}
                     >
                       <Type size={14} /> Manual
                     </button>
                     <button 
                       onClick={() => handleUpdate(selectedParam.key, { ...selectedParam, is_dynamic: true })}
-                      className={`px-4 py-1.5 text-hint rounded-full transition-all flex items-center gap-2 ${selectedParam.is_dynamic ? 'bg-theme-accent text-white shadow-lg' : 'text-theme-muted hover:text-white'}`}
+                      className={`px-5 py-2 text-hint rounded-xl transition-all flex items-center gap-2.5 ${selectedParam.is_dynamic ? 'bg-theme-accent text-white shadow-lg' : 'text-theme-muted hover:text-white'}`}
                     >
                       <Code size={14} /> Dynamic
                     </button>
                   </div>
                 </div>
 
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2.5">
-                      <label className="text-hint px-1">Display Label</label>
+                {selectedParam.has_discrepancy && (
+                  <div className="bg-status-warning/10 border border-status-warning/20 p-8 rounded-2xl space-y-6 animate-pulse">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <AlertTriangle size={24} className="text-status-warning" />
+                        <div>
+                          <h4 className="text-[14px] font-black text-status-warning uppercase tracking-tight">Discrepancy Detected</h4>
+                          <p className="text-[11px] text-theme-secondary">Values from latest automated run do not match confirmed configuration.</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => handleResolve('IGNORE')} className="btn-apple-secondary !py-2 !px-4 border-status-warning/30 hover:bg-status-warning/5">Ignore</button>
+                        <button onClick={() => handleResolve('CONFIRM')} className="btn-apple-primary !bg-status-warning !py-2 !px-4 !shadow-none text-black">Confirm & Update</button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-6 pt-4 border-t border-status-warning/10">
+                       <div className="space-y-3">
+                          <span className="text-[9px] font-black uppercase text-theme-muted tracking-widest">Currently Confirmed</span>
+                          <div className="flex flex-wrap gap-2">
+                             {selectedParam.cached_values?.slice(0, 5).map((v: any) => <span key={v} className="px-2 py-1 bg-white/5 rounded text-[10px] text-theme-secondary">{v}</span>)}
+                             {selectedParam.cached_values?.length > 5 && <span className="text-[10px] opacity-40">+{selectedParam.cached_values.length - 5} more</span>}
+                          </div>
+                       </div>
+                       <div className="space-y-3 border-l border-status-warning/10 pl-6">
+                          <span className="text-[9px] font-black uppercase text-status-warning tracking-widest">Detected in Last Run</span>
+                          <div className="flex flex-wrap gap-2">
+                             {selectedParam.pending_values?.slice(0, 5).map((v: any) => <span key={v} className="px-2 py-1 bg-status-warning/20 rounded text-[10px] text-status-warning">{v}</span>)}
+                             {selectedParam.pending_values?.length > 5 && <span className="text-[10px] opacity-40">+{selectedParam.pending_values.length - 5} more</span>}
+                          </div>
+                       </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-8">
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <label className="text-hint text-theme-secondary font-black">Display Label</label>
                       <input 
-                        className="input-apple !bg-black/40" 
+                        className="input-apple !bg-black/60 font-bold" 
                         value={selectedParam.label} 
                         onChange={e => setParameters(parameters.map(p => p.key === selectedKey ? { ...p, label: e.target.value } : p))}
                       />
                     </div>
-                    <div className="space-y-2.5">
-                      <label className="text-hint px-1">Description</label>
+                    <div className="space-y-3">
+                      <label className="text-hint text-theme-secondary font-black">Definition / Purpose</label>
                       <input 
-                        className="input-apple !bg-black/40" 
+                        className="input-apple !bg-black/60" 
                         value={selectedParam.description || ""} 
                         onChange={e => setParameters(parameters.map(p => p.key === selectedKey ? { ...p, description: e.target.value } : p))}
                       />
@@ -187,99 +234,101 @@ const SettingsView: React.FC = () => {
                   </div>
 
                   {selectedParam.is_dynamic ? (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
-                      <div className="flex items-center justify-between">
-                        <label className="text-hint px-1 flex items-center gap-2">
-                          <Terminal size={14} className="text-theme-accent" /> Data Retrieval Logic (Python)
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between px-1">
+                        <label className="text-hint font-black flex items-center gap-2">
+                          <Terminal size={14} className="text-theme-accent" /> Python Retrieval Module
                         </label>
-                        <div className="flex items-center gap-2">
-                           {selectedParam.last_executed && (
-                             <span className="text-[10px] text-theme-muted font-medium">Last Run: {new Date(selectedParam.last_executed).toLocaleTimeString()}</span>
-                           )}
-                        </div>
+                        {selectedParam.last_executed && (
+                           <div className="flex items-center gap-2 text-[10px] font-bold text-theme-muted">
+                             <Clock size={12} /> Last Run: {new Date(selectedParam.last_executed).toLocaleString()}
+                           </div>
+                        )}
                       </div>
-                      <div className="apple-card-inset !p-0 !bg-black/60 overflow-hidden border-theme-accent/20">
+                      <div className="apple-card-inset !p-0 !bg-black/80 border-theme-border/50">
                         <textarea 
-                          className="w-full h-80 bg-transparent p-6 font-mono text-[12px] text-theme-accent outline-none resize-none leading-relaxed"
+                          className="w-full h-80 bg-transparent p-6 font-mono text-[13px] text-theme-accent outline-none resize-none leading-relaxed"
                           spellCheck={false}
                           value={selectedParam.python_code || ""}
                           onChange={e => setParameters(parameters.map(p => p.key === selectedKey ? { ...p, python_code: e.target.value } : p))}
-                          placeholder="# Example: Connect to your DB or API\nimport pandas as pd\n\n# The engine looks for a 'result' list or 'df' dataframe\ndf = pd.DataFrame({'tool': ['SEM-01', 'SEM-02']})\n# or\nresult = ['Option A', 'Option B']"
                         />
-                      </div>
-                      <div className="bg-white/[0.03] border border-theme-border p-4 rounded-xl flex items-start gap-3">
-                        <Info size={16} className="text-theme-accent shrink-0 mt-0.5" />
-                        <p className="text-main-content opacity-70">
-                          Your code should define a variable named <code className="text-theme-accent">result</code> (as a list) or <code className="text-theme-accent">df</code> (as a pandas DataFrame). The first column of the dataframe will be used as the values.
-                        </p>
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
-                      <label className="text-hint px-1">Manual Values (One per line)</label>
+                    <div className="space-y-4">
+                      <label className="text-hint font-black px-1">Manual Master List (One per line)</label>
                       <textarea 
-                        className="input-apple !bg-black/40 h-64 font-mono text-[13px] resize-none"
+                        className="input-apple !bg-black/60 h-64 font-mono text-[14px] resize-none"
                         value={selectedParam.manual_values?.join('\n') || ""}
                         onChange={e => setParameters(parameters.map(p => p.key === selectedKey ? { ...p, manual_values: e.target.value.split('\n').filter(v => v.trim()) } : p))}
-                        placeholder="SEM-01\nSEM-02\nSEM-03..."
                       />
                     </div>
                   )}
 
-                  <div className="flex items-center justify-end gap-4 pt-4 border-t border-theme-border/50">
-                    {selectedParam.is_dynamic && (
-                      <button 
-                        onClick={handleTest}
-                        disabled={executing || !selectedParam.python_code}
-                        className="btn-apple-secondary flex items-center gap-2 px-6"
-                      >
-                        {executing ? <RefreshCw size={16} className="animate-spin" /> : <Play size={16} />}
-                        Execute Logic
-                      </button>
-                    )}
+                  <div className="flex items-center justify-between pt-8 border-t border-theme-border/30">
                     <button 
-                      onClick={() => handleUpdate(selectedParam.key, selectedParam)}
-                      className="btn-apple-primary flex items-center gap-2 px-8"
+                      onClick={() => setShowLogs(!showLogs)}
+                      className="text-hint text-theme-secondary hover:text-white flex items-center gap-2.5 transition-all"
                     >
-                      <Save size={16} /> Sync Configuration
+                      <History size={16} /> {showLogs ? "Hide Execution History" : "View Run Logs"}
                     </button>
+                    <div className="flex items-center gap-4">
+                      {selectedParam.is_dynamic && (
+                        <button 
+                          onClick={handleExecute}
+                          disabled={executing}
+                          className="btn-apple-secondary flex items-center gap-2.5 px-6 !border-theme-border"
+                        >
+                          {executing ? <RefreshCw size={16} className="animate-spin" /> : <Play size={16} />}
+                          Execute Logic
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => handleUpdate(selectedParam.key, selectedParam)}
+                        className="btn-apple-primary flex items-center gap-2.5 px-8 shadow-theme-accent/20 shadow-lg"
+                      >
+                        <Save size={16} /> Sync Configuration
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {testResult && (
-                <div className="apple-card space-y-6 animate-in slide-in-from-bottom-4 duration-500 border-theme-accent/20">
-                  <div className="flex items-center justify-between border-b border-theme-border/50 pb-4">
-                    <h4 className="text-subtext font-bold text-white flex items-center gap-2">
-                       Execution Analysis {testResult.error ? <XCircle size={14} className="text-status-error" /> : <CheckCircle2 size={14} className="text-status-success" />}
+              {showLogs && (
+                <div className="apple-card space-y-6 animate-in slide-in-from-bottom-4 duration-500 border-theme-border bg-black/40">
+                  <div className="flex items-center justify-between border-b border-theme-border/50 pb-4 px-2">
+                    <h4 className="text-[12px] font-black text-white flex items-center gap-3 tracking-widest uppercase">
+                       <History size={16} className="text-theme-accent" /> Execution Registry
                     </h4>
-                    <span className="text-hint normal-case text-theme-muted">Time: {testResult.execution_time.toFixed(3)}s</span>
                   </div>
                   
-                  {testResult.error ? (
-                    <div className="apple-card-inset !bg-status-error/5 border-status-error/10 text-status-error font-mono text-[11px] p-4 overflow-auto">
-                      {testResult.error}
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <span className="text-hint">Retrieved Values ({testResult.values?.length || 0}):</span>
-                      <div className="flex flex-wrap gap-2">
-                        {testResult.values?.slice(0, 20).map((v: any, i: number) => (
-                          <span key={i} className="status-badge bg-theme-accent/10 text-theme-accent">{v}</span>
-                        ))}
-                        {testResult.values?.length > 20 && (
-                          <span className="status-badge bg-white/5 text-theme-muted">+{testResult.values.length - 20} more...</span>
-                        )}
+                  <div className="space-y-3 overflow-auto max-h-[400px] custom-scrollbar pr-2">
+                    {logs.map((log) => (
+                      <div key={log.id} className="p-5 bg-white/[0.02] border border-theme-border rounded-xl flex items-center justify-between group hover:border-theme-border-bright">
+                        <div className="flex items-center gap-5">
+                          <div className={`w-2.5 h-2.5 rounded-full ${log.status === 'SUCCESS' ? 'bg-status-success' : log.status === 'DISCREPANCY' ? 'bg-status-warning' : 'bg-status-error'}`} />
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-bold text-white">{new Date(log.timestamp).toLocaleString()}</span>
+                            <span className="text-[10px] text-theme-muted normal-case mt-0.5">{log.message || "Execution successful"}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-6">
+                           <div className="text-right flex flex-col">
+                              <span className="text-[10px] font-black text-white">{log.found_values?.length || 0} ITEMS</span>
+                              <span className="text-[9px] text-theme-muted uppercase tracking-widest">{log.execution_time?.toFixed(3)}s</span>
+                           </div>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    ))}
+                    {logs.length === 0 && <div className="text-center py-10 opacity-20 text-[11px] font-black uppercase tracking-widest">No history found</div>}
+                  </div>
                 </div>
               )}
             </div>
           ) : (
-            <div className="h-[50vh] flex flex-col items-center justify-center text-center opacity-30">
-               <Settings size={48} className="text-theme-muted mb-4" />
-               <p className="text-header-sub">Select a parameter to configure</p>
+            <div className="h-[50vh] flex flex-col items-center justify-center text-center opacity-20">
+               <Settings size={64} className="text-theme-muted mb-6" />
+               <p className="text-header-sub uppercase tracking-widest">Select Node for Configuration</p>
             </div>
           )}
         </div>

@@ -4,29 +4,29 @@
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   
-  /* PathOS Midnight - Apple Pro Palette */
-  --color-theme-bg: #05070a; /* True Midnight */
-  --color-theme-card: rgba(23, 28, 41, 0.7);
-  --color-theme-header: rgba(10, 14, 23, 0.8);
-  --color-theme-glass: rgba(15, 21, 35, 0.6);
-  --color-theme-border: rgba(255, 255, 255, 0.08);
-  --color-theme-border-bright: rgba(255, 255, 255, 0.15);
+  /* PathOS Midnight - Brighter Pro Palette */
+  --color-theme-bg: #0a1120; /* Brighter Dark Blue */
+  --color-theme-card: rgba(17, 24, 39, 0.7);
+  --color-theme-header: rgba(15, 23, 42, 0.8);
+  --color-theme-glass: rgba(30, 41, 59, 0.6);
+  --color-theme-border: rgba(255, 255, 255, 0.1);
+  --color-theme-border-bright: rgba(255, 255, 255, 0.2);
   --color-theme-primary: #f8fafc;
-  --color-theme-secondary: #94a3b8;
-  --color-theme-muted: #64748b;
+  --color-theme-secondary: #cbd5e1;
+  --color-theme-muted: #94a3b8;
   
   /* Precision Accent - Samsung Blue Pro */
-  --color-theme-accent: #007AFF; /* Apple Blue inspired by Samsung Blue */
-  --color-theme-accent-glow: rgba(0, 122, 255, 0.4);
+  --color-theme-accent: #3b82f6; /* More vibrant blue */
+  --color-theme-accent-glow: rgba(59, 130, 246, 0.4);
   
-  --color-theme-sidebar: #0a0e17;
+  --color-theme-sidebar: #0f172a;
   --color-theme-active: rgba(255, 255, 255, 0.05);
   
   /* Status */
   --color-status-success: #34c759;
-  --color-status-warning: #ff9f0a;
-  --color-status-error: #ff3b30;
-  --color-status-info: #007AFF;
+  --color-status-warning: #fbbf24;
+  --color-status-error: #ef4444;
+  --color-status-info: #3b82f6;
 }
 
 @layer base {
@@ -148,7 +148,7 @@
     text-transform: uppercase;
     
     transition: all 0.2s ease;
-    box-shadow: 0 0 20px rgba(0, 122, 255, 0.3);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
   }
   .btn-apple-primary:hover {
     filter: brightness(1.1);
@@ -237,17 +237,17 @@
 
 /* Ag-Grid: Apple Pro Edition */
 .ag-theme-quartz-dark {
-  --ag-background-color: #0a0e17 !important;
-  --ag-header-background-color: rgba(255, 255, 255, 0.02) !important;
+  --ag-background-color: #0f172a !important;
+  --ag-header-background-color: rgba(255, 255, 255, 0.03) !important;
   --ag-odd-row-background-color: transparent !important;
-  --ag-border-color: rgba(255, 255, 255, 0.08) !important;
+  --ag-border-color: rgba(255, 255, 255, 0.1) !important;
   --ag-row-border-color: rgba(255, 255, 255, 0.05) !important;
   --ag-font-family: 'Inter', sans-serif !important;
   --ag-font-size: 11px !important;
-  --ag-header-foreground-color: #94a3b8 !important;
-  --ag-data-color: #f1f5f9 !important;
-  --ag-selected-row-background-color: rgba(0, 122, 255, 0.15) !important;
-  --ag-row-hover-color: rgba(255, 255, 255, 0.03) !important;
+  --ag-header-foreground-color: #cbd5e1 !important;
+  --ag-data-color: #f8fafc !important;
+  --ag-selected-row-background-color: rgba(59, 130, 246, 0.2) !important;
+  --ag-row-hover-color: rgba(255, 255, 255, 0.04) !important;
   --ag-header-height: 54px !important;
   --ag-row-height: 64px !important;
   --ag-card-radius: 20px !important;
@@ -255,19 +255,19 @@
 
 .ag-grid-apple {
   border: none !important;
-  background: #0a0e17 !important;
+  background: #0f172a !important;
 }
 
 .ag-root-wrapper {
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
   border-radius: 20px !important;
   overflow: hidden !important;
-  background: #0a0e17 !important;
+  background: #0f172a !important;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
 }
 
 .ag-header {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 .ag-cell {
@@ -278,12 +278,12 @@
 
 /* Fix for potential white background in table */
 .ag-body-viewport {
-  background-color: #0a0e17 !important;
+  background-color: #0f172a !important;
 }
 
 /* Custom selection styling for ag-grid */
 .ag-row-selected {
-  background-color: rgba(0, 122, 255, 0.1) !important;
+  background-color: rgba(59, 130, 246, 0.15) !important;
 }
 
 /* React Flow Apple Canvas Styling */

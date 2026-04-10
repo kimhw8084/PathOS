@@ -1,11 +1,13 @@
 import os
+import asyncio
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
 import traceback
 from contextlib import asynccontextmanager
-from .database import engine, init_db
+from .database import engine, init_db, SessionLocal
+from .api.settings import run_all_parameters
 
 # Configure structured logging
 logging.basicConfig(
@@ -15,6 +17,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger("PathOS")
 
+async def hourly_parameter_task():
+    while True:
+        try:
+            async with SessionLocal() as db:
+                logger.info("Executing background parameter refresh...")
+                await run_all_parameters(db)
+                logger.info("Background parameter refresh complete.")
+        except Exception as e:
+            logger.error(f"Error in background parameter task: {str(e)}")
+        
+        # Sleep for 1 hour
+        await asyncio.sleep(3600)
+
 @asynccontextmanager
 async def lifecycle(app: FastAPI):
     # Startup: Initialize DB and Print Banner
@@ -22,6 +37,10 @@ async def lifecycle(app: FastAPI):
     try:
         await init_db()
         logger.info("Database initialized successfully.")
+        
+        # Initial run and start hourly task
+        asyncio.create_task(hourly_parameter_task())
+        
     except Exception as e:
         logger.error(f"Failed to initialize database: {str(e)}")
     yield
@@ -37,7 +56,7 @@ app = FastAPI(
 )
 
 # CORS Configuration
-origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5174,http://localhost:5173,http://localhost:3000").split(",")
+origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5174,http://localhost:5173,http://localhost:3000,http://127.0.0.1:5174").split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,

@@ -14,23 +14,23 @@ router = APIRouter()
 
 @router.post("", response_model=WorkflowRead)
 async def create_workflow(workflow_data: WorkflowCreate, db: AsyncSession = Depends(get_db)):
-    # 2.1 The Gatekeeper Logic
     if not workflow_data.repeatability_check:
         raise HTTPException(
             status_code=400, 
-            detail="Workflows must be repeatable processes. One-off troubleshooting or isolated incidents should be handled via Jira."
+            detail="Workflows must be repeatable processes."
         )
     
-    # Requirement: No measurable output
     if not workflow_data.output_type or not workflow_data.output_description:
         raise HTTPException(
             status_code=400,
-            detail="A workflow must produce a measurable outcome or product. Please define the final state before mapping tasks."
+            detail="A workflow must produce a measurable outcome."
         )
 
     new_workflow = Workflow(**workflow_data.model_dump())
     db.add(new_workflow)
-    await db.flush() # Get ID for audit
+    await db.flush()
+    
+    await update_workflow_roi(new_workflow)
     
     await log_audit(
         db, 
@@ -43,7 +43,6 @@ async def create_workflow(workflow_data: WorkflowCreate, db: AsyncSession = Depe
     
     await db.commit()
     
-    # Re-query with selectinload to prevent lazy-load errors during Pydantic serialization
     result = await db.execute(
         select(Workflow)
         .where(Workflow.id == new_workflow.id)
@@ -76,7 +75,7 @@ async def get_workflow(workflow_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Workflow not found")
     return workflow
 
-@router.patch("/{workflow_id}", response_model=WorkflowRead)
+@router.put("/{workflow_id}", response_model=WorkflowRead)
 async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Workflow)
@@ -90,13 +89,15 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
     
     previous_state = {c.name: getattr(workflow, c.name) for c in workflow.__table__.columns}
     
-    for key, value in workflow_data.items():
+    # Filter out task list if provided (handled separately by tasks router)
+    data_to_update = {k: v for k, v in workflow_data.items() if k != "tasks"}
+    
+    for key, value in data_to_update.items():
         if hasattr(workflow, key):
             setattr(workflow, key, value)
     
-    # Recalculate ROI if frequency changed
-    if "frequency" in workflow_data:
-        await update_workflow_roi(workflow)
+    # Recalculate ROI
+    await update_workflow_roi(workflow)
         
     await log_audit(
         db,
@@ -104,13 +105,12 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
         table_name="workflows",
         record_id=workflow.id,
         previous_state=previous_state,
-        new_state=workflow_data,
-        description=f"Updated workflow metadata: {workflow.name}"
+        new_state=data_to_update,
+        description=f"Updated workflow: {workflow.name}"
     )
     
     await db.commit()
     
-    # Refresh/Re-fetch with selectinload
     result = await db.execute(
         select(Workflow)
         .where(Workflow.id == workflow.id)
@@ -126,18 +126,6 @@ async def soft_delete_workflow(workflow_id: int, db: AsyncSession = Depends(get_
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
     
-    previous_state = {"is_deleted": workflow.is_deleted}
-    workflow.is_deleted = True # Soft delete
-    
-    await log_audit(
-        db,
-        action_type="DELETE",
-        table_name="workflows",
-        record_id=workflow.id,
-        previous_state=previous_state,
-        new_state={"is_deleted": True},
-        description=f"Archived workflow: {workflow.name}"
-    )
-    
+    workflow.is_deleted = True 
     await db.commit()
-    return {"message": "Workflow successfully archived (soft deleted)."}
+    return {"message": "Workflow archived."}

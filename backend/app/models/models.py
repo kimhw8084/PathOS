@@ -33,7 +33,11 @@ class Workflow(Base, BaseMixin):
     # Intake / Gatekeeper Fields
     trigger_type = Column(String) 
     trigger_description = Column(Text)
-    frequency = Column(Float) # Workflow Frequency (e.g. times per week)
+    
+    # Operational Cadence (v2: Count + Unit)
+    cadence_count = Column(Float, default=1.0)
+    cadence_unit = Column(String, default="week") # day, week, month, year
+    
     output_type = Column(String) 
     output_description = Column(Text)
     repeatability_check = Column(Boolean, default=True)
@@ -118,14 +122,26 @@ class TaxonomyEnum(Base, BaseMixin):
 
 class SystemParameter(Base, BaseMixin):
     __tablename__ = "system_parameters"
-    key = Column(String, unique=True, index=True) # e.g. "TOOL_ID", "WAFER_SIZE"
+    key = Column(String, unique=True, index=True) # TOOL_ID, HARDWARE_FAMILY, TRIGGER_ARCHITECTURE, OUTPUT_CLASSIFICATION
     label = Column(String)
     description = Column(Text, nullable=True)
-    is_dynamic = Column(Boolean, default=False) # True = Python, False = Manual
-    manual_values = Column(JSON, nullable=True) # List of strings if manual
-    python_code = Column(Text, nullable=True) # Python script if dynamic
+    is_dynamic = Column(Boolean, default=False)
+    manual_values = Column(JSON, nullable=True)
+    python_code = Column(Text, nullable=True)
     last_executed = Column(DateTime(timezone=True), nullable=True)
-    cached_values = Column(JSON, nullable=True) # Last known good values
+    cached_values = Column(JSON, nullable=True) # Confirmed/Current values
+    pending_values = Column(JSON, nullable=True) # Found in last run but not confirmed
+    has_discrepancy = Column(Boolean, default=False)
+
+class ParameterLog(Base):
+    __tablename__ = "parameter_logs"
+    id = Column(Integer, primary_key=True)
+    parameter_key = Column(String, index=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    status = Column(String) # SUCCESS, FAILED, DISCREPANCY
+    message = Column(Text, nullable=True)
+    found_values = Column(JSON, nullable=True)
+    execution_time = Column(Float, nullable=True)
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"

@@ -26,7 +26,8 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
     trigger_description: '',
     output_type: '',
     output_description: '',
-    frequency: 20,
+    cadence_count: 1.0,
+    cadence_unit: 'week',
     involves_equipment: false,
     equipment_state: 'Idle',
     cleanroom_execution_required: false,
@@ -42,13 +43,11 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
   const triggerTypes = taxonomy.filter(t => t.category === 'TriggerType');
   const outputTypes = taxonomy.filter(t => t.category === 'OutputType');
   
-  // Connect to System Parameters for Hardware Family
   const hardwareFamilies = useMemo(() => {
     const param = systemParams.find(p => p.key === 'HARDWARE_FAMILY');
     if (param) {
       return (param.is_dynamic ? param.cached_values : param.manual_values) || [];
     }
-    // Fallback to taxonomy if system parameter not found
     return taxonomy.filter(t => t.category === 'ToolType').map(t => t.label);
   }, [systemParams, taxonomy]);
 
@@ -113,7 +112,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
               <div className="bg-status-error/10 border border-status-error/20 p-5 rounded-2xl flex items-start gap-4 animate-in fade-in slide-in-from-top-2">
                 <XCircle size={18} className="text-status-error shrink-0 mt-0.5" />
                 <p className="text-[13px] text-status-error font-bold leading-relaxed">
-                  Validation Notice: Automation is reserved for standardized, repeatable tasks. One-off troubleshooting should be escalated via departmental JIRA channels.
+                  Validation Notice: Automation is reserved for standardized, repeatable tasks.
                 </p>
               </div>
             )}
@@ -158,12 +157,9 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
           
           <div className="apple-card space-y-8 !bg-white/[0.01] border-theme-border">
             <div className="space-y-3 px-2">
-              <label className="text-hint text-theme-secondary font-bold flex items-center justify-between">
-                <span>Workflow Title</span>
-                <span className="text-[10px] opacity-40 font-mono">NODE_IDENTIFIER</span>
-              </label>
+              <label className="text-hint text-theme-secondary font-bold">Workflow Title</label>
               <input 
-                className="input-apple !bg-black/60 text-xl font-black text-white placeholder:text-theme-muted/30 focus:border-theme-accent" 
+                className="input-apple !bg-black/60 text-xl font-black text-white focus:border-theme-accent" 
                 placeholder="e.g. CD-SEM Recipe Qualification" 
                 value={formData.name} 
                 onChange={e => setFormData({...formData, name: e.target.value})} 
@@ -172,9 +168,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
 
             <div className="grid grid-cols-2 gap-8">
               <div className="space-y-3 px-2">
-                <label className="text-hint text-theme-secondary font-bold flex items-center gap-2">
-                   Hardware Family
-                </label>
+                <label className="text-hint text-theme-secondary font-bold">Hardware Family</label>
                 <div className="relative group">
                   <select 
                     className="input-apple !bg-black/60 font-bold appearance-none text-white focus:border-theme-accent pr-10"
@@ -235,7 +229,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
                 <div className="space-y-3 px-2">
                   <label className="text-hint text-theme-secondary font-bold">Initiation Detail</label>
                   <textarea 
-                    className="input-apple !bg-black/60 h-32 resize-none leading-relaxed text-[14px] text-white focus:border-status-success placeholder:text-theme-muted/30" 
+                    className="input-apple !bg-black/60 h-32 resize-none leading-relaxed text-[14px] text-white focus:border-status-success" 
                     placeholder="Describe the exact event that initiates this sequence..." 
                     value={formData.trigger_description} 
                     onChange={e => setFormData({...formData, trigger_description: e.target.value})} 
@@ -258,7 +252,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
                 <div className="space-y-3 px-2">
                   <label className="text-hint text-theme-secondary font-bold">Deliverable Specification</label>
                   <textarea 
-                    className="input-apple !bg-black/60 h-32 resize-none leading-relaxed text-[14px] text-white focus:border-theme-accent placeholder:text-theme-muted/30" 
+                    className="input-apple !bg-black/60 h-32 resize-none leading-relaxed text-[14px] text-white focus:border-theme-accent" 
                     placeholder="Describe the final state or product of this workflow..." 
                     value={formData.output_description} 
                     onChange={e => setFormData({...formData, output_description: e.target.value})} 
@@ -279,20 +273,33 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
           <div className="apple-card !bg-theme-accent/[0.02] border-theme-accent/20 p-8">
             <div className="flex flex-col md:flex-row items-center gap-10">
               <div className="flex-1 space-y-4">
-                <h4 className="text-header-sub text-white font-bold">Weekly Execution Frequency</h4>
-                <p className="text-subtext text-theme-secondary leading-relaxed">
-                  How many times does this sequence repeat across all shifts per week? This directly scales the projected ROI.
+                <h4 className="text-header-sub text-white font-bold">Execution Cadence</h4>
+                <p className="text-subtext text-theme-secondary leading-relaxed text-[12px]">
+                  Specify how often this workflow is executed. This directly scales the reclaimed ROI hours.
                 </p>
               </div>
-              <div className="w-full md:w-48 space-y-3">
-                <div className="relative">
+              <div className="w-full md:w-64 flex items-center gap-3">
+                <div className="flex-1 relative">
                   <input 
                     type="number" 
+                    step="0.1"
                     className="input-apple !bg-black/80 font-black text-3xl text-theme-accent text-center !py-6 border-theme-accent/30 focus:border-theme-accent h-24" 
-                    value={formData.frequency} 
-                    onChange={e => setFormData({...formData, frequency: parseFloat(e.target.value)})} 
+                    value={formData.cadence_count} 
+                    onChange={e => setFormData({...formData, cadence_count: parseFloat(e.target.value)})} 
                   />
-                  <span className="absolute bottom-2 left-0 right-0 text-center text-[10px] text-theme-accent font-bold uppercase tracking-widest opacity-40">Hz / Week</span>
+                  <span className="absolute bottom-2 left-0 right-0 text-center text-[9px] text-theme-accent font-bold uppercase tracking-widest opacity-40">COUNT</span>
+                </div>
+                <div className="w-24 h-24 bg-black/40 border border-theme-border rounded-2xl overflow-hidden">
+                  <select 
+                    className="w-full h-full bg-transparent text-white font-bold text-center appearance-none cursor-pointer hover:bg-white/5 transition-colors uppercase text-[11px] tracking-tighter"
+                    value={formData.cadence_unit}
+                    onChange={e => setFormData({...formData, cadence_unit: e.target.value})}
+                  >
+                    <option value="day">/ Day</option>
+                    <option value="week">/ Week</option>
+                    <option value="month">/ Month</option>
+                    <option value="year">/ Year</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -304,11 +311,10 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
         <button 
           onClick={() => onSuccess(formData)}
           disabled={!formData.name || !formData.trigger_type || !formData.output_type}
-          className="btn-apple-primary !px-20 !py-6 !rounded-2xl shadow-[0_20px_40px_rgba(0,122,255,0.3)] disabled:opacity-5 group flex items-center gap-4 text-lg font-bold"
+          className="btn-apple-primary !px-20 !py-6 !rounded-2xl shadow-[0_20px_40px_rgba(59,130,246,0.3)] disabled:opacity-5 group flex items-center gap-4 text-lg font-bold"
         >
           Initialize Strategy Architecture <ArrowRight size={22} className="group-hover:translate-x-1 transition-transform" />
         </button>
-        <p className="text-hint text-theme-muted normal-case opacity-40">Verification Protocol v1.2.6 • Samsung PathOS Engine</p>
       </div>
     </div>
   );

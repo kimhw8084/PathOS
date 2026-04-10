@@ -19,7 +19,8 @@ import {
   ChevronDown, Workflow as LucideWorkflow, 
   ShieldAlert, Timer, Database, Box, AlertTriangle, 
   Layers, FileText, X, Zap,
-  Terminal, FileCode, Cpu, Activity, Info, Link as LinkIcon
+  Terminal, FileCode, Cpu, Activity, Info, Link as LinkIcon,
+  Clock
 } from 'lucide-react';
 
 interface Blocker {
@@ -63,7 +64,11 @@ interface Task {
 
 interface WorkflowBuilderProps {
   initialTasks: Task[];
-  onSave: (tasks: Task[]) => void;
+  workflowMetadata: {
+    cadence_count: number;
+    cadence_unit: string;
+  };
+  onSave: (tasks: Task[], metadata: any) => void;
 }
 
 // --- High-Density Matrix Node ---
@@ -92,7 +97,7 @@ const MatrixNode = ({ data }: { data: { label: string, system: string, touch: nu
       <h4 className="text-[14px] font-black text-white tracking-tight group-hover:text-theme-accent transition-colors truncate">{data.label}</h4>
       <div className="h-1.5 w-full bg-white/[0.05] rounded-full overflow-hidden border border-white/5">
         <div 
-          className="h-full bg-theme-accent shadow-[0_0_12px_rgba(0,122,255,0.6)] transition-all duration-700 ease-out" 
+          className="h-full bg-theme-accent shadow-[0_0_12px_rgba(59,130,246,0.6)] transition-all duration-700 ease-out" 
           style={{ width: `${Math.min(100, (data.touch / (data.touch + data.wait + 0.1)) * 100)}%` }} 
         />
       </div>
@@ -119,9 +124,10 @@ const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
   return { nodes, edges };
 };
 
-const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave }) => {
-  const [view, setView] = useState<'table' | 'flow' | 'grid'>('table');
+const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, workflowMetadata, onSave }) => {
+  const [view, setView] = useState<'table' | 'flow'>('flow');
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [metadata, setMetadata] = useState(workflowMetadata);
   const [selectedTaskId, setSelectedTaskId] = useState<string | number | null>(null);
   
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
@@ -170,8 +176,24 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
     setSelectedTaskId(node.id);
   };
 
+  const totalWorkflowROI = useMemo(() => {
+    const taskROI = tasks.reduce((acc, t) => {
+      const touchTotal = t.active_touch_time_minutes * t.occurrences_per_cycle;
+      const errorBuffer = t.errors?.reduce((eAcc, e) => eAcc + (e.probability_percent / 100 * e.recovery_time_minutes), 0) || 0;
+      return acc + touchTotal + errorBuffer;
+    }, 0);
+    
+    // Scale by cadence
+    let scale = 1.0;
+    if (metadata.cadence_unit === 'day') scale = 30.44;
+    else if (metadata.cadence_unit === 'week') scale = 4.34;
+    else if (metadata.cadence_unit === 'year') scale = 1/12;
+    
+    return (taskROI * metadata.cadence_count * scale / 60).toFixed(1);
+  }, [tasks, metadata]);
+
   return (
-    <div className="apple-card !p-0 flex flex-col h-full overflow-hidden relative shadow-2xl border-theme-border bg-[#05070a]">
+    <div className="apple-card !p-0 flex flex-col h-full overflow-hidden relative shadow-2xl border-theme-border bg-[#0a1120]">
       {/* Precision Toolbar */}
       <div className="h-16 border-b border-theme-border flex items-center justify-between px-8 bg-white/[0.02] backdrop-blur-xl z-20">
         <div className="flex items-center gap-4">
@@ -180,12 +202,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
           </div>
           <div className="flex flex-col">
             <span className="text-[13px] font-black text-white tracking-tight">Strategy Architect</span>
-            <span className="text-[10px] text-theme-muted font-bold uppercase tracking-[0.2em] opacity-40">Logic Engine v1.2.6</span>
+            <span className="text-[10px] text-theme-muted font-bold uppercase tracking-[0.2em] opacity-40">PathOS Core v1.3.0</span>
           </div>
         </div>
         <div className="flex items-center gap-6">
           <div className="flex bg-black/40 p-1 rounded-full border border-theme-border">
-            {['table', 'flow'].map((v) => (
+            {['flow', 'table'].map((v) => (
               <button 
                 key={v}
                 onClick={() => setView(v as any)} 
@@ -195,7 +217,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
               </button>
             ))}
           </div>
-          <button onClick={() => onSave(tasks)} className="btn-apple-primary flex items-center gap-2.5 px-8 !py-2.5 !text-[12px] font-bold shadow-theme-accent/20 shadow-lg">
+          <button onClick={() => onSave(tasks, metadata)} className="btn-apple-primary flex items-center gap-2.5 px-8 !py-2.5 !text-[12px] font-bold shadow-theme-accent/20 shadow-lg">
             <Save size={16} /> Sync Changes
           </button>
         </div>
@@ -204,20 +226,20 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden relative">
           {view === 'table' ? (
-            <div className="flex-1 overflow-auto p-10 custom-scrollbar space-y-4 bg-black/20">
+            <div className="flex-1 overflow-auto p-10 custom-scrollbar space-y-4 bg-black/10">
               {tasks.map((task, index) => (
                 <div 
                   key={task.id} 
-                  className={`border transition-all duration-300 rounded-2xl group ${selectedTaskId === task.id ? 'border-theme-accent bg-theme-accent/[0.04] shadow-[0_0_30px_rgba(0,122,255,0.1)] scale-[1.01]' : 'border-theme-border bg-white/[0.01] hover:bg-white/[0.03] hover:border-theme-border-bright'}`}
+                  className={`border transition-all duration-300 rounded-2xl group ${selectedTaskId === task.id ? 'border-theme-accent bg-theme-accent/[0.04]' : 'border-theme-border bg-white/[0.01] hover:bg-white/[0.03]'}`}
                   onClick={() => setSelectedTaskId(task.id)}
                 >
                   <div className="flex items-center gap-8 px-8 py-5 cursor-pointer">
                     <span className="text-[11px] font-black text-theme-muted group-hover:text-theme-accent transition-colors w-8">{String(index + 1).padStart(2, '0')}</span>
                     <div className="flex-1 flex items-center gap-12">
                       <div className="flex flex-col min-w-[280px]">
-                        <span className="text-[15px] font-black text-white tracking-tight group-hover:text-theme-accent transition-colors truncate">{task.name || "Untitled Operation"}</span>
+                        <span className="text-[15px] font-black text-white tracking-tight group-hover:text-theme-accent transition-colors truncate">{task.name || "Untitled Node"}</span>
                         <div className="flex items-center gap-4 mt-1.5">
-                          <span className="text-[10px] font-black text-theme-accent uppercase tracking-widest">{task.target_system || "Local"}</span>
+                          <span className="text-[10px] font-black text-theme-accent uppercase tracking-widest">{task.target_system || "SYSTEM"}</span>
                           <span className="w-1.5 h-1.5 rounded-full bg-white/10" />
                           <span className="text-[10px] font-bold text-theme-secondary uppercase tracking-widest">{task.interface_type || "GUI"}</span>
                         </div>
@@ -225,26 +247,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
                       
                       <div className="flex items-center gap-12 border-l border-white/5 pl-12">
                         <div className="flex flex-col">
-                          <span className="text-[9px] font-black text-theme-muted uppercase tracking-[0.2em] mb-2 opacity-50">Touch Time</span>
+                          <span className="text-[9px] font-black text-theme-muted uppercase tracking-[0.2em] mb-2 opacity-50">Touch</span>
                           <span className="text-[16px] font-black text-white">{task.active_touch_time_minutes}<span className="text-[10px] ml-1 text-theme-muted">m</span></span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-[9px] font-black text-theme-muted uppercase tracking-[0.2em] mb-2 opacity-50">Wait Time</span>
+                          <span className="text-[9px] font-black text-theme-muted uppercase tracking-[0.2em] mb-2 opacity-50">Wait</span>
                           <span className="text-[16px] font-black text-theme-secondary">{task.machine_wait_time_minutes}<span className="text-[10px] ml-1 text-theme-muted">m</span></span>
                         </div>
-                      </div>
-
-                      <div className="flex-1 flex items-center gap-4 justify-end pr-8">
-                        {task.risks_yield_scrap && (
-                          <div className="p-2 bg-status-error/10 rounded-xl text-status-error border border-status-error/20 animate-pulse">
-                            <AlertTriangle size={16} />
-                          </div>
-                        )}
-                        {task.blockers && task.blockers.length > 0 && (
-                          <span className="px-3 py-1 bg-status-warning/10 text-status-warning text-[10px] font-black rounded-lg border border-status-warning/20 flex items-center gap-2">
-                            <ShieldAlert size={12} /> {task.blockers.length} ISSUES
-                          </span>
-                        )}
                       </div>
                     </div>
                     
@@ -255,13 +264,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
                   </div>
                 </div>
               ))}
-              <button onClick={() => setTasks([...tasks, { id: `new-${Date.now()}`, name: 'New Operation Node', description: '', target_system: 'SME_LOCAL', interface_type: 'GUI', active_touch_time_minutes: 0, machine_wait_time_minutes: 0, occurrences_per_cycle: 1, shadow_it_used: false, risks_yield_scrap: false, order_index: tasks.length, blockers: [], errors: [] }])} 
+              <button onClick={() => setTasks([...tasks, { id: `new-${Date.now()}`, name: 'New Operation Node', description: '', target_system: 'SYSTEM', interface_type: 'GUI', active_touch_time_minutes: 0, machine_wait_time_minutes: 0, occurrences_per_cycle: 1, shadow_it_used: false, risks_yield_scrap: false, order_index: tasks.length, blockers: [], errors: [] }])} 
                 className="w-full py-8 border-2 border-dashed border-theme-border rounded-2xl hover:border-theme-accent/50 hover:bg-theme-accent/[0.03] text-[12px] font-black text-theme-muted hover:text-theme-accent transition-all group flex items-center justify-center gap-4 uppercase tracking-[0.2em]">
-                <Zap size={18} className="group-hover:scale-125 transition-transform text-theme-accent" /> Register New Operation Node
+                <Zap size={18} className="group-hover:scale-125 transition-transform text-theme-accent" /> Register New Node
               </button>
             </div>
           ) : (
-            <div className="flex-1 bg-[#020305] relative">
+            <div className="flex-1 bg-[#050b18] relative">
               <ReactFlow 
                 nodes={nodes} 
                 edges={edges} 
@@ -269,251 +278,161 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
                 onNodesChange={onNodesChange} 
                 onEdgesChange={onEdgesChange} 
                 onNodeClick={onNodeClick}
+                onPaneClick={() => setSelectedTaskId(null)}
                 fitView 
                 className="bg-transparent"
               >
-                <Background variant={BackgroundVariant.Dots} color="rgba(0,122,255,0.1)" gap={40} size={1} />
-                <Controls className="!bg-[#05070a] !border-theme-border !shadow-2xl" />
+                <Background variant={BackgroundVariant.Dots} color="rgba(59,130,246,0.1)" gap={40} size={1} />
+                <Controls className="!bg-[#0a1120] !border-theme-border !shadow-2xl" />
               </ReactFlow>
             </div>
           )}
         </div>
 
-        {/* Right-Side Property Inspector (Linear Overhaul) */}
-        {selectedTaskId && selectedTask && (
-          <div className="w-[520px] border-l border-theme-border bg-[#0a0c10]/80 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-500 z-30 shadow-2xl">
-            <div className="h-16 flex items-center justify-between px-8 border-b border-theme-border bg-white/[0.02]">
-              <div className="flex items-center gap-4">
-                <div className="p-2.5 bg-theme-accent/10 rounded-xl border border-theme-accent/20">
-                  <Cpu size={20} className="text-theme-accent" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[13px] font-black text-white">Node Inspector</span>
-                  <span className="text-[10px] text-theme-muted font-bold uppercase tracking-widest opacity-40">Property Matrix</span>
-                </div>
+        {/* Right-Side Property Inspector */}
+        <div className="w-[520px] border-l border-theme-border bg-[#0a1120]/90 backdrop-blur-3xl flex flex-col z-30 shadow-2xl overflow-hidden">
+          <div className="h-16 flex items-center justify-between px-8 border-b border-theme-border bg-white/[0.02]">
+            <div className="flex items-center gap-4">
+              <div className="p-2.5 bg-theme-accent/10 rounded-xl border border-theme-accent/20">
+                {selectedTaskId ? <Cpu size={20} className="text-theme-accent" /> : <Layers size={20} className="text-theme-accent" />}
               </div>
+              <div className="flex flex-col">
+                <span className="text-[13px] font-black text-white">{selectedTaskId ? "Node Inspector" : "Workflow Context"}</span>
+                <span className="text-[10px] text-theme-muted font-bold uppercase tracking-widest opacity-40">{selectedTaskId ? "Property Matrix" : "Global Settings"}</span>
+              </div>
+            </div>
+            {selectedTaskId && (
               <button onClick={() => setSelectedTaskId(null)} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/5 text-theme-muted hover:text-white transition-all">
                 <X size={22} />
               </button>
-            </div>
-
-            {/* Linear Property List */}
-            <div className="flex-1 overflow-auto custom-scrollbar p-10 space-y-12 pb-20">
-              
-              {/* Section: Core Identity */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 text-theme-accent font-bold px-2">
-                  <Layers size={16} />
-                  <span className="text-[11px] tracking-[0.2em] uppercase">Core Identity</span>
-                </div>
-                <div className="space-y-6 bg-white/[0.02] border border-theme-border p-6 rounded-2xl shadow-inner">
-                  <div className="space-y-2.5">
-                    <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">Operation Label</label>
-                    <input className="input-apple !bg-black/60 font-black text-[15px] text-white focus:border-theme-accent" value={selectedTask.name} onChange={e => updateTask(selectedTask.id, 'name', e.target.value)} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2.5">
-                      <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">Target Infrastructure</label>
-                      <input className="input-apple !bg-black/60 font-black text-[13px] text-theme-accent" value={selectedTask.target_system} onChange={e => updateTask(selectedTask.id, 'target_system', e.target.value)} />
-                    </div>
-                    <div className="space-y-2.5">
-                      <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">Interface Protocol</label>
-                      <div className="relative">
-                        <select className="input-apple !bg-black/60 font-black text-[13px] text-white appearance-none pr-10 focus:border-theme-accent" value={selectedTask.interface_type} onChange={e => updateTask(selectedTask.id, 'interface_type', e.target.value)}>
-                          <option value="GUI">GUI (User Interface)</option>
-                          <option value="API">API (REST/SOAP)</option>
-                          <option value="DB">Database (SQL)</option>
-                          <option value="File">Local File (CSV/XML)</option>
-                        </select>
-                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-theme-muted pointer-events-none" size={14} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Operational Cadence */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 text-status-success font-bold px-2">
-                  <Timer size={16} />
-                  <span className="text-[11px] tracking-[0.2em] uppercase">Operational Cadence</span>
-                </div>
-                <div className="bg-theme-accent/[0.03] border border-theme-accent/20 p-8 rounded-2xl shadow-inner space-y-8">
-                  <div className="grid grid-cols-2 gap-8">
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-black text-theme-accent uppercase tracking-widest px-1">Active Touch</label>
-                      <div className="relative">
-                        <input type="number" className="input-apple !bg-black/80 font-black text-2xl text-white text-center h-20 !pt-6 border-theme-accent/30 focus:border-theme-accent" value={selectedTask.active_touch_time_minutes} onChange={e => updateTask(selectedTask.id, 'active_touch_time_minutes', parseFloat(e.target.value))} />
-                        <span className="absolute bottom-2 left-0 right-0 text-center text-[9px] font-black text-theme-accent uppercase tracking-widest opacity-40">MINUTES</span>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">Machine Wait</label>
-                      <div className="relative">
-                        <input type="number" className="input-apple !bg-black/80 font-black text-2xl text-theme-secondary text-center h-20 !pt-6 border-white/5 focus:border-theme-secondary" value={selectedTask.machine_wait_time_minutes} onChange={e => updateTask(selectedTask.id, 'machine_wait_time_minutes', parseFloat(e.target.value))} />
-                        <span className="absolute bottom-2 left-0 right-0 text-center text-[9px] font-black text-theme-secondary uppercase tracking-widest opacity-40">MINUTES</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-theme-muted uppercase tracking-widest px-1 flex items-center justify-between">
-                      <span>Occurrences Per Cycle</span>
-                      <span className="text-theme-accent opacity-60">Linear Scaling</span>
-                    </label>
-                    <input type="number" className="input-apple !bg-black/80 font-black text-xl text-center h-16 border-white/5" value={selectedTask.occurrences_per_cycle} onChange={e => updateTask(selectedTask.id, 'occurrences_per_cycle', parseInt(e.target.value))} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Data Pipeline */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 text-theme-secondary font-bold px-2">
-                  <Database size={16} />
-                  <span className="text-[11px] tracking-[0.2em] uppercase">Data Pipeline</span>
-                </div>
-                <div className="space-y-8 bg-white/[0.01] border border-theme-border p-6 rounded-2xl">
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1 flex items-center gap-2">
-                      <Activity size={12} className="text-theme-accent" /> Source Inputs
-                    </label>
-                    <textarea className="input-apple !bg-black/60 h-32 resize-none leading-relaxed font-mono text-[12px] text-white focus:border-theme-accent placeholder:text-white/5" placeholder="Define origin of inputs or link upstream..." value={selectedTask.source_data} onChange={e => updateTask(selectedTask.id, 'source_data', e.target.value)} />
-                  </div>
-                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1 flex items-center gap-2">
-                      <FileCode size={12} className="text-theme-accent" /> Output Schema Example
-                    </label>
-                    <textarea className="input-apple !bg-black/60 h-32 resize-none leading-relaxed font-mono text-[12px] text-white focus:border-theme-accent placeholder:text-white/5" placeholder="Paste sample return value or format..." value={selectedTask.output_format_example} onChange={e => updateTask(selectedTask.id, 'output_format_example', e.target.value)} />
-                  </div>
-                  
-                  <div className="space-y-4 pt-4 border-t border-white/5">
-                    <label className="flex items-center justify-between cursor-pointer group p-4 rounded-2xl bg-white/[0.02] border border-theme-border transition-all hover:bg-white/[0.04] hover:border-theme-accent/30">
-                      <span className="text-[12px] font-black text-white flex items-center gap-3">
-                        <Terminal size={18} className="text-theme-accent" /> Shadow IT Redundancy
-                      </span>
-                      <div className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" checked={selectedTask.shadow_it_used} onChange={e => updateTask(selectedTask.id, 'shadow_it_used', e.target.checked)} />
-                        <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-theme-accent"></div>
-                      </div>
-                    </label>
-                    {selectedTask.shadow_it_used && (
-                      <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
-                        <div className="relative">
-                          <input className="input-apple !bg-black/80 font-mono text-[11px] text-theme-accent pl-10 border-theme-accent/20" placeholder="https://internal-repo.samsung.net/..." value={selectedTask.shadow_it_link} onChange={e => updateTask(selectedTask.id, 'shadow_it_link', e.target.value)} />
-                          <LinkIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 text-theme-accent/50" size={14} />
-                        </div>
-                        <p className="text-[10px] text-theme-muted font-bold normal-case px-2 opacity-50">Link to existing scripts or macros currently handling this logic.</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Scrap Risk & Blockers */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 text-status-error font-bold px-2">
-                  <ShieldAlert size={16} />
-                  <span className="text-[11px] tracking-[0.2em] uppercase">Security & Risk</span>
-                </div>
-                
-                <div className="space-y-8">
-                  <div className="bg-status-error/[0.03] border border-status-error/20 p-8 rounded-2xl shadow-inner space-y-8">
-                    <div className="flex items-center justify-between border-b border-status-error/10 pb-6">
-                      <div className="flex flex-col">
-                        <span className="text-[13px] font-black text-white flex items-center gap-2"><AlertTriangle size={16} className="text-status-error" /> Yield Scrap Risk</span>
-                        <span className="text-[10px] text-theme-muted font-bold normal-case mt-1 opacity-60">Does failure result in hardware loss?</span>
-                      </div>
-                      <div className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" checked={selectedTask.risks_yield_scrap} onChange={e => updateTask(selectedTask.id, 'risks_yield_scrap', e.target.checked)} />
-                        <div className="w-14 h-7 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-status-error"></div>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">Tribal Knowledge & System Quirks</label>
-                      <textarea className="input-apple !bg-black/80 h-32 resize-none leading-relaxed text-[13px] text-white focus:border-status-error placeholder:text-white/5" placeholder="Undocumented system quirks or module folklore..." value={selectedTask.tribal_knowledge} onChange={e => updateTask(selectedTask.id, 'tribal_knowledge', e.target.value)} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-6 bg-white/[0.01] border border-theme-border p-6 rounded-2xl">
-                    <div className="flex items-center justify-between px-2">
-                      <h4 className="text-[11px] font-black text-white tracking-[0.2em] uppercase flex items-center gap-3">
-                         <Box size={14} className="text-status-warning" /> Structural Blockers
-                      </h4>
-                      <button onClick={() => addBlocker(selectedTask.id)} className="text-[10px] font-black text-theme-accent hover:text-white transition-all bg-theme-accent/10 px-3 py-1.5 rounded-lg border border-theme-accent/20">+ REGISTER</button>
-                    </div>
-                    <div className="space-y-4">
-                      {selectedTask.blockers?.map((b, bi) => (
-                        <div key={bi} className="bg-black/60 border border-theme-border p-5 rounded-2xl space-y-5 relative group hover:border-status-warning/40 transition-all shadow-xl animate-in slide-in-from-right-4">
-                          <button onClick={() => {
-                            const nb = [...(selectedTask.blockers || [])];
-                            nb.splice(bi, 1);
-                            updateTask(selectedTask.id, 'blockers', nb);
-                          }} className="absolute top-4 right-4 text-theme-muted hover:text-status-error transition-all p-1.5 hover:bg-status-error/10 rounded-lg"><Trash2 size={16} /></button>
-                          
-                          <div className="flex items-center gap-5">
-                            <div className="flex-1 space-y-2.5">
-                              <label className="text-[9px] font-black text-theme-muted uppercase tracking-widest">Entity</label>
-                              <div className="relative">
-                                <select className="input-apple !bg-black font-black text-[12px] text-status-warning appearance-none pr-10 border-status-warning/20" value={b.blocking_entity} onChange={e => {
-                                  const nb = [...(selectedTask.blockers || [])];
-                                  nb[bi] = { ...nb[bi], blocking_entity: e.target.value };
-                                  updateTask(selectedTask.id, 'blockers', nb);
-                                }}>
-                                  <option value="PIE">PIE</option><option value="YE">YE</option><option value="MODULE">Module</option><option value="IT">IT/Network</option><option value="VENDOR">Vendor</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-status-warning/50" size={12} />
-                              </div>
-                            </div>
-                            <div className="flex-1 space-y-2.5">
-                              <label className="text-[9px] font-black text-theme-muted uppercase tracking-widest">Avg Delay</label>
-                              <div className="relative">
-                                <input type="number" className="input-apple !bg-black font-black text-[13px] text-white pr-10 border-white/5" value={b.average_delay_minutes} onChange={e => {
-                                  const nb = [...(selectedTask.blockers || [])];
-                                  nb[bi] = { ...nb[bi], average_delay_minutes: parseFloat(e.target.value) };
-                                  updateTask(selectedTask.id, 'blockers', nb);
-                                }} />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-theme-muted uppercase">min</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="space-y-2.5">
-                             <label className="text-[9px] font-black text-theme-muted uppercase tracking-widest">Root Cause Reason</label>
-                             <input className="input-apple !bg-black text-[13px] text-white border-white/5 focus:border-status-warning/50" placeholder="Describe the structural bottleneck..." value={b.reason} onChange={e => {
-                              const nb = [...(selectedTask.blockers || [])];
-                              nb[bi] = { ...nb[bi], reason: e.target.value };
-                              updateTask(selectedTask.id, 'blockers', nb);
-                            }} />
-                          </div>
-                        </div>
-                      ))}
-                      {(!selectedTask.blockers || selectedTask.blockers.length === 0) && (
-                        <div className="py-10 border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center gap-3 opacity-20">
-                          <Info size={24} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">No Active Blockers</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* ROI Footer (Enhanced) */}
-            <div className="p-8 border-t border-theme-border bg-white/[0.03] backdrop-blur-3xl flex items-center justify-between">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-black text-theme-muted uppercase tracking-[0.2em] mb-2">Projected ROI Reclaimed</span>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-4xl font-black text-white tracking-tighter">
-                    {((selectedTask.active_touch_time_minutes * selectedTask.occurrences_per_cycle) + (selectedTask.errors?.reduce((acc, e) => acc + (e.probability_percent / 100 * e.recovery_time_minutes), 0) || 0)).toFixed(1)}
-                  </span>
-                  <span className="text-[12px] font-black text-theme-accent uppercase tracking-widest">min / cycle</span>
-                </div>
-              </div>
-              <button className="btn-apple-secondary !px-8 !py-4 flex items-center gap-3 font-bold text-[13px] hover:bg-white/10 hover:border-white/20 group">
-                <FileText size={18} className="group-hover:text-theme-accent transition-colors" /> Export SOP
-              </button>
-            </div>
+            )}
           </div>
-        )}
+
+          <div className="flex-1 overflow-auto custom-scrollbar p-10 space-y-12 pb-20">
+            {selectedTask ? (
+              <>
+                {/* Task-specific settings */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 text-theme-accent font-bold px-2">
+                    <Layers size={16} />
+                    <span className="text-[11px] tracking-[0.2em] uppercase">Core Identity</span>
+                  </div>
+                  <div className="space-y-6 bg-white/[0.02] border border-theme-border p-6 rounded-2xl">
+                    <div className="space-y-2.5">
+                      <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">Node Label</label>
+                      <input className="input-apple !bg-black/60 font-black text-[15px] text-white" value={selectedTask.name} onChange={e => updateTask(selectedTask.id, 'name', e.target.value)} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div className="space-y-2.5">
+                        <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">System</label>
+                        <input className="input-apple !bg-black/60 font-black text-[13px] text-theme-accent" value={selectedTask.target_system} onChange={e => updateTask(selectedTask.id, 'target_system', e.target.value)} />
+                      </div>
+                      <div className="space-y-2.5">
+                        <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">Protocol</label>
+                        <select className="input-apple !bg-black/60 font-black text-[13px] text-white" value={selectedTask.interface_type} onChange={e => updateTask(selectedTask.id, 'interface_type', e.target.value)}>
+                          <option value="GUI">GUI</option><option value="API">API</option><option value="DB">DB</option><option value="File">File</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 text-status-success font-bold px-2">
+                    <Timer size={16} />
+                    <span className="text-[11px] tracking-[0.2em] uppercase">Task Effort</span>
+                  </div>
+                  <div className="bg-theme-accent/[0.03] border border-theme-accent/20 p-8 rounded-2xl space-y-8">
+                    <div className="grid grid-cols-2 gap-8">
+                      <div className="space-y-3 text-center">
+                        <label className="text-[10px] font-black text-theme-accent uppercase tracking-widest">Touch</label>
+                        <input type="number" className="input-apple !bg-black/80 font-black text-2xl text-white text-center h-20" value={selectedTask.active_touch_time_minutes} onChange={e => updateTask(selectedTask.id, 'active_touch_time_minutes', parseFloat(e.target.value))} />
+                      </div>
+                      <div className="space-y-3 text-center">
+                        <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest">Wait</label>
+                        <input type="number" className="input-apple !bg-black/80 font-black text-2xl text-theme-secondary text-center h-20" value={selectedTask.machine_wait_time_minutes} onChange={e => updateTask(selectedTask.id, 'machine_wait_time_minutes', parseFloat(e.target.value))} />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Global Workflow settings */}
+                <div className="space-y-8 animate-in fade-in duration-500">
+                  <div className="flex flex-col items-center text-center p-8 bg-theme-accent/5 border border-theme-accent/10 rounded-3xl">
+                    <div className="w-16 h-16 bg-theme-accent/10 rounded-2xl flex items-center justify-center text-theme-accent mb-6">
+                      <Activity size={32} />
+                    </div>
+                    <h3 className="text-header-sub text-white">Operational Cadence</h3>
+                    <p className="text-subtext mt-2">Adjust the execution frequency to recalculate total ROI yield.</p>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-3 text-theme-accent font-bold px-2">
+                      <Clock size={16} />
+                      <span className="text-[11px] tracking-[0.2em] uppercase">Frequency Matrix</span>
+                    </div>
+                    
+                    <div className="apple-card space-y-8 !bg-black/20 border-theme-border p-8">
+                      <div className="flex items-center gap-6">
+                        <div className="flex-1 space-y-3">
+                          <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest">Executions</label>
+                          <input 
+                            type="number" 
+                            step="0.1"
+                            className="input-apple !bg-black/60 font-black text-3xl text-white text-center h-24 border-theme-accent/20 focus:border-theme-accent" 
+                            value={metadata.cadence_count}
+                            onChange={e => setMetadata({ ...metadata, cadence_count: parseFloat(e.target.value) })}
+                          />
+                        </div>
+                        <div className="w-32 space-y-3">
+                          <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest">Unit</label>
+                          <div className="h-24 bg-black/60 border border-theme-border rounded-2xl flex items-center justify-center">
+                            <select 
+                              className="bg-transparent text-white font-black text-center w-full h-full appearance-none cursor-pointer uppercase text-[12px]"
+                              value={metadata.cadence_unit}
+                              onChange={e => setMetadata({ ...metadata, cadence_unit: e.target.value })}
+                            >
+                              <option value="day">Day</option>
+                              <option value="week">Week</option>
+                              <option value="month">Month</option>
+                              <option value="year">Year</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="apple-card !bg-status-success/5 border-status-success/20 p-8 space-y-4">
+                    <div className="flex items-center gap-3 text-status-success font-black text-[11px] uppercase tracking-widest">
+                      <Zap size={14} /> Efficiency Summary
+                    </div>
+                    <p className="text-main-content opacity-70">
+                      Based on current {tasks.length} node(s) and {metadata.cadence_count}/{metadata.cadence_unit} execution cadence.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="p-8 border-t border-theme-border bg-white/[0.03] backdrop-blur-3xl flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-theme-muted uppercase tracking-[0.2em] mb-2">Total Monthly ROI</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-4xl font-black text-white tracking-tighter">
+                  {totalWorkflowROI}
+                </span>
+                <span className="text-[12px] font-black text-theme-accent uppercase tracking-widest">Hours</span>
+              </div>
+            </div>
+            <button className="btn-apple-secondary !px-8 !py-4 flex items-center gap-3 font-bold text-[13px] hover:bg-white/10 hover:border-white/20 group">
+              <FileText size={18} className="group-hover:text-theme-accent transition-colors" /> SOP Export
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

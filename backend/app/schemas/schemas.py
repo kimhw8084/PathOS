@@ -78,7 +78,8 @@ class WorkflowBase(BaseModel):
     tool_family: Optional[str] = None
     trigger_type: str
     trigger_description: str
-    frequency: float
+    cadence_count: float = 1.0
+    cadence_unit: str = "week" # day, week, month, year
     output_type: str
     output_description: str
     repeatability_check: bool = True
@@ -97,6 +98,34 @@ class WorkflowRead(WorkflowBase):
     total_roi_saved_hours: float
     tasks: List[TaskRead] = []
     created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class SystemParameterBase(BaseModel):
+    label: str
+    description: Optional[str] = None
+    is_dynamic: bool = False
+    manual_values: Optional[List[str]] = []
+    python_code: Optional[str] = None
+
+class SystemParameterUpdate(SystemParameterBase):
+    pass
+
+class SystemParameterRead(SystemParameterBase):
+    key: str
+    last_executed: Optional[datetime] = None
+    cached_values: Optional[List[Any]] = None
+    pending_values: Optional[List[Any]] = None
+    has_discrepancy: bool = False
+    model_config = ConfigDict(from_attributes=True)
+
+class ParameterLogRead(BaseModel):
+    id: int
+    parameter_key: str
+    timestamp: datetime
+    status: str
+    message: Optional[str] = None
+    found_values: Optional[List[Any]] = None
+    execution_time: Optional[float] = None
     model_config = ConfigDict(from_attributes=True)
 
 class AuditLogRead(BaseModel):
