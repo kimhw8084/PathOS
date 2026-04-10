@@ -66,6 +66,15 @@ async def global_exception_handler(request: Request, exc: Exception):
         }
     )
 
+@app.get("/")
+async def root():
+    return {
+        "message": "Welcome to the PathOS API",
+        "status": "online",
+        "docs": "/docs",
+        "health": "/health"
+    }
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "PathOS", "version": "1.0.0"}
