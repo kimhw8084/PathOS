@@ -1,29 +1,32 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   
-  /* High-Tech Midnight Palette */
-  --color-theme-bg: #050505;
-  --color-theme-card: #0d0d0d;
-  --color-theme-header: #0a0a0a;
-  --color-theme-glass: rgba(13, 13, 13, 0.9);
-  --color-theme-border: #1a1a1a;
-  --color-theme-border-bright: #262626;
-  --color-theme-primary: #e5e5e5;
-  --color-theme-secondary: #a3a3a3;
-  --color-theme-muted: #525252;
-  --color-theme-accent: #0071e3; 
-  --color-theme-accent-glow: rgba(0, 113, 227, 0.2);
-  --color-theme-sidebar: #080808;
-  --color-theme-active: #171717;
+  /* PathOS Midnight - Apple Pro Palette */
+  --color-theme-bg: #05070a; /* True Midnight */
+  --color-theme-card: rgba(23, 28, 41, 0.7);
+  --color-theme-header: rgba(10, 14, 23, 0.8);
+  --color-theme-glass: rgba(15, 21, 35, 0.6);
+  --color-theme-border: rgba(255, 255, 255, 0.08);
+  --color-theme-border-bright: rgba(255, 255, 255, 0.15);
+  --color-theme-primary: #f8fafc;
+  --color-theme-secondary: #94a3b8;
+  --color-theme-muted: #64748b;
   
-  /* Precision Status Colors */
-  --color-status-success: #22c55e;
-  --color-status-warning: #f59e0b;
-  --color-status-error: #ef4444;
-  --color-status-info: #3b82f6;
+  /* Precision Accent - Samsung Blue Pro */
+  --color-theme-accent: #007AFF; /* Apple Blue inspired by Samsung Blue */
+  --color-theme-accent-glow: rgba(0, 122, 255, 0.4);
+  
+  --color-theme-sidebar: #0a0e17;
+  --color-theme-active: rgba(255, 255, 255, 0.05);
+  
+  /* Status */
+  --color-status-success: #34c759;
+  --color-status-warning: #ff9f0a;
+  --color-status-error: #ff3b30;
+  --color-status-info: #007AFF;
 }
 
 @layer base {
@@ -31,83 +34,177 @@
     background-color: var(--color-theme-bg);
     color: var(--color-theme-primary);
     @apply font-sans antialiased;
-    font-size: 13px;
+    font-size: 10px; /* Main content default */
     letter-spacing: -0.01em;
+  }
+
+  /* Smooth scroll for the entire app */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight;
   }
 }
 
 @layer components {
-  .apple-card {
-    @apply bg-theme-card border border-theme-border rounded-lg p-4 transition-colors hover:border-theme-border-bright;
+  /* Typography System */
+  .text-header-main {
+    @apply text-2xl font-bold tracking-tight text-theme-primary;
+    line-height: 1.2;
   }
 
+  .text-header-sub {
+    @apply text-lg font-semibold tracking-tight text-theme-secondary;
+    line-height: 1.3;
+  }
+
+  .text-main-content {
+    @apply text-[10px] leading-relaxed text-theme-primary/90 font-normal;
+  }
+
+  .text-hint {
+    @apply text-[9px] font-medium text-theme-muted uppercase tracking-widest;
+  }
+
+  .text-subtext {
+    @apply text-[11px] font-medium text-theme-secondary;
+  }
+
+  .text-nav {
+    @apply text-[13px] font-semibold tracking-tight;
+  }
+
+  .text-btn {
+    @apply text-[12px] font-bold tracking-wide uppercase;
+  }
+
+  /* Containers */
+  .apple-glass {
+    @apply bg-theme-glass backdrop-blur-xl border border-theme-border;
+  }
+
+  .apple-card {
+    @apply bg-theme-card backdrop-blur-md border border-theme-border rounded-[20px] p-6 transition-all duration-300 hover:border-theme-border-bright hover:shadow-[0_8px_30px_rgb(0,0,0,0.4)] shadow-[0_4px_20px_rgba(0,0,0,0.2)];
+  }
+
+  .apple-card-inset {
+    @apply bg-black/20 border border-theme-border rounded-xl p-4 inner-shadow;
+  }
+
+  /* Interactive Elements */
   .btn-apple-primary {
-    @apply px-4 py-1.5 bg-theme-primary text-black rounded font-semibold text-xs transition-opacity hover:opacity-90 active:scale-[0.98] disabled:opacity-20;
+    @apply px-5 py-2.5 bg-theme-accent text-white rounded-full text-btn transition-all duration-200 hover:brightness-110 active:scale-[0.97] disabled:opacity-30 shadow-[0_0_20px_rgba(0,122,255,0.3)];
   }
 
   .btn-apple-secondary {
-    @apply px-4 py-1.5 bg-white/[0.03] border border-theme-border text-theme-primary rounded font-medium text-xs transition-colors hover:bg-white/[0.06] active:scale-[0.98];
+    @apply px-5 py-2.5 bg-white/[0.05] border border-theme-border text-theme-primary rounded-full text-btn backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.08] active:scale-[0.97];
   }
 
   .sidebar-item {
-    @apply flex items-center gap-2.5 px-3 py-2 rounded transition-colors text-theme-secondary hover:text-theme-primary hover:bg-white/[0.03];
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-theme-secondary hover:text-theme-primary hover:bg-white/[0.04] text-nav;
   }
 
   .sidebar-item-active {
-    @apply text-theme-primary bg-theme-active border-l-2 border-theme-accent rounded-l-none;
+    @apply text-theme-primary bg-white/[0.08] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)];
   }
 
   .input-apple {
-    @apply w-full bg-white/[0.02] border border-theme-border rounded p-2 text-xs text-theme-primary placeholder:text-theme-muted focus:border-theme-accent outline-none transition-all;
+    @apply w-full bg-black/20 border border-theme-border rounded-xl px-4 py-2.5 text-[12px] text-theme-primary placeholder:text-theme-muted focus:border-theme-accent focus:ring-1 focus:ring-theme-accent outline-none transition-all duration-200;
+  }
+
+  .status-badge {
+    @apply px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider;
   }
 }
 
-/* Ag-Grid: Precision Dark Configuration */
+/* Ag-Grid: Apple Pro Edition */
 .ag-theme-quartz-dark {
-  --ag-background-color: #0d0d0d !important;
-  --ag-header-background-color: #0a0a0a !important;
-  --ag-odd-row-background-color: #0f0f0f !important;
-  --ag-border-color: #1a1a1a !important;
-  --ag-row-border-color: #1a1a1a !important;
+  --ag-background-color: transparent !important;
+  --ag-header-background-color: rgba(255, 255, 255, 0.02) !important;
+  --ag-odd-row-background-color: transparent !important;
+  --ag-border-color: rgba(255, 255, 255, 0.08) !important;
+  --ag-row-border-color: rgba(255, 255, 255, 0.05) !important;
   --ag-font-family: 'Inter', sans-serif !important;
-  --ag-font-size: 12px !important;
-  --ag-header-foreground-color: #a3a3a3 !important;
-  --ag-data-color: #e5e5e5 !important;
-  --ag-selected-row-background-color: rgba(0, 113, 227, 0.1) !important;
-  --ag-row-hover-color: rgba(255, 255, 255, 0.02) !important;
-  --ag-header-height: 36px !important;
-  --ag-row-height: 40px !important;
-  --ag-list-item-height: 32px !important;
+  --ag-font-size: 11px !important;
+  --ag-header-foreground-color: #94a3b8 !important;
+  --ag-data-color: #f1f5f9 !important;
+  --ag-selected-row-background-color: rgba(0, 122, 255, 0.15) !important;
+  --ag-row-hover-color: rgba(255, 255, 255, 0.03) !important;
+  --ag-header-height: 54px !important;
+  --ag-row-height: 64px !important;
+  --ag-card-radius: 20px !important;
+  --ag-checkbox-background-color: transparent !important;
+  --ag-checkbox-checked-color: var(--color-theme-accent) !important;
 }
 
 .ag-grid-apple {
-  border: 1px solid #1a1a1a !important;
-  border-radius: 4px !important;
+  border: none !important;
+  background: transparent !important;
 }
 
-/* React Flow Precision Styling */
+.ag-root-wrapper {
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 20px !important;
+  overflow: hidden !important;
+  background: rgba(19, 27, 43, 0.4) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* Custom selection styling for ag-grid */
+.ag-row-selected {
+  background-color: rgba(0, 122, 255, 0.1) !important;
+}
+
+/* React Flow Apple Canvas Styling */
+.react-flow__background {
+  background: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
 .react-flow__edge-path {
   @apply stroke-theme-muted;
-  stroke-width: 2 !important;
+  stroke-width: 2.5 !important;
+  transition: stroke 0.2s ease, stroke-width 0.2s ease;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  @apply stroke-theme-accent;
+  stroke-width: 3.5 !important;
 }
 
 .react-flow__controls {
-  @apply !bg-theme-card !border-theme-border !shadow-none !rounded-none !m-2;
+  @apply !bg-theme-glass !backdrop-blur-md !border-theme-border !shadow-2xl !rounded-2xl !p-1;
 }
 
 .react-flow__controls-button {
-  @apply !bg-transparent !border-b !border-theme-border !fill-theme-secondary hover:!bg-white/5;
+  @apply !bg-transparent !border-none !fill-theme-secondary hover:!bg-white/10 !rounded-lg transition-colors;
 }
 
-/* Utilities */
+/* Custom Scrollbar - Minimal Apple Style */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #262626;
-  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
 }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-apple-in {
+  animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+

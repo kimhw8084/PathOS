@@ -25,3 +25,9 @@ export const tasksApi = {
   list: (workflowId: number) => apiClient.get(`/tasks/workflow/${workflowId}`).then(res => res.data),
   create: (data: any) => apiClient.post('/tasks', data).then(res => res.data),
 };
+
+export const settingsApi = {
+  listParameters: () => apiClient.get('/settings/parameters').then(res => res.data),
+  updateParameter: (key: string, data: any) => apiClient.put(`/settings/parameters/${key}`, data).then(res => res.data),
+  executeParameter: (key: string) => apiClient.post(`/settings/parameters/${key}/execute`).then(res => res.data),
+};

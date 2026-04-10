@@ -79,8 +79,9 @@ async def root():
 async def health_check():
     return {"status": "healthy", "service": "PathOS", "version": "1.0.0"}
 
-from .api import workflows, taxonomy, tasks
+from .api import workflows, taxonomy, tasks, settings
 
 app.include_router(workflows.router, prefix="/api/workflows", tags=["Workflows"])
 app.include_router(taxonomy.router, prefix="/api/taxonomy", tags=["Taxonomy"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks"])
+app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])

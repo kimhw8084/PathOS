@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   LayoutDashboard, 
   Database, 
@@ -11,89 +11,133 @@ import {
   Bell,
   Search,
   LogOut,
-  X
+  X,
+  Zap,
+  Activity,
+  Cpu,
+  RefreshCw
 } from 'lucide-react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Toaster, toast } from 'react-hot-toast';
-import { workflowsApi, taxonomyApi } from './api/client';
+import { workflowsApi, taxonomyApi, client } from './api/client';
 import IntakeGatekeeper from './components/IntakeGatekeeper';
 import WorkflowRegistry from './components/WorkflowRegistry';
 import ROIDashboard from './components/ROIDashboard';
 import WorkflowBuilder from './components/WorkflowBuilder';
+import SettingsView from './components/SettingsView';
 
 const queryClient = new QueryClient();
+
+// --- Connection Health Component ---
+const ConnectionStatus = () => {
+  const [status, setStatus] = useState<'connected' | 'reconnecting' | 'disconnected'>('connected');
+  const [latency, setLatency] = useState<number>(0);
+
+  useEffect(() => {
+    const checkHealth = async () => {
+      const start = performance.now();
+      try {
+        await client.get('/');
+        setLatency(Math.round(performance.now() - start));
+        setStatus('connected');
+      } catch (err) {
+        setStatus('disconnected');
+      }
+    };
+
+    const interval = setInterval(checkHealth, 5000);
+    checkHealth();
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex items-center gap-2.5 px-3.5 py-1.5 bg-white/[0.03] backdrop-blur-md rounded-full border border-theme-border group transition-all hover:bg-white/[0.06]">
+      <div className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-status-success animate-pulse' : 'bg-status-error'}`} />
+      <span className="text-hint text-theme-secondary group-hover:text-theme-primary transition-colors">
+        {status === 'connected' ? `Synced • ${latency}ms` : 'Offline'}
+      </span>
+    </div>
+  );
+};
 
 // --- Sidebar Component ---
 const GlobalSidebar = ({ isOpen, setOpen, activeTab, setActiveTab }: { isOpen: boolean, setOpen: (v: boolean) => void, activeTab: string, setActiveTab: (v: string) => void }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'workflows', label: 'Workflow Repo', icon: Database },
+    { id: 'workflows', label: 'Workflow Repository', icon: Database },
     { id: 'board', label: 'Automation Board', icon: Kanban },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { id: 'analytics', label: 'System Analytics', icon: BarChart3 },
   ];
 
   const bottomItems = [
     { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'help', label: 'Help / Docs', icon: HelpCircle },
+    { id: 'help', label: 'Help & Docs', icon: HelpCircle },
   ];
 
   return (
-    <aside className={`bg-theme-sidebar border-r border-theme-border flex flex-col transition-all duration-300 ${isOpen ? 'w-64' : 'w-16'} z-30`}>
-      <div className="h-14 flex items-center px-4 border-b border-theme-border justify-between">
-        {isOpen ? (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded bg-theme-accent flex items-center justify-center text-white font-black text-sm">P</div>
-            <span className="font-black text-base tracking-tighter uppercase italic">Path<span className="text-theme-accent">OS</span></span>
+    <aside className={`relative flex flex-col transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isOpen ? 'w-72' : 'w-20'} bg-theme-sidebar border-r border-theme-border z-30`}>
+      <div 
+        className="h-16 flex items-center px-6 mb-4 cursor-pointer group"
+        onClick={() => setActiveTab('dashboard')}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-theme-accent flex items-center justify-center text-white shadow-lg shadow-theme-accent/20 group-hover:scale-110 transition-transform duration-300">
+            <Zap size={18} fill="currentColor" />
           </div>
-        ) : (
-          <div className="w-8 h-8 rounded bg-theme-accent flex items-center justify-center text-white font-black text-sm mx-auto">P</div>
-        )}
+          {isOpen && (
+            <span className="font-extrabold text-xl tracking-tight text-white group-hover:text-theme-accent transition-colors duration-300">
+              Path<span className="text-theme-accent group-hover:text-white">OS</span>
+            </span>
+          )}
+        </div>
       </div>
 
-      <nav className="flex-1 py-4 px-2 space-y-1">
+      <nav className="flex-1 px-3 space-y-1.5">
         {menuItems.map(item => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all group ${activeTab === item.id ? 'bg-theme-active text-theme-accent' : 'text-theme-secondary hover:bg-white/5 hover:text-white'}`}
+            className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-200 group ${activeTab === item.id ? 'sidebar-item-active text-theme-accent' : 'text-theme-secondary hover:bg-white/[0.04] hover:text-white'}`}
           >
-            <item.icon size={18} className={activeTab === item.id ? 'text-theme-accent' : 'text-theme-muted group-hover:text-theme-secondary'} />
-            {isOpen && <span className="text-[13px] font-bold tracking-tight">{item.label}</span>}
+            <item.icon size={20} className={activeTab === item.id ? 'text-theme-accent' : 'text-theme-muted group-hover:text-theme-secondary'} />
+            {isOpen && <span className="text-nav">{item.label}</span>}
           </button>
         ))}
       </nav>
 
-      <div className="px-2 py-4 space-y-1 border-t border-theme-border">
+      <div className="px-3 py-6 space-y-1.5 border-t border-theme-border/50">
         {bottomItems.map(item => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all group ${activeTab === item.id ? 'bg-theme-active text-theme-accent' : 'text-theme-secondary hover:bg-white/5 hover:text-white'}`}
+            className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-200 group ${activeTab === item.id ? 'sidebar-item-active text-theme-accent' : 'text-theme-secondary hover:bg-white/[0.04] hover:text-white'}`}
           >
-            <item.icon size={18} className={activeTab === item.id ? 'text-theme-accent' : 'text-theme-muted group-hover:text-theme-secondary'} />
-            {isOpen && <span className="text-[13px] font-bold tracking-tight">{item.label}</span>}
+            <item.icon size={20} className={activeTab === item.id ? 'text-theme-accent' : 'text-theme-muted group-hover:text-theme-secondary'} />
+            {isOpen && <span className="text-nav">{item.label}</span>}
           </button>
         ))}
         
-        <div className="pt-4 mt-4 border-t border-theme-border">
-          <div className={`flex items-center gap-3 px-3 py-2 ${!isOpen && 'justify-center'}`}>
-            <div className="w-8 h-8 rounded-full bg-theme-active border border-theme-border flex items-center justify-center text-[10px] font-black text-theme-secondary">HK</div>
+        <div className="pt-6 mt-4 border-t border-theme-border/50">
+          <div className={`flex items-center gap-3.5 px-4 py-2 ${!isOpen && 'justify-center'}`}>
+            <div className="w-9 h-9 rounded-full bg-theme-active border border-theme-border/50 overflow-hidden shadow-inner">
+               <img src={`https://ui-avatars.com/api/?name=HK&background=007AFF&color=fff`} alt="HK" className="w-full h-full object-cover" />
+            </div>
             {isOpen && (
               <div className="flex-1 overflow-hidden">
-                <p className="text-[11px] font-black text-white truncate uppercase tracking-tighter leading-none mb-0.5">Haewon Kim</p>
-                <p className="text-[9px] font-bold text-theme-muted uppercase tracking-widest leading-none">Admin_Level_4</p>
+                <p className="text-[13px] font-bold text-white truncate leading-none mb-1">Haewon Kim</p>
+                <p className="text-hint text-theme-muted leading-none">System Administrator</p>
               </div>
             )}
-            {isOpen && <LogOut size={14} className="text-theme-muted hover:text-status-error cursor-pointer" />}
+            {isOpen && <LogOut size={16} className="text-theme-muted hover:text-status-error transition-colors cursor-pointer" />}
           </div>
         </div>
       </div>
 
       <button 
         onClick={() => setOpen(!isOpen)}
-        className="h-10 border-t border-theme-border flex items-center justify-center text-theme-muted hover:text-white transition-colors"
+        className="h-12 border-t border-theme-border/50 flex items-center justify-center text-theme-muted hover:text-white transition-colors"
       >
-        {isOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+        {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
       </button>
     </aside>
   );
@@ -102,32 +146,33 @@ const GlobalSidebar = ({ isOpen, setOpen, activeTab, setActiveTab }: { isOpen: b
 // --- Header Component ---
 const GlobalHeader = ({ activeTab }: { activeTab: string }) => {
   return (
-    <header className="h-14 bg-theme-header border-b border-theme-border flex items-center justify-between px-6 z-20">
-      <div className="flex items-center gap-4">
-        <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-theme-muted flex items-center gap-2">
-          System_Root / <span className="text-white opacity-100">{activeTab}</span>
+    <header className="h-16 bg-theme-header backdrop-blur-xl border-b border-theme-border flex items-center justify-between px-8 z-20 sticky top-0">
+      <div className="flex items-center gap-8">
+        <h2 className="text-hint text-theme-muted flex items-center gap-2">
+          PathOS <span className="opacity-30">/</span> <span className="text-white font-black">{activeTab}</span>
         </h2>
+        
+        <ConnectionStatus />
       </div>
 
       <div className="flex items-center gap-6">
         <div className="relative group">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted group-focus-within:text-theme-accent transition-colors" />
+          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-theme-muted group-focus-within:text-theme-accent transition-colors" />
           <input 
             type="text" 
-            placeholder="Search Global Index..." 
-            className="bg-white/5 border border-theme-border rounded-full px-9 py-1.5 text-[11px] font-bold focus:outline-none focus:border-theme-accent/50 w-64 transition-all focus:bg-white/[0.08]"
+            placeholder="Search commands or data..." 
+            className="bg-white/[0.04] border border-theme-border rounded-full pl-10 pr-12 py-2 text-[13px] font-medium focus:outline-none focus:border-theme-accent/50 w-72 transition-all focus:bg-white/[0.08] focus:ring-1 focus:ring-theme-accent/20"
           />
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-theme-muted border border-theme-border rounded px-1 px-1 opacity-50">CMD+K</div>
+          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-theme-muted bg-white/[0.05] border border-theme-border rounded px-1.5 py-0.5 pointer-events-none">⌘K</div>
         </div>
         
-        <div className="flex items-center gap-3 border-l border-theme-border pl-6">
-          <button className="text-theme-secondary hover:text-theme-primary transition-colors relative p-1.5 hover:bg-white/5 rounded-full">
-            <Bell size={18} />
-            <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-theme-accent rounded-full border-2 border-theme-header" />
+        <div className="flex items-center gap-4 border-l border-theme-border/50 pl-6">
+          <button className="text-theme-secondary hover:text-theme-primary transition-all relative p-2 hover:bg-white/[0.05] rounded-full">
+            <Bell size={20} />
+            <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-theme-accent rounded-full border-2 border-theme-header shadow-[0_0_8px_rgba(0,122,255,0.6)]" />
           </button>
-          <div className="h-4 w-px bg-theme-border mx-1" />
-          <button className="text-[10px] font-black uppercase tracking-widest text-theme-accent bg-theme-accent/5 border border-theme-accent/20 px-3 py-1.5 rounded-sm hover:bg-theme-accent hover:text-white transition-all">
-            Simulate_Load
+          <button className="btn-apple-primary flex items-center gap-2 ml-2">
+            <RefreshCw size={14} /> Sync Status
           </button>
         </div>
       </div>
@@ -179,16 +224,8 @@ const PathOSApp: React.FC = () => {
       <Toaster 
         position="bottom-right"
         toastOptions={{
-          style: {
-            background: '#0a0a0a',
-            color: '#fff',
-            border: '1px solid #1a1a1a',
-            borderRadius: '4px',
-            fontSize: '11px',
-            fontWeight: '900',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em'
-          }
+          className: 'apple-glass border-theme-border text-white text-[13px] font-semibold rounded-2xl shadow-2xl',
+          duration: 4000,
         }}
       />
 
@@ -204,16 +241,18 @@ const PathOSApp: React.FC = () => {
 
         {/* Content Area */}
         <div className="flex-1 overflow-auto custom-scrollbar relative">
-          <div className="max-w-[1600px] mx-auto p-6">
+          <div className="max-w-[1400px] mx-auto p-8 lg:p-12 animate-apple-in">
             {activeTab === 'dashboard' && (
-              <div className="space-y-6">
+              <div className="space-y-10">
                 <ROIDashboard workflows={workflows} />
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between border-b border-theme-border pb-2">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-theme-secondary flex items-center gap-2">
-                      <Database size={14} /> Active Automation Nodes
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between border-b border-theme-border/50 pb-4">
+                    <h3 className="text-header-sub flex items-center gap-2.5">
+                      <Database size={18} className="text-theme-accent" /> Recent Automation Nodes
                     </h3>
-                    <button onClick={() => setActiveTab('workflows')} className="text-[10px] font-black text-theme-accent hover:underline uppercase tracking-widest">Full_Registry</button>
+                    <button onClick={() => setActiveTab('workflows')} className="text-hint text-theme-accent hover:text-white transition-colors flex items-center gap-1.5">
+                      View Full Registry <ChevronRight size={14} />
+                    </button>
                   </div>
                   <WorkflowRegistry workflows={workflows.slice(0, 8)} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} />
                 </div>
@@ -221,23 +260,23 @@ const PathOSApp: React.FC = () => {
             )}
 
             {activeTab === 'workflows' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between border-b border-theme-border pb-4">
+              <div className="space-y-10">
+                <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-xl font-black tracking-tighter uppercase italic">Workflow_Repo</h2>
-                    <p className="text-[11px] text-theme-secondary uppercase tracking-widest font-bold">Master database of all departmental sequences</p>
+                    <h2 className="text-header-main mb-2">Workflow Registry</h2>
+                    <p className="text-subtext">Master database of all active and pending metrology sequences.</p>
                   </div>
-                  <button onClick={() => setActiveTab('intake')} className="bg-theme-accent text-white px-5 py-2 text-[11px] font-black uppercase tracking-widest rounded shadow-[0_0_15px_rgba(var(--theme-accent-rgb),0.3)] hover:scale-[1.02] transition-all flex items-center gap-2">
-                    <Database size={14} /> Map_New_Workflow
+                  <button onClick={() => setActiveTab('intake')} className="btn-apple-primary flex items-center gap-2">
+                    <Database size={16} /> Map New Workflow
                   </button>
                 </div>
                 
                 {/* Ribbon Filters */}
-                <div className="flex items-center gap-2 pb-2">
-                  <button className="px-4 py-1.5 bg-theme-accent text-white text-[10px] font-black uppercase rounded-sm shadow-lg">My Submitted</button>
-                  <button className="px-4 py-1.5 bg-white/5 text-theme-secondary text-[10px] font-black uppercase rounded-sm border border-theme-border hover:border-theme-accent transition-colors">Team Workflows</button>
-                  <button className="px-4 py-1.5 bg-white/5 text-theme-secondary text-[10px] font-black uppercase rounded-sm border border-theme-border hover:border-theme-accent transition-colors">Global Master</button>
-                  <button className="px-4 py-1.5 bg-white/5 text-theme-secondary text-[10px] font-black uppercase rounded-sm border border-theme-border hover:border-theme-accent transition-colors">My Drafts</button>
+                <div className="flex items-center gap-3">
+                  <button className="btn-apple-primary">My Submissions</button>
+                  <button className="btn-apple-secondary">Team Queue</button>
+                  <button className="btn-apple-secondary">Global Master</button>
+                  <button className="btn-apple-secondary">Archive</button>
                 </div>
 
                 <WorkflowRegistry workflows={workflows} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} />
@@ -245,23 +284,35 @@ const PathOSApp: React.FC = () => {
             )}
 
             {activeTab === 'intake' && (
-              <IntakeGatekeeper taxonomy={taxonomy} onSuccess={(data) => createMutation.mutate(data)} />
+              <div className="max-w-4xl mx-auto">
+                <IntakeGatekeeper taxonomy={taxonomy} onSuccess={(data) => createMutation.mutate(data)} />
+              </div>
+            )}
+
+            {activeTab === 'settings' && (
+              <SettingsView />
             )}
 
             {activeTab === 'builder' && selectedWorkflow && (
-              <WorkflowBuilder 
-                initialTasks={selectedWorkflow.tasks || []} 
-                onSave={(tasks) => workflowsApi.updateTasks(selectedWorkflow.id, tasks).then(() => {
-                  toast.success("Strategy Synchronized");
-                  queryClient.invalidateQueries({ queryKey: ['workflows'] });
-                })} 
-              />
+              <div className="h-[calc(100vh-180px)]">
+                <WorkflowBuilder 
+                  initialTasks={selectedWorkflow.tasks || []} 
+                  onSave={(tasks) => workflowsApi.updateTasks(selectedWorkflow.id, tasks).then(() => {
+                    toast.success("Strategy Synchronized");
+                    queryClient.invalidateQueries({ queryKey: ['workflows'] });
+                  })} 
+                />
+              </div>
             )}
             
-            {(activeTab === 'board' || activeTab === 'analytics' || activeTab === 'settings') && (
-              <div className="h-[60vh] flex flex-col items-center justify-center opacity-30">
-                <Database size={48} className="text-theme-muted mb-4" />
-                <p className="text-sm font-black uppercase tracking-[0.3em]">Module_In_Deployment</p>
+            {(activeTab === 'board' || activeTab === 'analytics') && (
+              <div className="h-[60vh] flex flex-col items-center justify-center text-center">
+                <div className="w-20 h-20 bg-white/[0.03] border border-theme-border rounded-3xl flex items-center justify-center mb-6 shadow-xl">
+                  <Database size={32} className="text-theme-muted" />
+                </div>
+                <h3 className="text-header-sub mb-2">Module Under Construction</h3>
+                <p className="text-subtext max-w-sm">This system module is currently being optimized for high-density metrology management.</p>
+                <button onClick={() => setActiveTab('dashboard')} className="btn-apple-secondary mt-8">Return to Dashboard</button>
               </div>
             )}
           </div>
@@ -270,40 +321,38 @@ const PathOSApp: React.FC = () => {
         {/* Help Sliding Modal Overlay */}
         {showHelp && (
           <div className="absolute inset-0 z-50 flex justify-end">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowHelp(false)} />
-            <div className="w-1/3 bg-theme-sidebar border-l border-theme-border h-full relative animate-in slide-in-from-right duration-300 flex flex-col">
-              <div className="h-14 flex items-center justify-between px-6 border-b border-theme-border bg-theme-header">
-                <h3 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-theme-accent">
-                  <HelpCircle size={14} /> System_Documentation
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-500" onClick={() => setShowHelp(false)} />
+            <div className="w-[450px] apple-glass border-l h-full relative animate-in slide-in-from-right duration-500 flex flex-col shadow-2xl">
+              <div className="h-16 flex items-center justify-between px-8 border-b border-theme-border bg-black/10">
+                <h3 className="text-hint flex items-center gap-2.5 text-theme-accent">
+                  <HelpCircle size={18} /> System Documentation
                 </h3>
-                <button onClick={() => setShowHelp(false)} className="text-theme-muted hover:text-white transition-colors">
-                  <X size={18} />
+                <button onClick={() => setShowHelp(false)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-theme-muted hover:text-white transition-all">
+                  <X size={20} />
                 </button>
               </div>
-              <div className="flex-1 overflow-auto p-8 custom-scrollbar space-y-8">
-                <section className="space-y-3">
-                  <h4 className="text-[10px] font-black text-white uppercase tracking-widest bg-white/5 px-2 py-1 inline-block">Workflow_Rubric</h4>
-                  <p className="text-xs text-theme-secondary leading-relaxed">
-                    Every workflow must pass the 3-question rubric to ensure data integrity. We only automate repeatable, measurable, and standardized metrology tasks.
+              <div className="flex-1 overflow-auto p-10 custom-scrollbar space-y-10">
+                <section className="space-y-4">
+                  <div className="status-badge bg-theme-accent/10 text-theme-accent inline-block">Workflow Rubric</div>
+                  <h4 className="text-header-sub">Validation Standards</h4>
+                  <p className="text-main-content">
+                    Every workflow must pass the core integrity rubric to ensure data quality. We prioritize repeatable, measurable, and standardized metrology tasks that drive direct operational value.
                   </p>
                 </section>
-                <section className="space-y-3">
-                  <h4 className="text-[10px] font-black text-white uppercase tracking-widest bg-white/5 px-2 py-1 inline-block">ROI_Calculation</h4>
-                  <p className="text-xs text-theme-secondary leading-relaxed">
-                    ROI = ((Touch Time * Occurrences) + (Error % * Recovery Time)) * Frequency. 
-                    Note that ROI is calculated strictly on human touch time, not equipment machine time.
+                <section className="space-y-4">
+                  <div className="status-badge bg-status-success/10 text-status-success inline-block">ROI Engine</div>
+                  <h4 className="text-header-sub">Formula v1.2.6</h4>
+                  <p className="text-main-content">
+                    ROI is computed by isolating human touch-time from machine cycle-time. This ensures automation efforts are targeted at reducing labor bottlenecks rather than just accelerating hardware.
                   </p>
-                </section>
-                <section className="space-y-3">
-                  <h4 className="text-[10px] font-black text-white uppercase tracking-widest bg-white/5 px-2 py-1 inline-block">Version_Control</h4>
-                  <p className="text-xs text-theme-secondary leading-relaxed">
-                    Locked workflows can be versioned into v2 drafts. This allows for continuous process improvement without disrupting the active automation pipeline.
-                  </p>
+                  <div className="apple-card-inset text-[13px] font-mono text-theme-secondary">
+                    Total ROI = ((Touch Time * Occurrences) + Σ(Error % * Recovery Time)) * Frequency / 60
+                  </div>
                 </section>
               </div>
-              <div className="p-6 border-t border-theme-border bg-theme-header text-[9px] font-black uppercase tracking-widest text-theme-muted flex items-center justify-between">
-                <span>Documentation v1.2.6</span>
-                <span className="text-theme-accent">PathOS Core</span>
+              <div className="p-8 border-t border-theme-border bg-black/10 text-hint text-theme-muted flex items-center justify-between">
+                <span className="opacity-50">Docs v1.2.6</span>
+                <span className="text-theme-accent font-black tracking-normal">PathOS Core System</span>
               </div>
             </div>
           </div>

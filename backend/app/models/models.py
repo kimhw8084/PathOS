@@ -116,6 +116,17 @@ class TaxonomyEnum(Base, BaseMixin):
     description = Column(Text, nullable=True)
     is_default = Column(Boolean, default=False)
 
+class SystemParameter(Base, BaseMixin):
+    __tablename__ = "system_parameters"
+    key = Column(String, unique=True, index=True) # e.g. "TOOL_ID", "WAFER_SIZE"
+    label = Column(String)
+    description = Column(Text, nullable=True)
+    is_dynamic = Column(Boolean, default=False) # True = Python, False = Manual
+    manual_values = Column(JSON, nullable=True) # List of strings if manual
+    python_code = Column(Text, nullable=True) # Python script if dynamic
+    last_executed = Column(DateTime(timezone=True), nullable=True)
+    cached_values = Column(JSON, nullable=True) # Last known good values
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
     id = Column(Integer, primary_key=True)
