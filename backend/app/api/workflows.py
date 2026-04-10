@@ -29,7 +29,6 @@ async def create_workflow(workflow_data: WorkflowCreate, db: AsyncSession = Depe
         )
 
     new_workflow = Workflow(**workflow_data.model_dump())
-    new_workflow.tasks = [] # Initialize as empty to prevent lazy-load during response validation
     db.add(new_workflow)
     await db.flush() # Get ID for audit
     
@@ -43,8 +42,15 @@ async def create_workflow(workflow_data: WorkflowCreate, db: AsyncSession = Depe
     )
     
     await db.commit()
-    await db.refresh(new_workflow)
-    return new_workflow
+    
+    # Re-query with selectinload to prevent lazy-load errors during Pydantic serialization
+    result = await db.execute(
+        select(Workflow)
+        .where(Workflow.id == new_workflow.id)
+        .options(selectinload(Workflow.tasks).selectinload(Task.blockers),
+                 selectinload(Workflow.tasks).selectinload(Task.errors))
+    )
+    return result.scalar_one()
 
 @router.get("", response_model=List[WorkflowRead])
 async def list_workflows(db: AsyncSession = Depends(get_db)):
@@ -103,8 +109,15 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
     )
     
     await db.commit()
-    await db.refresh(workflow)
-    return workflow
+    
+    # Refresh/Re-fetch with selectinload
+    result = await db.execute(
+        select(Workflow)
+        .where(Workflow.id == workflow.id)
+        .options(selectinload(Workflow.tasks).selectinload(Task.blockers),
+                 selectinload(Workflow.tasks).selectinload(Task.errors))
+    )
+    return result.scalar_one()
 
 @router.delete("/{workflow_id}")
 async def soft_delete_workflow(workflow_id: int, db: AsyncSession = Depends(get_db)):

@@ -18,8 +18,8 @@ import {
   Save, Trash2, 
   ChevronDown, Workflow as LucideWorkflow, 
   ShieldAlert, Timer, Database, Box, AlertTriangle, 
-  Layers, FileText, Image, X, Zap,
-  Terminal, FileCode
+  Layers, FileText, X, Zap,
+  Terminal, FileCode, Cpu, Activity, Info, Link as LinkIcon
 } from 'lucide-react';
 
 interface Blocker {
@@ -68,37 +68,37 @@ interface WorkflowBuilderProps {
 
 // --- High-Density Matrix Node ---
 const MatrixNode = ({ data }: { data: { label: string, system: string, touch: number, wait: number, risks: boolean, blockers: number } }) => (
-  <div className={`apple-glass !bg-theme-card/80 !rounded-2xl px-4 py-3 min-w-[220px] shadow-2xl hover:border-theme-accent/50 transition-all duration-300 group relative border ${data.risks ? 'border-status-error/30' : 'border-theme-border'}`}>
+  <div className={`apple-glass !bg-theme-card/90 !rounded-2xl px-5 py-4 min-w-[240px] shadow-2xl hover:border-theme-accent/50 transition-all duration-300 group relative border ${data.risks ? 'border-status-error/40' : 'border-theme-border'}`}>
     {data.risks && (
-      <div className="absolute -top-2 -right-2 bg-status-error text-white rounded-full p-1 shadow-lg shadow-status-error/20 border-2 border-theme-bg">
-        <AlertTriangle size={10} />
+      <div className="absolute -top-2.5 -right-2.5 bg-status-error text-white rounded-full p-1.5 shadow-lg shadow-status-error/30 border-2 border-[#05070a]">
+        <AlertTriangle size={12} />
       </div>
     )}
     {data.blockers > 0 && (
-      <div className="absolute -top-2 -left-2 bg-status-warning text-black font-extrabold text-[9px] px-2 py-0.5 rounded-full shadow-lg border-2 border-theme-bg">
-        {data.blockers} Issues
+      <div className="absolute -top-2.5 -left-2.5 bg-status-warning text-black font-black text-[10px] px-2.5 py-1 rounded-full shadow-lg border-2 border-[#05070a] uppercase tracking-tighter">
+        {data.blockers} Blockers
       </div>
     )}
     
-    <div className="flex flex-col gap-2.5">
-      <div className="flex items-center justify-between opacity-50">
-        <span className="text-hint text-theme-secondary">{data.system || "System Alpha"}</span>
-        <div className="flex items-center gap-2 font-mono text-hint">
-          <span className="text-theme-accent">{data.touch}m</span>
-          <span className="text-theme-muted opacity-30">•</span>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold text-theme-accent uppercase tracking-widest">{data.system || "System Alpha"}</span>
+        <div className="flex items-center gap-2 font-mono text-[11px] font-bold">
+          <span className="text-white">{data.touch}m</span>
+          <span className="text-theme-muted opacity-30">|</span>
           <span className="text-theme-secondary">{data.wait}m</span>
         </div>
       </div>
-      <h4 className="text-subtext font-bold text-white tracking-tight group-hover:text-theme-accent transition-colors truncate">{data.label}</h4>
-      <div className="h-1 w-full bg-white/[0.03] rounded-full overflow-hidden">
+      <h4 className="text-[14px] font-black text-white tracking-tight group-hover:text-theme-accent transition-colors truncate">{data.label}</h4>
+      <div className="h-1.5 w-full bg-white/[0.05] rounded-full overflow-hidden border border-white/5">
         <div 
-          className="h-full bg-theme-accent shadow-[0_0_8px_rgba(0,122,255,0.4)] transition-all duration-500" 
+          className="h-full bg-theme-accent shadow-[0_0_12px_rgba(0,122,255,0.6)] transition-all duration-700 ease-out" 
           style={{ width: `${Math.min(100, (data.touch / (data.touch + data.wait + 0.1)) * 100)}%` }} 
         />
       </div>
     </div>
-    <Handle type="target" position={Position.Top} className="!bg-theme-border !w-2 !h-2 border-2 border-theme-bg" />
-    <Handle type="source" position={Position.Bottom} className="!bg-theme-accent !w-2 !h-2 border-2 border-theme-bg" />
+    <Handle type="target" position={Position.Top} className="!bg-theme-border !w-2.5 !h-2.5 border-2 border-[#05070a]" />
+    <Handle type="source" position={Position.Bottom} className="!bg-theme-accent !w-2.5 !h-2.5 border-2 border-[#05070a]" />
   </div>
 );
 
@@ -108,13 +108,13 @@ const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
 
 const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
-  dagreGraph.setGraph({ rankdir: 'TB', marginx: 40, marginy: 40, nodesep: 60, ranksep: 80 });
-  nodes.forEach((node) => dagreGraph.setNode(node.id, { width: 220, height: 80 }));
+  dagreGraph.setGraph({ rankdir: 'TB', marginx: 60, marginy: 60, nodesep: 80, ranksep: 100 });
+  nodes.forEach((node) => dagreGraph.setNode(node.id, { width: 240, height: 90 }));
   edges.forEach((edge) => dagreGraph.setEdge(edge.source, edge.target));
   dagre.layout(dagreGraph);
   nodes.forEach((node) => {
     const n = dagreGraph.node(node.id);
-    node.position = { x: n.x - 110, y: n.y - 40 };
+    node.position = { x: n.x - 120, y: n.y - 45 };
   });
   return { nodes, edges };
 };
@@ -123,7 +123,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
   const [view, setView] = useState<'table' | 'flow' | 'grid'>('table');
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [selectedTaskId, setSelectedTaskId] = useState<string | number | null>(null);
-  const [activeTab, setActiveTab] = useState('execution');
   
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -148,8 +147,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
         id: `e${tasks[i].id}-${tasks[i+1].id}`,
         source: `${tasks[i].id}`,
         target: `${tasks[i+1].id}`,
-        markerEnd: { type: MarkerType.ArrowClosed, color: '#334155', width: 14, height: 14 },
-        style: { stroke: '#334155', strokeWidth: 2.5 }
+        markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6', width: 20, height: 20 },
+        style: { stroke: '#1e293b', strokeWidth: 3, opacity: 0.6 }
       });
     }
     const { nodes: ln, edges: le } = getLayoutedElements(newNodes, newEdges);
@@ -172,31 +171,31 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
   };
 
   return (
-    <div className="apple-card !p-0 flex flex-col h-[850px] overflow-hidden relative shadow-2xl animate-apple-in">
+    <div className="apple-card !p-0 flex flex-col h-full overflow-hidden relative shadow-2xl border-theme-border bg-[#05070a]">
       {/* Precision Toolbar */}
-      <div className="h-16 border-b border-theme-border flex items-center justify-between px-8 bg-black/10 backdrop-blur-md">
+      <div className="h-16 border-b border-theme-border flex items-center justify-between px-8 bg-white/[0.02] backdrop-blur-xl z-20">
         <div className="flex items-center gap-4">
-          <div className="p-2 bg-theme-accent/10 rounded-xl">
+          <div className="p-2.5 bg-theme-accent/10 rounded-xl border border-theme-accent/20">
             <LucideWorkflow size={18} className="text-theme-accent" />
           </div>
           <div className="flex flex-col">
-            <span className="text-nav text-white">Strategy Architect</span>
-            <span className="text-hint text-theme-muted opacity-60">Logic Engine v1.2.6</span>
+            <span className="text-[13px] font-black text-white tracking-tight">Strategy Architect</span>
+            <span className="text-[10px] text-theme-muted font-bold uppercase tracking-[0.2em] opacity-40">Logic Engine v1.2.6</span>
           </div>
         </div>
         <div className="flex items-center gap-6">
-          <div className="flex bg-white/[0.04] p-1 rounded-full border border-theme-border">
-            {['table', 'flow', 'grid'].map((v) => (
+          <div className="flex bg-black/40 p-1 rounded-full border border-theme-border">
+            {['table', 'flow'].map((v) => (
               <button 
                 key={v}
                 onClick={() => setView(v as any)} 
-                className={`px-6 py-1.5 text-hint rounded-full transition-all duration-300 ${view === v ? 'bg-theme-accent text-white shadow-lg' : 'text-theme-muted hover:text-white'}`}
+                className={`px-6 py-1.5 text-[11px] font-bold uppercase tracking-widest rounded-full transition-all duration-300 ${view === v ? 'bg-theme-accent text-white shadow-lg' : 'text-theme-muted hover:text-white'}`}
               >
                 {v}
               </button>
             ))}
           </div>
-          <button onClick={() => onSave(tasks)} className="btn-apple-primary flex items-center gap-2.5 px-6">
+          <button onClick={() => onSave(tasks)} className="btn-apple-primary flex items-center gap-2.5 px-8 !py-2.5 !text-[12px] font-bold shadow-theme-accent/20 shadow-lg">
             <Save size={16} /> Sync Changes
           </button>
         </div>
@@ -205,64 +204,64 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden relative">
           {view === 'table' ? (
-            <div className="flex-1 overflow-auto p-8 custom-scrollbar space-y-3 bg-black/10">
+            <div className="flex-1 overflow-auto p-10 custom-scrollbar space-y-4 bg-black/20">
               {tasks.map((task, index) => (
                 <div 
                   key={task.id} 
-                  className={`border transition-all duration-300 rounded-2xl ${selectedTaskId === task.id ? 'border-theme-accent/50 bg-theme-accent/[0.03] shadow-[0_0_20px_rgba(0,122,255,0.05)]' : 'border-theme-border bg-white/[0.01] hover:bg-white/[0.03] hover:border-theme-border-bright'}`}
+                  className={`border transition-all duration-300 rounded-2xl group ${selectedTaskId === task.id ? 'border-theme-accent bg-theme-accent/[0.04] shadow-[0_0_30px_rgba(0,122,255,0.1)] scale-[1.01]' : 'border-theme-border bg-white/[0.01] hover:bg-white/[0.03] hover:border-theme-border-bright'}`}
                   onClick={() => setSelectedTaskId(task.id)}
                 >
-                  <div className="flex items-center gap-8 px-6 py-4 cursor-pointer">
-                    <span className="text-hint text-theme-muted w-6">{String(index + 1).padStart(2, '0')}</span>
-                    <div className="flex-1 flex items-center gap-10">
-                      <div className="flex flex-col min-w-[240px]">
-                        <span className="text-subtext font-bold text-white tracking-tight truncate">{task.name || "Untitled Operation"}</span>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-hint text-theme-accent">{task.target_system || "Local"}</span>
-                          <span className="w-1 h-1 rounded-full bg-theme-border" />
-                          <span className="text-hint text-theme-secondary opacity-60">{task.interface_type || "GUI"}</span>
+                  <div className="flex items-center gap-8 px-8 py-5 cursor-pointer">
+                    <span className="text-[11px] font-black text-theme-muted group-hover:text-theme-accent transition-colors w-8">{String(index + 1).padStart(2, '0')}</span>
+                    <div className="flex-1 flex items-center gap-12">
+                      <div className="flex flex-col min-w-[280px]">
+                        <span className="text-[15px] font-black text-white tracking-tight group-hover:text-theme-accent transition-colors truncate">{task.name || "Untitled Operation"}</span>
+                        <div className="flex items-center gap-4 mt-1.5">
+                          <span className="text-[10px] font-black text-theme-accent uppercase tracking-widest">{task.target_system || "Local"}</span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-white/10" />
+                          <span className="text-[10px] font-bold text-theme-secondary uppercase tracking-widest">{task.interface_type || "GUI"}</span>
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-10 border-l border-theme-border/50 pl-10">
+                      <div className="flex items-center gap-12 border-l border-white/5 pl-12">
                         <div className="flex flex-col">
-                          <span className="text-hint text-theme-muted opacity-50 mb-1.5">Touch Time</span>
-                          <span className="text-subtext font-extrabold text-theme-accent">{task.active_touch_time_minutes}m</span>
+                          <span className="text-[9px] font-black text-theme-muted uppercase tracking-[0.2em] mb-2 opacity-50">Touch Time</span>
+                          <span className="text-[16px] font-black text-white">{task.active_touch_time_minutes}<span className="text-[10px] ml-1 text-theme-muted">m</span></span>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-hint text-theme-muted opacity-50 mb-1.5">Wait Time</span>
-                          <span className="text-subtext font-extrabold text-theme-secondary">{task.machine_wait_time_minutes}m</span>
+                          <span className="text-[9px] font-black text-theme-muted uppercase tracking-[0.2em] mb-2 opacity-50">Wait Time</span>
+                          <span className="text-[16px] font-black text-theme-secondary">{task.machine_wait_time_minutes}<span className="text-[10px] ml-1 text-theme-muted">m</span></span>
                         </div>
                       </div>
 
-                      <div className="flex-1 flex items-center gap-4">
+                      <div className="flex-1 flex items-center gap-4 justify-end pr-8">
                         {task.risks_yield_scrap && (
-                          <div className="p-1.5 bg-status-error/10 rounded-lg text-status-error">
-                            <AlertTriangle size={14} />
+                          <div className="p-2 bg-status-error/10 rounded-xl text-status-error border border-status-error/20 animate-pulse">
+                            <AlertTriangle size={16} />
                           </div>
                         )}
                         {task.blockers && task.blockers.length > 0 && (
-                          <span className="status-badge bg-status-warning/10 text-status-warning flex items-center gap-1.5">
-                            <ShieldAlert size={12} /> {task.blockers.length} Blockers
+                          <span className="px-3 py-1 bg-status-warning/10 text-status-warning text-[10px] font-black rounded-lg border border-status-warning/20 flex items-center gap-2">
+                            <ShieldAlert size={12} /> {task.blockers.length} ISSUES
                           </span>
                         )}
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-4">
-                      <button onClick={(e) => { e.stopPropagation(); setTasks(tasks.filter(t => t.id !== task.id)); }} className="w-8 h-8 flex items-center justify-center rounded-xl text-theme-muted hover:bg-status-error/10 hover:text-status-error transition-all"><Trash2 size={16} /></button>
-                      <ChevronDown size={20} className={`text-theme-muted transition-transform duration-300 ${selectedTaskId === task.id ? 'rotate-180 text-theme-accent' : ''}`} />
+                      <button onClick={(e) => { e.stopPropagation(); setTasks(tasks.filter(t => t.id !== task.id)); }} className="w-9 h-9 flex items-center justify-center rounded-xl text-theme-muted hover:bg-status-error/10 hover:text-status-error transition-all border border-transparent hover:border-status-error/20"><Trash2 size={16} /></button>
+                      <ChevronDown size={22} className={`text-theme-muted transition-transform duration-500 ${selectedTaskId === task.id ? 'rotate-180 text-theme-accent' : 'group-hover:text-white'}`} />
                     </div>
                   </div>
                 </div>
               ))}
               <button onClick={() => setTasks([...tasks, { id: `new-${Date.now()}`, name: 'New Operation Node', description: '', target_system: 'SME_LOCAL', interface_type: 'GUI', active_touch_time_minutes: 0, machine_wait_time_minutes: 0, occurrences_per_cycle: 1, shadow_it_used: false, risks_yield_scrap: false, order_index: tasks.length, blockers: [], errors: [] }])} 
-                className="w-full py-6 border-2 border-dashed border-theme-border rounded-2xl hover:border-theme-accent/50 hover:bg-theme-accent/[0.02] text-hint text-theme-muted hover:text-theme-accent transition-all group flex items-center justify-center gap-3">
-                <Zap size={16} className="group-hover:scale-125 transition-transform" /> Register New Operation Node
+                className="w-full py-8 border-2 border-dashed border-theme-border rounded-2xl hover:border-theme-accent/50 hover:bg-theme-accent/[0.03] text-[12px] font-black text-theme-muted hover:text-theme-accent transition-all group flex items-center justify-center gap-4 uppercase tracking-[0.2em]">
+                <Zap size={18} className="group-hover:scale-125 transition-transform text-theme-accent" /> Register New Operation Node
               </button>
             </div>
-          ) : view === 'flow' ? (
-            <div className="flex-1 bg-black/20 relative">
+          ) : (
+            <div className="flex-1 bg-[#020305] relative">
               <ReactFlow 
                 nodes={nodes} 
                 edges={edges} 
@@ -273,205 +272,244 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
                 fitView 
                 className="bg-transparent"
               >
-                <Background variant={BackgroundVariant.Dots} color="rgba(255,255,255,0.05)" gap={30} size={1} />
-                <Controls />
+                <Background variant={BackgroundVariant.Dots} color="rgba(0,122,255,0.1)" gap={40} size={1} />
+                <Controls className="!bg-[#05070a] !border-theme-border !shadow-2xl" />
               </ReactFlow>
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center opacity-30">
-              <Layers size={64} className="text-theme-muted mb-6" />
-              <p className="text-xl font-bold uppercase tracking-[0.5em]">Grid Mode Offline</p>
             </div>
           )}
         </div>
 
-        {/* Right-Side Property Inspector */}
+        {/* Right-Side Property Inspector (Linear Overhaul) */}
         {selectedTaskId && selectedTask && (
-          <div className="w-[480px] border-l border-theme-border apple-glass flex flex-col animate-in slide-in-from-right duration-500 z-10 shadow-2xl">
-            <div className="h-16 flex items-center justify-between px-8 border-b border-theme-border bg-black/10">
+          <div className="w-[520px] border-l border-theme-border bg-[#0a0c10]/80 backdrop-blur-3xl flex flex-col animate-in slide-in-from-right duration-500 z-30 shadow-2xl">
+            <div className="h-16 flex items-center justify-between px-8 border-b border-theme-border bg-white/[0.02]">
               <div className="flex items-center gap-4">
-                <div className="p-2 bg-theme-accent/10 rounded-xl">
-                  <Box size={18} className="text-theme-accent" />
+                <div className="p-2.5 bg-theme-accent/10 rounded-xl border border-theme-accent/20">
+                  <Cpu size={20} className="text-theme-accent" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-nav text-white">Node Properties</span>
-                  <span className="text-hint text-theme-muted truncate max-w-[240px] normal-case tracking-tight">{selectedTask.name}</span>
+                  <span className="text-[13px] font-black text-white">Node Inspector</span>
+                  <span className="text-[10px] text-theme-muted font-bold uppercase tracking-widest opacity-40">Property Matrix</span>
                 </div>
               </div>
-              <button onClick={() => setSelectedTaskId(null)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 text-theme-muted hover:text-white transition-all">
-                <X size={20} />
+              <button onClick={() => setSelectedTaskId(null)} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/5 text-theme-muted hover:text-white transition-all">
+                <X size={22} />
               </button>
             </div>
 
-            {/* Tab Navigation */}
-            <div className="flex p-2 gap-1 bg-black/20">
-              {['execution', 'data', 'risks'].map((tab) => (
-                <button 
-                  key={tab}
-                  onClick={() => setActiveTab(tab)} 
-                  className={`flex-1 py-2 text-hint rounded-xl transition-all ${activeTab === tab ? 'bg-white/[0.08] text-theme-accent shadow-inner' : 'text-theme-secondary hover:text-white hover:bg-white/[0.03]'}`}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex-1 overflow-auto custom-scrollbar p-8 space-y-8">
-              {activeTab === 'execution' && (
-                <div className="space-y-8 animate-in fade-in duration-500">
-                  <div className="space-y-5">
+            {/* Linear Property List */}
+            <div className="flex-1 overflow-auto custom-scrollbar p-10 space-y-12 pb-20">
+              
+              {/* Section: Core Identity */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 text-theme-accent font-bold px-2">
+                  <Layers size={16} />
+                  <span className="text-[11px] tracking-[0.2em] uppercase">Core Identity</span>
+                </div>
+                <div className="space-y-6 bg-white/[0.02] border border-theme-border p-6 rounded-2xl shadow-inner">
+                  <div className="space-y-2.5">
+                    <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">Operation Label</label>
+                    <input className="input-apple !bg-black/60 font-black text-[15px] text-white focus:border-theme-accent" value={selectedTask.name} onChange={e => updateTask(selectedTask.id, 'name', e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
                     <div className="space-y-2.5">
-                      <label className="text-hint text-theme-secondary flex items-center gap-2">Operation Name</label>
-                      <input className="input-apple !bg-black/40 font-bold" value={selectedTask.name} onChange={e => updateTask(selectedTask.id, 'name', e.target.value)} />
+                      <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">Target Infrastructure</label>
+                      <input className="input-apple !bg-black/60 font-black text-[13px] text-theme-accent" value={selectedTask.target_system} onChange={e => updateTask(selectedTask.id, 'target_system', e.target.value)} />
                     </div>
-                    <div className="grid grid-cols-2 gap-5">
-                      <div className="space-y-2.5">
-                        <label className="text-hint text-theme-secondary flex items-center gap-2">Target System</label>
-                        <input className="input-apple !bg-black/40 font-bold text-theme-accent" value={selectedTask.target_system} onChange={e => updateTask(selectedTask.id, 'target_system', e.target.value)} />
-                      </div>
-                      <div className="space-y-2.5">
-                        <label className="text-hint text-theme-secondary flex items-center gap-2">Interface</label>
-                        <select className="input-apple !bg-black/40 font-bold text-theme-secondary appearance-none" value={selectedTask.interface_type} onChange={e => updateTask(selectedTask.id, 'interface_type', e.target.value)}>
-                          <option value="GUI">GUI (User Interface)</option><option value="API">API (REST/SOAP)</option><option value="DB">Database (SQL)</option><option value="File">Local File (CSV/XML)</option>
+                    <div className="space-y-2.5">
+                      <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">Interface Protocol</label>
+                      <div className="relative">
+                        <select className="input-apple !bg-black/60 font-black text-[13px] text-white appearance-none pr-10 focus:border-theme-accent" value={selectedTask.interface_type} onChange={e => updateTask(selectedTask.id, 'interface_type', e.target.value)}>
+                          <option value="GUI">GUI (User Interface)</option>
+                          <option value="API">API (REST/SOAP)</option>
+                          <option value="DB">Database (SQL)</option>
+                          <option value="File">Local File (CSV/XML)</option>
                         </select>
+                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-theme-muted pointer-events-none" size={14} />
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
 
-                  <div className="apple-card-inset !bg-white/[0.02] !p-6 space-y-6">
-                    <div className="flex items-center gap-3 text-theme-accent border-b border-theme-border/50 pb-3">
-                      <Timer size={18} />
-                      <span className="text-hint text-theme-accent">Performance Metrics</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-6">
-                      <div className="space-y-2.5">
-                        <label className="text-hint text-theme-muted">Human Touch (m)</label>
-                        <input type="number" className="input-apple !bg-black/60 font-black text-lg text-theme-accent" value={selectedTask.active_touch_time_minutes} onChange={e => updateTask(selectedTask.id, 'active_touch_time_minutes', parseFloat(e.target.value))} />
+              {/* Section: Operational Cadence */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 text-status-success font-bold px-2">
+                  <Timer size={16} />
+                  <span className="text-[11px] tracking-[0.2em] uppercase">Operational Cadence</span>
+                </div>
+                <div className="bg-theme-accent/[0.03] border border-theme-accent/20 p-8 rounded-2xl shadow-inner space-y-8">
+                  <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-theme-accent uppercase tracking-widest px-1">Active Touch</label>
+                      <div className="relative">
+                        <input type="number" className="input-apple !bg-black/80 font-black text-2xl text-white text-center h-20 !pt-6 border-theme-accent/30 focus:border-theme-accent" value={selectedTask.active_touch_time_minutes} onChange={e => updateTask(selectedTask.id, 'active_touch_time_minutes', parseFloat(e.target.value))} />
+                        <span className="absolute bottom-2 left-0 right-0 text-center text-[9px] font-black text-theme-accent uppercase tracking-widest opacity-40">MINUTES</span>
                       </div>
-                      <div className="space-y-2.5">
-                        <label className="text-hint text-theme-muted">Machine Wait (m)</label>
-                        <input type="number" className="input-apple !bg-black/60 font-black text-lg text-theme-secondary" value={selectedTask.machine_wait_time_minutes} onChange={e => updateTask(selectedTask.id, 'machine_wait_time_minutes', parseFloat(e.target.value))} />
-                      </div>
                     </div>
-                    <div className="space-y-2.5">
-                      <label className="text-hint text-theme-muted">Occurrences / Cycle</label>
-                      <input type="number" className="input-apple !bg-black/60 font-black text-lg" value={selectedTask.occurrences_per_cycle} onChange={e => updateTask(selectedTask.id, 'occurrences_per_cycle', parseInt(e.target.value))} />
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">Machine Wait</label>
+                      <div className="relative">
+                        <input type="number" className="input-apple !bg-black/80 font-black text-2xl text-theme-secondary text-center h-20 !pt-6 border-white/5 focus:border-theme-secondary" value={selectedTask.machine_wait_time_minutes} onChange={e => updateTask(selectedTask.id, 'machine_wait_time_minutes', parseFloat(e.target.value))} />
+                        <span className="absolute bottom-2 left-0 right-0 text-center text-[9px] font-black text-theme-secondary uppercase tracking-widest opacity-40">MINUTES</span>
+                      </div>
                     </div>
                   </div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-theme-muted uppercase tracking-widest px-1 flex items-center justify-between">
+                      <span>Occurrences Per Cycle</span>
+                      <span className="text-theme-accent opacity-60">Linear Scaling</span>
+                    </label>
+                    <input type="number" className="input-apple !bg-black/80 font-black text-xl text-center h-16 border-white/5" value={selectedTask.occurrences_per_cycle} onChange={e => updateTask(selectedTask.id, 'occurrences_per_cycle', parseInt(e.target.value))} />
+                  </div>
+                </div>
+              </div>
 
-                  <div className="space-y-4">
-                    <label className="flex items-center justify-between cursor-pointer group p-3 rounded-2xl bg-white/[0.03] border border-theme-border transition-all hover:bg-white/[0.06]">
-                      <span className="text-subtext font-bold text-theme-secondary flex items-center gap-3">
+              {/* Section: Data Pipeline */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 text-theme-secondary font-bold px-2">
+                  <Database size={16} />
+                  <span className="text-[11px] tracking-[0.2em] uppercase">Data Pipeline</span>
+                </div>
+                <div className="space-y-8 bg-white/[0.01] border border-theme-border p-6 rounded-2xl">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1 flex items-center gap-2">
+                      <Activity size={12} className="text-theme-accent" /> Source Inputs
+                    </label>
+                    <textarea className="input-apple !bg-black/60 h-32 resize-none leading-relaxed font-mono text-[12px] text-white focus:border-theme-accent placeholder:text-white/5" placeholder="Define origin of inputs or link upstream..." value={selectedTask.source_data} onChange={e => updateTask(selectedTask.id, 'source_data', e.target.value)} />
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1 flex items-center gap-2">
+                      <FileCode size={12} className="text-theme-accent" /> Output Schema Example
+                    </label>
+                    <textarea className="input-apple !bg-black/60 h-32 resize-none leading-relaxed font-mono text-[12px] text-white focus:border-theme-accent placeholder:text-white/5" placeholder="Paste sample return value or format..." value={selectedTask.output_format_example} onChange={e => updateTask(selectedTask.id, 'output_format_example', e.target.value)} />
+                  </div>
+                  
+                  <div className="space-y-4 pt-4 border-t border-white/5">
+                    <label className="flex items-center justify-between cursor-pointer group p-4 rounded-2xl bg-white/[0.02] border border-theme-border transition-all hover:bg-white/[0.04] hover:border-theme-accent/30">
+                      <span className="text-[12px] font-black text-white flex items-center gap-3">
                         <Terminal size={18} className="text-theme-accent" /> Shadow IT Redundancy
                       </span>
-                      <input type="checkbox" className="w-5 h-5 accent-theme-accent rounded-lg" checked={selectedTask.shadow_it_used} onChange={e => updateTask(selectedTask.id, 'shadow_it_used', e.target.checked)} />
+                      <div className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" className="sr-only peer" checked={selectedTask.shadow_it_used} onChange={e => updateTask(selectedTask.id, 'shadow_it_used', e.target.checked)} />
+                        <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-theme-accent"></div>
+                      </div>
                     </label>
                     {selectedTask.shadow_it_used && (
-                      <div className="space-y-2 animate-in slide-in-from-top duration-300">
-                        <input className="input-apple font-mono text-xs text-theme-accent" placeholder="https://internal-repo.samsung.net/..." value={selectedTask.shadow_it_link} onChange={e => updateTask(selectedTask.id, 'shadow_it_link', e.target.value)} />
-                        <p className="text-hint text-theme-muted normal-case tracking-tight px-2">Link to existing scripts or macros being used for this task.</p>
+                      <div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
+                        <div className="relative">
+                          <input className="input-apple !bg-black/80 font-mono text-[11px] text-theme-accent pl-10 border-theme-accent/20" placeholder="https://internal-repo.samsung.net/..." value={selectedTask.shadow_it_link} onChange={e => updateTask(selectedTask.id, 'shadow_it_link', e.target.value)} />
+                          <LinkIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 text-theme-accent/50" size={14} />
+                        </div>
+                        <p className="text-[10px] text-theme-muted font-bold normal-case px-2 opacity-50">Link to existing scripts or macros currently handling this logic.</p>
                       </div>
                     )}
                   </div>
                 </div>
-              )}
+              </div>
 
-              {activeTab === 'data' && (
-                <div className="space-y-8 animate-in fade-in duration-500">
-                  <div className="space-y-2.5">
-                    <label className="text-hint text-theme-secondary flex items-center gap-2"><Database size={16} /> Data Inputs</label>
-                    <textarea className="input-apple !bg-black/40 h-32 resize-none leading-relaxed font-mono text-main-content" placeholder="Define origin of inputs or link upstream..." value={selectedTask.source_data} onChange={e => updateTask(selectedTask.id, 'source_data', e.target.value)} />
-                  </div>
-                  <div className="space-y-2.5">
-                    <label className="text-hint text-theme-secondary flex items-center gap-2"><FileCode size={16} /> Output Specification</label>
-                    <textarea className="input-apple !bg-black/40 h-32 resize-none leading-relaxed font-mono text-main-content" placeholder="Paste sample return value or format..." value={selectedTask.output_format_example} onChange={e => updateTask(selectedTask.id, 'output_format_example', e.target.value)} />
-                  </div>
-                  <div className="space-y-2.5">
-                    <label className="text-hint text-theme-secondary flex items-center gap-2"><Image size={16} /> Visual Assets</label>
-                    <div className="border-2 border-dashed border-theme-border rounded-3xl p-12 flex flex-col items-center justify-center gap-3 hover:border-theme-accent/50 hover:bg-theme-accent/[0.03] transition-all cursor-pointer group">
-                      <div className="p-4 bg-white/[0.03] rounded-2xl group-hover:scale-110 transition-transform">
-                        <Image size={32} className="text-theme-muted group-hover:text-theme-accent" />
-                      </div>
-                      <span className="text-hint text-theme-muted">Attach UI Screenshots</span>
-                    </div>
-                  </div>
+              {/* Section: Scrap Risk & Blockers */}
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 text-status-error font-bold px-2">
+                  <ShieldAlert size={16} />
+                  <span className="text-[11px] tracking-[0.2em] uppercase">Security & Risk</span>
                 </div>
-              )}
-
-              {activeTab === 'risks' && (
-                <div className="space-y-8 animate-in fade-in duration-500">
-                  <div className="apple-card-inset !bg-status-error/[0.02] border-status-error/10 !p-6 space-y-6">
-                    <div className="flex items-center justify-between border-b border-status-error/10 pb-4">
-                      <span className="text-hint text-status-error flex items-center gap-2"><AlertTriangle size={18} /> Scrap Risk Analysis</span>
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <span className="text-hint text-theme-muted">Yield Impact</span>
-                        <input type="checkbox" className="w-5 h-5 accent-status-error rounded-lg" checked={selectedTask.risks_yield_scrap} onChange={e => updateTask(selectedTask.id, 'risks_yield_scrap', e.target.checked)} />
-                      </label>
-                    </div>
-                    <div className="space-y-2.5">
-                      <label className="text-hint text-theme-secondary">Tribal Knowledge & Quirks</label>
-                      <textarea className="input-apple !bg-black/40 h-24 resize-none leading-relaxed text-main-content" placeholder="Undocumented system quirks or module folklore..." value={selectedTask.tribal_knowledge} onChange={e => updateTask(selectedTask.id, 'tribal_knowledge', e.target.value)} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-5">
-                    <div className="flex items-center justify-between px-2">
-                      <h4 className="text-subtext font-bold text-white tracking-tight flex items-center gap-2">
-                         Structural Blockers
-                      </h4>
-                      <button onClick={() => addBlocker(selectedTask.id)} className="text-hint text-theme-accent hover:text-white transition-colors tracking-normal normal-case">+ REGISTER</button>
+                
+                <div className="space-y-8">
+                  <div className="bg-status-error/[0.03] border border-status-error/20 p-8 rounded-2xl shadow-inner space-y-8">
+                    <div className="flex items-center justify-between border-b border-status-error/10 pb-6">
+                      <div className="flex flex-col">
+                        <span className="text-[13px] font-black text-white flex items-center gap-2"><AlertTriangle size={16} className="text-status-error" /> Yield Scrap Risk</span>
+                        <span className="text-[10px] text-theme-muted font-bold normal-case mt-1 opacity-60">Does failure result in hardware loss?</span>
+                      </div>
+                      <div className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" className="sr-only peer" checked={selectedTask.risks_yield_scrap} onChange={e => updateTask(selectedTask.id, 'risks_yield_scrap', e.target.checked)} />
+                        <div className="w-14 h-7 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-status-error"></div>
+                      </div>
                     </div>
                     <div className="space-y-3">
+                      <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">Tribal Knowledge & System Quirks</label>
+                      <textarea className="input-apple !bg-black/80 h-32 resize-none leading-relaxed text-[13px] text-white focus:border-status-error placeholder:text-white/5" placeholder="Undocumented system quirks or module folklore..." value={selectedTask.tribal_knowledge} onChange={e => updateTask(selectedTask.id, 'tribal_knowledge', e.target.value)} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-6 bg-white/[0.01] border border-theme-border p-6 rounded-2xl">
+                    <div className="flex items-center justify-between px-2">
+                      <h4 className="text-[11px] font-black text-white tracking-[0.2em] uppercase flex items-center gap-3">
+                         <Box size={14} className="text-status-warning" /> Structural Blockers
+                      </h4>
+                      <button onClick={() => addBlocker(selectedTask.id)} className="text-[10px] font-black text-theme-accent hover:text-white transition-all bg-theme-accent/10 px-3 py-1.5 rounded-lg border border-theme-accent/20">+ REGISTER</button>
+                    </div>
+                    <div className="space-y-4">
                       {selectedTask.blockers?.map((b, bi) => (
-                        <div key={bi} className="bg-white/[0.02] border border-theme-border p-5 rounded-2xl space-y-4 relative group hover:border-theme-border-bright transition-all">
+                        <div key={bi} className="bg-black/60 border border-theme-border p-5 rounded-2xl space-y-5 relative group hover:border-status-warning/40 transition-all shadow-xl animate-in slide-in-from-right-4">
                           <button onClick={() => {
                             const nb = [...(selectedTask.blockers || [])];
                             nb.splice(bi, 1);
                             updateTask(selectedTask.id, 'blockers', nb);
-                          }} className="absolute top-4 right-4 text-theme-muted hover:text-status-error transition-all"><Trash2 size={16} /></button>
+                          }} className="absolute top-4 right-4 text-theme-muted hover:text-status-error transition-all p-1.5 hover:bg-status-error/10 rounded-lg"><Trash2 size={16} /></button>
                           
-                          <div className="flex items-center gap-4">
-                            <div className="bg-black/40 px-3 py-1.5 rounded-lg border border-theme-border">
-                              <select className="bg-transparent text-hint text-theme-accent outline-none" value={b.blocking_entity} onChange={e => {
-                                const nb = [...(selectedTask.blockers || [])];
-                                nb[bi] = { ...nb[bi], blocking_entity: e.target.value };
-                                updateTask(selectedTask.id, 'blockers', nb);
-                              }}>
-                                <option value="PIE">PIE</option><option value="YE">YE</option><option value="MODULE">Module</option><option value="IT">IT/Network</option><option value="VENDOR">Vendor</option>
-                              </select>
+                          <div className="flex items-center gap-5">
+                            <div className="flex-1 space-y-2.5">
+                              <label className="text-[9px] font-black text-theme-muted uppercase tracking-widest">Entity</label>
+                              <div className="relative">
+                                <select className="input-apple !bg-black font-black text-[12px] text-status-warning appearance-none pr-10 border-status-warning/20" value={b.blocking_entity} onChange={e => {
+                                  const nb = [...(selectedTask.blockers || [])];
+                                  nb[bi] = { ...nb[bi], blocking_entity: e.target.value };
+                                  updateTask(selectedTask.id, 'blockers', nb);
+                                }}>
+                                  <option value="PIE">PIE</option><option value="YE">YE</option><option value="MODULE">Module</option><option value="IT">IT/Network</option><option value="VENDOR">Vendor</option>
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-status-warning/50" size={12} />
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 text-hint text-theme-muted">
-                              Delay: 
-                              <input type="number" className="bg-black/40 border border-theme-border rounded-lg w-16 px-2 py-1 text-white outline-none focus:border-theme-accent" value={b.average_delay_minutes} onChange={e => {
-                                const nb = [...(selectedTask.blockers || [])];
-                                nb[bi] = { ...nb[bi], average_delay_minutes: parseFloat(e.target.value) };
-                                updateTask(selectedTask.id, 'blockers', nb);
-                              }} />
-                              min
+                            <div className="flex-1 space-y-2.5">
+                              <label className="text-[9px] font-black text-theme-muted uppercase tracking-widest">Avg Delay</label>
+                              <div className="relative">
+                                <input type="number" className="input-apple !bg-black font-black text-[13px] text-white pr-10 border-white/5" value={b.average_delay_minutes} onChange={e => {
+                                  const nb = [...(selectedTask.blockers || [])];
+                                  nb[bi] = { ...nb[bi], average_delay_minutes: parseFloat(e.target.value) };
+                                  updateTask(selectedTask.id, 'blockers', nb);
+                                }} />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-theme-muted uppercase">min</span>
+                              </div>
                             </div>
                           </div>
-                          <input className="input-apple !bg-black/40 text-main-content" placeholder="Root Reason..." value={b.reason} onChange={e => {
-                            const nb = [...(selectedTask.blockers || [])];
-                            nb[bi] = { ...nb[bi], reason: e.target.value };
-                            updateTask(selectedTask.id, 'blockers', nb);
-                          }} />
+                          <div className="space-y-2.5">
+                             <label className="text-[9px] font-black text-theme-muted uppercase tracking-widest">Root Cause Reason</label>
+                             <input className="input-apple !bg-black text-[13px] text-white border-white/5 focus:border-status-warning/50" placeholder="Describe the structural bottleneck..." value={b.reason} onChange={e => {
+                              const nb = [...(selectedTask.blockers || [])];
+                              nb[bi] = { ...nb[bi], reason: e.target.value };
+                              updateTask(selectedTask.id, 'blockers', nb);
+                            }} />
+                          </div>
                         </div>
                       ))}
+                      {(!selectedTask.blockers || selectedTask.blockers.length === 0) && (
+                        <div className="py-10 border border-dashed border-white/5 rounded-2xl flex flex-col items-center justify-center gap-3 opacity-20">
+                          <Info size={24} />
+                          <span className="text-[10px] font-black uppercase tracking-widest">No Active Blockers</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
 
-            <div className="p-8 border-t border-theme-border bg-black/10 flex items-center justify-between">
+            {/* ROI Footer (Enhanced) */}
+            <div className="p-8 border-t border-theme-border bg-white/[0.03] backdrop-blur-3xl flex items-center justify-between">
               <div className="flex flex-col">
-                <span className="text-hint text-theme-muted mb-1">Projected ROI Reclaimed</span>
-                <span className="text-2xl font-black text-theme-accent tracking-tighter">
-                  {((selectedTask.active_touch_time_minutes * selectedTask.occurrences_per_cycle) + (selectedTask.errors?.reduce((acc, e) => acc + (e.probability_percent / 100 * e.recovery_time_minutes), 0) || 0)).toFixed(1)}<span className="text-hint ml-1 opacity-60 normal-case tracking-tight">min / cycle</span>
-                </span>
+                <span className="text-[10px] font-black text-theme-muted uppercase tracking-[0.2em] mb-2">Projected ROI Reclaimed</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-black text-white tracking-tighter">
+                    {((selectedTask.active_touch_time_minutes * selectedTask.occurrences_per_cycle) + (selectedTask.errors?.reduce((acc, e) => acc + (e.probability_percent / 100 * e.recovery_time_minutes), 0) || 0)).toFixed(1)}
+                  </span>
+                  <span className="text-[12px] font-black text-theme-accent uppercase tracking-widest">min / cycle</span>
+                </div>
               </div>
-              <button className="btn-apple-secondary !px-6 flex items-center gap-2.5">
-                <FileText size={16} /> Export SOP
+              <button className="btn-apple-secondary !px-8 !py-4 flex items-center gap-3 font-bold text-[13px] hover:bg-white/10 hover:border-white/20 group">
+                <FileText size={18} className="group-hover:text-theme-accent transition-colors" /> Export SOP
               </button>
             </div>
           </div>

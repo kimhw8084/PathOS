@@ -265,3 +265,14 @@ INFO:     Waiting for application startup.
 2026-04-10 10:31:41,970 - PathOS - INFO - Initializing PathOS Backend...
 2026-04-10 10:31:41,974 - PathOS - INFO - Database initialized successfully.
 INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app/api/workflows.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-10 13:11:19,315 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [40767]
+INFO:     Started server process [93918]
+INFO:     Waiting for application startup.
+2026-04-10 13:11:19,748 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-10 13:11:19,751 - PathOS - INFO - Database initialized successfully.
+INFO:     Application startup complete.
