@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Settings, Database, Code, Type, Play, Save, 
-  CheckCircle2, XCircle, RefreshCw, AlertTriangle, Terminal, 
-  Plus, Trash2, Box, Info, Cpu, ShieldAlert
+  Settings, Code, Type, Play, Save, 
+  CheckCircle2, XCircle, RefreshCw, Terminal, 
+  Plus, Box, Info, ShieldAlert
 } from 'lucide-react';
 import { settingsApi } from '../api/client';
 import { toast } from 'react-hot-toast';

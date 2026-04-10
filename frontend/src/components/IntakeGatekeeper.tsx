@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   ShieldAlert, Zap, Target, ArrowRight, ChevronLeft, 
-  Layout, CheckCircle2, XCircle, Box, Cpu
+  Layout, CheckCircle2, XCircle, Box
 } from 'lucide-react';
 import { settingsApi } from '../api/client';
 

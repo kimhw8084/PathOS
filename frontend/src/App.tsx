@@ -13,8 +13,6 @@ import {
   LogOut,
   X,
   Zap,
-  Activity,
-  Cpu,
   RefreshCw
 } from 'lucide-react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

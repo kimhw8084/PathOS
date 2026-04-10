@@ -3,7 +3,7 @@ import { ModuleRegistry, AllCommunityModule, type ColDef, type GridReadyEvent } 
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-quartz.css';
 import React, { useMemo, useCallback, useRef } from 'react';
-import { FileText, Trash2, Zap, AlertTriangle, User, GitBranch, Download, FilterX } from 'lucide-react';
+import { Trash2, Zap, AlertTriangle, User, GitBranch, Download, FilterX } from 'lucide-react';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 

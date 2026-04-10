@@ -13,6 +13,8 @@ async def seed_data():
     async with AsyncSessionLocal() as session:
         # 1. Clear existing data
         from sqlalchemy import delete
+        from app.models.models import AuditLog
+        await session.execute(delete(AuditLog))
         await session.execute(delete(SystemParameter))
         await session.execute(delete(Blocker))
         await session.execute(delete(TaskError))
@@ -145,6 +147,10 @@ async def seed_data():
         ]
 
         # 4. Insert Workflows and nested data
+        from sqlalchemy.future import select
+        from sqlalchemy.orm import selectinload
+        from app.core.metrics import update_workflow_roi
+        
         for wf_def in workflow_definitions:
             tasks_data = wf_def.pop("tasks")
             wf = Workflow(**wf_def)
@@ -185,9 +191,17 @@ async def seed_data():
                         standard_mitigation="Escalate via standard portal."
                     )
                     session.add(blocker)
-
-        await session.commit()
-        print(f"PathOS Database re-seeded for Phase 1 Design.")
+            
+            # Reload workflow with relationships to calculate ROI
+            wf_res = await session.execute(
+                select(Workflow)
+                .where(Workflow.id == wf.id)
+                .options(selectinload(Workflow.tasks).selectinload(Task.errors))
+            )
+            wf_loaded = wf_res.scalar_one()
+            update_workflow_roi(wf_loaded)
+            await session.commit()
+            print(f"Workflow '{wf.name}' seeded with ROI: {wf_loaded.total_roi_saved_hours:.2f}h")
 
 if __name__ == "__main__":
     asyncio.run(seed_data())

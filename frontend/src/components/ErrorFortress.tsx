@@ -1,7 +1,7 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { 
   AlertOctagon, X, Copy, Terminal, ShieldAlert, 
-  ChevronRight, Bug, RefreshCw, Layers, Server
+  Bug, RefreshCw, Server
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 

@@ -17,9 +17,9 @@ import dagre from 'dagre';
 import { 
   Save, Trash2, 
   ChevronDown, Workflow as LucideWorkflow, 
-  ShieldAlert, Timer, Database, Box, Cpu, AlertTriangle, 
-  Layers, Link2, FileText, Image, Info, X, Zap,
-  Network, Terminal, FileCode
+  ShieldAlert, Timer, Database, Box, AlertTriangle, 
+  Layers, FileText, Image, X, Zap,
+  Terminal, FileCode
 } from 'lucide-react';
 
 interface Blocker {
@@ -165,10 +165,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, onSave 
 
   const addBlocker = (taskId: string | number) => {
     setTasks(tasks.map(t => t.id === taskId ? { ...t, blockers: [...(t.blockers || []), { blocking_entity: 'PIE', reason: '', probability_percent: 0, average_delay_minutes: 0, standard_mitigation: '' }] } : t));
-  };
-
-  const addError = (taskId: string | number) => {
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, errors: [...(t.errors || []), { error_type: 'Human Error', description: '', probability_percent: 5, recovery_time_minutes: 10 }] } : t));
   };
 
   const onNodeClick = (_: any, node: Node) => {

@@ -51,6 +51,9 @@ async def create_task(task_data: TaskCreate, db: AsyncSession = Depends(get_db))
         description=f"Added task '{new_task.name}' with {len(blockers_data)} blockers and {len(errors_data)} errors to workflow '{workflow.name}'"
     )
     
+    # Expire to force reload of tasks relationship
+    db.expire(workflow)
+    
     # Reload workflow with all tasks, blockers, and errors for ROI calc
     result = await db.execute(
         select(Workflow)
@@ -126,6 +129,9 @@ async def sync_tasks(workflow_id: int, tasks_data: List[TaskCreate], db: AsyncSe
         new_state={"tasks": [t.model_dump() for t in tasks_data]},
         description=f"Synchronized task sequence with blockers and errors for workflow '{workflow.name}'"
     )
+    
+    # Expire to force reload of tasks relationship
+    db.expire(workflow)
     
     # Reload workflow with new tasks to update ROI
     result = await db.execute(

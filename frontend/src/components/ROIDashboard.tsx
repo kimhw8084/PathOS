@@ -1,12 +1,10 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
-import { Zap, Clock, Trophy, Activity, ShieldAlert, Cpu, BarChart3, Layers } from 'lucide-react';
+import { Zap, Clock, Trophy, Activity, ShieldAlert, Cpu, BarChart3, Layers, ChevronRight } from 'lucide-react';
 
 interface ROIDashboardProps {
   workflows: any[];
 }
-
-const COLORS = ['#0071e3', '#22c55e', '#f59e0b', '#8b5cf6', '#06b6d4', '#ef4444'];
 
 const StatBox = ({ icon: Icon, label, value, subValue, colorClass = "text-theme-primary" }: any) => (
   <div className="apple-card !p-5 flex flex-col gap-2 group hover:scale-[1.02] transition-all duration-300">
