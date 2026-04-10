@@ -357,3 +357,19 @@ INFO:     Application startup complete.
 [SQL: SELECT system_parameters."key", system_parameters.label, system_parameters.description, system_parameters.is_dynamic, system_parameters.manual_values, system_parameters.python_code, system_parameters.last_executed, system_parameters.cached_values, system_parameters.pending_values, system_parameters.has_discrepancy, system_parameters.id, system_parameters.created_at, system_parameters.updated_at, system_parameters.is_deleted, system_parameters.created_by 
 FROM system_parameters]
 (Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  StatReload detected changes in 'seed.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-10 13:36:54,455 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [14402]
+INFO:     Started server process [19558]
+INFO:     Waiting for application startup.
+2026-04-10 13:36:54,861 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-10 13:36:54,863 - PathOS - INFO - Database initialized successfully.
+2026-04-10 13:36:54,863 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-10 13:36:54,869 - PathOS - ERROR - Error in background parameter task: (sqlite3.OperationalError) no such column: system_parameters.pending_values
+[SQL: SELECT system_parameters."key", system_parameters.label, system_parameters.description, system_parameters.is_dynamic, system_parameters.manual_values, system_parameters.python_code, system_parameters.last_executed, system_parameters.cached_values, system_parameters.pending_values, system_parameters.has_discrepancy, system_parameters.id, system_parameters.created_at, system_parameters.updated_at, system_parameters.is_deleted, system_parameters.created_by 
+FROM system_parameters]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)

@@ -14,7 +14,7 @@ from sqlalchemy.orm import selectinload
 from app.database import Base, DATABASE_URL
 from app.models.models import (
     TaxonomyEnum, Workflow, Task, Blocker, TaskError, 
-    AutomationStatus, SystemParameter, AuditLog
+    AutomationStatus, SystemParameter, AuditLog, ParameterLog
 )
 from app.core.metrics import update_workflow_roi
 
@@ -32,13 +32,14 @@ async def seed_data():
 
     async with AsyncSessionLocal() as session:
         # 1. Clear existing data
-        from sqlalchemy import delete, text
+        from sqlalchemy import delete
         
-        # Safe deletion of AuditLog (might not exist if migration didn't run)
+        # Clear logs first
         try:
             await session.execute(delete(AuditLog))
-        except Exception:
-            print("AuditLog table not found or already cleared, skipping...")
+            await session.execute(delete(ParameterLog))
+        except Exception as e:
+            print(f"Log tables clearing skipped or failed: {e}")
             
         await session.execute(delete(SystemParameter))
         await session.execute(delete(Blocker))
@@ -50,7 +51,7 @@ async def seed_data():
         
         print("Cleared old data.")
 
-        # 2. System Parameters (Dynamic Connectors)
+        # 2. System Parameters (Dynamic Connectors) - Locked to 4 keys
         params = [
             {
                 "key": "TOOL_ID",
@@ -58,7 +59,9 @@ async def seed_data():
                 "description": "Dynamic retrieval of active metrology tool IDs from production database.",
                 "is_dynamic": True,
                 "python_code": "import random\nresult = [f'CDSEM_{i:02d}' for i in range(1, 15)] + [f'OVL_{i:02d}' for i in range(1, 8)]",
-                "manual_values": []
+                "manual_values": [],
+                "cached_values": ["CDSEM_01", "CDSEM_02", "OVL_01"],
+                "has_discrepancy": False
             },
             {
                 "key": "HARDWARE_FAMILY",
@@ -66,23 +69,29 @@ async def seed_data():
                 "description": "Metrology hardware classification (e.g. Hitachi, ASML, KLA).",
                 "is_dynamic": True,
                 "python_code": "result = ['Hitachi S-9380', 'Hitachi CG-5000', 'ASML YieldStar 250', 'KLA Archer 600', 'KLA SpectraShape 10k']",
-                "manual_values": ["HITACHI", "ASML", "KLA", "TEL", "AMAT"]
+                "manual_values": ["HITACHI", "ASML", "KLA", "TEL", "AMAT"],
+                "cached_values": ["HITACHI", "ASML", "KLA"],
+                "has_discrepancy": False
             },
             {
-                "key": "WAFER_SIZE",
-                "label": "Wafer Size (mm)",
-                "description": "Standard production wafer sizes.",
+                "key": "TRIGGER_ARCHITECTURE",
+                "label": "Trigger Architecture",
+                "description": "The architectural source of the workflow trigger (FDC, SPC, MES, Manual).",
                 "is_dynamic": False,
                 "python_code": None,
-                "manual_values": ["300", "200", "150"]
+                "manual_values": ["FDC_ALARM", "SPC_OOC", "MES_STEP_START", "MANUAL_ENTRY"],
+                "cached_values": ["FDC_ALARM", "SPC_OOC", "MES_STEP_START", "MANUAL_ENTRY"],
+                "has_discrepancy": False
             },
             {
-                "key": "FAB_LOCATION",
-                "label": "Fab Location",
-                "description": "Physical fab building identifier.",
+                "key": "OUTPUT_CLASSIFICATION",
+                "label": "Output Classification",
+                "description": "Classification of the workflow's primary output for reporting.",
                 "is_dynamic": False,
                 "python_code": None,
-                "manual_values": ["12-S3", "12-S1", "15-S4"]
+                "manual_values": ["RECIPE_FILE", "TOOL_STATE_CHANGE", "LOT_RELEASE", "DATA_REPORT"],
+                "cached_values": ["RECIPE_FILE", "TOOL_STATE_CHANGE", "LOT_RELEASE", "DATA_REPORT"],
+                "has_discrepancy": False
             }
         ]
         for p in params:
@@ -125,7 +134,8 @@ async def seed_data():
                 "tool_family": "cd_sem",
                 "trigger_type": "new_npi_routing",
                 "trigger_description": "New NPI Gate layer requires high-precision CD-SEM measurement for gate width control.",
-                "frequency": 12.0,
+                "cadence_count": 12.0,
+                "cadence_unit": "month",
                 "output_type": "recipe_deployed",
                 "output_description": "Production-ready recipe synced to tool clusters across all shifts.",
                 "repeatability_check": True,
@@ -187,7 +197,8 @@ async def seed_data():
                 "tool_family": "ovl",
                 "trigger_type": "shift_qual",
                 "trigger_description": "Shift-ly cross-tool matching to ensure overlay consistency across the fleet.",
-                "frequency": 90.0,
+                "cadence_count": 1.0,
+                "cadence_unit": "day",
                 "output_type": "report_generated",
                 "output_description": "Matching matrix and tool bias report for tool owner approval.",
                 "repeatability_check": True,
@@ -232,7 +243,8 @@ async def seed_data():
                 "tool_family": "ellipsometry",
                 "trigger_type": "tool_pm_recovery",
                 "trigger_description": "Recovery procedure for thin-film tools after preventive maintenance.",
-                "frequency": 4.0,
+                "cadence_count": 1.0,
+                "cadence_unit": "week",
                 "output_type": "tool_released",
                 "output_description": "Tool health certification and release to production.",
                 "repeatability_check": True,
