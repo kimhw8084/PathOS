@@ -50,7 +50,8 @@ async def list_workflows(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Workflow)
         .where(Workflow.is_deleted == False)
-        .options(selectinload(Workflow.tasks).selectinload(Task.blockers))
+        .options(selectinload(Workflow.tasks).selectinload(Task.blockers),
+                 selectinload(Workflow.tasks).selectinload(Task.errors))
         .order_by(Workflow.created_at.desc())
     )
     return result.scalars().all()
@@ -60,7 +61,8 @@ async def get_workflow(workflow_id: int, db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Workflow)
         .where(Workflow.id == workflow_id)
-        .options(selectinload(Workflow.tasks).selectinload(Task.blockers))
+        .options(selectinload(Workflow.tasks).selectinload(Task.blockers),
+                 selectinload(Workflow.tasks).selectinload(Task.errors))
     )
     workflow = result.scalar_one_or_none()
     if not workflow:
@@ -72,7 +74,8 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
     result = await db.execute(
         select(Workflow)
         .where(Workflow.id == workflow_id)
-        .options(selectinload(Workflow.tasks).selectinload(Task.blockers))
+        .options(selectinload(Workflow.tasks).selectinload(Task.blockers),
+                 selectinload(Workflow.tasks).selectinload(Task.errors))
     )
     workflow = result.scalar_one_or_none()
     if not workflow:

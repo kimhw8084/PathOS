@@ -1,36 +1,34 @@
 from ..models.models import Task, Workflow
 
-def calculate_task_roi(task: Task, workflow_frequency: float) -> float:
+def calculate_task_roi_contribution(task: Task) -> float:
     """
-    Calculates ROI for a single task based on formulas in project.md.
-    Base Time Saved = (Task TAT * Occurrences) * Workflow Frequency
-    Error Penalty Time = Error Probability * Average Recovery Time
-    Total ROI (Time Saved) = Base Time Saved + Error Penalty Time
+    Calculates the ROI contribution of a single task in minutes per cycle.
+    ROI is calculated only on Active Touch Time.
+    Formula: (Active Touch Time * Occurrences) + Σ(Error Probability * Recovery Time)
     """
-    # Base time saved per cycle (minutes)
-    base_time_per_cycle = task.tat_minutes * task.occurrences_per_cycle
+    # Base touch time per cycle (minutes)
+    base_touch_time = task.active_touch_time_minutes * task.occurrences_per_cycle
     
-    # Error penalty per cycle (minutes)
-    # Note: project.md says Error Penalty Time = Error Probability * Average Recovery Time
-    # Assuming Error Probability is a percentage (e.g. 0.05 for 5%)
-    error_penalty_per_cycle = (task.error_probability / 100.0) * task.recovery_time_minutes
-    
-    # Total time per cycle (minutes)
-    total_time_per_cycle = base_time_per_cycle + error_penalty_per_cycle
-    
-    # Annualized or Periodic ROI (assuming workflow_frequency is same unit as needed)
-    # If frequency is per month, return minutes per month
-    return total_time_per_cycle * workflow_frequency
+    # Error penalty contribution per cycle (minutes)
+    error_penalty = 0.0
+    if task.errors:
+        for error in task.errors:
+            error_penalty += (error.probability_percent / 100.0) * error.recovery_time_minutes
+            
+    return base_touch_time + error_penalty
 
 def update_workflow_roi(workflow: Workflow):
     """
-    Sum of ROI for all tasks in a workflow.
+    Sum of ROI for all tasks in a workflow multiplied by frequency.
     Returns total hours saved.
+    Formula: Σ(Task ROI Contribution) * Frequency / 60
     """
-    total_minutes = 0.0
+    total_task_minutes = 0.0
     for task in workflow.tasks:
-        total_minutes += calculate_task_roi(task, workflow.frequency)
+        if not task.is_deleted:
+            total_task_minutes += calculate_task_roi_contribution(task)
     
-    # Convert to hours
-    workflow.total_roi_saved_hours = total_minutes / 60.0
+    # Apply workflow frequency and convert to hours
+    # workflow.frequency is assumed to be in cycles per week/month (as per frequency definition)
+    workflow.total_roi_saved_hours = (total_task_minutes * workflow.frequency) / 60.0
     return workflow.total_roi_saved_hours

@@ -26,3 +26,4 @@ reference/
 # Exclude all .md files except README.md (if it existed)
 *.md
 !README.md
+.env

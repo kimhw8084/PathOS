@@ -24,35 +24,29 @@ class AutomationStatus(str, enum.Enum):
     PARTIALLY_AUTOMATED = "Partially Automated"
     FULLY_AUTOMATED = "Fully Automated"
 
-class TaxonomyCategory(str, enum.Enum):
-    TRIGGER_TYPE = "TriggerType"
-    TOOL_TYPE = "ToolType"
-    WORKFLOW_TYPE = "WorkflowType"
-    OUTPUT_TYPE = "OutputType"
-    BLOCKING_ENTITY = "BlockingEntity"
-
-class TaxonomyEnum(Base, BaseMixin):
-    __tablename__ = "taxonomy_enums"
-    category = Column(String, index=True) # Using string instead of Enum for flexibility
-    label = Column(String, index=True)
-    value = Column(String, unique=True)
-    description = Column(Text, nullable=True)
-    is_default = Column(Boolean, default=False)
-
 class Workflow(Base, BaseMixin):
     __tablename__ = "workflows"
     name = Column(String, index=True)
+    version = Column(String, default="v1")
+    tool_family = Column(String, nullable=True) # e.g. [CD-SEM], [Overlay]
     
-    # Intake Fields
-    trigger_type = Column(String) # Enum reference
+    # Intake / Gatekeeper Fields
+    trigger_type = Column(String) 
     trigger_description = Column(Text)
-    frequency = Column(Float) # Scenario frequency per unit time (e.g. per month)
-    output_type = Column(String) # Enum reference
+    frequency = Column(Float) # Workflow Frequency (e.g. times per week)
+    output_type = Column(String) 
     output_description = Column(Text)
     repeatability_check = Column(Boolean, default=True)
     
-    # Automation Lifecycle
+    # Environment
+    involves_equipment = Column(Boolean, default=False)
+    equipment_state = Column(String, nullable=True) # Idle, Local, Run, Down
+    cleanroom_execution_required = Column(Boolean, default=False)
+    
+    # Metadata & Health
     status = Column(String, default=AutomationStatus.CREATED.value)
+    yield_risk = Column(Boolean, default=False)
+    flow_summary = Column(Text, nullable=True) # Trigger -> Output preview
     automation_notes = Column(Text, nullable=True)
     
     # ROI Metrics (Cached/Calculated)
@@ -66,30 +60,61 @@ class Task(Base, BaseMixin):
     name = Column(String)
     description = Column(Text)
     target_system = Column(String)
+    interface_type = Column(String, nullable=True) # GUI, API, DB, File
     
     # Time & Effort
-    tat_minutes = Column(Float, default=0.0)
+    active_touch_time_minutes = Column(Float, default=0.0)
+    machine_wait_time_minutes = Column(Float, default=0.0)
     occurrences_per_cycle = Column(Integer, default=1)
     
-    # Failures & Recovery
-    potential_mistakes = Column(Text, nullable=True)
-    error_probability = Column(Float, default=0.0) # Percentage (0-100)
-    recovery_time_minutes = Column(Float, default=0.0)
+    # Automation & IT
+    shadow_it_used = Column(Boolean, default=False)
+    shadow_it_link = Column(String, nullable=True)
+    
+    # Data Lineage
+    source_data = Column(Text, nullable=True)
+    output_format_example = Column(Text, nullable=True)
+    post_task_verification = Column(Text, nullable=True)
+    
+    # Corner Cases & Risks
+    risks_yield_scrap = Column(Boolean, default=False)
+    tribal_knowledge = Column(Text, nullable=True)
+    media = Column(JSON, nullable=True) # List of image/file references
     
     order_index = Column(Integer, default=0)
     
     workflow = relationship("Workflow", back_populates="tasks")
     blockers = relationship("Blocker", back_populates="task", cascade="all, delete-orphan")
+    errors = relationship("TaskError", back_populates="task", cascade="all, delete-orphan")
+
+class TaskError(Base, BaseMixin):
+    __tablename__ = "task_errors"
+    task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"))
+    error_type = Column(String)
+    description = Column(Text)
+    probability_percent = Column(Float, default=0.0)
+    recovery_time_minutes = Column(Float, default=0.0)
+    
+    task = relationship("Task", back_populates="errors")
 
 class Blocker(Base, BaseMixin):
     __tablename__ = "blockers"
     task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"))
-    blocking_entity = Column(String) # Enum reference
+    blocking_entity = Column(String) 
     reason = Column(Text)
+    probability_percent = Column(Float, default=0.0)
     average_delay_minutes = Column(Float, default=0.0)
     standard_mitigation = Column(Text)
     
     task = relationship("Task", back_populates="blockers")
+
+class TaxonomyEnum(Base, BaseMixin):
+    __tablename__ = "taxonomy_enums"
+    category = Column(String, index=True) 
+    label = Column(String, index=True)
+    value = Column(String, unique=True)
+    description = Column(Text, nullable=True)
+    is_default = Column(Boolean, default=False)
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"

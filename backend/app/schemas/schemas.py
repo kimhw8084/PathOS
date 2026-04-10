@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import datetime
 
 class TaxonomyBase(BaseModel):
@@ -16,6 +16,7 @@ class TaxonomyRead(TaxonomyBase):
 class BlockerBase(BaseModel):
     blocking_entity: str
     reason: str
+    probability_percent: float = 0.0
     average_delay_minutes: float = 0.0
     standard_mitigation: str
 
@@ -27,35 +28,65 @@ class BlockerRead(BlockerBase):
     task_id: int
     model_config = ConfigDict(from_attributes=True)
 
+class TaskErrorBase(BaseModel):
+    error_type: str
+    description: str
+    probability_percent: float = 0.0
+    recovery_time_minutes: float = 0.0
+
+class TaskErrorCreate(TaskErrorBase):
+    task_id: Optional[int] = None
+
+class TaskErrorRead(TaskErrorBase):
+    id: int
+    task_id: int
+    model_config = ConfigDict(from_attributes=True)
+
 class TaskBase(BaseModel):
     name: str = Field(..., min_length=1)
     description: str
     target_system: str
-    tat_minutes: float = 0.0
+    interface_type: Optional[str] = None
+    active_touch_time_minutes: float = 0.0
+    machine_wait_time_minutes: float = 0.0
     occurrences_per_cycle: int = 1
-    potential_mistakes: Optional[str] = None
-    error_probability: float = 0.0
-    recovery_time_minutes: float = 0.0
+    shadow_it_used: bool = False
+    shadow_it_link: Optional[str] = None
+    source_data: Optional[str] = None
+    output_format_example: Optional[str] = None
+    post_task_verification: Optional[str] = None
+    risks_yield_scrap: bool = False
+    tribal_knowledge: Optional[str] = None
+    media: Optional[List[Any]] = None
     order_index: int = 0
 
 class TaskCreate(TaskBase):
     workflow_id: int
     blockers: Optional[List[BlockerCreate]] = []
+    errors: Optional[List[TaskErrorCreate]] = []
 
 class TaskRead(TaskBase):
     id: int
     workflow_id: int
     blockers: List[BlockerRead] = []
+    errors: List[TaskErrorRead] = []
     model_config = ConfigDict(from_attributes=True)
 
 class WorkflowBase(BaseModel):
     name: str = Field(..., min_length=2)
+    version: str = "v1"
+    tool_family: Optional[str] = None
     trigger_type: str
     trigger_description: str
     frequency: float
     output_type: str
     output_description: str
     repeatability_check: bool = True
+    involves_equipment: bool = False
+    equipment_state: Optional[str] = None
+    cleanroom_execution_required: bool = False
+    yield_risk: bool = False
+    flow_summary: Optional[str] = None
 
 class WorkflowCreate(WorkflowBase):
     pass
