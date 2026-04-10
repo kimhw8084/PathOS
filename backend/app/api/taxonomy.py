@@ -8,7 +8,7 @@ from ..schemas.schemas import TaxonomyRead
 
 router = APIRouter()
 
-@router.get("/", response_model=List[TaxonomyRead])
+@router.get("", response_model=List[TaxonomyRead])
 async def list_taxonomy(category: Optional[str] = None, db: AsyncSession = Depends(get_db)):
     query = select(TaxonomyEnum)
     if category:

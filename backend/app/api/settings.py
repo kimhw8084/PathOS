@@ -12,7 +12,7 @@ from ..database import get_db
 from ..models.models import SystemParameter
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/settings", tags=["settings"])
+router = APIRouter(tags=["settings"])
 
 class ParameterUpdate(BaseModel):
     label: str

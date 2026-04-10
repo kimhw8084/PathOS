@@ -80,7 +80,17 @@ async def root():
         "health": "/health"
     }
 
+@app.get("/api")
+@app.get("/api/")
+async def api_root():
+    return {
+        "message": "PathOS API Gateway",
+        "status": "online",
+        "version": "1.0.0"
+    }
+
 @app.get("/health")
+@app.get("/api/health")
 async def health_check():
     return {"status": "healthy", "service": "PathOS", "version": "1.0.0"}
 

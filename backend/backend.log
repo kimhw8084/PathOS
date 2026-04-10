@@ -1,0 +1,56 @@
+INFO:     Will watch for changes in these directories: ['/Users/haewonkim/home/development/pathos/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8081 (Press CTRL+C to quit)
+INFO:     Started reloader process [21371] using StatReload
+INFO:     Started server process [21373]
+INFO:     Waiting for application startup.
+2026-04-10 10:11:39,904 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-10 10:11:39,905 - PathOS - INFO - Database initialized successfully.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:59764 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59773 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59777 - "GET /api/workflows HTTP/1.1" 307 Temporary Redirect
+WARNING:  StatReload detected changes in 'app/api/workflows.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-10 10:14:26,757 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [21373]
+INFO:     Started server process [23966]
+INFO:     Waiting for application startup.
+2026-04-10 10:14:27,132 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-10 10:14:27,134 - PathOS - INFO - Database initialized successfully.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app/api/workflows.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-10 10:14:30,495 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [23966]
+INFO:     Started server process [24049]
+INFO:     Waiting for application startup.
+2026-04-10 10:14:30,783 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-10 10:14:30,784 - PathOS - INFO - Database initialized successfully.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app/api/taxonomy.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-10 10:14:33,231 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [24049]
+INFO:     Started server process [24051]
+INFO:     Waiting for application startup.
+2026-04-10 10:14:33,533 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-10 10:14:33,535 - PathOS - INFO - Database initialized successfully.
+INFO:     Application startup complete.
+WARNING:  StatReload detected changes in 'app/api/tasks.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-10 10:14:41,687 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [24051]
+INFO:     Started server process [24225]
+INFO:     Waiting for application startup.
+2026-04-10 10:14:41,980 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-10 10:14:41,982 - PathOS - INFO - Database initialized successfully.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:59795 - "GET /api/workflows HTTP/1.1" 200 OK

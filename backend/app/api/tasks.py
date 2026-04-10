@@ -11,7 +11,7 @@ from ..core.audit import log_audit
 
 router = APIRouter()
 
-@router.post("/", response_model=TaskRead)
+@router.post("", response_model=TaskRead)
 async def create_task(task_data: TaskCreate, db: AsyncSession = Depends(get_db)):
     # Verify workflow exists
     wf_result = await db.execute(

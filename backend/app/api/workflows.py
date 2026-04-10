@@ -12,7 +12,7 @@ import json
 
 router = APIRouter()
 
-@router.post("/", response_model=WorkflowRead)
+@router.post("", response_model=WorkflowRead)
 async def create_workflow(workflow_data: WorkflowCreate, db: AsyncSession = Depends(get_db)):
     # 2.1 The Gatekeeper Logic
     if not workflow_data.repeatability_check:
@@ -45,7 +45,7 @@ async def create_workflow(workflow_data: WorkflowCreate, db: AsyncSession = Depe
     await db.refresh(new_workflow)
     return new_workflow
 
-@router.get("/", response_model=List[WorkflowRead])
+@router.get("", response_model=List[WorkflowRead])
 async def list_workflows(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
         select(Workflow)
