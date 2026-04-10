@@ -237,7 +237,7 @@
 
 /* Ag-Grid: Apple Pro Edition */
 .ag-theme-quartz-dark {
-  --ag-background-color: transparent !important;
+  --ag-background-color: #0a0e17 !important;
   --ag-header-background-color: rgba(255, 255, 255, 0.02) !important;
   --ag-odd-row-background-color: transparent !important;
   --ag-border-color: rgba(255, 255, 255, 0.08) !important;
@@ -251,21 +251,34 @@
   --ag-header-height: 54px !important;
   --ag-row-height: 64px !important;
   --ag-card-radius: 20px !important;
-  --ag-checkbox-background-color: transparent !important;
-  --ag-checkbox-checked-color: var(--color-theme-accent) !important;
 }
 
 .ag-grid-apple {
   border: none !important;
-  background: transparent !important;
+  background: #0a0e17 !important;
 }
 
 .ag-root-wrapper {
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
   border-radius: 20px !important;
   overflow: hidden !important;
-  background: rgba(19, 27, 43, 0.4) !important;
-  backdrop-filter: blur(10px) !important;
+  background: #0a0e17 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+}
+
+.ag-header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.ag-cell {
+  display: flex !important;
+  align-items: center !important;
+  border: none !important;
+}
+
+/* Fix for potential white background in table */
+.ag-body-viewport {
+  background-color: #0a0e17 !important;
 }
 
 /* Custom selection styling for ag-grid */

@@ -63,9 +63,9 @@ const ConnectionStatus = () => {
 const GlobalSidebar = ({ isOpen, setOpen, activeTab, setActiveTab }: { isOpen: boolean, setOpen: (v: boolean) => void, activeTab: string, setActiveTab: (v: string) => void }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'workflows', label: 'Workflow Repository', icon: Database },
-    { id: 'board', label: 'Automation Board', icon: Kanban },
-    { id: 'analytics', label: 'System Analytics', icon: BarChart3 },
+    { id: 'workflows', label: 'Workflows', icon: Database },
+    { id: 'board', label: 'Automation', icon: Kanban },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   ];
 
   const bottomItems = [
@@ -81,7 +81,7 @@ const GlobalSidebar = ({ isOpen, setOpen, activeTab, setActiveTab }: { isOpen: b
       >
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-theme-accent flex items-center justify-center text-white shadow-lg shadow-theme-accent/20 group-hover:scale-110 transition-transform duration-300">
-            <Zap size={18} fill="currentColor" />
+            <Layers size={18} fill="currentColor" />
           </div>
           {isOpen && (
             <span className="font-extrabold text-xl tracking-tight text-white group-hover:text-theme-accent transition-colors duration-300">
@@ -115,21 +115,6 @@ const GlobalSidebar = ({ isOpen, setOpen, activeTab, setActiveTab }: { isOpen: b
             {isOpen && <span className="text-nav">{item.label}</span>}
           </button>
         ))}
-        
-        <div className="pt-6 mt-4 border-t border-theme-border/50">
-          <div className={`flex items-center gap-3.5 px-4 py-2 ${!isOpen && 'justify-center'}`}>
-            <div className="w-9 h-9 rounded-full bg-theme-active border border-theme-border/50 overflow-hidden shadow-inner">
-               <img src={`https://ui-avatars.com/api/?name=HK&background=007AFF&color=fff`} alt="HK" className="w-full h-full object-cover" />
-            </div>
-            {isOpen && (
-              <div className="flex-1 overflow-hidden">
-                <p className="text-[13px] font-bold text-white truncate leading-none mb-1">Haewon Kim</p>
-                <p className="text-hint text-theme-muted leading-none">System Administrator</p>
-              </div>
-            )}
-            {isOpen && <LogOut size={16} className="text-theme-muted hover:text-status-error transition-colors cursor-pointer" />}
-          </div>
-        </div>
       </div>
 
       <button 
@@ -155,25 +140,7 @@ const GlobalHeader = ({ activeTab }: { activeTab: string }) => {
       </div>
 
       <div className="flex items-center gap-6">
-        <div className="relative group">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-theme-muted group-focus-within:text-theme-accent transition-colors" />
-          <input 
-            type="text" 
-            placeholder="Search commands or data..." 
-            className="bg-white/[0.04] border border-theme-border rounded-full pl-10 pr-12 py-2 text-[13px] font-medium focus:outline-none focus:border-theme-accent/50 w-72 transition-all focus:bg-white/[0.08] focus:ring-1 focus:ring-theme-accent/20"
-          />
-          <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[9px] font-bold text-theme-muted bg-white/[0.05] border border-theme-border rounded px-1.5 py-0.5 pointer-events-none">⌘K</div>
-        </div>
-        
-        <div className="flex items-center gap-4 border-l border-theme-border/50 pl-6">
-          <button className="text-theme-secondary hover:text-theme-primary transition-all relative p-2 hover:bg-white/[0.05] rounded-full">
-            <Bell size={20} />
-            <div className="absolute top-2 right-2 w-2.5 h-2.5 bg-theme-accent rounded-full border-2 border-theme-header shadow-[0_0_8px_rgba(0,122,255,0.6)]" />
-          </button>
-          <button className="btn-apple-primary flex items-center gap-2 ml-2">
-            <RefreshCw size={14} /> Sync Status
-          </button>
-        </div>
+        {/* Navigation and search items removed as per requirement */}
       </div>
     </header>
   );
@@ -204,7 +171,9 @@ const PathOSApp: React.FC = () => {
       setActiveTab('builder');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Intake failed.");
+      const detail = error.response?.data?.detail || "Intake failed.";
+      toast.error(detail);
+      reportError(error.response?.data || error, 'backend');
     }
   });
 

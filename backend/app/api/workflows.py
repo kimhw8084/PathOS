@@ -29,6 +29,7 @@ async def create_workflow(workflow_data: WorkflowCreate, db: AsyncSession = Depe
         )
 
     new_workflow = Workflow(**workflow_data.model_dump())
+    new_workflow.tasks = [] # Initialize as empty to prevent lazy-load during response validation
     db.add(new_workflow)
     await db.flush() # Get ID for audit
     
@@ -89,7 +90,7 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
     
     # Recalculate ROI if frequency changed
     if "frequency" in workflow_data:
-        update_workflow_roi(workflow)
+        await update_workflow_roi(workflow)
         
     await log_audit(
         db,

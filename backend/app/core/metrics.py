@@ -1,6 +1,8 @@
 from ..models.models import Task, Workflow
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
-def calculate_task_roi_contribution(task: Task) -> float:
+async def calculate_task_roi_contribution(task: Task) -> float:
     """
     Calculates the ROI contribution of a single task in minutes per cycle.
     ROI is calculated only on Active Touch Time.
@@ -13,6 +15,7 @@ def calculate_task_roi_contribution(task: Task) -> float:
     
     # Error penalty contribution per cycle (minutes)
     error_penalty = 0.0
+    # Note: task.errors must be pre-loaded or this will fail in async
     if task.errors:
         for error in task.errors:
             prob = error.probability_percent or 0.0
@@ -21,20 +24,20 @@ def calculate_task_roi_contribution(task: Task) -> float:
             
     return base_touch_time + error_penalty
 
-def update_workflow_roi(workflow: Workflow):
+async def update_workflow_roi(workflow: Workflow):
     """
     Sum of ROI for all tasks in a workflow multiplied by frequency.
     Returns total hours saved.
     Formula: Σ(Task ROI Contribution) * Frequency / 60
     """
     total_task_minutes = 0.0
+    # Note: workflow.tasks must be pre-loaded or this will fail in async
     if workflow.tasks:
         for task in workflow.tasks:
             if not getattr(task, 'is_deleted', False):
-                total_task_minutes += calculate_task_roi_contribution(task)
+                total_task_minutes += await calculate_task_roi_contribution(task)
     
     # Apply workflow frequency and convert to hours
-    # workflow.frequency is assumed to be in cycles per week/month (as per frequency definition)
     frequency = workflow.frequency or 0.0
     workflow.total_roi_saved_hours = (total_task_minutes * frequency) / 60.0
     return workflow.total_roi_saved_hours

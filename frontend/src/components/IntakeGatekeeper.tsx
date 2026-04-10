@@ -227,35 +227,23 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
           </div>
 
           <div className="apple-card space-y-6">
-             <div className="grid grid-cols-2 gap-4">
-                <label className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${formData.involves_equipment ? 'bg-theme-accent/[0.05] border-theme-accent/50' : 'bg-black/40 border-theme-border hover:bg-black/60'}`}>
-                  <input type="checkbox" className="w-5 h-5 accent-theme-accent" checked={formData.involves_equipment} onChange={e => setFormData({...formData, involves_equipment: e.target.checked})} />
-                  <span className="text-[13px] font-bold text-white">Equipment Task</span>
-                </label>
-                <label className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 ${formData.cleanroom_execution_required ? 'bg-theme-accent/[0.05] border-theme-accent/50' : 'bg-black/40 border-theme-border hover:bg-black/60'}`}>
-                  <input type="checkbox" className="w-5 h-5 accent-theme-accent" checked={formData.cleanroom_execution_required} onChange={e => setFormData({...formData, cleanroom_execution_required: e.target.checked})} />
-                  <span className="text-[13px] font-bold text-white">Cleanroom</span>
-                </label>
-             </div>
-
-            {formData.involves_equipment && (
-              <div className="space-y-3 pt-2 animate-in slide-in-from-top duration-300">
-                <label className="text-hint px-1">Equipment State Threshold</label>
-                <div className="grid grid-cols-4 gap-2">
-                  {['Idle', 'Local', 'Run', 'Down'].map(state => (
-                    <button 
-                      key={state}
-                      onClick={() => setFormData({...formData, equipment_state: state})}
-                      className={`py-2 text-hint normal-case rounded-xl border transition-all ${formData.equipment_state === state ? 'bg-theme-accent border-theme-accent text-white shadow-lg shadow-theme-accent/20' : 'bg-black/40 border-theme-border text-theme-muted hover:border-theme-muted'}`}
-                    >
-                      {state}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            <div className="flex items-center gap-3 text-theme-accent border-b border-theme-border/50 pb-3">
+              <Timer size={18} />
+              <span className="text-hint text-theme-accent">Operational Cadence</span>
+            </div>
+            <div className="space-y-2.5">
+              <label className="text-hint px-1">Weekly Execution Frequency</label>
+              <input 
+                type="number" 
+                className="input-apple !bg-black/40 font-black text-lg text-theme-accent" 
+                value={formData.frequency} 
+                onChange={e => setFormData({...formData, frequency: parseFloat(e.target.value)})} 
+              />
+              <p className="text-hint text-[10px] normal-case opacity-40 px-1">How many times this sequence repeats across all shifts per week.</p>
+            </div>
           </div>
-        </div>
+          </div>
+
       </div>
 
       <div className="pt-10 flex items-center justify-center">

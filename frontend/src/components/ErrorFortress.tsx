@@ -125,7 +125,7 @@ export const ErrorFortressProvider: React.FC<{ children: React.ReactNode }> = ({
                          </span>
                          <span className="text-[10px] text-white/30">{new Date(e.timestamp).toLocaleTimeString()}</span>
                       </div>
-                      <p className="text-[12px] font-bold text-white mb-1 line-clamp-1">{e.message}</p>
+                      <p className="text-[12px] font-bold text-white mb-2 leading-snug">{e.message}</p>
                       <p className="text-hint normal-case opacity-40 font-mono text-[9px]">{e.type}</p>
                     </button>
                   ))
@@ -136,18 +136,18 @@ export const ErrorFortressProvider: React.FC<{ children: React.ReactNode }> = ({
               <div className="flex-1 flex flex-col bg-black/40">
                 {errors[0] ? (
                   <>
-                    <div className="p-8 border-b border-white/5 space-y-4">
-                       <div className="flex items-start justify-between">
-                         <div className="space-y-1">
-                           <h3 className="text-header-sub text-status-error">{errors[0].type}</h3>
-                           <p className="text-main-content font-bold">{errors[0].message}</p>
+                    <div className="p-8 border-b border-white/5 space-y-6">
+                       <div className="flex items-start justify-between gap-6">
+                         <div className="space-y-2 flex-1">
+                           <h3 className="text-header-sub text-status-error font-mono">{errors[0].type}</h3>
+                           <p className="text-[15px] font-bold text-white leading-relaxed">{errors[0].message}</p>
                          </div>
                          <button 
                            onClick={() => {
                              navigator.clipboard.writeText(`System: PathOS Diagnostic\nType: ${errors[0].type}\nMessage: ${errors[0].message}\nTraceback:\n${errors[0].traceback}`);
                              toast.success("Traceback copied to clipboard");
                            }}
-                           className="btn-apple-secondary flex items-center gap-2"
+                           className="btn-apple-secondary flex items-center gap-2 flex-shrink-0"
                          >
                            <Copy size={14} /> Copy for Developer
                          </button>

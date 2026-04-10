@@ -61,6 +61,14 @@ async def seed_data():
                 "manual_values": []
             },
             {
+                "key": "HARDWARE_FAMILY",
+                "label": "Hardware Family",
+                "description": "Metrology hardware classification (e.g. Hitachi, ASML, KLA).",
+                "is_dynamic": True,
+                "python_code": "result = ['Hitachi S-9380', 'Hitachi CG-5000', 'ASML YieldStar 250', 'KLA Archer 600', 'KLA SpectraShape 10k']",
+                "manual_values": ["HITACHI", "ASML", "KLA", "TEL", "AMAT"]
+            },
+            {
                 "key": "WAFER_SIZE",
                 "label": "Wafer Size (mm)",
                 "description": "Standard production wafer sizes.",
@@ -321,7 +329,7 @@ async def seed_data():
                 .options(selectinload(Workflow.tasks).selectinload(Task.errors))
             )
             wf_loaded = wf_res.scalar_one()
-            update_workflow_roi(wf_loaded)
+            await update_workflow_roi(wf_loaded)
             await session.commit()
             print(f"Workflow '{wf.name}' seeded with ROI: {wf_loaded.total_roi_saved_hours:.2f}h")
 
