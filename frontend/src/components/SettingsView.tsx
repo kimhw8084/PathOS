@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, Code, Type, Play, Save, 
-  CheckCircle2, XCircle, RefreshCw, Terminal, 
-  Box, Info, ShieldAlert, Clock, AlertTriangle, ChevronRight, History
+  RefreshCw, Terminal, 
+  Box, ShieldAlert, Clock, AlertTriangle, ChevronRight, History
 } from 'lucide-react';
 import { settingsApi } from '../api/client';
 import { toast } from 'react-hot-toast';
-import { useErrorFortress } from './ErrorFortress';
 
 const SettingsView: React.FC = () => {
   const [parameters, setParameters] = useState<any[]>([]);
@@ -15,7 +14,6 @@ const SettingsView: React.FC = () => {
   const [executing, setExecuting] = useState(false);
   const [logs, setLogs] = useState<any[]>([]);
   const [showLogs, setShowLogs] = useState(false);
-  const { reportError } = useErrorFortress();
 
   useEffect(() => {
     loadParameters();

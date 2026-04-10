@@ -8,8 +8,9 @@ import {
   HelpCircle,
   ChevronLeft,
   ChevronRight,
-  X,
-  Layers
+  Layers,
+  Terminal,
+  Bug
 } from 'lucide-react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Toaster, toast } from 'react-hot-toast';
@@ -98,22 +99,6 @@ const GlobalSidebar = ({ isOpen, setOpen, activeTab, setActiveTab }: { isOpen: b
   );
 };
 
-import { 
-  LayoutDashboard, 
-  Database, 
-  Kanban, 
-  BarChart3, 
-  Settings, 
-  HelpCircle,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  Layers,
-  Terminal,
-  Bug,
-  ShieldAlert
-} from 'lucide-react';
-...
 const GlobalHeader = ({ activeTab }: { activeTab: string }) => {
   const { setIsOpen, isOpen, errors } = useErrorFortress();
   
@@ -143,7 +128,6 @@ const PathOSApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState('workflows'); // Default to Registry
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [selectedWorkflow, setSelectedWorkflow] = useState<any>(null);
-  const [showHelp, setShowHelp] = useState(false);
   
   const queryClient = useQueryClient();
   const { reportError } = useErrorFortress();
@@ -185,7 +169,7 @@ const PathOSApp: React.FC = () => {
   return (
     <div className="flex h-screen bg-theme-bg text-theme-primary overflow-hidden font-sans selection:bg-theme-accent selection:text-white">
       <Toaster position="bottom-right" toastOptions={{ className: 'apple-glass border-theme-border text-white text-[13px] font-semibold rounded-2xl shadow-2xl', duration: 4000 }} />
-      <GlobalSidebar isOpen={isSidebarOpen} setOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={(t) => t === 'help' ? setShowHelp(true) : setActiveTab(t)} />
+      <GlobalSidebar isOpen={isSidebarOpen} setOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={(t) => setActiveTab(t)} />
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <GlobalHeader activeTab={activeTab} />
         <div className="flex-1 overflow-auto custom-scrollbar relative">

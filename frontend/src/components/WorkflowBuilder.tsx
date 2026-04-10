@@ -13,14 +13,12 @@ import ReactFlow, {
   BackgroundVariant
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import dagre from 'dagre';
 import { 
   Save, Trash2, 
-  ChevronDown, Workflow as LucideWorkflow, 
-  ShieldAlert, Timer, Database, Box, AlertTriangle, 
-  Layers, FileText, X, Zap,
-  Terminal, FileCode, Cpu, Activity, Info, Link as LinkIcon,
-  Clock
+  Workflow as LucideWorkflow, 
+  Box, 
+  FileText, X, Zap,
+  Cpu, Activity
 } from 'lucide-react';
 
 interface Blocker {
@@ -110,27 +108,13 @@ const DecisionNode = ({ data, selected }: { data: any, selected: boolean }) => (
   </div>
 );
 
-const nodeTypes = { 
+const nodeTypes = {
   matrix: MatrixNode,
   decision: DecisionNode
 };
 
-const dagreGraph = new dagre.graphlib.Graph();
-dagreGraph.setDefaultEdgeLabel(() => ({}));
-
-const getLayoutedElements = (nodes: Node[], edges: Edge[]) => {
-  dagreGraph.setGraph({ rankdir: 'TB', marginx: 60, marginy: 60, nodesep: 80, ranksep: 100 });
-  nodes.forEach((node) => dagreGraph.setNode(node.id, { width: 240, height: 90 }));
-  edges.forEach((edge) => dagreGraph.setEdge(edge.source, edge.target));
-  dagre.layout(dagreGraph);
-  nodes.forEach((node) => {
-    const n = dagreGraph.node(node.id);
-    node.position = { x: n.x - 120, y: n.y - 45 };
-  });
-  return { nodes, edges };
-};
-
 const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, workflowMetadata, onSave }) => {
+
   const [view, setView] = useState<'table' | 'flow'>('flow');
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [metadata, setMetadata] = useState(workflowMetadata);
