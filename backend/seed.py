@@ -18,8 +18,14 @@ async def seed_data():
 
     async with AsyncSessionLocal() as session:
         # 1. Clear existing data
-        from sqlalchemy import delete
-        await session.execute(delete(AuditLog))
+        from sqlalchemy import delete, text
+        
+        # Safe deletion of AuditLog (might not exist if migration didn't run)
+        try:
+            await session.execute(delete(AuditLog))
+        except Exception:
+            print("AuditLog table not found or already cleared, skipping...")
+            
         await session.execute(delete(SystemParameter))
         await session.execute(delete(Blocker))
         await session.execute(delete(TaskError))
