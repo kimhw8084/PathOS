@@ -47,6 +47,13 @@ class TaskBase(BaseModel):
     description: str
     target_system: str
     interface_type: Optional[str] = None
+    
+    # Locked Operational Parameters
+    tool_id: Optional[str] = None
+    hardware_family: Optional[str] = None
+    trigger_architecture: Optional[str] = None
+    output_classification: Optional[str] = None
+    
     active_touch_time_minutes: float = 0.0
     machine_wait_time_minutes: float = 0.0
     occurrences_per_cycle: int = 1

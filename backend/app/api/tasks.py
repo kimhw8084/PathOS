@@ -62,9 +62,10 @@ async def create_task(task_data: TaskCreate, db: AsyncSession = Depends(get_db))
                  selectinload(Workflow.tasks).selectinload(Task.errors))
     )
     workflow = result.scalar_one()
-    
-    update_workflow_roi(workflow)
+
+    await update_workflow_roi(workflow)
     await db.commit()
+
     
     # Return task with blockers and errors
     task_result = await db.execute(
@@ -141,9 +142,10 @@ async def sync_tasks(workflow_id: int, tasks_data: List[TaskCreate], db: AsyncSe
                  selectinload(Workflow.tasks).selectinload(Task.errors))
     )
     workflow = result.scalar_one()
-    
-    update_workflow_roi(workflow)
+
+    await update_workflow_roi(workflow)
     await db.commit()
+
     
     # Return newly created tasks with nested relationships
     result_tasks = await db.execute(

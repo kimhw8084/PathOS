@@ -60,6 +60,12 @@ interface Task {
   order_index: number;
   blockers?: Blocker[];
   errors?: TaskError[];
+  
+  // Locked Operational Parameters
+  tool_id?: string;
+  hardware_family?: string;
+  trigger_architecture?: string;
+  output_classification?: string;
 }
 
 interface WorkflowBuilderProps {
@@ -71,43 +77,43 @@ interface WorkflowBuilderProps {
   onSave: (tasks: Task[], metadata: any) => void;
 }
 
-// --- High-Density Matrix Node ---
-const MatrixNode = ({ data }: { data: { label: string, system: string, touch: number, wait: number, risks: boolean, blockers: number } }) => (
-  <div className={`apple-glass !bg-theme-card/90 !rounded-2xl px-5 py-4 min-w-[240px] shadow-2xl hover:border-theme-accent/50 transition-all duration-300 group relative border ${data.risks ? 'border-status-error/40' : 'border-theme-border'}`}>
-    {data.risks && (
-      <div className="absolute -top-2.5 -right-2.5 bg-status-error text-white rounded-full p-1.5 shadow-lg shadow-status-error/30 border-2 border-[#05070a]">
-        <AlertTriangle size={12} />
-      </div>
-    )}
-    {data.blockers > 0 && (
-      <div className="absolute -top-2.5 -left-2.5 bg-status-warning text-black font-black text-[10px] px-2.5 py-1 rounded-full shadow-lg border-2 border-[#05070a] uppercase tracking-tighter">
-        {data.blockers} Blockers
-      </div>
-    )}
-    
-    <div className="flex flex-col gap-3">
+// --- High-Density Matrix Node (Task) ---
+const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => (
+  <div className={`apple-glass !bg-black !rounded-xl px-5 py-4 min-w-[220px] shadow-2xl transition-all duration-300 group relative border-2 ${selected ? 'border-white shadow-[0_0_20px_rgba(255,255,255,0.2)]' : 'border-white/10 hover:border-white/40'}`}>
+    <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold text-theme-accent uppercase tracking-widest">{data.system || "System Alpha"}</span>
-        <div className="flex items-center gap-2 font-mono text-[11px] font-bold">
-          <span className="text-white">{data.touch}m</span>
-          <span className="text-theme-muted opacity-30">|</span>
-          <span className="text-theme-secondary">{data.wait}m</span>
+        <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em]">{data.system || "ALPHA"}</span>
+        <div className="flex items-center gap-2 font-mono text-[10px] font-bold text-white">
+          <span>{data.touch}m</span>
         </div>
       </div>
-      <h4 className="text-[14px] font-black text-white tracking-tight group-hover:text-theme-accent transition-colors truncate">{data.label}</h4>
-      <div className="h-1.5 w-full bg-white/[0.05] rounded-full overflow-hidden border border-white/5">
-        <div 
-          className="h-full bg-theme-accent shadow-[0_0_12px_rgba(59,130,246,0.6)] transition-all duration-700 ease-out" 
-          style={{ width: `${Math.min(100, (data.touch / (data.touch + data.wait + 0.1)) * 100)}%` }} 
-        />
-      </div>
+      <h4 className="text-[13px] font-black text-white tracking-tight leading-tight uppercase">{data.label}</h4>
     </div>
-    <Handle type="target" position={Position.Top} className="!bg-theme-border !w-2.5 !h-2.5 border-2 border-[#05070a]" />
-    <Handle type="source" position={Position.Bottom} className="!bg-theme-accent !w-2.5 !h-2.5 border-2 border-[#05070a]" />
+    <Handle type="target" position={Position.Top} className="!bg-white !w-2 !h-2 border border-black" />
+    <Handle type="source" position={Position.Bottom} className="!bg-white !w-2 !h-2 border border-black" />
   </div>
 );
 
-const nodeTypes = { matrix: MatrixNode };
+// --- Decision Node (Diamond) ---
+const DecisionNode = ({ data, selected }: { data: any, selected: boolean }) => (
+  <div className={`relative flex items-center justify-center w-[120px] h-[120px] transition-all duration-300 ${selected ? 'scale-110' : ''}`}>
+    <div className={`absolute inset-0 rotate-45 border-2 transition-colors duration-300 ${selected ? 'bg-white border-white' : 'bg-black border-white/40 shadow-[0_0_20px_rgba(255,255,255,0.1)]'}`} />
+    <div className="relative z-10 text-center p-4">
+      <span className={`text-[10px] font-black uppercase tracking-widest leading-none ${selected ? 'text-black' : 'text-white'}`}>
+        {data.label || 'DECISION'}
+      </span>
+    </div>
+    <Handle type="target" position={Position.Top} style={{ top: 0, left: '50%' }} className="!bg-white !w-2 !h-2 !z-20 border border-black" />
+    <Handle type="source" position={Position.Bottom} style={{ bottom: 0, left: '50%' }} className="!bg-white !w-2 !h-2 !z-20 border border-black" />
+    <Handle type="source" position={Position.Left} style={{ left: 0, top: '50%' }} id="false" className="!bg-white !w-2 !h-2 !z-20 border border-black" />
+    <Handle type="source" position={Position.Right} style={{ right: 0, top: '50%' }} id="true" className="!bg-white !w-2 !h-2 !z-20 border border-black" />
+  </div>
+);
+
+const nodeTypes = { 
+  matrix: MatrixNode,
+  decision: DecisionNode
+};
 
 const dagreGraph = new dagre.graphlib.Graph();
 dagreGraph.setDefaultEdgeLabel(() => ({}));
@@ -134,9 +140,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, workflo
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   useEffect(() => {
+    if (nodes.length > 0) return;
+
     const newNodes: Node[] = tasks.map((t) => ({
       id: `${t.id}`,
-      type: 'matrix',
+      type: t.interface_type === 'DECISION' ? 'decision' : 'matrix',
       data: { 
         label: t.name, 
         system: t.target_system, 
@@ -145,31 +153,77 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, workflo
         risks: t.risks_yield_scrap,
         blockers: t.blockers?.length || 0
       },
-      position: { x: 0, y: 0 },
+      position: { x: Math.random() * 400, y: Math.random() * 400 },
     }));
+    
     const newEdges: Edge[] = [];
-    for (let i = 0; i < tasks.length - 1; i++) {
-      newEdges.push({
-        id: `e${tasks[i].id}-${tasks[i+1].id}`,
-        source: `${tasks[i].id}`,
-        target: `${tasks[i+1].id}`,
-        markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6', width: 20, height: 20 },
-        style: { stroke: '#1e293b', strokeWidth: 3, opacity: 0.6 }
-      });
+    if (tasks.length > 1) {
+      for (let i = 0; i < tasks.length - 1; i++) {
+        newEdges.push({
+          id: `e${tasks[i].id}-${tasks[i+1].id}`,
+          source: `${tasks[i].id}`,
+          target: `${tasks[i+1].id}`,
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#ffffff' },
+          style: { stroke: '#ffffff', strokeWidth: 2, opacity: 0.2 }
+        });
+      }
     }
-    const { nodes: ln, edges: le } = getLayoutedElements(newNodes, newEdges);
-    setNodes(ln);
-    setEdges(le);
+    
+    setNodes(newNodes);
+    setEdges(newEdges);
   }, [tasks]);
+
+  const onConnect = (params: any) => {
+    setEdges((eds) => [
+      ...eds, 
+      { ...params, id: `e${Date.now()}`, markerEnd: { type: MarkerType.ArrowClosed, color: '#ffffff' }, style: { stroke: '#ffffff', strokeWidth: 2, opacity: 0.3 } }
+    ]);
+  };
+
+  const addNewNode = (type: 'matrix' | 'decision') => {
+    const id = `node-${Date.now()}`;
+    const newNode: Node = {
+      id,
+      type,
+      position: { x: 100, y: 100 },
+      data: { 
+        label: type === 'decision' ? 'NEW DECISION' : 'NEW OPERATION',
+        system: 'LOCAL',
+        touch: 0,
+        wait: 0
+      }
+    };
+    
+    setNodes((nds) => [...nds, newNode]);
+    
+    const newTask: Task = {
+      id,
+      name: type === 'decision' ? 'NEW DECISION' : 'NEW OPERATION',
+      description: '',
+      target_system: 'LOCAL',
+      interface_type: type === 'decision' ? 'DECISION' : 'GUI',
+      active_touch_time_minutes: 0,
+      machine_wait_time_minutes: 0,
+      occurrences_per_cycle: 1,
+      shadow_it_used: false,
+      risks_yield_scrap: false,
+      order_index: tasks.length,
+      blockers: [],
+      errors: [],
+      tool_id: '',
+      hardware_family: '',
+      trigger_architecture: '',
+      output_classification: ''
+    };
+    setTasks([...tasks, newTask]);
+    setSelectedTaskId(id);
+  };
 
   const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId), [tasks, selectedTaskId]);
 
   const updateTask = (id: string | number, field: keyof Task, value: any) => {
-    setTasks(tasks.map(t => t.id === id ? { ...t, [field]: value } : t));
-  };
-
-  const addBlocker = (taskId: string | number) => {
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, blockers: [...(t.blockers || []), { blocking_entity: 'PIE', reason: '', probability_percent: 0, average_delay_minutes: 0, standard_mitigation: '' }] } : t));
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, [field]: value } : t));
+    setNodes(nds => nds.map(n => n.id === String(id) ? { ...n, data: { ...n.data, [field === 'name' ? 'label' : (field === 'active_touch_time_minutes' ? 'touch' : field)]: value } } : n));
   };
 
   const onNodeClick = (_: any, node: Node) => {
@@ -183,7 +237,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, workflo
       return acc + touchTotal + errorBuffer;
     }, 0);
     
-    // Scale by cadence
     let scale = 1.0;
     if (metadata.cadence_unit === 'day') scale = 30.44;
     else if (metadata.cadence_unit === 'week') scale = 4.34;
@@ -193,32 +246,32 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, workflo
   }, [tasks, metadata]);
 
   return (
-    <div className="apple-card !p-0 flex flex-col h-full overflow-hidden relative shadow-2xl border-theme-border bg-[#0a1120]">
-      {/* Precision Toolbar */}
-      <div className="h-16 border-b border-theme-border flex items-center justify-between px-8 bg-white/[0.02] backdrop-blur-xl z-20">
+    <div className="apple-card !p-0 flex flex-col h-full overflow-hidden relative shadow-2xl border-white/10 bg-[#050505]">
+      {/* Black Precision Toolbar */}
+      <div className="h-16 border-b border-white/10 flex items-center justify-between px-8 bg-black z-20">
         <div className="flex items-center gap-4">
-          <div className="p-2.5 bg-theme-accent/10 rounded-xl border border-theme-accent/20">
-            <LucideWorkflow size={18} className="text-theme-accent" />
+          <div className="p-2.5 bg-white/5 rounded-xl border border-white/10">
+            <LucideWorkflow size={18} className="text-white" />
           </div>
           <div className="flex flex-col">
-            <span className="text-[13px] font-black text-white tracking-tight">Strategy Architect</span>
-            <span className="text-[10px] text-theme-muted font-bold uppercase tracking-[0.2em] opacity-40">PathOS Core v1.3.0</span>
+            <span className="text-[13px] font-black text-white tracking-tighter uppercase">Strategy Architect</span>
+            <span className="text-[9px] text-white/40 font-bold uppercase tracking-[0.3em]">Precision Matrix v2.0</span>
           </div>
         </div>
         <div className="flex items-center gap-6">
-          <div className="flex bg-black/40 p-1 rounded-full border border-theme-border">
+          <div className="flex bg-white/5 p-1 rounded-full border border-white/10">
             {['flow', 'table'].map((v) => (
               <button 
                 key={v}
                 onClick={() => setView(v as any)} 
-                className={`px-6 py-1.5 text-[11px] font-bold uppercase tracking-widest rounded-full transition-all duration-300 ${view === v ? 'bg-theme-accent text-white shadow-lg' : 'text-theme-muted hover:text-white'}`}
+                className={`px-6 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all duration-300 ${view === v ? 'bg-white text-black shadow-lg' : 'text-white/40 hover:text-white'}`}
               >
                 {v}
               </button>
             ))}
           </div>
-          <button onClick={() => onSave(tasks, metadata)} className="btn-apple-primary flex items-center gap-2.5 px-8 !py-2.5 !text-[12px] font-bold shadow-theme-accent/20 shadow-lg">
-            <Save size={16} /> Sync Changes
+          <button onClick={() => onSave(tasks, metadata)} className="px-8 py-2.5 bg-white text-black rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white/90 transition-all flex items-center gap-2">
+            <Save size={14} /> Synchronize
           </button>
         </div>
       </div>
@@ -226,210 +279,181 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, workflo
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden relative">
           {view === 'table' ? (
-            <div className="flex-1 overflow-auto p-10 custom-scrollbar space-y-4 bg-black/10">
+            <div className="flex-1 overflow-auto p-10 custom-scrollbar space-y-3 bg-black">
               {tasks.map((task, index) => (
                 <div 
                   key={task.id} 
-                  className={`border transition-all duration-300 rounded-2xl group ${selectedTaskId === task.id ? 'border-theme-accent bg-theme-accent/[0.04]' : 'border-theme-border bg-white/[0.01] hover:bg-white/[0.03]'}`}
+                  className={`border transition-all duration-300 rounded-xl group ${selectedTaskId === task.id ? 'border-white bg-white/5' : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.04]'}`}
                   onClick={() => setSelectedTaskId(task.id)}
                 >
-                  <div className="flex items-center gap-8 px-8 py-5 cursor-pointer">
-                    <span className="text-[11px] font-black text-theme-muted group-hover:text-theme-accent transition-colors w-8">{String(index + 1).padStart(2, '0')}</span>
+                  <div className="flex items-center gap-8 px-8 py-4 cursor-pointer">
+                    <span className="text-[10px] font-black text-white/20 group-hover:text-white transition-colors w-8">{String(index + 1).padStart(2, '0')}</span>
                     <div className="flex-1 flex items-center gap-12">
                       <div className="flex flex-col min-w-[280px]">
-                        <span className="text-[15px] font-black text-white tracking-tight group-hover:text-theme-accent transition-colors truncate">{task.name || "Untitled Node"}</span>
-                        <div className="flex items-center gap-4 mt-1.5">
-                          <span className="text-[10px] font-black text-theme-accent uppercase tracking-widest">{task.target_system || "SYSTEM"}</span>
-                          <span className="w-1.5 h-1.5 rounded-full bg-white/10" />
-                          <span className="text-[10px] font-bold text-theme-secondary uppercase tracking-widest">{task.interface_type || "GUI"}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-12 border-l border-white/5 pl-12">
-                        <div className="flex flex-col">
-                          <span className="text-[9px] font-black text-theme-muted uppercase tracking-[0.2em] mb-2 opacity-50">Touch</span>
-                          <span className="text-[16px] font-black text-white">{task.active_touch_time_minutes}<span className="text-[10px] ml-1 text-theme-muted">m</span></span>
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-[9px] font-black text-theme-muted uppercase tracking-[0.2em] mb-2 opacity-50">Wait</span>
-                          <span className="text-[16px] font-black text-theme-secondary">{task.machine_wait_time_minutes}<span className="text-[10px] ml-1 text-theme-muted">m</span></span>
+                        <span className="text-[14px] font-black text-white tracking-tight uppercase">{task.name || "UNNAMED NODE"}</span>
+                        <div className="flex items-center gap-4 mt-1">
+                          <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">{task.target_system || "LOCAL"}</span>
+                          <span className="text-[9px] font-black text-white/40 uppercase tracking-widest">{task.interface_type || "GUI"}</span>
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="flex items-center gap-4">
-                      <button onClick={(e) => { e.stopPropagation(); setTasks(tasks.filter(t => t.id !== task.id)); }} className="w-9 h-9 flex items-center justify-center rounded-xl text-theme-muted hover:bg-status-error/10 hover:text-status-error transition-all border border-transparent hover:border-status-error/20"><Trash2 size={16} /></button>
-                      <ChevronDown size={22} className={`text-theme-muted transition-transform duration-500 ${selectedTaskId === task.id ? 'rotate-180 text-theme-accent' : 'group-hover:text-white'}`} />
-                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); setTasks(tasks.filter(t => t.id !== task.id)); }} className="text-white/20 hover:text-white transition-colors"><Trash2 size={16} /></button>
                   </div>
                 </div>
               ))}
-              <button onClick={() => setTasks([...tasks, { id: `new-${Date.now()}`, name: 'New Operation Node', description: '', target_system: 'SYSTEM', interface_type: 'GUI', active_touch_time_minutes: 0, machine_wait_time_minutes: 0, occurrences_per_cycle: 1, shadow_it_used: false, risks_yield_scrap: false, order_index: tasks.length, blockers: [], errors: [] }])} 
-                className="w-full py-8 border-2 border-dashed border-theme-border rounded-2xl hover:border-theme-accent/50 hover:bg-theme-accent/[0.03] text-[12px] font-black text-theme-muted hover:text-theme-accent transition-all group flex items-center justify-center gap-4 uppercase tracking-[0.2em]">
-                <Zap size={18} className="group-hover:scale-125 transition-transform text-theme-accent" /> Register New Node
+              <button onClick={() => addNewNode('matrix')} className="w-full py-8 border-2 border-dashed border-white/10 rounded-xl text-[11px] font-black text-white/40 hover:text-white hover:border-white/40 transition-all uppercase tracking-widest flex items-center justify-center gap-4">
+                <Zap size={16} /> Register New Sequence Node
               </button>
             </div>
           ) : (
-            <div className="flex-1 bg-[#050b18] relative">
+            <div className="flex-1 bg-[#020202] relative">
               <ReactFlow 
                 nodes={nodes} 
                 edges={edges} 
                 nodeTypes={nodeTypes} 
                 onNodesChange={onNodesChange} 
                 onEdgesChange={onEdgesChange} 
+                onConnect={onConnect}
                 onNodeClick={onNodeClick}
                 onPaneClick={() => setSelectedTaskId(null)}
                 fitView 
                 className="bg-transparent"
               >
-                <Background variant={BackgroundVariant.Dots} color="rgba(59,130,246,0.1)" gap={40} size={1} />
-                <Controls className="!bg-[#0a1120] !border-theme-border !shadow-2xl" />
+                <Background variant={BackgroundVariant.Lines} color="rgba(255,255,255,0.03)" gap={50} size={1} />
+                <Controls className="!bg-black !border-white/10" />
               </ReactFlow>
+              
+              {/* Floating Action Menu */}
+              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 p-2 bg-black border border-white/20 rounded-2xl shadow-[0_0_50px_rgba(0,0,0,0.8)] z-50">
+                <button onClick={() => addNewNode('matrix')} className="flex items-center gap-3 px-6 py-3 bg-white text-black rounded-xl font-black text-[11px] uppercase tracking-widest hover:scale-105 transition-transform">
+                  <Box size={14} /> Add Task
+                </button>
+                <button onClick={() => addNewNode('decision')} className="flex items-center gap-3 px-6 py-3 bg-black border border-white/20 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-white/10 transition-colors">
+                  <Zap size={14} /> Add Decision
+                </button>
+              </div>
             </div>
           )}
         </div>
 
-        {/* Right-Side Property Inspector */}
-        <div className="w-[520px] border-l border-theme-border bg-[#0a1120]/90 backdrop-blur-3xl flex flex-col z-30 shadow-2xl overflow-hidden">
-          <div className="h-16 flex items-center justify-between px-8 border-b border-theme-border bg-white/[0.02]">
+        {/* High-Contrast White-on-Black Inspector */}
+        <div className="w-[500px] border-l border-white/10 bg-black flex flex-col z-30 shadow-2xl overflow-hidden">
+          <div className="h-16 flex items-center justify-between px-8 border-b border-white/10">
             <div className="flex items-center gap-4">
-              <div className="p-2.5 bg-theme-accent/10 rounded-xl border border-theme-accent/20">
-                {selectedTaskId ? <Cpu size={20} className="text-theme-accent" /> : <Layers size={20} className="text-theme-accent" />}
+              <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                <Cpu size={18} className="text-white" />
               </div>
-              <div className="flex flex-col">
-                <span className="text-[13px] font-black text-white">{selectedTaskId ? "Node Inspector" : "Workflow Context"}</span>
-                <span className="text-[10px] text-theme-muted font-bold uppercase tracking-widest opacity-40">{selectedTaskId ? "Property Matrix" : "Global Settings"}</span>
-              </div>
+              <span className="text-[12px] font-black text-white uppercase tracking-widest">
+                {selectedTask ? "Node Parameters" : "Workflow Identity"}
+              </span>
             </div>
             {selectedTaskId && (
-              <button onClick={() => setSelectedTaskId(null)} className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-white/5 text-theme-muted hover:text-white transition-all">
-                <X size={22} />
+              <button onClick={() => setSelectedTaskId(null)} className="text-white/40 hover:text-white transition-colors">
+                <X size={20} />
               </button>
             )}
           </div>
 
-          <div className="flex-1 overflow-auto custom-scrollbar p-10 space-y-12 pb-20">
+          <div className="flex-1 overflow-auto custom-scrollbar p-10 space-y-10">
             {selectedTask ? (
               <>
-                {/* Task-specific settings */}
                 <div className="space-y-6">
-                  <div className="flex items-center gap-3 text-theme-accent font-bold px-2">
-                    <Layers size={16} />
-                    <span className="text-[11px] tracking-[0.2em] uppercase">Core Identity</span>
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Core Identity</label>
+                  <div className="space-y-4">
+                    <input 
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-5 py-4 text-[15px] font-black text-white uppercase focus:border-white transition-colors outline-none" 
+                      placeholder="NODE NAME"
+                      value={selectedTask.name} 
+                      onChange={e => updateTask(selectedTask.id, 'name', e.target.value)} 
+                    />
+                    <textarea 
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-5 py-4 text-[13px] font-medium text-white/80 h-24 focus:border-white transition-colors outline-none resize-none" 
+                      placeholder="Operational Description..."
+                      value={selectedTask.description} 
+                      onChange={e => updateTask(selectedTask.id, 'description', e.target.value)} 
+                    />
                   </div>
-                  <div className="space-y-6 bg-white/[0.02] border border-theme-border p-6 rounded-2xl">
-                    <div className="space-y-2.5">
-                      <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">Node Label</label>
-                      <input className="input-apple !bg-black/60 font-black text-[15px] text-white" value={selectedTask.name} onChange={e => updateTask(selectedTask.id, 'name', e.target.value)} />
+                </div>
+
+                {/* THE 4 LOCKED PARAMETERS */}
+                <div className="space-y-6">
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Operational Matrix</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <span className="text-[9px] font-black text-white/60 uppercase ml-1">Tool ID</span>
+                      <input className="w-full bg-black border border-white/20 rounded-lg px-4 py-3 text-[12px] font-black text-white outline-none focus:border-white" value={selectedTask.tool_id} onChange={e => updateTask(selectedTask.id, 'tool_id', e.target.value)} />
                     </div>
-                    <div className="grid grid-cols-2 gap-6">
-                      <div className="space-y-2.5">
-                        <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">System</label>
-                        <input className="input-apple !bg-black/60 font-black text-[13px] text-theme-accent" value={selectedTask.target_system} onChange={e => updateTask(selectedTask.id, 'target_system', e.target.value)} />
-                      </div>
-                      <div className="space-y-2.5">
-                        <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest px-1">Protocol</label>
-                        <select className="input-apple !bg-black/60 font-black text-[13px] text-white" value={selectedTask.interface_type} onChange={e => updateTask(selectedTask.id, 'interface_type', e.target.value)}>
-                          <option value="GUI">GUI</option><option value="API">API</option><option value="DB">DB</option><option value="File">File</option>
-                        </select>
-                      </div>
+                    <div className="space-y-2">
+                      <span className="text-[9px] font-black text-white/60 uppercase ml-1">Hardware Family</span>
+                      <input className="w-full bg-black border border-white/20 rounded-lg px-4 py-3 text-[12px] font-black text-white outline-none focus:border-white" value={selectedTask.hardware_family} onChange={e => updateTask(selectedTask.id, 'hardware_family', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <span className="text-[9px] font-black text-white/60 uppercase ml-1">Trigger Arch</span>
+                      <input className="w-full bg-black border border-white/20 rounded-lg px-4 py-3 text-[12px] font-black text-white outline-none focus:border-white" value={selectedTask.trigger_architecture} onChange={e => updateTask(selectedTask.id, 'trigger_architecture', e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <span className="text-[9px] font-black text-white/60 uppercase ml-1">Output Class</span>
+                      <input className="w-full bg-black border border-white/20 rounded-lg px-4 py-3 text-[12px] font-black text-white outline-none focus:border-white" value={selectedTask.output_classification} onChange={e => updateTask(selectedTask.id, 'output_classification', e.target.value)} />
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-6">
-                  <div className="flex items-center gap-3 text-status-success font-bold px-2">
-                    <Timer size={16} />
-                    <span className="text-[11px] tracking-[0.2em] uppercase">Task Effort</span>
-                  </div>
-                  <div className="bg-theme-accent/[0.03] border border-theme-accent/20 p-8 rounded-2xl space-y-8">
-                    <div className="grid grid-cols-2 gap-8">
-                      <div className="space-y-3 text-center">
-                        <label className="text-[10px] font-black text-theme-accent uppercase tracking-widest">Touch</label>
-                        <input type="number" className="input-apple !bg-black/80 font-black text-2xl text-white text-center h-20" value={selectedTask.active_touch_time_minutes} onChange={e => updateTask(selectedTask.id, 'active_touch_time_minutes', parseFloat(e.target.value))} />
-                      </div>
-                      <div className="space-y-3 text-center">
-                        <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest">Wait</label>
-                        <input type="number" className="input-apple !bg-black/80 font-black text-2xl text-theme-secondary text-center h-20" value={selectedTask.machine_wait_time_minutes} onChange={e => updateTask(selectedTask.id, 'machine_wait_time_minutes', parseFloat(e.target.value))} />
-                      </div>
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Effort Metrics</label>
+                  <div className="grid grid-cols-2 gap-6 bg-white/[0.03] p-6 rounded-2xl border border-white/5">
+                    <div className="text-center space-y-3">
+                      <span className="text-[9px] font-black text-white/40 uppercase">Touch (Min)</span>
+                      <input type="number" className="bg-transparent text-3xl font-black text-white text-center w-full outline-none" value={selectedTask.active_touch_time_minutes} onChange={e => updateTask(selectedTask.id, 'active_touch_time_minutes', parseFloat(e.target.value))} />
+                    </div>
+                    <div className="text-center space-y-3 border-l border-white/10">
+                      <span className="text-[9px] font-black text-white/40 uppercase">Wait (Min)</span>
+                      <input type="number" className="bg-transparent text-3xl font-black text-white text-center w-full outline-none opacity-40" value={selectedTask.machine_wait_time_minutes} onChange={e => updateTask(selectedTask.id, 'machine_wait_time_minutes', parseFloat(e.target.value))} />
                     </div>
                   </div>
                 </div>
               </>
             ) : (
-              <>
-                {/* Global Workflow settings */}
-                <div className="space-y-8 animate-in fade-in duration-500">
-                  <div className="flex flex-col items-center text-center p-8 bg-theme-accent/5 border border-theme-accent/10 rounded-3xl">
-                    <div className="w-16 h-16 bg-theme-accent/10 rounded-2xl flex items-center justify-center text-theme-accent mb-6">
-                      <Activity size={32} />
-                    </div>
-                    <h3 className="text-header-sub text-white">Operational Cadence</h3>
-                    <p className="text-subtext mt-2">Adjust the execution frequency to recalculate total ROI yield.</p>
-                  </div>
-
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-3 text-theme-accent font-bold px-2">
-                      <Clock size={16} />
-                      <span className="text-[11px] tracking-[0.2em] uppercase">Frequency Matrix</span>
-                    </div>
-                    
-                    <div className="apple-card space-y-8 !bg-black/20 border-theme-border p-8">
-                      <div className="flex items-center gap-6">
-                        <div className="flex-1 space-y-3">
-                          <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest">Executions</label>
-                          <input 
-                            type="number" 
-                            step="0.1"
-                            className="input-apple !bg-black/60 font-black text-3xl text-white text-center h-24 border-theme-accent/20 focus:border-theme-accent" 
-                            value={metadata.cadence_count}
-                            onChange={e => setMetadata({ ...metadata, cadence_count: parseFloat(e.target.value) })}
-                          />
-                        </div>
-                        <div className="w-32 space-y-3">
-                          <label className="text-[10px] font-black text-theme-secondary uppercase tracking-widest">Unit</label>
-                          <div className="h-24 bg-black/60 border border-theme-border rounded-2xl flex items-center justify-center">
-                            <select 
-                              className="bg-transparent text-white font-black text-center w-full h-full appearance-none cursor-pointer uppercase text-[12px]"
-                              value={metadata.cadence_unit}
-                              onChange={e => setMetadata({ ...metadata, cadence_unit: e.target.value })}
-                            >
-                              <option value="day">Day</option>
-                              <option value="week">Week</option>
-                              <option value="month">Month</option>
-                              <option value="year">Year</option>
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="apple-card !bg-status-success/5 border-status-success/20 p-8 space-y-4">
-                    <div className="flex items-center gap-3 text-status-success font-black text-[11px] uppercase tracking-widest">
-                      <Zap size={14} /> Efficiency Summary
-                    </div>
-                    <p className="text-main-content opacity-70">
-                      Based on current {tasks.length} node(s) and {metadata.cadence_count}/{metadata.cadence_unit} execution cadence.
-                    </p>
+              <div className="space-y-10">
+                <div className="p-8 bg-white/5 border border-white/10 rounded-2xl text-center space-y-4">
+                  <Activity size={32} className="mx-auto text-white/20" />
+                  <p className="text-[12px] font-medium text-white/60">Select a node to modulate parameters or adjust the global cadence below.</p>
+                </div>
+                
+                <div className="space-y-6">
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em]">Execution Cadence</label>
+                  <div className="flex gap-4">
+                    <input 
+                      type="number" 
+                      className="flex-1 bg-white/5 border border-white/10 rounded-xl px-6 py-6 text-3xl font-black text-white outline-none focus:border-white transition-colors"
+                      value={metadata.cadence_count}
+                      onChange={e => setMetadata({...metadata, cadence_count: parseFloat(e.target.value)})}
+                    />
+                    <select 
+                      className="w-32 bg-white/5 border border-white/10 rounded-xl px-4 text-[11px] font-black text-white uppercase outline-none appearance-none cursor-pointer"
+                      value={metadata.cadence_unit}
+                      onChange={e => setMetadata({...metadata, cadence_unit: e.target.value})}
+                    >
+                      <option value="day">Day</option>
+                      <option value="week">Week</option>
+                      <option value="month">Month</option>
+                      <option value="year">Year</option>
+                    </select>
                   </div>
                 </div>
-              </>
+              </div>
             )}
           </div>
 
-          <div className="p-8 border-t border-theme-border bg-white/[0.03] backdrop-blur-3xl flex items-center justify-between">
+          <div className="p-10 border-t border-white/10 bg-black flex items-center justify-between">
             <div className="flex flex-col">
-              <span className="text-[10px] font-black text-theme-muted uppercase tracking-[0.2em] mb-2">Total Monthly ROI</span>
+              <span className="text-[9px] font-black text-white/30 uppercase tracking-[0.2em] mb-1">Total Monthly Savings</span>
               <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-black text-white tracking-tighter">
-                  {totalWorkflowROI}
-                </span>
-                <span className="text-[12px] font-black text-theme-accent uppercase tracking-widest">Hours</span>
+                <span className="text-4xl font-black text-white">{totalWorkflowROI}</span>
+                <span className="text-[11px] font-black text-white/40 uppercase">Hours</span>
               </div>
             </div>
-            <button className="btn-apple-secondary !px-8 !py-4 flex items-center gap-3 font-bold text-[13px] hover:bg-white/10 hover:border-white/20 group">
-              <FileText size={18} className="group-hover:text-theme-accent transition-colors" /> SOP Export
+            <button className="flex items-center gap-3 px-6 py-4 border border-white/20 rounded-xl text-[11px] font-black text-white uppercase hover:bg-white/10 transition-colors">
+              <FileText size={16} /> SOP Export
             </button>
           </div>
         </div>

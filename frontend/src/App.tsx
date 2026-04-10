@@ -98,12 +98,42 @@ const GlobalSidebar = ({ isOpen, setOpen, activeTab, setActiveTab }: { isOpen: b
   );
 };
 
+import { 
+  LayoutDashboard, 
+  Database, 
+  Kanban, 
+  BarChart3, 
+  Settings, 
+  HelpCircle,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Layers,
+  Terminal,
+  Bug,
+  ShieldAlert
+} from 'lucide-react';
+...
 const GlobalHeader = ({ activeTab }: { activeTab: string }) => {
+  const { setIsOpen, isOpen, errors } = useErrorFortress();
+  
   return (
     <header className="h-16 bg-theme-header backdrop-blur-xl border-b border-theme-border flex items-center justify-between px-8 z-20 sticky top-0">
       <div className="flex items-center gap-8">
         <h2 className="text-hint text-theme-muted flex items-center gap-2">PathOS <span className="opacity-30">/</span> <span className="text-white font-black uppercase">{activeTab}</span></h2>
         <ConnectionStatus />
+      </div>
+      
+      <div className="flex items-center gap-4">
+        <button 
+          onClick={() => setIsOpen(!isOpen)}
+          className={`flex items-center gap-2.5 px-4 py-1.5 rounded-full border transition-all duration-300 ${errors.length > 0 ? 'bg-status-error/10 border-status-error/30 text-status-error animate-pulse' : 'bg-white/[0.03] border-theme-border text-theme-secondary hover:bg-white/[0.06] hover:text-white'}`}
+        >
+          {errors.length > 0 ? <Bug size={16} /> : <Terminal size={16} />}
+          <span className="text-[11px] font-black uppercase tracking-widest">
+            Fortress {errors.length > 0 ? `(${errors.length})` : ''}
+          </span>
+        </button>
       </div>
     </header>
   );

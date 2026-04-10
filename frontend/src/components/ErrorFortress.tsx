@@ -19,6 +19,8 @@ interface ErrorContextType {
   reportError: (err: any, source: 'frontend' | 'backend') => void;
   errors: PathOSError[];
   clearErrors: () => void;
+  setIsOpen: (open: boolean) => void;
+  isOpen: boolean;
 }
 
 const ErrorContext = createContext<ErrorContextType | undefined>(undefined);
@@ -68,14 +70,14 @@ export const ErrorFortressProvider: React.FC<{ children: React.ReactNode }> = ({
   // Listen for global window errors
   useEffect(() => {
     const handleGlobalError = (event: ErrorEvent) => {
-      reportError(event.error, 'frontend');
+      if (event.error) reportError(event.error, 'frontend');
     };
     window.addEventListener('error', handleGlobalError);
     return () => window.removeEventListener('error', handleGlobalError);
   }, []);
 
   return (
-    <ErrorContext.Provider value={{ reportError, errors, clearErrors }}>
+    <ErrorContext.Provider value={{ reportError, errors, clearErrors, setIsOpen, isOpen }}>
       {children}
       
       {/* The Fortress Console Overlay */}

@@ -5,7 +5,6 @@ from sqlalchemy.orm import selectinload
 async def calculate_task_roi_contribution(task: Task) -> float:
     """
     Calculates the ROI contribution of a single task in minutes per cycle.
-    ROI is calculated only on Active Touch Time.
     Formula: (Active Touch Time * Occurrences) + Σ(Error Probability * Recovery Time)
     """
     touch_time = task.active_touch_time_minutes or 0.0
@@ -13,7 +12,14 @@ async def calculate_task_roi_contribution(task: Task) -> float:
     base_touch_time = touch_time * occurrences
     
     error_penalty = 0.0
-    if hasattr(task, 'errors') and task.errors:
+    # Use inspect to see if relationship is loaded to avoid MissingGreenlet
+    from sqlalchemy import inspect
+    insp = inspect(task)
+    if 'errors' in insp.unloaded:
+        # If not loaded, we can't await here without a session. 
+        # But we assume the caller used selectinload.
+        pass
+    elif task.errors:
         for error in task.errors:
             prob = error.probability_percent or 0.0
             rec_time = error.recovery_time_minutes or 0.0
@@ -24,10 +30,13 @@ async def calculate_task_roi_contribution(task: Task) -> float:
 async def update_workflow_roi(workflow: Workflow):
     """
     Sum of ROI for all tasks in a workflow multiplied by frequency (cadence).
-    Returns total monthly hours saved.
     """
     total_task_minutes = 0.0
-    if hasattr(workflow, 'tasks') and workflow.tasks:
+    from sqlalchemy import inspect
+    insp = inspect(workflow)
+    
+    # Check if 'tasks' relationship is loaded
+    if 'tasks' not in insp.unloaded and workflow.tasks:
         for task in workflow.tasks:
             if not getattr(task, 'is_deleted', False):
                 total_task_minutes += await calculate_task_roi_contribution(task)

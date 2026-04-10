@@ -64,7 +64,13 @@ class Task(Base, BaseMixin):
     name = Column(String)
     description = Column(Text)
     target_system = Column(String)
-    interface_type = Column(String, nullable=True) # GUI, API, DB, File
+    interface_type = Column(String, nullable=True) # GUI, API, DB, File, DECISION
+    
+    # Locked Operational Parameters
+    tool_id = Column(String, nullable=True)
+    hardware_family = Column(String, nullable=True)
+    trigger_architecture = Column(String, nullable=True)
+    output_classification = Column(String, nullable=True)
     
     # Time & Effort
     active_touch_time_minutes = Column(Float, default=0.0)
