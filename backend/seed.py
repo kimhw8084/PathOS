@@ -1,5 +1,11 @@
-import asyncio
+import sys
 import os
+
+# Add the current directory to sys.path to ensure 'app' is importable when run directly
+if os.getcwd() not in sys.path:
+    sys.path.append(os.getcwd())
+
+import asyncio
 import random
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -13,6 +19,14 @@ from app.models.models import (
 from app.core.metrics import update_workflow_roi
 
 async def seed_data():
+    # 0. Ensure tables are created (using synchronous engine for metadata)
+    from sqlalchemy import create_engine
+    sync_url = DATABASE_URL.replace("sqlite+aiosqlite", "sqlite")
+    sync_engine = create_engine(sync_url)
+    Base.metadata.create_all(sync_engine)
+    sync_engine.dispose()
+    print("Database tables verified/created.")
+
     engine = create_async_engine(DATABASE_URL)
     AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 

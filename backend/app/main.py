@@ -90,3 +90,9 @@ app.include_router(workflows.router, prefix="/api/workflows", tags=["Workflows"]
 app.include_router(taxonomy.router, prefix="/api/taxonomy", tags=["Taxonomy"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks"])
 app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
+
+if __name__ == "__main__":
+    import uvicorn
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "8081"))
+    uvicorn.run("app.main:app", host=host, port=port, reload=True)
