@@ -8,6 +8,9 @@ export default defineConfig(({ mode }) => {
   
   return {
     plugins: [react()],
+    optimizeDeps: {
+      include: ['@radix-ui/react-tooltip', '@radix-ui/react-popover']
+    },
     server: {
       port: parseInt(env.VITE_PORT || '5174'),
       host: env.VITE_HOST || '0.0.0.0',
