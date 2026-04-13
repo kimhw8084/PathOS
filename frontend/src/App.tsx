@@ -57,8 +57,8 @@ const ConnectionStatus = () => {
 const GlobalSidebar = ({ isOpen, setOpen, activeTab, setActiveTab }: { isOpen: boolean, setOpen: (v: boolean) => void, activeTab: string, setActiveTab: (v: string) => void }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'workflows', label: 'Workflows', icon: Database },
-    { id: 'board', label: 'Automation', icon: Kanban },
+    { id: 'workflows', label: 'Workflow Repo', icon: Database },
+    { id: 'board', label: 'Automation Board', icon: Kanban },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   ];
   const bottomItems = [
@@ -91,6 +91,21 @@ const GlobalSidebar = ({ isOpen, setOpen, activeTab, setActiveTab }: { isOpen: b
             {isOpen && <span className="text-nav">{item.label}</span>}
           </button>
         ))}
+        
+        {/* Sidebar Footer */}
+        <div className="pt-4 mt-2 border-t border-theme-border/30">
+          <button className="w-full flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-200 text-theme-secondary hover:bg-white/[0.04] hover:text-white group">
+            <div className="w-6 h-6 rounded-full bg-theme-accent/20 border border-theme-accent/30 flex items-center justify-center text-[10px] font-black text-theme-accent group-hover:scale-110 transition-transform">
+              HK
+            </div>
+            {isOpen && (
+              <div className="flex flex-col items-start overflow-hidden">
+                <span className="text-[12px] font-bold truncate w-full text-left">Haewon Kim</span>
+                <span className="text-[9px] text-theme-muted font-bold uppercase tracking-widest">Metrology SME</span>
+              </div>
+            )}
+          </button>
+        </div>
       </div>
       <button onClick={() => setOpen(!isOpen)} className="h-12 border-t border-theme-border/50 flex items-center justify-center text-theme-muted hover:text-white transition-colors">
         {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
@@ -102,10 +117,24 @@ const GlobalSidebar = ({ isOpen, setOpen, activeTab, setActiveTab }: { isOpen: b
 const GlobalHeader = ({ activeTab }: { activeTab: string }) => {
   const { setIsOpen, isOpen, errors } = useErrorFortress();
   
+  const getTabLabel = (id: string) => {
+    const labels: Record<string, string> = {
+      'dashboard': 'Executive Dashboard',
+      'workflows': 'Workflow Repository',
+      'board': 'Automation Board',
+      'analytics': 'Advanced Analytics',
+      'settings': 'System Settings',
+      'help': 'Documentation',
+      'intake': 'Pre-Flight Intake',
+      'builder': 'Workflow Architect'
+    };
+    return labels[id] || id;
+  };
+
   return (
     <header className="h-16 bg-theme-header backdrop-blur-xl border-b border-theme-border flex items-center justify-between px-8 z-20 sticky top-0">
       <div className="flex items-center gap-8">
-        <h2 className="text-hint text-theme-muted flex items-center gap-2">PathOS <span className="opacity-30">/</span> <span className="text-white font-black uppercase">{activeTab}</span></h2>
+        <h2 className="text-hint text-theme-muted flex items-center gap-2">PathOS <span className="opacity-30">/</span> <span className="text-white font-black uppercase tracking-[0.2em]">{getTabLabel(activeTab)}</span></h2>
         <ConnectionStatus />
       </div>
       
@@ -188,14 +217,12 @@ const PathOSApp: React.FC = () => {
             )}
             {activeTab === 'workflows' && (
               <div className="space-y-10">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-header-main mb-2">Workflow Registry</h2>
-                    <p className="text-subtext">Master database of all active metrology sequences.</p>
-                  </div>
-                  <button onClick={() => setActiveTab('intake')} className="btn-apple-primary flex items-center gap-2"><Database size={16} /> Map New Workflow</button>
-                </div>
-                <WorkflowRegistry workflows={workflows} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} />
+                <WorkflowRegistry 
+                  workflows={workflows} 
+                  onSelect={handleSelectWorkflow} 
+                  onDelete={deleteMutation.mutate} 
+                  onCreateNew={() => setActiveTab('intake')}
+                />
               </div>
             )}
             {activeTab === 'intake' && <div className="max-w-4xl mx-auto"><IntakeGatekeeper taxonomy={taxonomy} onSuccess={(data) => createMutation.mutate(data)} /></div>}
