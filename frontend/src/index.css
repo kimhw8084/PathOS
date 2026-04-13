@@ -31,14 +31,14 @@
 
 @layer base {
   :root {
-    font-size: 14px; /* Standard professional base */
+    font-size: 13px; /* High-density professional base */
   }
   
   body {
     background-color: var(--color-theme-bg);
     color: var(--color-theme-primary);
     @apply font-sans antialiased;
-    font-size: 1rem; /* 14px */
+    font-size: 1rem; /* 13px */
     letter-spacing: -0.01em;
     margin: 0;
     padding: 0;
@@ -57,50 +57,50 @@
 @layer components {
   /* Typography System - Utilities for direct use */
   .text-header-main {
-    font-size: 1.75rem; /* 24.5px */
+    font-size: 1.5rem; /* 19.5px */
     font-weight: 700;
     letter-spacing: -0.025em;
     color: var(--color-theme-primary);
-    line-height: 1.2;
+    line-height: 1.1;
   }
 
   .text-header-sub {
-    font-size: 1.25rem; /* 17.5px */
+    font-size: 1.125rem; /* 14.6px */
     font-weight: 600;
     letter-spacing: -0.025em;
     color: var(--color-theme-secondary);
-    line-height: 1.3;
+    line-height: 1.2;
   }
 
   .text-main-content {
-    font-size: 1rem; /* 14px */
-    line-height: 1.625;
+    font-size: 1rem; /* 13px */
+    line-height: 1.5;
     color: rgba(248, 250, 252, 0.9);
     font-weight: 400;
   }
 
   .text-hint {
-    font-size: 0.75rem; /* 10.5px */
-    font-weight: 600;
+    font-size: 0.75rem; /* 9.75px */
+    font-weight: 700;
     color: var(--color-theme-muted);
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
 
   .text-subtext {
-    font-size: 0.875rem; /* 12.25px */
+    font-size: 0.84rem; /* ~11px */
     font-weight: 500;
     color: var(--color-theme-secondary);
   }
 
   .text-nav {
-    font-size: 0.9375rem; /* 13.125px */
+    font-size: 0.92rem; /* ~12px */
     font-weight: 600;
     letter-spacing: -0.01em;
   }
 
   .text-btn {
-    font-size: 0.875rem; /* 12.25px */
+    font-size: 0.84rem; /* ~11px */
     font-weight: 700;
     letter-spacing: 0.025em;
     text-transform: uppercase;
@@ -117,8 +117,8 @@
     background-color: var(--color-theme-card);
     backdrop-filter: blur(12px);
     border: 1px solid var(--color-theme-border);
-    border-radius: 20px;
-    padding: 1.5rem;
+    border-radius: 12px;
+    padding: 1rem;
     transition: all 0.3s ease;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   }
@@ -130,19 +130,19 @@
   .apple-card-inset {
     background-color: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--color-theme-border);
-    border-radius: 0.75rem;
-    padding: 1rem;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
     box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
   }
 
   /* Interactive Elements */
   .btn-apple-primary {
-    padding: 0.625rem 1.25rem;
+    padding: 0.5rem 1rem;
     background-color: var(--color-theme-accent);
     color: white;
-    border-radius: 9999px;
+    border-radius: 6px;
     /* text-btn expansion */
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.025em;
     text-transform: uppercase;
@@ -161,13 +161,13 @@
   }
 
   .btn-apple-secondary {
-    padding: 0.625rem 1.25rem;
+    padding: 0.5rem 1rem;
     background-color: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--color-theme-border);
     color: var(--color-theme-primary);
-    border-radius: 9999px;
+    border-radius: 6px;
     /* text-btn expansion */
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.025em;
     text-transform: uppercase;
@@ -185,13 +185,13 @@
   .sidebar-item {
     display: flex;
     items-center: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    border-radius: 0.75rem;
+    gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
     transition: all 0.2s ease;
     color: var(--color-theme-secondary);
     /* text-nav expansion */
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     letter-spacing: -0.025em;
   }
@@ -210,9 +210,9 @@
     width: 100%;
     background-color: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--color-theme-border);
-    border-radius: 0.75rem;
-    padding: 0.625rem 1rem;
-    font-size: 12px;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 11px;
     color: var(--color-theme-primary);
     outline: none;
     transition: all 0.2s ease;
@@ -226,19 +226,20 @@
   }
 
   .status-badge {
-    padding: 0.125rem 0.625rem;
-    border-radius: 9999px;
+    padding: 0.125rem 0.5rem;
+    border-radius: 4px;
     font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    white-space: nowrap;
   }
 
   /* Global Select/Option styling for Dark Mode visibility */
   select option {
     background-color: #1e293b; /* Slate 800 gray */
     color: #ffffff;
-    padding: 10px;
+    padding: 8px;
   }
 }
 
@@ -255,9 +256,9 @@
   --ag-data-color: #f8fafc !important;
   --ag-selected-row-background-color: rgba(59, 130, 246, 0.2) !important;
   --ag-row-hover-color: rgba(255, 255, 255, 0.04) !important;
-  --ag-header-height: 54px !important;
-  --ag-row-height: 64px !important;
-  --ag-card-radius: 20px !important;
+  --ag-header-height: 40px !important;
+  --ag-row-height: 48px !important;
+  --ag-card-radius: 12px !important;
 }
 
 .ag-grid-apple {
