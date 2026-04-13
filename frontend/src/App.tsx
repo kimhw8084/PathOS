@@ -21,6 +21,7 @@ import ROIDashboard from './components/ROIDashboard';
 import WorkflowBuilder from './components/WorkflowBuilder';
 import SettingsView from './components/SettingsView';
 import { ErrorFortressProvider, useErrorFortress } from './components/ErrorFortress';
+import * as Tooltip from '@radix-ui/react-tooltip';
 
 const queryClient = new QueryClient();
 
@@ -248,9 +249,11 @@ const PathOSApp: React.FC = () => {
 
 const App: React.FC = () => (
   <QueryClientProvider client={queryClient}>
-    <ErrorFortressProvider>
-      <PathOSApp />
-    </ErrorFortressProvider>
+    <Tooltip.Provider delayDuration={400}>
+      <ErrorFortressProvider>
+        <PathOSApp />
+      </ErrorFortressProvider>
+    </Tooltip.Provider>
   </QueryClientProvider>
 );
 

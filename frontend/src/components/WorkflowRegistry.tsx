@@ -114,9 +114,8 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     const blockerCount = data.tasks?.reduce((acc: number, t: any) => acc + (t.blockers?.length || 0), 0) || 0;
 
     return (
-      <Tooltip.Provider delayDuration={400}>
-        <Tooltip.Root>
-          <Tooltip.Trigger asChild>
+      <Tooltip.Root>
+        <Tooltip.Trigger asChild>
             <div className="flex flex-col justify-center cursor-help">
               <span className="font-bold text-white text-[13px] tracking-tight hover:text-theme-accent transition-colors leading-tight">
                 {data.name}
@@ -170,7 +169,6 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
             </Tooltip.Content>
           </Tooltip.Portal>
         </Tooltip.Root>
-      </Tooltip.Provider>
     );
   };
 
