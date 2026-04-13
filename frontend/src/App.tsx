@@ -232,7 +232,13 @@ const PathOSApp: React.FC = () => {
               <div className="h-[calc(100vh-180px)]">
                 <WorkflowBuilder 
                   initialTasks={selectedWorkflow.tasks || []} 
-                  workflowMetadata={{ cadence_count: selectedWorkflow.cadence_count, cadence_unit: selectedWorkflow.cadence_unit }}
+                  workflowMetadata={{ 
+                    cadence_count: selectedWorkflow.cadence_count, 
+                    cadence_unit: selectedWorkflow.cadence_unit as any,
+                    equipment_state: 'READY',
+                    cleanroom_class: 'ISO7',
+                    status: 'DRAFT'
+                  }}
                   onSave={(tasks, meta) => workflowsApi.update(selectedWorkflow.id, { ...selectedWorkflow, tasks, ...meta }).then(() => {
                     toast.success("Strategy Synchronized");
                     queryClient.invalidateQueries({ queryKey: ['workflows'] });

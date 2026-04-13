@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     optimizeDeps: {
-      include: ['@radix-ui/react-tooltip', '@radix-ui/react-popover']
+      include: ['@radix-ui/react-tooltip', '@radix-ui/react-popover', 'reactflow']
     },
     server: {
       port: parseInt(env.VITE_PORT || '5174'),
