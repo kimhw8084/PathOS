@@ -31,14 +31,14 @@
 
 @layer base {
   :root {
-    font-size: 10px; /* Force 10px as base */
+    font-size: 14px; /* Standard professional base */
   }
   
   body {
     background-color: var(--color-theme-bg);
     color: var(--color-theme-primary);
     @apply font-sans antialiased;
-    font-size: 1rem; /* This will be 10px now */
+    font-size: 1rem; /* 14px */
     letter-spacing: -0.01em;
     margin: 0;
     padding: 0;
@@ -57,7 +57,7 @@
 @layer components {
   /* Typography System - Utilities for direct use */
   .text-header-main {
-    font-size: 1.5rem; /* 24px */
+    font-size: 1.75rem; /* 24.5px */
     font-weight: 700;
     letter-spacing: -0.025em;
     color: var(--color-theme-primary);
@@ -65,7 +65,7 @@
   }
 
   .text-header-sub {
-    font-size: 1.125rem; /* 18px */
+    font-size: 1.25rem; /* 17.5px */
     font-weight: 600;
     letter-spacing: -0.025em;
     color: var(--color-theme-secondary);
@@ -73,34 +73,34 @@
   }
 
   .text-main-content {
-    font-size: 10px;
+    font-size: 1rem; /* 14px */
     line-height: 1.625;
     color: rgba(248, 250, 252, 0.9);
     font-weight: 400;
   }
 
   .text-hint {
-    font-size: 9px;
-    font-weight: 500;
+    font-size: 0.75rem; /* 10.5px */
+    font-weight: 600;
     color: var(--color-theme-muted);
     text-transform: uppercase;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.05em;
   }
 
   .text-subtext {
-    font-size: 11px;
+    font-size: 0.875rem; /* 12.25px */
     font-weight: 500;
     color: var(--color-theme-secondary);
   }
 
   .text-nav {
-    font-size: 13px;
+    font-size: 0.9375rem; /* 13.125px */
     font-weight: 600;
-    letter-spacing: -0.025em;
+    letter-spacing: -0.01em;
   }
 
   .text-btn {
-    font-size: 12px;
+    font-size: 0.875rem; /* 12.25px */
     font-weight: 700;
     letter-spacing: 0.025em;
     text-transform: uppercase;
@@ -232,6 +232,13 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+  }
+
+  /* Global Select/Option styling for Dark Mode visibility */
+  select option {
+    background-color: #1e293b; /* Slate 800 gray */
+    color: #ffffff;
+    padding: 10px;
   }
 }
 

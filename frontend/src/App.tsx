@@ -49,7 +49,7 @@ const ConnectionStatus = () => {
     <div className="flex items-center gap-2.5 px-3.5 py-1.5 bg-white/[0.03] backdrop-blur-md rounded-full border border-theme-border group transition-all hover:bg-white/[0.06]">
       <div className={`w-2 h-2 rounded-full ${status === 'connected' ? 'bg-status-success animate-pulse' : 'bg-status-error'}`} />
       <span className="text-hint text-theme-secondary group-hover:text-theme-primary transition-colors">
-        {status === 'connected' ? `Synced • ${latency}ms` : 'Offline'}
+        {status === 'connected' ? `Synchronized • ${latency}ms` : 'Offline'}
       </span>
     </div>
   );
@@ -57,14 +57,14 @@ const ConnectionStatus = () => {
 
 const GlobalSidebar = ({ isOpen, setOpen, activeTab, setActiveTab }: { isOpen: boolean, setOpen: (v: boolean) => void, activeTab: string, setActiveTab: (v: string) => void }) => {
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'workflows', label: 'Workflow Repo', icon: Database },
-    { id: 'board', label: 'Automation Board', icon: Kanban },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard },
+    { id: 'workflows', label: 'Workflow Repository', icon: Database },
+    { id: 'board', label: 'Operational Board', icon: Kanban },
+    { id: 'analytics', label: 'Performance Analytics', icon: BarChart3 },
   ];
   const bottomItems = [
-    { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'help', label: 'Help & Docs', icon: HelpCircle },
+    { id: 'settings', label: 'System Settings', icon: Settings },
+    { id: 'help', label: 'Documentation', icon: HelpCircle },
   ];
 
   return (
@@ -96,13 +96,13 @@ const GlobalSidebar = ({ isOpen, setOpen, activeTab, setActiveTab }: { isOpen: b
         {/* Sidebar Footer */}
         <div className="pt-4 mt-2 border-t border-theme-border/30">
           <button className="w-full flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-200 text-theme-secondary hover:bg-white/[0.04] hover:text-white group">
-            <div className="w-6 h-6 rounded-full bg-theme-accent/20 border border-theme-accent/30 flex items-center justify-center text-[10px] font-black text-theme-accent group-hover:scale-110 transition-transform">
+            <div className="w-6 h-6 rounded-full bg-theme-accent/20 border border-theme-accent/30 flex items-center justify-center text-[12px] font-black text-theme-accent group-hover:scale-110 transition-transform">
               HK
             </div>
             {isOpen && (
               <div className="flex flex-col items-start overflow-hidden">
-                <span className="text-[12px] font-bold truncate w-full text-left">Haewon Kim</span>
-                <span className="text-[9px] text-theme-muted font-bold uppercase tracking-widest">Metrology SME</span>
+                <span className="text-[12px] font-bold truncate w-full text-left text-white">Haewon Kim</span>
+                <span className="text-[10px] text-theme-muted font-bold uppercase tracking-widest">Metrology SME</span>
               </div>
             )}
           </button>
@@ -122,12 +122,12 @@ const GlobalHeader = ({ activeTab }: { activeTab: string }) => {
     const labels: Record<string, string> = {
       'dashboard': 'Executive Dashboard',
       'workflows': 'Workflow Repository',
-      'board': 'Automation Board',
+      'board': 'Operational Board',
       'analytics': 'Advanced Analytics',
       'settings': 'System Settings',
       'help': 'Documentation',
-      'intake': 'Pre-Flight Intake',
-      'builder': 'Workflow Architect'
+      'intake': 'Initial Assessment',
+      'builder': 'Process Configuration'
     };
     return labels[id] || id;
   };
@@ -135,7 +135,7 @@ const GlobalHeader = ({ activeTab }: { activeTab: string }) => {
   return (
     <header className="h-16 bg-theme-header backdrop-blur-xl border-b border-theme-border flex items-center justify-between px-8 z-20 sticky top-0">
       <div className="flex items-center gap-8">
-        <h2 className="text-hint text-theme-muted flex items-center gap-2">PathOS <span className="opacity-30">/</span> <span className="text-white font-black uppercase tracking-[0.2em]">{getTabLabel(activeTab)}</span></h2>
+        <h2 className="text-hint text-theme-muted flex items-center gap-2">PathOS <span className="opacity-30">/</span> <span className="text-white font-black uppercase tracking-[0.1em]">{getTabLabel(activeTab)}</span></h2>
         <ConnectionStatus />
       </div>
       
@@ -145,8 +145,8 @@ const GlobalHeader = ({ activeTab }: { activeTab: string }) => {
           className={`flex items-center gap-2.5 px-4 py-1.5 rounded-full border transition-all duration-300 ${errors.length > 0 ? 'bg-status-error/10 border-status-error/30 text-status-error animate-pulse' : 'bg-white/[0.03] border-theme-border text-theme-secondary hover:bg-white/[0.06] hover:text-white'}`}
         >
           {errors.length > 0 ? <Bug size={16} /> : <Terminal size={16} />}
-          <span className="text-[11px] font-black uppercase tracking-widest">
-            Fortress {errors.length > 0 ? `(${errors.length})` : ''}
+          <span className="text-[12px] font-black uppercase tracking-widest">
+            Logs {errors.length > 0 ? `(${errors.length})` : ''}
           </span>
         </button>
       </div>
@@ -155,7 +155,7 @@ const GlobalHeader = ({ activeTab }: { activeTab: string }) => {
 };
 
 const PathOSApp: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('workflows'); // Default to Registry
+  const [activeTab, setActiveTab] = useState('workflows'); // Default to Repository
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [selectedWorkflow, setSelectedWorkflow] = useState<any>(null);
   
@@ -173,12 +173,12 @@ const PathOSApp: React.FC = () => {
     mutationFn: workflowsApi.create,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
-      toast.success("Protocol Initialized");
+      toast.success("Workflow Created");
       setSelectedWorkflow(data);
       setActiveTab('builder');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.detail || "Intake failed.");
+      toast.error(error.response?.data?.detail || "Creation failed.");
       reportError(error.response?.data || error, 'backend');
     }
   });
@@ -187,7 +187,7 @@ const PathOSApp: React.FC = () => {
     mutationFn: workflowsApi.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
-      toast.success("Node archived.");
+      toast.success("Workflow deleted.");
     }
   });
 
@@ -198,7 +198,7 @@ const PathOSApp: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-theme-bg text-theme-primary overflow-hidden font-sans selection:bg-theme-accent selection:text-white">
-      <Toaster position="bottom-right" toastOptions={{ className: 'apple-glass border-theme-border text-white text-[13px] font-semibold rounded-2xl shadow-2xl', duration: 4000 }} />
+      <Toaster position="bottom-right" toastOptions={{ className: 'apple-glass border-theme-border text-white text-[14px] font-semibold rounded-2xl shadow-2xl', duration: 4000 }} />
       <GlobalSidebar isOpen={isSidebarOpen} setOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={(t) => setActiveTab(t)} />
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <GlobalHeader activeTab={activeTab} />
@@ -209,8 +209,8 @@ const PathOSApp: React.FC = () => {
                 <ROIDashboard workflows={workflows} />
                 <div className="space-y-6">
                   <div className="flex items-center justify-between border-b border-theme-border/50 pb-4">
-                    <h3 className="text-header-sub flex items-center gap-2.5"><Database size={18} className="text-theme-accent" /> Recent Automation Nodes</h3>
-                    <button onClick={() => setActiveTab('workflows')} className="text-hint text-theme-accent hover:text-white transition-colors flex items-center gap-1.5">View Registry <ChevronRight size={14} /></button>
+                    <h3 className="text-header-sub flex items-center gap-2.5"><Database size={18} className="text-theme-accent" /> Recent Workflows</h3>
+                    <button onClick={() => setActiveTab('workflows')} className="text-hint text-theme-accent hover:text-white transition-colors flex items-center gap-1.5">View Repository <ChevronRight size={14} /></button>
                   </div>
                   <WorkflowRegistry workflows={workflows.slice(0, 8)} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} />
                 </div>
@@ -240,7 +240,7 @@ const PathOSApp: React.FC = () => {
                     status: 'DRAFT'
                   }}
                   onSave={(tasks, meta) => workflowsApi.update(selectedWorkflow.id, { ...selectedWorkflow, tasks, ...meta }).then(() => {
-                    toast.success("Strategy Synchronized");
+                    toast.success("Configuration Saved");
                     queryClient.invalidateQueries({ queryKey: ['workflows'] });
                   })} 
                 />
