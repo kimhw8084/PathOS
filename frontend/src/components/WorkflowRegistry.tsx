@@ -13,14 +13,14 @@ import {
   Eye,
   Filter,
   X,
-  ShieldAlert,
   CheckCircle2,
   Circle,
   MoreHorizontal,
   Share2,
   Archive,
   ChevronDown,
-  Check
+  Check,
+  ArrowRight
 } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import * as Popover from '@radix-ui/react-popover';
@@ -157,8 +157,8 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     return p ? (p.cached_values || []) : [];
   };
 
-  // Helper to calculate weekly times
-  const calculateWeeklyTimes = (w: any) => {
+  // Helper to calculate analytics
+  const calculateAnalytics = (w: any) => {
     let freqMultiplier = 1;
     const count = w.cadence_count || 1;
     const unit = w.cadence_unit || 'week';
@@ -174,9 +174,21 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     const totalAutoMinutes = w.tasks?.reduce((acc: number, t: any) => 
       acc + ((t.machine_wait_time_minutes || 0) * (t.occurrences_per_cycle || 1)), 0) || 0;
 
+    const taskCount = w.tasks?.length || 0;
+    const decisionCount = w.tasks?.filter((t: any) => t.interface_type === 'DECISION').length || 0;
+    const inputCount = w.tasks?.reduce((acc: number, t: any) => acc + (t.source_data ? 1 : 0), 0) || 0;
+    const outputCount = w.tasks?.reduce((acc: number, t: any) => acc + (t.output_format_example ? 1 : 0), 0) || 0;
+
     return {
-      manual: (totalManualMinutes * freqMultiplier) / 60, // hours
-      auto: (totalAutoMinutes * freqMultiplier) / 60 // hours
+      manualPerCycle: totalManualMinutes / 60, // hours
+      autoPerCycle: totalAutoMinutes / 60, // hours
+      frequencyPerWeek: freqMultiplier,
+      manualWeekly: (totalManualMinutes * freqMultiplier) / 60,
+      autoWeekly: (totalAutoMinutes * freqMultiplier) / 60,
+      taskCount,
+      decisionCount,
+      inputCount,
+      outputCount
     };
   };
 
@@ -195,7 +207,6 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     if (filters.type.length > 0) result = result.filter(w => filters.type.includes(w.workflow_type));
     if (filters.status.length > 0) result = result.filter(w => filters.status.includes(w.status));
     
-    // Trigger and Output are sometimes nested in tasks or direct in workflow. Seed uses direct.
     if (filters.trigger.length > 0) result = result.filter(w => filters.trigger.includes(w.trigger_type));
     if (filters.output.length > 0) result = result.filter(w => filters.output.includes(w.output_type));
 
@@ -216,12 +227,21 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
         
+        const aAnalytics = calculateAnalytics(a);
+        const bAnalytics = calculateAnalytics(b);
+
         if (sortConfig.key === 'manual_time') {
-          aValue = calculateWeeklyTimes(a).manual;
-          bValue = calculateWeeklyTimes(b).manual;
+          aValue = aAnalytics.manualPerCycle;
+          bValue = bAnalytics.manualPerCycle;
         } else if (sortConfig.key === 'auto_time') {
-          aValue = calculateWeeklyTimes(a).auto;
-          bValue = calculateWeeklyTimes(b).auto;
+          aValue = aAnalytics.autoPerCycle;
+          bValue = bAnalytics.autoPerCycle;
+        } else if (sortConfig.key === 'frequency') {
+          aValue = aAnalytics.frequencyPerWeek;
+          bValue = bAnalytics.frequencyPerWeek;
+        } else if (sortConfig.key === 'roi') {
+          aValue = aAnalytics.manualWeekly;
+          bValue = bAnalytics.manualWeekly;
         } else if (sortConfig.key === 'blockers') {
           aValue = a.tasks?.reduce((acc: number, t: any) => acc + (t.blockers?.length || 0), 0) || 0;
           bValue = b.tasks?.reduce((acc: number, t: any) => acc + (t.blockers?.length || 0), 0) || 0;
@@ -265,20 +285,32 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     
     return (
       <span className={cn(
-        "px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border whitespace-nowrap inline-block leading-tight",
-        isProd ? "bg-status-success/10 text-status-success border-status-success/20" :
-        isDraft ? "bg-white/5 text-theme-secondary border-theme-border" :
-        "bg-theme-accent/10 text-theme-accent border-theme-accent/20"
+        "px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border whitespace-nowrap inline-flex items-center gap-1.5 leading-none",
+        isProd ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
+        isDraft ? "bg-slate-500/10 text-slate-400 border-slate-500/30" :
+        "bg-amber-500/10 text-amber-400 border-amber-500/30"
       )}>
+        <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", 
+          isProd ? "bg-emerald-400" : isDraft ? "bg-slate-400" : "bg-amber-400"
+        )} />
         {status}
       </span>
     );
   };
 
+  const CircledNumber = ({ count, colorClass }: { count: number, colorClass: string }) => (
+    <div className={cn(
+      "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black border",
+      count > 0 ? colorClass : "bg-white/[0.02] border-white/10 text-white/20"
+    )}>
+      {count}
+    </div>
+  );
+
   const ActionMenu = ({ data }: { data: any }) => (
     <Popover.Root>
       <Popover.Trigger asChild>
-        <button className="w-7 h-7 flex items-center justify-center bg-white/[0.03] hover:bg-theme-accent/20 hover:text-white transition-all rounded border border-theme-border group">
+        <button className="w-8 h-8 flex items-center justify-center bg-white/[0.03] hover:bg-theme-accent/20 hover:text-white transition-all rounded-lg border border-theme-border group">
           <MoreHorizontal size={14} className="text-theme-muted group-hover:text-white" />
         </button>
       </Popover.Trigger>
@@ -318,55 +350,75 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
   );
 
   const PeekTooltip = ({ data }: { data: any }) => {
-    const taskCount = data.tasks?.length || 0;
+    const stats = calculateAnalytics(data);
     const blockerCount = data.tasks?.reduce((acc: number, t: any) => acc + (t.blockers?.length || 0), 0) || 0;
+    const errorCount = data.tasks?.reduce((acc: number, t: any) => acc + (t.errors?.length || 0), 0) || 0;
 
     return (
       <Tooltip.Root>
         <Tooltip.Trigger asChild>
-          <div className="flex flex-col cursor-help group/title">
-            <span className="font-bold text-white text-[13px] group-hover:text-theme-accent transition-colors truncate max-w-[200px] leading-tight">
+          <div className="flex flex-col cursor-help group/title overflow-hidden">
+            <span className="font-bold text-white text-[13px] group-hover:text-theme-accent transition-colors truncate w-full leading-tight">
               {data.name}
-            </span>
-            <span className="text-[10px] text-theme-muted font-mono uppercase tracking-widest leading-none mt-0.5">
-              {data.id_prefix || 'WF'}-{data.id} • {data.trigger_type}
             </span>
           </div>
         </Tooltip.Trigger>
         <Tooltip.Portal>
           <Tooltip.Content 
-            className="w-80 bg-theme-sidebar border border-theme-border rounded-2xl shadow-2xl p-4 z-50 animate-apple-in backdrop-blur-xl"
+            className="w-80 bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl p-4 z-50 animate-apple-in backdrop-blur-2xl"
             sideOffset={8}
           >
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-theme-border pb-2">
-                <span className="text-[10px] font-black uppercase tracking-widest text-theme-accent">Process Analytics</span>
-                <span className="text-[10px] font-bold text-theme-muted">{taskCount} Operations</span>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-white/5 pb-2">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-theme-accent">Industrial Analytics</span>
+                <span className="text-[10px] font-bold text-white/40">{data.id_prefix || 'WF'}-{data.id}</span>
               </div>
               
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-theme-border">
-                  <span className="text-[9px] text-theme-muted block uppercase mb-1">Blockers</span>
-                  <span className={cn(
-                    "text-[11px] font-bold flex items-center gap-1.5",
-                    blockerCount > 0 ? 'text-status-error' : 'text-status-success'
-                  )}>
-                    {blockerCount > 0 ? <ShieldAlert size={10} /> : <Zap size={10} />}
-                    {blockerCount > 0 ? `${blockerCount} Issues` : 'Optimal'}
-                  </span>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <span className="text-[9px] text-white/30 font-black uppercase tracking-widest">Entities</span>
+                  <div className="text-[11px] text-white font-bold flex flex-col gap-0.5">
+                    <div className="flex justify-between"><span>Tasks:</span> <span className="text-theme-accent">{stats.taskCount}</span></div>
+                    <div className="flex justify-between"><span>Decisions:</span> <span className="text-theme-accent">{stats.decisionCount}</span></div>
+                  </div>
                 </div>
-                <div className="p-2.5 rounded-xl bg-white/[0.03] border border-theme-border">
-                  <span className="text-[9px] text-theme-muted block uppercase mb-1">ROI Impact</span>
-                  <span className="text-[11px] font-bold text-theme-accent flex items-center gap-1.5">
-                    <Clock size={10} /> +{data.total_roi_saved_hours?.toFixed(1)}h/wk
-                  </span>
+                <div className="space-y-1">
+                  <span className="text-[9px] text-white/30 font-black uppercase tracking-widest">Data Flux</span>
+                  <div className="text-[11px] text-white font-bold flex flex-col gap-0.5">
+                    <div className="flex justify-between"><span>Inputs:</span> <span className="text-emerald-400">{stats.inputCount}</span></div>
+                    <div className="flex justify-between"><span>Outputs:</span> <span className="text-emerald-400">{stats.outputCount}</span></div>
+                  </div>
                 </div>
               </div>
-              <div className="text-[11px] text-theme-secondary italic line-clamp-2 leading-relaxed">
-                {data.description || "No description provided."}
+
+              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 space-y-2">
+                <span className="text-[9px] text-white/30 font-black uppercase tracking-widest block">ROI Projection (Weekly)</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock size={12} className="text-theme-accent" />
+                    <span className="text-[12px] font-black text-white">{stats.manualWeekly.toFixed(1)}h <span className="text-[9px] text-white/40">Manual</span></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Zap size={12} className="text-emerald-400" />
+                    <span className="text-[12px] font-black text-white">{stats.autoWeekly.toFixed(1)}h <span className="text-[9px] text-white/40">Auto</span></span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <div className="flex-1 p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-center">
+                   <span className="text-[10px] font-black text-red-400 uppercase tracking-tighter">{blockerCount} Blockers</span>
+                </div>
+                <div className="flex-1 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center">
+                   <span className="text-[10px] font-black text-amber-400 uppercase tracking-tighter">{errorCount} Errors</span>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-white/60 italic leading-relaxed border-t border-white/5 pt-2">
+                {data.description || "System-generated industrial workflow definition."}
               </div>
             </div>
-            <Tooltip.Arrow className="fill-theme-border" />
+            <Tooltip.Arrow className="fill-white/10" />
           </Tooltip.Content>
         </Tooltip.Portal>
       </Tooltip.Root>
@@ -511,7 +563,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
       {/* Table Container */}
       <div className="flex-1 overflow-hidden border-x border-b border-theme-border bg-[#0a1120] relative">
         <div className="absolute inset-0 overflow-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse min-w-[2000px] table-fixed">
+          <table className="w-full text-left border-collapse min-w-[2100px] table-fixed">
             <thead className="sticky top-0 z-20">
               <tr className="bg-[#1e293b] border-b border-theme-border">
                 <th className="p-2 w-10 text-center sticky left-0 bg-[#1e293b] border-r border-theme-border shadow-[2px_0_5px_rgba(0,0,0,0.3)]">
@@ -520,71 +572,71 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                   </button>
                 </th>
                 
-                <th className="px-3 py-2.5 w-[300px] text-[10px] font-black text-theme-muted uppercase tracking-widest cursor-pointer hover:text-white transition-colors border-r border-theme-border" onClick={() => handleSort('name')}>
+                <th className="px-4 py-3 w-[280px] text-[10px] font-black text-theme-muted uppercase tracking-widest cursor-pointer hover:text-white transition-colors border-r border-theme-border" onClick={() => handleSort('name')}>
                   Workflow {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[100px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('prc')}>
+                <th className="px-3 py-3 w-[100px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer text-center" onClick={() => handleSort('prc')}>
                   PRC {sortConfig.key === 'prc' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[180px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('tool_family')}>
+                <th className="px-3 py-3 w-[160px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer text-center" onClick={() => handleSort('tool_family')}>
                   Tool Family {sortConfig.key === 'tool_family' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[140px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('workflow_type')}>
+                <th className="px-3 py-3 w-[130px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer text-center" onClick={() => handleSort('workflow_type')}>
                   Type {sortConfig.key === 'workflow_type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[150px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border">
-                  Trigger
+                <th className="px-3 py-3 w-[280px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border text-center">
+                  Trigger → Output
                 </th>
 
-                <th className="px-3 py-2.5 w-[150px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border">
-                  Output
+                <th className="px-3 py-3 w-[100px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('frequency')}>
+                  Freq / Wk {sortConfig.key === 'frequency' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[120px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-right border-r border-theme-border cursor-pointer" onClick={() => handleSort('manual_time')}>
-                  Manual (W) {sortConfig.key === 'manual_time' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                <th className="px-3 py-3 w-[110px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('manual_time')}>
+                  Manual {sortConfig.key === 'manual_time' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[120px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-right border-r border-theme-border cursor-pointer" onClick={() => handleSort('auto_time')}>
-                  Auto (W) {sortConfig.key === 'auto_time' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                <th className="px-3 py-3 w-[110px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('auto_time')}>
+                  Auto {sortConfig.key === 'auto_time' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[100px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('blockers')}>
+                <th className="px-3 py-3 w-[120px] text-[10px] font-black text-theme-accent uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('roi')}>
+                  ROI (h/wk) {sortConfig.key === 'roi' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                </th>
+
+                <th className="px-3 py-3 w-[90px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('blockers')}>
                   Blockers {sortConfig.key === 'blockers' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[100px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('errors')}>
+                <th className="px-3 py-3 w-[90px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('errors')}>
                   Errors {sortConfig.key === 'errors' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[140px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('status')}>
+                <th className="px-3 py-3 w-[160px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer text-center" onClick={() => handleSort('status')}>
                   Status {sortConfig.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[140px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('created_by')}>
+                <th className="px-3 py-3 w-[130px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer text-center" onClick={() => handleSort('created_by')}>
                   Creator
                 </th>
 
-                <th className="px-3 py-2.5 w-[140px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('updated_by')}>
-                  Last Editor
+                <th className="px-3 py-3 w-[130px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer text-center" onClick={() => handleSort('updated_by')}>
+                  Editor
                 </th>
 
-                <th className="px-3 py-2.5 w-[150px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('created_at')}>
-                  Created {sortConfig.key === 'created_at' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                <th className="px-3 py-3 w-[140px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer text-center" onClick={() => handleSort('created_at')}>
+                  Created
                 </th>
 
-                <th className="px-3 py-2.5 w-[150px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('updated_at')}>
-                  Modified
-                </th>
-
-                <th className="px-3 py-2.5 w-[80px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border">
+                <th className="px-3 py-3 w-[80px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer sticky right-[60px] bg-[#1e293b] z-20" onClick={() => handleSort('version')}>
                   Ver
                 </th>
 
-                <th className="px-3 py-2.5 w-[60px] bg-[#1e293b] sticky right-0 shadow-[-2px_0_5px_rgba(0,0,0,0.3)]"></th>
+                <th className="px-3 py-3 w-[60px] bg-[#1e293b] sticky right-0 shadow-[-2px_0_5px_rgba(0,0,0,0.3)] z-20"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04]">
@@ -592,7 +644,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                 filteredWorkflows.map((w) => {
                   const blockerCount = w.tasks?.reduce((acc: number, t: any) => acc + (t.blockers?.length || 0), 0) || 0;
                   const errorCount = w.tasks?.reduce((acc: number, t: any) => acc + (t.errors?.length || 0), 0) || 0;
-                  const times = calculateWeeklyTimes(w);
+                  const analytics = calculateAnalytics(w);
                   const familyDisplay = w.tool_family_count > 1 ? `${w.tool_family} + ${w.tool_family_count}` : w.tool_family;
 
                   return (
@@ -619,73 +671,83 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                         </button>
                       </td>
 
-                      <td className="px-3 py-2 border-r border-theme-border">
+                      <td className="px-4 py-3 border-r border-theme-border">
                         <PeekTooltip data={w} />
                       </td>
 
-                      <td className="px-3 py-2 border-r border-theme-border">
-                        <span className="text-[11px] font-mono font-black text-blue-400">{w.prc || '--'}</span>
+                      <td className="px-3 py-3 border-r border-theme-border text-center">
+                        <span className="text-[13px] font-mono font-black text-blue-400">{w.prc || '--'}</span>
                       </td>
 
-                      <td className="px-3 py-2 border-r border-theme-border">
-                        <span className="text-[10px] font-bold text-theme-secondary uppercase tracking-wider">
+                      <td className="px-3 py-3 border-r border-theme-border text-center">
+                        <span className="text-[11px] font-black text-theme-secondary uppercase tracking-wider">
                           {familyDisplay || 'Generic'}
                         </span>
                       </td>
 
-                      <td className="px-3 py-2 border-r border-theme-border">
-                         <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{w.workflow_type || 'STANDARD'}</span>
+                      <td className="px-3 py-3 border-r border-theme-border text-center">
+                         <span className="text-[11px] font-black text-white/40 uppercase tracking-widest">{w.workflow_type || 'STANDARD'}</span>
                       </td>
 
-                      <td className="px-3 py-2 border-r border-theme-border">
-                        <span className="text-[10px] text-theme-muted truncate block">{w.trigger_type}</span>
+                      <td className="px-3 py-3 border-r border-theme-border text-center">
+                        <div className="flex items-center justify-center gap-2 text-[11px] font-bold text-white/60">
+                          <span className="truncate max-w-[120px]">{w.trigger_type}</span>
+                          <ArrowRight size={10} className="text-theme-accent shrink-0" />
+                          <span className="truncate max-w-[120px]">{w.output_type}</span>
+                        </div>
                       </td>
 
-                      <td className="px-3 py-2 border-r border-theme-border">
-                        <span className="text-[10px] text-theme-muted truncate block">{w.output_type}</span>
+                      <td className="px-3 py-3 border-r border-theme-border text-center">
+                         <span className="text-[13px] font-black text-white/80">{analytics.frequencyPerWeek.toFixed(1)}</span>
                       </td>
 
-                      <td className="px-3 py-2 text-right border-r border-theme-border">
-                        <span className="text-[12px] font-black text-theme-accent">{times.manual.toFixed(1)}h</span>
+                      <td className="px-3 py-3 text-center border-r border-theme-border">
+                        <span className="text-[13px] font-black text-white/80">{analytics.manualPerCycle.toFixed(1)}h</span>
                       </td>
 
-                      <td className="px-3 py-2 text-right border-r border-theme-border">
-                        <span className="text-[12px] font-black text-emerald-400">{times.auto.toFixed(1)}h</span>
+                      <td className="px-3 py-3 text-center border-r border-theme-border">
+                        <span className="text-[13px] font-black text-white/80">{analytics.autoPerCycle.toFixed(1)}h</span>
                       </td>
 
-                      <td className="px-3 py-2 text-center border-r border-theme-border">
-                        <span className={cn("text-[10px] font-bold", blockerCount > 0 ? "text-status-error" : "text-white/20")}>{blockerCount}</span>
+                      <td className="px-3 py-3 text-center border-r border-theme-border">
+                        <span className="text-[13px] font-black text-theme-accent">+{analytics.manualWeekly.toFixed(1)}</span>
                       </td>
 
-                      <td className="px-3 py-2 text-center border-r border-theme-border">
-                        <span className={cn("text-[10px] font-bold", errorCount > 0 ? "text-status-warning" : "text-white/20")}>{errorCount}</span>
+                      <td className="px-3 py-3 border-r border-theme-border">
+                        <div className="flex justify-center">
+                          <CircledNumber count={blockerCount} colorClass="bg-red-500/10 border-red-500/30 text-red-400" />
+                        </div>
                       </td>
 
-                      <td className="px-3 py-2 border-r border-theme-border">
+                      <td className="px-3 py-3 border-r border-theme-border">
+                        <div className="flex justify-center">
+                          <CircledNumber count={errorCount} colorClass="bg-amber-500/10 border-amber-500/30 text-amber-400" />
+                        </div>
+                      </td>
+
+                      <td className="px-3 py-3 border-r border-theme-border text-center">
                         <StatusBadge status={w.status} />
                       </td>
 
-                      <td className="px-3 py-2 border-r border-theme-border text-[10px] font-bold text-theme-secondary">
+                      <td className="px-3 py-3 border-r border-theme-border text-[11px] font-bold text-theme-secondary text-center">
                         {w.created_by?.split('_')[0] || 'System'}
                       </td>
 
-                      <td className="px-3 py-2 border-r border-theme-border text-[10px] font-bold text-theme-secondary">
+                      <td className="px-3 py-3 border-r border-theme-border text-[11px] font-bold text-theme-secondary text-center">
                         {w.updated_by?.split('_')[0] || 'System'}
                       </td>
 
-                      <td className="px-3 py-2 border-r border-theme-border text-[10px] text-theme-muted font-mono">
+                      <td className="px-3 py-3 border-r border-theme-border text-[11px] text-theme-muted font-mono text-center">
                         {new Date(w.created_at).toLocaleDateString()}
                       </td>
 
-                      <td className="px-3 py-2 border-r border-theme-border text-[10px] text-theme-muted font-mono">
-                         {new Date(w.updated_at || w.created_at).toLocaleDateString()}
+                      <td className="px-3 py-3 text-center border-r border-theme-border sticky right-[60px] bg-[#0a1120] group-hover:bg-[#151d2e] z-10">
+                         <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[11px] font-black text-theme-secondary">
+                           V{w.version}
+                         </span>
                       </td>
 
-                      <td className="px-3 py-2 text-center border-r border-theme-border">
-                         <span className="text-[11px] font-black text-theme-muted">{w.version}</span>
-                      </td>
-
-                      <td className="px-3 py-2 text-right sticky right-0 bg-[#0a1120] group-hover:bg-[#151d2e] shadow-[-2px_0_5px_rgba(0,0,0,0.3)]">
+                      <td className="px-3 py-3 text-right sticky right-0 bg-[#0a1120] group-hover:bg-[#151d2e] shadow-[-2px_0_5px_rgba(0,0,0,0.3)] z-10">
                         <ActionMenu data={w} />
                       </td>
                     </tr>
