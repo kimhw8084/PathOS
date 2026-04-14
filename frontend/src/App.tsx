@@ -247,7 +247,7 @@ const PathOSApp: React.FC = () => {
                 />
               </div>
             )}
-            {activeTab === 'intake' && <div className="max-w-4xl mx-auto"><IntakeGatekeeper taxonomy={taxonomy} onSuccess={(data) => createMutation.mutate(data)} onCancel={() => setActiveTab('workflows')} /></div>}
+            {activeTab === 'intake' && <div className="max-w-4xl mx-auto"><IntakeGatekeeper initialData={selectedWorkflow} taxonomy={taxonomy} onSuccess={(data) => { if (selectedWorkflow) { workflowsApi.update(selectedWorkflow.id, data).then((updated) => { setSelectedWorkflow(updated); setActiveTab('builder'); }); } else { createMutation.mutate(data); } }} onCancel={() => setActiveTab('workflows')} /></div>}
             {activeTab === 'settings' && <SettingsView />}
             {activeTab === 'builder' && selectedWorkflow && (
               <div className="h-[calc(100vh-140px)]">
@@ -258,7 +258,8 @@ const PathOSApp: React.FC = () => {
                     toast.success("Configuration Saved");
                     queryClient.invalidateQueries({ queryKey: ['workflows'] });
                   })} 
-                  onBack={() => setActiveTab('workflows')}
+                  onBack={() => setActiveTab('intake')}
+                  onExit={() => setActiveTab('workflows')}
                 />
               </div>
             )}

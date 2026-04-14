@@ -16,6 +16,7 @@ interface IntakeGatekeeperProps {
   onSuccess: (data: any) => void;
   onCancel?: () => void;
   taxonomy: any[];
+  initialData?: any;
 }
 
 export const CreationProgressBar = ({ currentStep }: { currentStep: number }) => {
@@ -189,25 +190,25 @@ const SearchableSelect = ({
   );
 };
 
-const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel, taxonomy }) => {
+const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel, taxonomy, initialData }) => {
   const [systemParams, setSystemParams] = useState<any[]>([]);
-  const [isRegular, setIsRegular] = useState<boolean | null>(null);
+  const [isRegular, setIsRegular] = useState<boolean | null>(initialData ? true : null);
   
   const [formData, setFormData] = useState({
-    name: '',
-    prc: '',
-    workflow_type: '',
-    trigger_type: '',
-    trigger_description: '',
-    output_type: '',
-    output_description: '',
-    cadence_count: 1.0,
-    cadence_unit: 'week',
-    involves_equipment: false,
-    equipment_state: 'Idle',
-    cleanroom_execution_required: false,
-    tool_family: [] as string[],
-    applicable_tools: [] as string[],
+    name: initialData?.name || '',
+    prc: initialData?.prc || '',
+    workflow_type: initialData?.workflow_type || '',
+    trigger_type: initialData?.trigger_type || '',
+    trigger_description: initialData?.trigger_description || '',
+    output_type: initialData?.output_type || '',
+    output_description: initialData?.output_description || '',
+    cadence_count: initialData?.cadence_count || 1.0,
+    cadence_unit: initialData?.cadence_unit || 'week',
+    involves_equipment: initialData?.involves_equipment || false,
+    equipment_state: initialData?.equipment_state || 'Idle',
+    cleanroom_execution_required: initialData?.cleanroom_execution_required || false,
+    tool_family: initialData?.tool_family ? (typeof initialData.tool_family === 'string' ? initialData.tool_family.split(', ') : initialData.tool_family) : [] as string[],
+    applicable_tools: initialData?.tool_id ? (typeof initialData.tool_id === 'string' ? initialData.tool_id.split(', ') : initialData.tool_id) : [] as string[],
     repeatability_check: true
   });
 

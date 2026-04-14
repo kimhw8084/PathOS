@@ -25,10 +25,8 @@ import {
   X, Zap,
   Activity, Layers, Database, AlertCircle,
   Plus, 
-  ImageIcon, Paperclip,
+  Paperclip,
   ChevronLeft,
-  Building2,
-  Users2,
   User,
   Info,
   Settings,
@@ -124,7 +122,7 @@ interface Task {
   description: string;
   task_type: string;
   target_systems: TargetSystem[];
-  interface_type: 'GUI' | 'CLI' | 'API' | 'DECISION';
+  interface_type: 'GUI' | 'CLI' | 'API' | 'DECISION' | 'TRIGGER' | 'OUTCOME';
   manual_time_minutes: number;
   automation_time_minutes: number;
   machine_wait_time_minutes: number;
@@ -183,6 +181,7 @@ interface WorkflowBuilderProps {
   taxonomy: any[];
   onSave: (data: any) => void;
   onBack: () => void;
+  onExit: () => void;
 }
 
 // --- CUSTOM NODES & EDGES ---
@@ -193,6 +192,8 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
     'Technical': 'text-purple-400 border-purple-400/30 bg-purple-400/10',
     'Physical': 'text-amber-400 border-amber-400/30 bg-amber-400/10',
     'Validation': 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10',
+    'TRIGGER': 'text-cyan-400 border-cyan-400/30 bg-cyan-400/10',
+    'OUTCOME': 'text-rose-400 border-rose-400/30 bg-rose-400/10',
   };
 
   const typeColor = typeColors[data.task_type] || 'text-white/40 border-white/10 bg-white/5';
@@ -239,7 +240,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
             </p>
           )}
           <div className="flex items-center gap-2 pt-1">
-             <span className="text-[9px] font-black text-white/20 uppercase tracking-widest truncate max-w-[200px]">{data.systems || "STANDALONE"}</span>
+             <span className="text-[9px] font-black text-white/20 uppercase tracking-widest truncate max-w-[200px]">{data.systems}</span>
           </div>
         </div>
       </div>
@@ -322,6 +323,8 @@ const CustomEdge = ({
 const nodeTypes = {
   matrix: MatrixNode,
   DECISION: DiamondNode,
+  TRIGGER: MatrixNode,
+  OUTCOME: MatrixNode,
 };
 
 const edgeTypes = {
@@ -330,10 +333,13 @@ const edgeTypes = {
 
 // --- MAIN BUILDER ---
 
-const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, onSave, onBack }) => {
+const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, onSave, onBack, onExit }) => {
   const [view, setView] = useState<'flow' | 'table'>('flow');
   const [isSaved, setIsSaved] = useState(false);
   const [systemParams, setSystemParams] = useState<any[]>([]);
+  const [inspectorWidth, setInspectorWidth] = useState(450);
+  const [isResizing, setIsResizing] = useState(false);
+  const [isEditingMetadata, setIsEditingMetadata] = useState(false);
 
   useEffect(() => {
     settingsApi.listParameters().then(setSystemParams).catch(() => {});
@@ -375,8 +381,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     }));
   }, []);
 
-  const [tasks, setTasks] = useState<Task[]>(() => normalizeTasks(workflow.tasks || []));
-
   const [metadata, setMetadata] = useState<WorkflowMetadata>({
     cadence_count: workflow.cadence_count || 1,
     cadence_unit: workflow.cadence_unit || 'week',
@@ -397,6 +401,104 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     output_type: workflow.output_type || '',
     output_description: workflow.output_description || ''
   });
+
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    const baseTasks = normalizeTasks(workflow.tasks || []);
+    const result = [...baseTasks];
+    
+    // Ensure Trigger Node exists
+    if (!result.find(t => t.interface_type === 'TRIGGER')) {
+      result.unshift({
+        id: 'trigger-node',
+        name: workflow.trigger_type || 'TRIGGER EVENT',
+        description: workflow.trigger_description || 'Initiating event for the workflow.',
+        task_type: 'TRIGGER',
+        target_systems: [],
+        interface_type: 'TRIGGER',
+        manual_time_minutes: 0,
+        automation_time_minutes: 0,
+        machine_wait_time_minutes: 0,
+        occurrences_per_cycle: 1,
+        source_data_list: [],
+        output_data_list: [],
+        verification_methods: [],
+        blockers: [],
+        errors: [],
+        tribal_knowledge: [],
+        media: [],
+        reference_links: [],
+        tool_id: 'LOCAL',
+        hardware_family: 'VIRTUAL',
+        trigger_architecture: 'MANUAL',
+        output_classification: 'INTERNAL',
+        upstream_links: [],
+        io_variables: []
+      });
+    }
+
+    // Ensure Outcome Node exists
+    if (!result.find(t => t.interface_type === 'OUTCOME')) {
+      result.push({
+        id: 'outcome-node',
+        name: workflow.output_type || 'OUTCOME DELIVERABLE',
+        description: workflow.output_description || 'Final output or state achieved.',
+        task_type: 'OUTCOME',
+        target_systems: [],
+        interface_type: 'OUTCOME',
+        manual_time_minutes: 0,
+        automation_time_minutes: 0,
+        machine_wait_time_minutes: 0,
+        occurrences_per_cycle: 1,
+        source_data_list: [],
+        output_data_list: [],
+        verification_methods: [],
+        blockers: [],
+        errors: [],
+        tribal_knowledge: [],
+        media: [],
+        reference_links: [],
+        tool_id: 'LOCAL',
+        hardware_family: 'VIRTUAL',
+        trigger_architecture: 'MANUAL',
+        output_classification: 'INTERNAL',
+        upstream_links: [],
+        io_variables: []
+      });
+    }
+    return result;
+  });
+
+  // Resizer logic
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isResizing) return;
+    const newWidth = window.innerWidth - e.clientX;
+    if (newWidth > 350 && newWidth < 1000) {
+      setInspectorWidth(newWidth);
+    }
+  }, [isResizing]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    } else {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, handleMouseMove, handleMouseUp]);
 
   // Keep metadata in sync if workflow prop updates
   useEffect(() => {
@@ -420,18 +522,17 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       output_type: workflow.output_type || '',
       output_description: workflow.output_description || ''
     });
-    setTasks(normalizeTasks(workflow.tasks || []));
-  }, [workflow, normalizeTasks]);
+  }, [workflow]);
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [inspectorTab, setInspectorTab] = useState<'execution' | 'data' | 'exceptions' | 'appendix' | 'process'>('execution');
+  const [inspectorTab, setInspectorTab] = useState<'execution' | 'data' | 'exceptions' | 'appendix' | 'process'>('process');
   
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
 
-  // World-class Auto-Layout (Layered approach)
+  // Auto-Layout
   const autoLayout = useCallback(() => {
     if (!reactFlowInstance) return;
     
@@ -477,6 +578,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   }, [reactFlowInstance, edges, setNodes]);
 
   const deleteTask = (id: string) => {
+    if (id === 'trigger-node' || id === 'outcome-node') return;
+    
     setTasks(prev => prev.filter(t => t.id !== id));
     setNodes(nds => nds.filter(n => n.id !== id));
     setEdges(eds => eds.filter(e => e.source !== id && e.target !== id));
@@ -484,17 +587,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     setInspectorTab('process');
   };
 
-  const handleBackToDefinition = () => {
-    // Navigate back to the definition step (Step 2)
-    // For now, we use onBack but we could also have a specific onBackToDefinition
-    onBack();
-  };
-
   // Sync tasks to nodes on load
   useEffect(() => {
     const newNodes: Node[] = tasks.map((t, idx) => ({
       id: t.id,
-      type: t.interface_type === 'DECISION' ? 'DECISION' : 'matrix',
+      type: t.interface_type === 'DECISION' ? 'DECISION' : 
+            t.interface_type === 'TRIGGER' ? 'TRIGGER' :
+            t.interface_type === 'OUTCOME' ? 'OUTCOME' : 'matrix',
       data: { 
         label: t.name, 
         description: t.description,
@@ -509,12 +608,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       position: nodes.find(n => n.id === t.id)?.position || { x: 100 + (idx * 400), y: 300 },
     }));
     
-    // Maintain existing edges but filter out those whose source/target no longer exist
     const validEdges = edges.filter(e => 
       tasks.some(t => t.id === e.source) && tasks.some(t => t.id === e.target)
     );
     
-    // Default edges based on order if no valid edges exist
     const newEdges: Edge[] = validEdges.length > 0 ? validEdges : [];
     if (newEdges.length === 0 && tasks.length > 1) {
       for (let i = 0; i < tasks.length - 1; i++) {
@@ -571,7 +668,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       io_variables: []
     };
     
-    setTasks([...tasks, newTask]);
+    setTasks(prev => {
+      const withoutOutcome = prev.filter(t => t.id !== 'outcome-node');
+      const outcome = prev.find(t => t.id === 'outcome-node');
+      return [...withoutOutcome, newTask, outcome].filter(Boolean) as Task[];
+    });
     setSelectedTaskId(id);
     setSelectedEdgeId(null);
     setInspectorTab('execution');
@@ -628,12 +729,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       <div className="apple-card !p-0 flex-1 flex flex-col overflow-hidden relative shadow-2xl border-white/10 bg-[#0a1120]">
 
         {/* --- UNIFIED HEADER --- */}
-        <div className="border-b border-white/10 bg-[#0a1120]/80 backdrop-blur-xl z-40 flex flex-col">
-          {/* Row 1: Nav & Basic Controls */}
+        <div className="border-b border-white/10 bg-[#0a1120]/80 backdrop-blur-xl z-[60] flex flex-col">
           <div className="h-14 flex items-center justify-between px-6">
             <div className="flex items-center gap-6">
               <button 
-                onClick={handleBackToDefinition}
+                onClick={onBack}
                 className="flex items-center gap-2 text-theme-muted hover:text-white transition-all group"
               >
                 <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
@@ -641,7 +741,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
               </button>
 
               <button 
-                onClick={onBack}
+                onClick={onExit}
                 className="flex items-center gap-2 text-white/20 hover:text-white transition-all group ml-2"
               >
                 <X size={14} className="group-hover:rotate-90 transition-transform" />
@@ -654,24 +754,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                 <div className="flex items-center gap-2">
                   <LucideWorkflow size={14} className="text-theme-accent" />
                   <span className="text-[13px] font-black text-white tracking-tighter uppercase">{workflow.name}</span>
-                </div>
-              </div>
-
-              <div className="h-8 w-[1px] bg-white/10 mx-2" />
-
-              {/* Org / Team / POC Context */}
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <Building2 size={12} className="text-white/20" />
-                  <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{metadata.org || 'Unassigned Org'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Users2 size={12} className="text-white/20" />
-                  <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{metadata.team || 'Unassigned Team'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <User size={12} className="text-white/20" />
-                  <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{metadata.poc || 'No POC'}</span>
                 </div>
               </div>
             </div>
@@ -709,798 +791,498 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
               </button>
             </div>
           </div>
-        {/* Row 2: Forensic Description & Type/PRC */}
-        <div className="h-10 flex items-center justify-between px-6 border-t border-white/5 bg-white/[0.02]">
-           <div className="flex items-center gap-3 flex-1 overflow-hidden">
-             <Info size={12} className="text-theme-accent shrink-0" />
-             <input 
-               className="bg-transparent text-[11px] font-bold text-white/60 outline-none w-full italic truncate"
-               placeholder="Add forensic description for this industrial workflow..."
-               value={metadata.forensic_description}
-               onChange={e => setMetadata({...metadata, forensic_description: e.target.value})}
-             />
-           </div>
-
-           <div className="flex items-center gap-4 border-l border-white/10 pl-6 shrink-0">
-             <div className="flex items-center gap-2">
-                <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Type</span>
-                <span className="px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[9px] font-black text-blue-400 uppercase">{metadata.workflow_type || 'N/A'}</span>
+          <div className="h-10 flex items-center justify-between px-6 border-t border-white/5 bg-white/[0.02]">
+             <div className="flex items-center gap-3 flex-1 overflow-hidden">
+               <Info size={12} className="text-theme-accent shrink-0" />
+               <input 
+                 className="bg-transparent text-[11px] font-bold text-white/60 outline-none w-full italic truncate"
+                 placeholder="Add forensic description for this industrial workflow..."
+                 value={metadata.forensic_description}
+                 onChange={e => setMetadata({...metadata, forensic_description: e.target.value})}
+               />
              </div>
-             <div className="flex items-center gap-2">
-                <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">PRC</span>
-                <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-black text-white/60 uppercase">{metadata.prc || 'N/A'}</span>
+             <div className="flex items-center gap-4 border-l border-white/10 pl-6 shrink-0">
+               <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Type</span>
+                  <span className="px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[9px] font-black text-blue-400 uppercase">{metadata.workflow_type || 'N/A'}</span>
+               </div>
+               <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">PRC</span>
+                  <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-black text-white/60 uppercase">{metadata.prc || 'N/A'}</span>
+               </div>
              </div>
-           </div>
-        </div>
-      </div>
-
-      <div className="flex-1 flex overflow-hidden">
-        {/* --- MAIN CANVAS AREA --- */}
-        <div className="flex-1 flex flex-col overflow-hidden relative">
-          
-          {view === 'flow' ? (
-            <div className="flex-1 bg-[#0a1120] relative">
-              <ReactFlow 
-                nodes={nodes} 
-                edges={edges} 
-                nodeTypes={nodeTypes} 
-                edgeTypes={edgeTypes}
-                onNodesChange={onNodesChange} 
-                onEdgesChange={onEdgesChange} 
-                onConnect={onConnect}
-                onNodeClick={(_, node) => { setSelectedTaskId(node.id); setInspectorTab('execution'); }}
-                onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedTaskId(null); }}
-                onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); }}
-                onInit={setReactFlowInstance}
-                fitView 
-                className="bg-transparent"
-              >
-                <Background variant={BackgroundVariant.Lines} color="rgba(255,255,255,0.03)" gap={40} size={1} />
-                <Controls className="!bg-[#1e293b] !border-white/10" />
-                <Panel position="bottom-center" className="mb-6">
-                   <div className="flex items-center gap-2 p-1.5 bg-[#0f172a]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50">
-                    <button onClick={() => addNewNode('GUI')} className="flex items-center gap-2 px-5 py-2.5 bg-theme-accent text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-theme-accent/20">
-                      <Plus size={16} /> Add Task
-                    </button>
-                    <button onClick={() => addNewNode('DECISION')} className="flex items-center gap-2 px-5 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-white/10 transition-all">
-                      <Zap size={16} /> Add Decision
-                    </button>
-                  </div>
-                </Panel>
-              </ReactFlow>
-            </div>
-          ) : (
-            <div className="flex-1 overflow-auto p-8 custom-scrollbar space-y-10 bg-[#0a1120]">
-              {(() => {
-                // Calculate hierarchy for sorting
-                const levels: Record<string, number> = {};
-                const incomingCounts: Record<string, number> = {};
-                edges.forEach(e => {
-                  incomingCounts[e.target] = (incomingCounts[e.target] || 0) + 1;
-                });
-                
-                const roots = tasks.filter(t => !incomingCounts[t.id]);
-                const assignLevel = (nodeId: string, level: number) => {
-                  levels[nodeId] = Math.max(levels[nodeId] || 0, level);
-                  edges.filter(e => e.source === nodeId).forEach(e => assignLevel(e.target, level + 1));
-                };
-                roots.forEach(r => assignLevel(r.id, 0));
-                tasks.forEach(t => { if (levels[t.id] === undefined) levels[t.id] = 0; });
-
-                const connectedTasks = tasks.filter(t => 
-                  edges.some(e => e.source === t.id || e.target === t.id)
-                ).sort((a, b) => (levels[a.id] || 0) - (levels[b.id] || 0));
-
-                const standaloneTasks = tasks.filter(t => 
-                  !edges.some(e => e.source === t.id || e.target === t.id)
-                );
-
-                const renderTable = (taskList: Task[], title: string) => (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3 px-2">
-                       <span className="text-[10px] font-black text-theme-accent uppercase tracking-[0.3em]">{title}</span>
-                       <div className="h-[1px] flex-1 bg-white/5" />
-                       <span className="text-[10px] font-black text-white/20 uppercase">{taskList.length} Entities</span>
-                    </div>
-                    <div className="overflow-hidden border border-white/10 rounded-2xl bg-white/[0.02]">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b border-white/10 bg-white/5">
-                            <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest w-12 text-center">#</th>
-                            <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Task Entity</th>
-                            <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Type</th>
-                            <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Manual</th>
-                            <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Auto</th>
-                            <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Forensics</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                          {taskList.map((task, idx) => (
-                            <tr 
-                              key={task.id}
-                              onClick={() => { setSelectedTaskId(task.id); setInspectorTab('execution'); }}
-                              className={cn(
-                                "group cursor-pointer transition-all",
-                                selectedTaskId === task.id ? "bg-theme-accent/10" : "hover:bg-white/[0.04]"
-                              )}
-                            >
-                              <td className="p-4 text-center">
-                                <span className="text-[11px] font-black text-white/20">{idx + 1}</span>
-                              </td>
-                              <td className="p-4">
-                                <div className="flex flex-col">
-                                  <span className="text-[12px] font-black text-white uppercase group-hover:text-theme-accent transition-colors">{task.name}</span>
-                                  <span className="text-[9px] text-white/40 font-bold italic truncate max-w-[200px] uppercase tracking-tight">{task.description || 'No description'}</span>
-                                </div>
-                              </td>
-                              <td className="p-4">
-                                <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-black text-white/60 uppercase">{task.task_type}</span>
-                              </td>
-                              <td className="p-4">
-                                <span className="text-[11px] font-black text-blue-400">{task.manual_time_minutes}m</span>
-                              </td>
-                              <td className="p-4">
-                                <span className="text-[11px] font-black text-purple-400">{task.automation_time_minutes}m</span>
-                              </td>
-                              <td className="p-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex items-center gap-1.5">
-                                    <AlertCircle size={12} className={task.blockers.length > 0 ? "text-status-warning" : "text-white/10"} />
-                                    <span className={cn("text-[10px] font-black", task.blockers.length > 0 ? "text-status-warning" : "text-white/10")}>{task.blockers.length}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1.5">
-                                    <X size={12} className={task.errors.length > 0 ? "text-status-error" : "text-white/10"} />
-                                    <span className={cn("text-[10px] font-black", task.errors.length > 0 ? "text-status-error" : "text-white/10")}>{task.errors.length}</span>
-                                  </div>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                );
-
-                return (
-                  <div className="space-y-12 pb-20">
-                    {connectedTasks.length > 0 && renderTable(connectedTasks, "Connected Flow Entities")}
-                    {standaloneTasks.length > 0 && renderTable(standaloneTasks, "Standalone Entities")}
-                    {tasks.length === 0 && (
-                      <div className="flex flex-col items-center justify-center py-20 opacity-20">
-                        <LucideWorkflow size={48} className="mb-4" />
-                        <span className="text-[14px] font-black uppercase tracking-[0.4em]">No Tasks Defined</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-        </div>
-
-        {/* --- INSPECTOR --- */}
-        <div className="w-[450px] border-l border-white/10 bg-[#0a1120] flex flex-col z-40 shadow-2xl">
-          <div className="h-14 flex border-b border-white/10 bg-white/[0.02]">
-            {[
-              { id: 'execution', label: 'Task Detail', icon: <Activity size={12} />, hidden: !selectedTaskId },
-              { id: 'data', label: 'Data', icon: <Database size={12} />, hidden: !selectedTaskId },
-              { id: 'exceptions', label: 'Exceptions', icon: <AlertCircle size={12} />, hidden: !selectedTaskId },
-              { id: 'appendix', label: 'Appendix', icon: <Paperclip size={12} />, hidden: !selectedTaskId },
-              { id: 'process', label: 'Workflow Definition', icon: <Settings size={12} />, hidden: false }
-            ].filter(t => !t.hidden).map(t => (
-              <button 
-                key={t.id}
-                onClick={() => { setInspectorTab(t.id as any); if (t.id === 'process') setSelectedTaskId(null); }}
-                className={cn("flex-1 flex flex-col items-center justify-center gap-0.5 transition-all border-b-2", 
-                  inspectorTab === t.id ? 'border-theme-accent bg-theme-accent/10 text-white' : 'border-transparent text-white/20 hover:text-white')}
-              >
-                {t.icon}
-                <span className="text-[8px] font-black uppercase tracking-widest">{t.label}</span>
-              </button>
-            ))}
           </div>
+        </div>
 
-          <div className="flex-1 overflow-auto custom-scrollbar p-6">
-            {selectedTaskId && selectedTask ? (
-              <div className="space-y-8 animate-apple-in">
-                {inspectorTab === 'execution' && (
-                  <div className="space-y-6">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task Name</label>
-                        <button onClick={() => setSelectedTaskId(null)} className="text-white/20 hover:text-white transition-colors"><X size={14} /></button>
-                      </div>
-                      <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[14px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedTask.name} onChange={e => updateTask(selectedTaskId, { name: e.target.value })} />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Description</label>
-                      <textarea className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[12px] font-bold text-white/60 outline-none focus:border-theme-accent h-24 resize-none leading-relaxed" placeholder="Task objective and core logic..." value={selectedTask.description} onChange={e => updateTask(selectedTaskId, { description: e.target.value })} />
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task Type</label>
-                        <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>
-                          {taskTypes.map((t: string) => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest px-1">Manual (m)</label>
-                        <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[13px] font-black text-white outline-none focus:border-blue-400" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) })} />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-purple-400 uppercase tracking-widest px-1">Automation (m)</label>
-                        <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[13px] font-black text-white outline-none focus:border-purple-400" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) })} />
-                      </div>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between px-1">
-                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Involved Systems</label>
-                         <button onClick={() => updateTask(selectedTaskId, { target_systems: [...selectedTask.target_systems, { id: Date.now().toString(), name: '', purpose: '', access_method: '' }] })} className="text-theme-accent hover:bg-theme-accent/10 p-1 rounded transition-colors"><Plus size={14} /></button>
-                      </div>
-                      <div className="space-y-2">
-                        {selectedTask.target_systems.map(s => (
-                          <div key={s.id} className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-2 group relative">
-                            <div className="flex gap-2">
-                              <input placeholder="System Name" className="flex-1 bg-transparent text-[11px] font-black text-white outline-none border-b border-white/10 px-1 uppercase" value={s.name} onChange={e => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.map(ts => ts.id === s.id ? { ...ts, name: e.target.value } : ts) })} />
-                              <button onClick={() => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.filter(ts => ts.id !== s.id) })} className="opacity-0 group-hover:opacity-100 text-status-error p-1 transition-opacity hover:scale-110"><X size={12} /></button>
-                            </div>
-                            <input placeholder="Purpose / Usage" className="w-full bg-transparent text-[10px] text-white/40 outline-none px-1" value={s.purpose} onChange={e => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.map(ts => ts.id === s.id ? { ...ts, purpose: e.target.value } : ts) })} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="pt-6 border-t border-white/10">
-                      <button 
-                        onClick={() => deleteTask(selectedTaskId)}
-                        className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2"
-                      >
-                        <Trash size={12} /> Delete Task Entity
+        <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden relative">
+            {view === 'flow' ? (
+              <div className="flex-1 bg-[#0a1120] relative">
+                <ReactFlow 
+                  nodes={nodes} 
+                  edges={edges} 
+                  nodeTypes={nodeTypes} 
+                  edgeTypes={edgeTypes}
+                  onNodesChange={onNodesChange} 
+                  onEdgesChange={onEdgesChange} 
+                  onConnect={onConnect}
+                  onNodeClick={(_, node) => { setSelectedTaskId(node.id); setInspectorTab('execution'); }}
+                  onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedTaskId(null); }}
+                  onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); setInspectorTab('process'); }}
+                  onInit={setReactFlowInstance}
+                  fitView 
+                  className="bg-transparent"
+                >
+                  <Background variant={BackgroundVariant.Lines} color="rgba(255,255,255,0.03)" gap={40} size={1} />
+                  <Controls className="!bg-[#1e293b] !border-white/10" />
+                  <Panel position="bottom-center" className="mb-6">
+                     <div className="flex items-center gap-2 p-1.5 bg-[#0f172a]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50">
+                      <button onClick={() => addNewNode('GUI')} className="flex items-center gap-2 px-5 py-2.5 bg-theme-accent text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-theme-accent/20">
+                        <Plus size={16} /> Add Task
+                      </button>
+                      <button onClick={() => addNewNode('DECISION')} className="flex items-center gap-2 px-5 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-white/10 transition-all">
+                        <Zap size={16} /> Add Decision
                       </button>
                     </div>
-                  </div>
-                )}
-
-                {inspectorTab === 'appendix' && (
-                  <div className="space-y-8" onPaste={handleImagePaste}>
-                    <div className="space-y-4">
-                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Visual Documentation</label>
-                      <div className="relative border-2 border-dashed border-white/10 rounded-2xl p-10 flex flex-col items-center gap-3 bg-white/[0.02] hover:bg-white/[0.04] transition-all cursor-pointer group">
-                         <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={(e) => {
-                           const file = e.target.files?.[0];
-                           if (file) {
-                             const reader = new FileReader();
-                             reader.onload = (evt) => {
-                               const url = evt.target?.result as string;
-                               updateTask(selectedTaskId, { media: [...selectedTask.media, { id: Date.now().toString(), type: 'image', url, label: file.name }] });
-                             };
-                             reader.readAsDataURL(file);
-                           }
-                         }} />
-                         <ImageIcon size={32} className="text-white/10 group-hover:text-theme-accent transition-colors" />
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Paste or Upload Figure</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        {selectedTask.media.map(m => (
-                          <div key={m.id} className="aspect-video rounded-xl border border-white/10 overflow-hidden relative group bg-black shadow-lg">
-                             <img src={m.url} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
-                             <div className="absolute inset-x-0 bottom-0 bg-black/80 p-2 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md">
-                                <p className="text-[8px] font-black text-white uppercase truncate">{m.label}</p>
-                             </div>
-                             <button onClick={() => updateTask(selectedTaskId, { media: selectedTask.media.filter(x => x.id !== m.id) })} className="absolute top-2 right-2 p-1.5 bg-status-error text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:scale-110 active:scale-95"><Trash size={12} /></button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {/* ... existing data/exceptions tabs should stay, let's keep them ... */}
-                {inspectorTab === 'data' && (
-                  <div className="space-y-10 animate-apple-in">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between px-1">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Source Data</label>
-                        <button onClick={() => updateTask(selectedTaskId, { source_data_list: [...selectedTask.source_data_list, { id: Date.now().toString(), is_manual: true, name: '', source_location: '', format: '', example: '', description: '', purpose: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-theme-accent text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-theme-accent/20">
-                          <Plus size={12} /> Add Manual Source
-                        </button>
-                      </div>
-
-                      {tasks.some(t => t.id !== selectedTaskId && t.output_data_list.length > 0) && (
-                        <div className="space-y-2">
-                           <label className="text-[8px] font-black text-theme-accent uppercase tracking-widest px-1">Link Upstream Output</label>
-                           <div className="bg-[#1e293b] border border-white/10 rounded-xl overflow-hidden divide-y divide-white/5">
-                             {tasks.filter(t => t.id !== selectedTaskId && t.output_data_list.length > 0).map(t => (
-                               <div key={t.id} className="p-3 space-y-2">
-                                 <div className="text-[8px] font-black text-white/20 uppercase tracking-widest">{t.name}</div>
-                                 <div className="flex flex-wrap gap-2">
-                                   {t.output_data_list.map(o => (
-                                     <button 
-                                      key={o.id}
-                                      onClick={() => {
-                                        if (!selectedTask.source_data_list.some(sd => sd.origin_node_id === t.id && sd.name === o.name)) {
-                                          updateTask(selectedTaskId, { 
-                                            source_data_list: [...selectedTask.source_data_list, { 
-                                              id: Date.now().toString(), 
-                                              is_manual: false, 
-                                              name: o.name, 
-                                              source_location: t.name, 
-                                              format: o.format, 
-                                              example: o.example, 
-                                              description: o.description, 
-                                              purpose: `Ingested from ${t.name}`,
-                                              origin_node_id: t.id
-                                            }] 
-                                          });
-                                        }
-                                      }}
-                                      className="px-2 py-1 bg-white/5 border border-white/10 rounded text-[9px] font-black text-white/60 hover:text-theme-accent hover:border-theme-accent/50 transition-all flex items-center gap-1.5"
-                                     >
-                                       <Link2 size={10} /> {o.name}
-                                     </button>
-                                   ))}
-                                 </div>
-                               </div>
-                             ))}
-                           </div>
-                        </div>
-                      )}
-
-                      <div className="overflow-hidden border border-white/10 rounded-xl bg-white/[0.02]">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-white/10 bg-white/5">
-                              <th className="p-3 text-[8px] font-black text-white/40 uppercase tracking-widest w-1/3">Data Name</th>
-                              <th className="p-3 text-[8px] font-black text-white/40 uppercase tracking-widest">Source / Format</th>
-                              <th className="p-3 w-8"></th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/5">
-                            {selectedTask.source_data_list.map(sd => (
-                              <tr key={sd.id} className="group hover:bg-white/[0.03] transition-colors">
-                                <td className="p-3">
-                                  <input 
-                                    className="bg-transparent text-[11px] font-black text-white outline-none w-full uppercase placeholder:text-white/5" 
-                                    value={sd.name} 
-                                    onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, name: e.target.value } : x) })} 
-                                    placeholder="DATA NAME"
-                                  />
-                                </td>
-                                <td className="p-3 space-y-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[7px] font-black text-white/20 uppercase w-8">Loc</span>
-                                    <input className="bg-transparent text-[10px] text-white/60 outline-none flex-1 truncate" value={sd.source_location} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, source_location: e.target.value } : x) })} />
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[7px] font-black text-white/20 uppercase w-8">Type</span>
-                                    <input className="bg-transparent text-[10px] text-white/60 outline-none flex-1 truncate" value={sd.format} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, format: e.target.value } : x) })} />
-                                  </div>
-                                </td>
-                                <td className="p-3">
-                                  <button onClick={() => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.filter(x => x.id !== sd.id) })} className="text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {selectedTask.source_data_list.length === 0 && (
-                          <div className="p-8 text-center text-[10px] font-black text-white/10 uppercase tracking-widest">No source data defined</div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between px-1">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Generated Outputs</label>
-                        <button onClick={() => updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '', format: '', example: '', saved_location: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
-                          <Plus size={12} /> Add Output
-                        </button>
-                      </div>
-                      
-                      <div className="overflow-hidden border border-white/10 rounded-xl bg-white/[0.02]">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-white/10 bg-white/5">
-                              <th className="p-3 text-[8px] font-black text-white/40 uppercase tracking-widest w-1/3">Output Name</th>
-                              <th className="p-3 text-[8px] font-black text-white/40 uppercase tracking-widest">Destination / Format</th>
-                              <th className="p-3 w-8"></th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/5">
-                            {selectedTask.output_data_list.map(od => (
-                              <tr key={od.id} className="group hover:bg-white/[0.03] transition-colors">
-                                <td className="p-3">
-                                  <input 
-                                    className="bg-transparent text-[11px] font-black text-white outline-none w-full uppercase placeholder:text-white/5" 
-                                    value={od.name} 
-                                    onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, name: e.target.value } : x) })} 
-                                    placeholder="OUTPUT NAME"
-                                  />
-                                </td>
-                                <td className="p-3 space-y-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[7px] font-black text-white/20 uppercase w-8">Dest</span>
-                                    <input className="bg-transparent text-[10px] text-white/60 outline-none flex-1 truncate" value={od.saved_location} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, saved_location: e.target.value } : x) })} />
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[7px] font-black text-white/20 uppercase w-8">Type</span>
-                                    <input className="bg-transparent text-[10px] text-white/60 outline-none flex-1 truncate" value={od.format} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, format: e.target.value } : x) })} />
-                                  </div>
-                                </td>
-                                <td className="p-3">
-                                  <button onClick={() => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.filter(x => x.id !== od.id) })} className="text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {selectedTask.output_data_list.length === 0 && (
-                          <div className="p-8 text-center text-[10px] font-black text-white/10 uppercase tracking-widest">No outputs defined</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {inspectorTab === 'exceptions' && (
-                  <div className="space-y-10 animate-apple-in">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between px-1">
-                        <label className="text-[9px] font-black text-amber-500 uppercase tracking-widest">Blockers</label>
-                        <button onClick={() => updateTask(selectedTaskId, { blockers: [...selectedTask.blockers, { id: Date.now().toString(), blocking_entity: '', reason: '', probability_percent: 0, average_delay_minutes: 0, standard_mitigation: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-all">
-                          <Plus size={12} /> Add Blocker
-                        </button>
-                      </div>
-                      <div className="overflow-hidden border border-white/10 rounded-xl bg-white/[0.02]">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-white/10 bg-white/5">
-                              <th className="p-3 text-[8px] font-black text-white/40 uppercase tracking-widest w-1/3">Entity</th>
-                              <th className="p-3 text-[8px] font-black text-white/40 uppercase tracking-widest">Reason / Delay</th>
-                              <th className="p-3 w-8"></th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/5">
-                            {selectedTask.blockers.map(b => (
-                              <tr key={b.id} className="group hover:bg-white/[0.03] transition-colors">
-                                <td className="p-3">
-                                  <input 
-                                    className="bg-transparent text-[11px] font-black text-amber-500 outline-none w-full uppercase placeholder:text-white/5" 
-                                    value={b.blocking_entity} 
-                                    onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, blocking_entity: e.target.value } : x) })} 
-                                    placeholder="ENTITY"
-                                  />
-                                </td>
-                                <td className="p-3 space-y-1">
-                                  <input className="bg-transparent text-[10px] text-white/60 outline-none w-full" value={b.reason} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, reason: e.target.value } : x) })} placeholder="Reason for blockage..." />
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[7px] font-black text-white/20 uppercase">Delay</span>
-                                    <input type="number" className="bg-transparent text-[10px] text-white/40 outline-none w-12" value={b.average_delay_minutes} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, average_delay_minutes: parseFloat(e.target.value) } : x) })} />
-                                    <span className="text-[7px] font-black text-white/20 uppercase">min</span>
-                                  </div>
-                                </td>
-                                <td className="p-3">
-                                  <button onClick={() => updateTask(selectedTaskId, { blockers: selectedTask.blockers.filter(x => x.id !== b.id) })} className="text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between px-1">
-                        <label className="text-[9px] font-black text-status-error uppercase tracking-widest">Errors</label>
-                        <button onClick={() => updateTask(selectedTaskId, { errors: [...(selectedTask.errors || []), { id: Date.now().toString(), error_type: '', description: '', probability_percent: 0, recovery_time_minutes: 0 }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-status-error/10 border border-status-error/20 text-status-error rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-status-error hover:text-white transition-all">
-                          <Plus size={12} /> Add Error
-                        </button>
-                      </div>
-                      <div className="overflow-hidden border border-white/10 rounded-xl bg-white/[0.02]">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-white/10 bg-white/5">
-                              <th className="p-3 text-[8px] font-black text-white/40 uppercase tracking-widest w-1/3">Error Type</th>
-                              <th className="p-3 text-[8px] font-black text-white/40 uppercase tracking-widest">Recovery / Prop</th>
-                              <th className="p-3 w-8"></th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/5">
-                            {selectedTask.errors?.map(err => (
-                              <tr key={err.id} className="group hover:bg-white/[0.03] transition-colors">
-                                <td className="p-3">
-                                  <input 
-                                    className="bg-transparent text-[11px] font-black text-status-error outline-none w-full uppercase placeholder:text-white/5" 
-                                    value={err.error_type} 
-                                    onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, error_type: e.target.value } : x) })} 
-                                    placeholder="ERROR TYPE"
-                                  />
-                                </td>
-                                <td className="p-3 space-y-1">
-                                  <input className="bg-transparent text-[10px] text-white/60 outline-none w-full" value={err.description} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, description: e.target.value } : x) })} placeholder="Description..." />
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[7px] font-black text-white/20 uppercase">Recov</span>
-                                    <input type="number" className="bg-transparent text-[10px] text-white/40 outline-none w-12" value={err.recovery_time_minutes} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, recovery_time_minutes: parseFloat(e.target.value) } : x) })} />
-                                    <span className="text-[7px] font-black text-white/20 uppercase">min</span>
-                                  </div>
-                                </td>
-                                <td className="p-3">
-                                  <button onClick={() => updateTask(selectedTaskId, { errors: selectedTask.errors.filter(x => x.id !== err.id) })} className="text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between px-1">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Tribal Knowledge</label>
-                        <button onClick={() => updateTask(selectedTaskId, { tribal_knowledge: [...(selectedTask.tribal_knowledge || []), { id: Date.now().toString(), knowledge: '', captured_from: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
-                          <Plus size={12} /> Add Knowledge
-                        </button>
-                      </div>
-                      <div className="overflow-hidden border border-white/10 rounded-xl bg-white/[0.02]">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-white/10 bg-white/5">
-                              <th className="p-3 text-[8px] font-black text-white/40 uppercase tracking-widest w-2/3">Knowledge Capture</th>
-                              <th className="p-3 text-[8px] font-black text-white/40 uppercase tracking-widest">Source</th>
-                              <th className="p-3 w-8"></th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/5">
-                            {selectedTask.tribal_knowledge?.map(tk => (
-                              <tr key={tk.id} className="group hover:bg-white/[0.03] transition-colors">
-                                <td className="p-3">
-                                  <textarea 
-                                    className="bg-transparent text-[11px] font-bold text-white/60 outline-none w-full resize-none h-12 leading-relaxed" 
-                                    value={tk.knowledge} 
-                                    onChange={e => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, knowledge: e.target.value } : x) })} 
-                                    placeholder="Enter captured tribal knowledge..."
-                                  />
-                                </td>
-                                <td className="p-3">
-                                  <input className="bg-transparent text-[10px] text-white/40 outline-none w-full font-black uppercase" value={tk.captured_from} onChange={e => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, captured_from: e.target.value } : x) })} placeholder="SME Name" />
-                                </td>
-                                <td className="p-3">
-                                  <button onClick={() => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.filter(x => x.id !== tk.id) })} className="text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : selectedEdgeId && selectedEdge ? (
-              <div className="p-6 space-y-10 animate-apple-in">
-                <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-theme-accent/20 rounded-lg">
-                      <Link2 size={16} className="text-theme-accent" />
-                    </div>
-                    <span className="text-[14px] font-black text-white uppercase tracking-widest">Connection Attributes</span>
-                  </div>
-                  <button onClick={() => setSelectedEdgeId(null)} className="text-white/20 hover:text-white transition-colors"><X size={16} /></button>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Transition Label</label>
-                    <input 
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" 
-                      placeholder="e.g. YES, NO, ERROR..."
-                      value={selectedEdge.data?.label || ''} 
-                      onChange={e => updateEdge(selectedEdgeId, { label: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Visual Style</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[
-                        { id: 'solid', label: 'Solid' },
-                        { id: 'dashed', label: 'Dashed' }
-                      ].map(s => (
-                        <button 
-                          key={s.id}
-                          onClick={() => updateEdge(selectedEdgeId, { style: s.id })}
-                          className={cn("px-4 py-3 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest", 
-                            selectedEdge.data?.style === s.id ? 'bg-theme-accent border-theme-accent text-white shadow-lg shadow-theme-accent/20' : 'bg-white/5 border-white/10 text-white/40 hover:text-white')}
-                        >
-                          {s.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Signal Color</label>
-                    <div className="grid grid-cols-4 gap-2">
-                      {['#3b82f6', '#10b981', '#f59e0b', '#ef4444'].map(c => (
-                        <button 
-                          key={c}
-                          onClick={() => updateEdge(selectedEdgeId, { color: c })}
-                          className={cn("aspect-square rounded-xl border-2 transition-all hover:scale-110 active:scale-95", 
-                            selectedEdge.data?.color === c ? 'border-white shadow-lg' : 'border-transparent opacity-40 hover:opacity-100')}
-                          style={{ backgroundColor: c }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-10 border-t border-white/10">
-                  <button 
-                    onClick={() => setEdges(eds => eds.filter(e => e.id !== selectedEdgeId))}
-                    className="w-full py-4 bg-status-error/10 border border-status-error/20 text-status-error rounded-xl text-[11px] font-black uppercase tracking-[0.2em] hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-3 shadow-sm hover:shadow-xl hover:shadow-status-error/20"
-                  >
-                    <Trash size={14} /> Sever Connection
-                  </button>
-                </div>
+                  </Panel>
+                </ReactFlow>
               </div>
             ) : (
-                <div className="space-y-8 animate-apple-in">
-                  <div className="space-y-6">
-                    <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-                       <LucideWorkflow className="text-theme-accent" size={18} />
-                       <h2 className="text-[14px] font-black text-white uppercase tracking-widest">Process Definition</h2>
+              <div className="flex-1 overflow-auto p-8 custom-scrollbar space-y-10 bg-[#0a1120]">
+                {(() => {
+                  const levels: Record<string, number> = {};
+                  const incomingCounts: Record<string, number> = {};
+                  edges.forEach(e => {
+                    incomingCounts[e.target] = (incomingCounts[e.target] || 0) + 1;
+                  });
+                  const roots = tasks.filter(t => !incomingCounts[t.id]);
+                  const assignLevel = (nodeId: string, level: number) => {
+                    levels[nodeId] = Math.max(levels[nodeId] || 0, level);
+                    edges.filter(e => e.source === nodeId).forEach(e => assignLevel(e.target, level + 1));
+                  };
+                  roots.forEach(r => assignLevel(r.id, 0));
+                  tasks.forEach(t => { if (levels[t.id] === undefined) levels[t.id] = 0; });
+                  const sortedTasks = [...tasks].sort((a, b) => (levels[a.id] || 0) - (levels[b.id] || 0));
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 px-2">
+                         <span className="text-[10px] font-black text-theme-accent uppercase tracking-[0.3em]">Workflow Entity Hierarchy</span>
+                         <div className="h-[1px] flex-1 bg-white/5" />
+                         <span className="text-[10px] font-black text-white/20 uppercase">{tasks.length} Entities</span>
+                      </div>
+                      <div className="overflow-hidden border border-white/10 rounded-2xl bg-white/[0.02]">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="border-b border-white/10 bg-white/5">
+                              <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest w-12 text-center">#</th>
+                              <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Entity Identity</th>
+                              <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Incoming</th>
+                              <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Outgoing</th>
+                              <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Manual</th>
+                              <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Auto</th>
+                              <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {sortedTasks.map((task) => {
+                              const incoming = edges.filter(e => e.target === task.id).map(e => {
+                                 const sourceTaskIdx = tasks.findIndex(t => t.id === e.source);
+                                 return sourceTaskIdx + 1;
+                              });
+                              const outgoing = edges.filter(e => e.source === task.id).map(e => {
+                                 const targetTaskIdx = tasks.findIndex(t => t.id === e.target);
+                                 return targetTaskIdx + 1;
+                              });
+
+                              return (
+                                <tr 
+                                  key={task.id}
+                                  onClick={() => { setSelectedTaskId(task.id); setInspectorTab('execution'); }}
+                                  className={cn(
+                                    "group cursor-pointer transition-all",
+                                    selectedTaskId === task.id ? "bg-theme-accent/10" : "hover:bg-white/[0.04]"
+                                  )}
+                                >
+                                  <td className="p-4 text-center">
+                                    <span className="text-[12px] font-black text-white/20">{tasks.indexOf(task) + 1}</span>
+                                  </td>
+                                  <td className="p-4">
+                                    <div className="flex flex-col">
+                                      <div className="flex items-center gap-2">
+                                         <span className="text-[13px] font-black text-white uppercase group-hover:text-theme-accent transition-colors">{task.name}</span>
+                                         {task.interface_type === 'DECISION' && <Zap size={10} className="text-blue-400" />}
+                                      </div>
+                                      <span className="text-[10px] text-white/40 font-bold italic truncate max-w-[200px] uppercase tracking-tight">{task.description || 'No description'}</span>
+                                    </div>
+                                  </td>
+                                  <td className="p-4">
+                                    <div className="flex flex-wrap gap-1">
+                                      {incoming.length > 0 ? incoming.map(num => (
+                                        <span key={num} className="bg-white/5 px-2 py-0.5 rounded text-[10px] font-black text-white/40">#{num}</span>
+                                      )) : <span className="text-[10px] font-black text-white/5">---</span>}
+                                    </div>
+                                  </td>
+                                  <td className="p-4">
+                                    <div className="flex flex-wrap gap-1">
+                                      {outgoing.length > 0 ? outgoing.map(num => (
+                                        <span key={num} className="bg-white/5 px-2 py-0.5 rounded text-[10px] font-black text-white/40">#{num}</span>
+                                      )) : <span className="text-[10px] font-black text-white/5">---</span>}
+                                    </div>
+                                  </td>
+                                  <td className="p-4">
+                                    <span className="text-[12px] font-black text-blue-400">{task.manual_time_minutes}m</span>
+                                  </td>
+                                  <td className="p-4">
+                                    <span className="text-[12px] font-black text-purple-400">{task.automation_time_minutes}m</span>
+                                  </td>
+                                  <td className="p-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="flex items-center gap-1.5">
+                                        <AlertCircle size={14} className={task.blockers.length > 0 ? "text-status-warning" : "text-white/10"} />
+                                        <span className={cn("text-[11px] font-black", task.blockers.length > 0 ? "text-status-warning" : "text-white/10")}>{task.blockers.length}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <X size={14} className={task.errors.length > 0 ? "text-status-error" : "text-white/10"} />
+                                        <span className={cn("text-[11px] font-black", task.errors.length > 0 ? "text-status-error" : "text-white/10")}>{task.errors.length}</span>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                    
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+
+          <div 
+            className="relative border-l border-white/10 bg-[#0a1120] flex flex-col z-[70] shadow-2xl transition-width duration-75"
+            style={{ width: `${inspectorWidth}px` }}
+          >
+            <div 
+              onMouseDown={handleMouseDown}
+              className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent transition-colors z-50 group"
+            >
+               <div className="absolute left-1/2 top-1/2 -translate-y-1/2 w-4 h-8 bg-white/5 border border-white/10 rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="w-[1px] h-4 bg-white/20 mx-[1px]" />
+                  <div className="w-[1px] h-4 bg-white/20 mx-[1px]" />
+               </div>
+            </div>
+
+            <div className="h-14 flex border-b border-white/10 bg-white/[0.02]">
+              {[
+                { id: 'execution', label: 'Task Detail', icon: <Activity size={12} />, hidden: !selectedTaskId },
+                { id: 'data', label: 'Data', icon: <Database size={12} />, hidden: !selectedTaskId },
+                { id: 'exceptions', label: 'Exceptions', icon: <AlertCircle size={12} />, hidden: !selectedTaskId },
+                { id: 'appendix', label: 'Appendix', icon: <Paperclip size={12} />, hidden: !selectedTaskId }
+              ].filter(t => !t.hidden).map(t => (
+                <button 
+                  key={t.id}
+                  onClick={() => setInspectorTab(t.id as any)}
+                  className={cn("flex-1 flex flex-col items-center justify-center gap-0.5 transition-all border-b-2", 
+                    inspectorTab === t.id ? 'border-theme-accent bg-theme-accent/10 text-white' : 'border-transparent text-white/20 hover:text-white')}
+                >
+                  {t.icon}
+                  <span className="text-[8px] font-black uppercase tracking-widest">{t.label}</span>
+                </button>
+              ))}
+              {!selectedTaskId && (
+                <div className="flex-1 flex flex-col items-center justify-center gap-0.5 border-b-2 border-theme-accent bg-theme-accent/10 text-white">
+                  <Settings size={12} />
+                  <span className="text-[8px] font-black uppercase tracking-widest">Workflow Definition</span>
+                </div>
+              )}            </div>
+
+            <div className="flex-1 overflow-auto custom-scrollbar p-6">
+              {selectedTaskId && selectedTask ? (
+                <div className="space-y-8 animate-apple-in">
+                  {inspectorTab === 'execution' && (
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task Name</label>
+                          <button onClick={() => { setSelectedTaskId(null); setInspectorTab('process'); }} className="text-white/20 hover:text-white transition-colors"><X size={14} /></button>
+                        </div>
+                        <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[14px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedTask.name} onChange={e => updateTask(selectedTaskId, { name: e.target.value })} />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Description</label>
+                        <textarea className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-bold text-white/60 outline-none focus:border-theme-accent h-24 resize-none leading-relaxed" placeholder="Task objective and core logic..." value={selectedTask.description} onChange={e => updateTask(selectedTaskId, { description: e.target.value })} />
+                      </div>
+                      <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task Type</label>
+                          <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>
+                            {taskTypes.map((t: string) => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest px-1">Manual (m)</label>
+                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[14px] font-black text-white outline-none focus:border-blue-400" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) })} />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-purple-400 uppercase tracking-widest px-1">Automation (m)</label>
+                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[14px] font-black text-white outline-none focus:border-purple-400" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) })} />
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between px-1">
+                           <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Involved Systems</label>
+                           <button onClick={() => updateTask(selectedTaskId, { target_systems: [...selectedTask.target_systems, { id: Date.now().toString(), name: '', purpose: '', access_method: '' }] })} className="text-theme-accent hover:bg-theme-accent/10 p-1 rounded transition-colors"><Plus size={14} /></button>
+                        </div>
+                        <div className="space-y-2">
+                          {selectedTask.target_systems.map(s => (
+                            <div key={s.id} className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-2 group relative">
+                              <div className="flex gap-2">
+                                <input placeholder="System Name" className="flex-1 bg-transparent text-[11px] font-black text-white outline-none border-b border-white/10 px-1 uppercase" value={s.name} onChange={e => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.map(ts => ts.id === s.id ? { ...ts, name: e.target.value } : ts) })} />
+                                <button onClick={() => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.filter(ts => ts.id !== s.id) })} className="opacity-0 group-hover:opacity-100 text-status-error p-1 transition-opacity hover:scale-110"><X size={12} /></button>
+                              </div>
+                              <input placeholder="Purpose / Usage" className="w-full bg-transparent text-[11px] text-white/40 outline-none px-1" value={s.purpose} onChange={e => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.map(ts => ts.id === s.id ? { ...ts, purpose: e.target.value } : ts) })} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {selectedTaskId !== 'trigger-node' && selectedTaskId !== 'outcome-node' && (
+                        <div className="pt-6 border-t border-white/10">
+                          <button 
+                            onClick={() => deleteTask(selectedTaskId)}
+                            className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2"
+                          >
+                            <Trash size={12} /> Delete Task Entity
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {inspectorTab === 'data' && (
+                    <div className="space-y-10 animate-apple-in">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between px-1">
+                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Source Data</label>
+                          <button onClick={() => updateTask(selectedTaskId, { source_data_list: [...selectedTask.source_data_list, { id: Date.now().toString(), is_manual: true, name: '', source_location: '', format: '', example: '', description: '', purpose: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-theme-accent text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-theme-accent/20">
+                            <Plus size={12} /> Add Manual Source
+                          </button>
+                        </div>
+                        <div className="overflow-hidden border border-white/10 rounded-xl bg-white/[0.02]">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-white/10 bg-white/5">
+                                <th className="p-3 text-[9px] font-black text-white/40 uppercase tracking-widest w-1/3">Data Name</th>
+                                <th className="p-3 text-[9px] font-black text-white/40 uppercase tracking-widest">Source / Format</th>
+                                <th className="p-3 w-8"></th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {selectedTask.source_data_list.map(sd => (
+                                <tr key={sd.id} className="group hover:bg-white/[0.03] transition-colors">
+                                  <td className="p-3">
+                                    <input className="bg-transparent text-[13px] font-black text-white outline-none w-full uppercase placeholder:text-white/5" value={sd.name} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, name: e.target.value } : x) })} placeholder="DATA NAME" />
+                                  </td>
+                                  <td className="p-3 space-y-1">
+                                    <div className="flex items-center gap-2"><span className="text-[8px] font-black text-white/20 uppercase w-8">Loc</span><input className="bg-transparent text-[11px] text-white/60 outline-none flex-1 truncate" value={sd.source_location} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, source_location: e.target.value } : x) })} /></div>
+                                    <div className="flex items-center gap-2"><span className="text-[8px] font-black text-white/20 uppercase w-8">Type</span><input className="bg-transparent text-[11px] text-white/60 outline-none flex-1 truncate" value={sd.format} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, format: e.target.value } : x) })} /></div>
+                                  </td>
+                                  <td className="p-3"><button onClick={() => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.filter(x => x.id !== sd.id) })} className="text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between px-1">
+                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Generated Outputs</label>
+                          <button onClick={() => updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '', format: '', example: '', saved_location: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+                            <Plus size={12} /> Add Output
+                          </button>
+                        </div>
+                        <div className="overflow-hidden border border-white/10 rounded-xl bg-white/[0.02]">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-white/10 bg-white/5">
+                                <th className="p-3 text-[9px] font-black text-white/40 uppercase tracking-widest w-1/3">Output Name</th>
+                                <th className="p-3 text-[9px] font-black text-white/40 uppercase tracking-widest">Destination / Format</th>
+                                <th className="p-3 w-8"></th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {selectedTask.output_data_list.map(od => (
+                                <tr key={od.id} className="group hover:bg-white/[0.03] transition-colors">
+                                  <td className="p-3">
+                                    <input className="bg-transparent text-[13px] font-black text-white outline-none w-full uppercase placeholder:text-white/5" value={od.name} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, name: e.target.value } : x) })} placeholder="OUTPUT NAME" />
+                                  </td>
+                                  <td className="p-3 space-y-1">
+                                    <div className="flex items-center gap-2"><span className="text-[8px] font-black text-white/20 uppercase w-8">Dest</span><input className="bg-transparent text-[11px] text-white/60 outline-none flex-1 truncate" value={od.saved_location} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, saved_location: e.target.value } : x) })} /></div>
+                                    <div className="flex items-center gap-2"><span className="text-[8px] font-black text-white/20 uppercase w-8">Type</span><input className="bg-transparent text-[11px] text-white/60 outline-none flex-1 truncate" value={od.format} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, format: e.target.value } : x) })} /></div>
+                                  </td>
+                                  <td className="p-3"><button onClick={() => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.filter(x => x.id !== od.id) })} className="text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {inspectorTab === 'appendix' && (
+                    <div className="space-y-8" onPaste={handleImagePaste}>
+                      <div className="space-y-4">
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Visual Documentation</label>
+                        <div className="relative border-2 border-dashed border-white/10 rounded-2xl p-10 flex flex-col items-center gap-3 bg-white/[0.02] hover:bg-white/[0.04] transition-all cursor-pointer group">
+                           <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={(e) => {
+                             const file = e.target.files?.[0];
+                             if (file) {
+                               const reader = new FileReader();
+                               reader.onload = (evt) => {
+                                 const url = evt.target?.result as string;
+                                 updateTask(selectedTaskId, { media: [...selectedTask.media, { id: Date.now().toString(), type: 'image', url, label: file.name }] });
+                               };
+                               reader.readAsDataURL(file);
+                             }
+                           }} />
+                           <Layers size={32} className="text-white/10 group-hover:text-theme-accent transition-colors" />
+                           <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Paste or Upload Figure</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          {selectedTask.media.map(m => (
+                            <div key={m.id} className="aspect-video rounded-xl border border-white/10 overflow-hidden relative group bg-black shadow-lg">
+                               <img src={m.url} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity" />
+                               <div className="absolute inset-x-0 bottom-0 bg-black/80 p-2 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md">
+                                  <p className="text-[8px] font-black text-white uppercase truncate">{m.label}</p>
+                               </div>
+                               <button onClick={() => updateTask(selectedTaskId, { media: selectedTask.media.filter(x => x.id !== m.id) })} className="absolute top-2 right-2 p-1.5 bg-status-error text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:scale-110 active:scale-95"><Trash size={12} /></button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {inspectorTab === 'exceptions' && (
+                    <div className="space-y-10 animate-apple-in">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between px-1">
+                          <label className="text-[9px] font-black text-amber-500 uppercase tracking-widest">Blockers</label>
+                          <button onClick={() => updateTask(selectedTaskId, { blockers: [...selectedTask.blockers, { id: Date.now().toString(), blocking_entity: '', reason: '', probability_percent: 0, average_delay_minutes: 0, standard_mitigation: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-all">
+                            <Plus size={12} /> Add Blocker
+                          </button>
+                        </div>
+                        <div className="overflow-hidden border border-white/10 rounded-xl bg-white/[0.02]">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-white/10 bg-white/5">
+                                <th className="p-3 text-[9px] font-black text-white/40 uppercase tracking-widest w-1/3">Entity</th>
+                                <th className="p-3 text-[9px] font-black text-white/40 uppercase tracking-widest">Reason / Delay</th>
+                                <th className="p-3 w-8"></th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {selectedTask.blockers.map(b => (
+                                <tr key={b.id} className="group hover:bg-white/[0.03] transition-colors">
+                                  <td className="p-3">
+                                    <input className="bg-transparent text-[13px] font-black text-amber-500 outline-none w-full uppercase placeholder:text-white/5" value={b.blocking_entity} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, blocking_entity: e.target.value } : x) })} placeholder="ENTITY" />
+                                  </td>
+                                  <td className="p-3 space-y-1">
+                                    <input className="bg-transparent text-[11px] text-white/60 outline-none w-full" value={b.reason} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, reason: e.target.value } : x) })} placeholder="Reason..." />
+                                    <div className="flex items-center gap-2"><span className="text-[8px] font-black text-white/20 uppercase">Delay</span><input type="number" className="bg-transparent text-[11px] text-white/40 outline-none w-12" value={b.average_delay_minutes} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, average_delay_minutes: parseFloat(e.target.value) } : x) })} /><span className="text-[8px] font-black text-white/20 uppercase">min</span></div>
+                                  </td>
+                                  <td className="p-3"><button onClick={() => updateTask(selectedTaskId, { blockers: selectedTask.blockers.filter(x => x.id !== b.id) })} className="text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : selectedEdgeId && selectedEdge ? (
+                <div className="p-6 space-y-10 animate-apple-in">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                    <div className="flex items-center gap-3"><div className="p-2 bg-theme-accent/20 rounded-lg"><Link2 size={16} className="text-theme-accent" /></div><span className="text-[14px] font-black text-white uppercase tracking-widest">Connection</span></div>
+                    <button onClick={() => setSelectedEdgeId(null)} className="text-white/20 hover:text-white transition-colors"><X size={16} /></button>
+                  </div>
+                  <div className="space-y-6">
+                    <div className="space-y-2"><label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Label</label><input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedEdge.data?.label || ''} onChange={e => updateEdge(selectedEdgeId, { label: e.target.value })} /></div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-8 animate-apple-in">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                     <div className="flex items-center gap-3"><LucideWorkflow className="text-theme-accent" size={18} /><h2 className="text-[14px] font-black text-white uppercase tracking-widest">Process Definition</h2></div>
+                     <button onClick={() => setIsEditingMetadata(!isEditingMetadata)} className={cn("px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all", isEditingMetadata ? "bg-theme-accent text-white" : "bg-white/5 border border-white/10 text-white/40 hover:text-white")}>{isEditingMetadata ? 'Finish' : 'Edit'}</button>
+                  </div>
+                  <div className="space-y-10">
                     <div className="space-y-4">
                        <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
-                             <label className="text-[9px] font-black text-white/40 uppercase px-1">PRC Code</label>
-                             <select 
-                                className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none transition-all"
-                                value={metadata.prc}
-                                onChange={e => setMetadata({...metadata, prc: e.target.value})}
-                             >
-                               <option value="">Select PRC...</option>
-                               {taxonomy.filter(t => t.category === 'PRC' || t.key === 'PRC').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}
-                             </select>
+                             <label className="text-[9px] font-black text-white/40 uppercase px-1">PRC</label>
+                             {isEditingMetadata ? (
+                               <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none transition-all" value={metadata.prc} onChange={e => setMetadata({...metadata, prc: e.target.value})}>
+                                 <option value="">Select PRC...</option>
+                                 {taxonomy.filter(t => t.category === 'PRC' || t.key === 'PRC').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}
+                               </select>
+                             ) : (
+                               <div className="bg-white/5 border border-white/5 rounded-xl px-4 py-2.5 text-[12px] font-black text-white uppercase">{metadata.prc || 'Not Assigned'}</div>
+                             )}
                           </div>
                           <div className="space-y-2">
-                             <label className="text-[9px] font-black text-white/40 uppercase px-1">Workflow Type</label>
-                             <select 
-                                className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none transition-all"
-                                value={metadata.workflow_type}
-                                onChange={e => setMetadata({...metadata, workflow_type: e.target.value})}
-                             >
-                               <option value="">Select Type...</option>
-                               {taxonomy.filter(t => t.category === 'WORKFLOW_TYPE' || t.key === 'WORKFLOW_TYPE').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}
-                             </select>
+                             <label className="text-[9px] font-black text-white/40 uppercase px-1">Type</label>
+                             {isEditingMetadata ? (
+                               <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none transition-all" value={metadata.workflow_type} onChange={e => setMetadata({...metadata, workflow_type: e.target.value})}>
+                                 <option value="">Select Type...</option>
+                                 {taxonomy.filter(t => t.category === 'WORKFLOW_TYPE' || t.key === 'WORKFLOW_TYPE').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}
+                               </select>
+                             ) : (
+                               <div className="bg-white/5 border border-white/5 rounded-xl px-4 py-2.5 text-[12px] font-black text-white uppercase">{metadata.workflow_type || 'Not Assigned'}</div>
+                             )}
                           </div>
                        </div>
                        <div className="space-y-2">
                           <label className="text-[9px] font-black text-white/40 uppercase px-1">Occurrence</label>
-                          <div className="flex items-center gap-2 bg-[#1e293b] border border-white/10 rounded-xl p-1">
-                            <input 
-                              type="number" 
-                              className="w-16 bg-black/40 font-black text-[13px] text-white text-center py-2 rounded-lg focus:border-theme-accent outline-none" 
-                              value={metadata.cadence_count} 
-                              onChange={e => setMetadata({...metadata, cadence_count: parseFloat(e.target.value)})} 
-                            />
-                            <select 
-                              className="flex-1 bg-transparent text-white font-black text-center appearance-none cursor-pointer uppercase text-[10px] tracking-tight outline-none py-2"
-                              value={metadata.cadence_unit}
-                              onChange={e => setMetadata({...metadata, cadence_unit: e.target.value as any})}
-                            >
-                              <option value="day">DAILY</option>
-                              <option value="week">WEEKLY</option>
-                              <option value="month">MONTHLY</option>
-                              <option value="year">YEARLY</option>
-                            </select>
-                          </div>
-                       </div>
-                       
-                       <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                             <label className="text-[9px] font-black text-white/40 uppercase px-1">Tool Family</label>
-                             <input 
-                                className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none focus:border-theme-accent transition-all"
-                                value={metadata.tool_family}
-                                onChange={e => setMetadata({...metadata, tool_family: e.target.value})}
-                                placeholder="e.g. SEM, ETCH"
-                             />
-                          </div>
-                          <div className="space-y-2">
-                             <label className="text-[9px] font-black text-white/40 uppercase px-1">Applicable Tools</label>
-                             <input 
-                                className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none focus:border-theme-accent transition-all"
-                                value={metadata.tool_id}
-                                onChange={e => setMetadata({...metadata, tool_id: e.target.value})}
-                                placeholder="Tool IDs..."
-                             />
-                          </div>
+                          {isEditingMetadata ? (
+                            <div className="flex items-center gap-2 bg-[#1e293b] border border-white/10 rounded-xl p-1">
+                              <input type="number" className="w-16 bg-black/40 font-black text-[13px] text-white text-center py-2 rounded-lg focus:border-theme-accent outline-none" value={metadata.cadence_count} onChange={e => setMetadata({...metadata, cadence_count: parseFloat(e.target.value)})} />
+                              <select className="flex-1 bg-transparent text-white font-black text-center appearance-none cursor-pointer uppercase text-[10px] tracking-tight outline-none py-2" value={metadata.cadence_unit} onChange={e => setMetadata({...metadata, cadence_unit: e.target.value as any})}><option value="day">DAILY</option><option value="week">WEEKLY</option><option value="month">MONTHLY</option><option value="year">YEARLY</option></select>
+                            </div>
+                          ) : (
+                            <div className="bg-white/5 border border-white/5 rounded-xl px-4 py-2.5 text-[12px] font-black text-white uppercase flex items-center gap-2"><span className="text-theme-accent">{metadata.cadence_count}X</span><span className="text-white/40">per</span><span>{metadata.cadence_unit}</span></div>
+                          )}
                        </div>
                     </div>
-                  </div>
-
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-                     <Zap className="text-amber-500" size={16} />
-                     <h2 className="text-[14px] font-black text-white uppercase tracking-widest">Trigger Architecture</h2>
-                  </div>
-                  <div className="space-y-3">
-                     <select 
-                        className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none transition-all"
-                        value={metadata.trigger_type}
-                        onChange={e => setMetadata({...metadata, trigger_type: e.target.value})}
-                     >
-                       <option value="">Select Trigger...</option>
-                       {taxonomy.filter(t => t.category === 'TriggerType').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}
-                     </select>
-                     <textarea 
-                        className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-[11px] text-white/60 font-bold leading-relaxed outline-none focus:border-amber-500/50 h-20 resize-none"
-                        placeholder="Trigger description..."
-                        value={metadata.trigger_description}
-                        onChange={e => setMetadata({...metadata, trigger_description: e.target.value})}
-                     />
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-3 border-b border-white/10 pb-4"><Zap className="text-amber-500" size={16} /><h2 className="text-[14px] font-black text-white uppercase tracking-widest">Trigger</h2></div>
+                      <div className="space-y-3">
+                         {isEditingMetadata ? (
+                           <><select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none transition-all" value={metadata.trigger_type} onChange={e => setMetadata({...metadata, trigger_type: e.target.value})}><option value="">Select Trigger...</option>{taxonomy.filter(t => t.category === 'TriggerType').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select><textarea className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-[11px] text-white/60 font-bold leading-relaxed outline-none focus:border-amber-500/50 h-20 resize-none" placeholder="Trigger description..." value={metadata.trigger_description} onChange={e => setMetadata({...metadata, trigger_description: e.target.value})} /></>
+                         ) : (
+                           <div className="space-y-3"><div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2.5 text-[12px] font-black text-amber-500 uppercase">{metadata.trigger_type || 'Manual Trigger'}</div><p className="text-[11px] font-bold text-white/60 italic px-1">{metadata.trigger_description || 'No description provided.'}</p></div>
+                         )}
+                      </div>
+                    </div>
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-3 border-b border-white/10 pb-4"><Layers className="text-theme-accent" size={16} /><h2 className="text-[14px] font-black text-white uppercase tracking-widest">Output</h2></div>
+                      <div className="space-y-3">
+                         {isEditingMetadata ? (
+                           <><select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none transition-all" value={metadata.output_type} onChange={e => setMetadata({...metadata, output_type: e.target.value})}><option value="">Select Output Type...</option>{taxonomy.filter(t => t.category === 'OutputType').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select><textarea className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-[11px] text-white/60 font-bold leading-relaxed outline-none focus:border-theme-accent/50 h-20 resize-none" placeholder="Output description..." value={metadata.output_description} onChange={e => setMetadata({...metadata, output_description: e.target.value})} /></>
+                         ) : (
+                           <div className="space-y-3"><div className="bg-theme-accent/10 border border-theme-accent/20 rounded-xl px-4 py-2.5 text-[12px] font-black text-theme-accent uppercase">{metadata.output_type || 'Internal Deliverable'}</div><p className="text-[11px] font-bold text-white/60 italic px-1">{metadata.output_description || 'No description provided.'}</p></div>
+                         )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-                     <Layers className="text-theme-accent" size={16} />
-                     <h2 className="text-[14px] font-black text-white uppercase tracking-widest">Output Classification</h2>
-                  </div>
-                  <div className="space-y-3">
-                     <select 
-                        className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none transition-all"
-                        value={metadata.output_type}
-                        onChange={e => setMetadata({...metadata, output_type: e.target.value})}
-                     >
-                       <option value="">Select Output Type...</option>
-                       {taxonomy.filter(t => t.category === 'OutputType').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}
-                     </select>
-                     <textarea 
-                        className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-[11px] text-white/60 font-bold leading-relaxed outline-none focus:border-theme-accent/50 h-20 resize-none"
-                        placeholder="Output deliverable description..."
-                        value={metadata.output_description}
-                        onChange={e => setMetadata({...metadata, output_description: e.target.value})}
-                     />
-                  </div>
-                </div>
-
-                <div className="space-y-6 pb-10">
-                  <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-                     <Building2 className="text-white/40" size={16} />
-                     <h2 className="text-[14px] font-black text-white uppercase tracking-widest">Organization Context</h2>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3">
-                     {[
-                       { label: 'Organization', key: 'org' },
-                       { label: 'Team', key: 'team' },
-                       { label: 'Point of Contact', key: 'poc' }
-                     ].map(item => (
-                       <div key={item.key} className="space-y-1.5">
-                          <label className="text-[9px] font-black text-white/40 uppercase px-1">{item.label}</label>
-                          <input 
-                            className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none focus:border-white/30 transition-all"
-                            value={(metadata as any)[item.key]}
-                            onChange={e => setMetadata({...metadata, [item.key]: e.target.value})}
-                          />
-                       </div>
-                     ))}
-                  </div>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      </div>
       </div>
     </div>
   );
