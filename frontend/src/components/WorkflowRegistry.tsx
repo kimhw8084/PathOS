@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
   Trash2, 
   Zap, 
@@ -18,13 +18,16 @@ import {
   Circle,
   MoreHorizontal,
   Share2,
-  Archive
+  Archive,
+  ChevronDown,
+  Check
 } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import * as Popover from '@radix-ui/react-popover';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { settingsApi } from '../api/client';
 
 /** Utility for Tailwind class merging */
 function cn(...inputs: ClassValue[]) {
@@ -43,16 +46,116 @@ type SortConfig = {
   direction: 'asc' | 'desc' | null;
 };
 
+// Automation Status Enum from Backend
+const STATUS_OPTIONS = [
+  "Created", "Workflow Review", "Priority Measurement", "Feasibility Review", 
+  "Backlog", "Automation Brainstorming", "Automation Planned", 
+  "In Automation", "Verification", "Partially Automated", "Fully Automated"
+];
+
+const MultiSelectFilter = ({ 
+  label, 
+  options, 
+  selected, 
+  onChange 
+}: { 
+  label: string, 
+  options: string[], 
+  selected: string[], 
+  onChange: (vals: string[]) => void 
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const toggleOption = (opt: string) => {
+    if (selected.includes(opt)) {
+      onChange(selected.filter(s => s !== opt));
+    } else {
+      onChange([...selected, opt]);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5 min-w-[140px] relative">
+      <label className="text-[9px] font-black text-theme-muted uppercase tracking-widest">{label}</label>
+      <Popover.Root open={isOpen} onOpenChange={setIsOpen}>
+        <Popover.Trigger asChild>
+          <button className={cn(
+            "flex items-center justify-between bg-white/5 border border-white/10 rounded px-2.5 py-1.5 text-[11px] text-left transition-all hover:bg-white/10",
+            selected.length > 0 ? "text-theme-accent border-theme-accent/50" : "text-theme-secondary"
+          )}>
+            <span className="truncate max-w-[100px]">
+              {selected.length === 0 ? "All" : 
+               selected.length === 1 ? selected[0] : 
+               `${selected.length} Selected`}
+            </span>
+            <ChevronDown size={12} className={cn("transition-transform", isOpen && "rotate-180")} />
+          </button>
+        </Popover.Trigger>
+        <Popover.Portal>
+          <Popover.Content 
+            className="w-56 bg-theme-sidebar border border-theme-border rounded-xl shadow-2xl p-1.5 z-50 animate-apple-in backdrop-blur-xl"
+            sideOffset={5}
+            align="start"
+          >
+            <div className="max-h-60 overflow-y-auto custom-scrollbar p-1 space-y-0.5">
+              {options.length === 0 ? (
+                <div className="py-2 px-3 text-[10px] text-theme-muted italic">No options available</div>
+              ) : options.map(opt => (
+                <button 
+                  key={opt}
+                  onClick={() => toggleOption(opt)}
+                  className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-theme-secondary hover:bg-white/[0.08] hover:text-white transition-all text-[11px] font-semibold"
+                >
+                  {opt}
+                  {selected.includes(opt) && <Check size={12} className="text-theme-accent" />}
+                </button>
+              ))}
+            </div>
+            {selected.length > 0 && (
+              <div className="border-t border-theme-border mt-1 pt-1">
+                <button 
+                  onClick={() => onChange([])}
+                  className="w-full px-3 py-1.5 text-[10px] font-black text-theme-accent hover:bg-theme-accent/10 rounded-lg uppercase tracking-widest"
+                >
+                  Clear Selection
+                </button>
+              </div>
+            )}
+          </Popover.Content>
+        </Popover.Portal>
+      </Popover.Root>
+    </div>
+  );
+};
+
 const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect, onDelete, onCreateNew }) => {
   // State for Table Features
   const [searchText, setSearchText] = useState('');
   const [activeRibbon, setActiveRibbon] = useState('Collaborative Workflows');
   const [isFilterBarOpen, setFilterBarOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'created_at', direction: 'desc' });
   
-  // Per-column filtering state
-  const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+  // Multi-select filters
+  const [filters, setFilters] = useState({
+    prc: [] as string[],
+    tool_family: [] as string[],
+    type: [] as string[],
+    trigger: [] as string[],
+    output: [] as string[],
+    status: [] as string[]
+  });
+
+  // Dynamic Parameters from Settings
+  const [params, setParams] = useState<any[]>([]);
+  useEffect(() => {
+    settingsApi.listParameters().then(setParams).catch(console.error);
+  }, []);
+
+  const getParamValues = (key: string) => {
+    const p = params.find(x => x.key === key);
+    return p ? (p.cached_values || []) : [];
+  };
 
   // Helper to calculate weekly times
   const calculateWeeklyTimes = (w: any) => {
@@ -84,25 +187,17 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     // Ribbon Filtering
     if (activeRibbon === 'Personal Drafts') result = result.filter(w => w.status === 'DRAFT' || w.status === 'Created');
     else if (activeRibbon === 'Submitted Requests') result = result.filter(w => w.status !== 'DRAFT' && w.created_by === 'system_user');
-    else if (activeRibbon === 'Standard Operations') result = result.filter(w => w.status === 'PROD' || w.status === 'Fully Automated');
+    else if (activeRibbon === 'Standard Operations') result = result.filter(w => w.status === 'FULLY_AUTOMATED' || w.status === 'PROD');
 
-    // Column Filtering
-    Object.keys(columnFilters).forEach(key => {
-      const filterVal = columnFilters[key].toLowerCase();
-      if (!filterVal) return;
-      
-      result = result.filter(w => {
-        let val = '';
-        if (key === 'name') val = w.name;
-        else if (key === 'prc') val = w.prc;
-        else if (key === 'tool_family') val = w.tool_family;
-        else if (key === 'workflow_type') val = w.workflow_type;
-        else if (key === 'status') val = w.status;
-        else if (key === 'created_by') val = w.created_by;
-        
-        return String(val || '').toLowerCase().includes(filterVal);
-      });
-    });
+    // Multi-select Filtering
+    if (filters.prc.length > 0) result = result.filter(w => filters.prc.includes(w.prc));
+    if (filters.tool_family.length > 0) result = result.filter(w => filters.tool_family.includes(w.tool_family));
+    if (filters.type.length > 0) result = result.filter(w => filters.type.includes(w.workflow_type));
+    if (filters.status.length > 0) result = result.filter(w => filters.status.includes(w.status));
+    
+    // Trigger and Output are sometimes nested in tasks or direct in workflow. Seed uses direct.
+    if (filters.trigger.length > 0) result = result.filter(w => filters.trigger.includes(w.trigger_type));
+    if (filters.output.length > 0) result = result.filter(w => filters.output.includes(w.output_type));
 
     // Global Search Filtering
     if (searchText) {
@@ -139,12 +234,15 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
         const multiplier = sortConfig.direction === 'asc' ? 1 : -1;
         if (aValue === null || aValue === undefined) return 1;
         if (bValue === null || bValue === undefined) return -1;
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return aValue.localeCompare(bValue) * multiplier;
+        }
         return aValue < bValue ? -1 * multiplier : 1 * multiplier;
       });
     }
 
     return result;
-  }, [workflows, activeRibbon, searchText, sortConfig, columnFilters]);
+  }, [workflows, activeRibbon, searchText, sortConfig, filters]);
 
   // Handlers
   const handleSort = (key: string) => {
@@ -154,30 +252,15 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     }));
   };
 
-  const toggleSelectAll = () => {
-    if (selectedIds.size === filteredWorkflows.length && filteredWorkflows.length > 0) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filteredWorkflows.map(w => w.id)));
-    }
-  };
-
-  const toggleSelectRow = (id: number) => {
-    const newSelected = new Set(selectedIds);
-    if (newSelected.has(id)) newSelected.delete(id);
-    else newSelected.add(id);
-    setSelectedIds(newSelected);
-  };
-
   const onClearFilters = () => {
     setSearchText('');
-    setColumnFilters({});
-    setSortConfig({ key: 'name', direction: 'asc' });
+    setFilters({ prc: [], tool_family: [], type: [], trigger: [], output: [], status: [] });
+    setSortConfig({ key: 'created_at', direction: 'desc' });
   };
 
   // Components
   const StatusBadge = ({ status }: { status: string }) => {
-    const isProd = status === 'PROD' || status === 'Fully Automated';
+    const isProd = status === 'FULLY_AUTOMATED' || status === 'PROD';
     const isDraft = status === 'DRAFT' || status === 'Created';
     
     return (
@@ -317,6 +400,9 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
           >
             <Filter size={14} /> 
             <span>Filters</span>
+            {(filters.prc.length > 0 || filters.tool_family.length > 0 || filters.type.length > 0 || filters.status.length > 0 || filters.trigger.length > 0 || filters.output.length > 0) && (
+              <div className="w-2 h-2 rounded-full bg-theme-accent animate-pulse" />
+            )}
           </button>
           <div className="w-[1px] h-6 bg-theme-border mx-1" />
           <button 
@@ -364,7 +450,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
         </div>
       </div>
 
-      {/* Horizontal Filter Bar (Pops out between ribbon and table) */}
+      {/* Horizontal Filter Bar */}
       <AnimatePresence>
         {isFilterBarOpen && (
           <motion.div 
@@ -374,48 +460,48 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
             className="overflow-hidden border-x border-theme-border bg-white/[0.02]"
           >
             <div className="p-4 flex flex-wrap gap-4 border-b border-theme-border items-end">
-              <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
-                <label className="text-[9px] font-black text-theme-muted uppercase tracking-widest">Workflow Name</label>
-                <input 
-                  className="bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white outline-none focus:border-theme-accent" 
-                  value={columnFilters.name || ''} 
-                  onChange={e => setColumnFilters({...columnFilters, name: e.target.value})}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5 w-24">
-                <label className="text-[9px] font-black text-theme-muted uppercase tracking-widest">PRC</label>
-                <input 
-                  className="bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white outline-none focus:border-theme-accent" 
-                  value={columnFilters.prc || ''} 
-                  onChange={e => setColumnFilters({...columnFilters, prc: e.target.value})}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5 flex-1 min-w-[150px]">
-                <label className="text-[9px] font-black text-theme-muted uppercase tracking-widest">Tool Family</label>
-                <input 
-                  className="bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white outline-none focus:border-theme-accent" 
-                  value={columnFilters.tool_family || ''} 
-                  onChange={e => setColumnFilters({...columnFilters, tool_family: e.target.value})}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5 w-32">
-                <label className="text-[9px] font-black text-theme-muted uppercase tracking-widest">Status</label>
-                <select 
-                   className="bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white outline-none focus:border-theme-accent"
-                   value={columnFilters.status || ''}
-                   onChange={e => setColumnFilters({...columnFilters, status: e.target.value})}
-                >
-                  <option value="">All</option>
-                  <option value="Created">Created</option>
-                  <option value="Fully Automated">Fully Automated</option>
-                  <option value="In Automation">In Automation</option>
-                </select>
-              </div>
+              <MultiSelectFilter 
+                label="PRC" 
+                options={getParamValues('PRC')} 
+                selected={filters.prc} 
+                onChange={vals => setFilters({...filters, prc: vals})} 
+              />
+              <MultiSelectFilter 
+                label="Tool Family" 
+                options={getParamValues('HARDWARE_FAMILY')} 
+                selected={filters.tool_family} 
+                onChange={vals => setFilters({...filters, tool_family: vals})} 
+              />
+              <MultiSelectFilter 
+                label="Type" 
+                options={getParamValues('WORKFLOW_TYPE')} 
+                selected={filters.type} 
+                onChange={vals => setFilters({...filters, type: vals})} 
+              />
+              <MultiSelectFilter 
+                label="Trigger" 
+                options={getParamValues('TRIGGER_ARCHITECTURE')} 
+                selected={filters.trigger} 
+                onChange={vals => setFilters({...filters, trigger: vals})} 
+              />
+              <MultiSelectFilter 
+                label="Output" 
+                options={getParamValues('OUTPUT_CLASSIFICATION')} 
+                selected={filters.output} 
+                onChange={vals => setFilters({...filters, output: vals})} 
+              />
+              <MultiSelectFilter 
+                label="Status" 
+                options={STATUS_OPTIONS} 
+                selected={filters.status} 
+                onChange={vals => setFilters({...filters, status: vals})} 
+              />
+              
               <button 
-                onClick={() => setColumnFilters({})}
-                className="px-4 py-1.5 bg-white/5 border border-white/10 rounded text-[10px] font-bold uppercase text-theme-muted hover:text-white"
+                onClick={() => setFilters({ prc: [], tool_family: [], type: [], trigger: [], output: [], status: [] })}
+                className="px-4 py-1.5 bg-white/5 border border-white/10 rounded text-[10px] font-bold uppercase text-theme-muted hover:text-white ml-auto"
               >
-                Clear Filters
+                Clear All
               </button>
             </div>
           </motion.div>
@@ -429,7 +515,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
             <thead className="sticky top-0 z-20">
               <tr className="bg-[#1e293b] border-b border-theme-border">
                 <th className="p-2 w-10 text-center sticky left-0 bg-[#1e293b] border-r border-theme-border shadow-[2px_0_5px_rgba(0,0,0,0.3)]">
-                  <button onClick={toggleSelectAll} className="w-5 h-5 flex items-center justify-center rounded border border-theme-border bg-white/[0.05] mx-auto">
+                  <button onClick={() => setSelectedIds(selectedIds.size === filteredWorkflows.length ? new Set() : new Set(filteredWorkflows.map(w => w.id)))} className="w-5 h-5 flex items-center justify-center rounded border border-theme-border bg-white/[0.05] mx-auto">
                     {selectedIds.size === filteredWorkflows.length && filteredWorkflows.length > 0 ? <CheckCircle2 size={12} className="text-theme-accent" /> : <Circle size={12} className="text-white/10" />}
                   </button>
                 </th>
@@ -438,16 +524,16 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                   Workflow {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[100px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border" onClick={() => handleSort('prc')}>
-                  PRC
+                <th className="px-3 py-2.5 w-[100px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('prc')}>
+                  PRC {sortConfig.key === 'prc' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[180px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border" onClick={() => handleSort('tool_family')}>
-                  Tool Family
+                <th className="px-3 py-2.5 w-[180px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('tool_family')}>
+                  Tool Family {sortConfig.key === 'tool_family' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[140px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border" onClick={() => handleSort('workflow_type')}>
-                  Type
+                <th className="px-3 py-2.5 w-[140px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('workflow_type')}>
+                  Type {sortConfig.key === 'workflow_type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
                 <th className="px-3 py-2.5 w-[150px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border">
@@ -458,39 +544,39 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                   Output
                 </th>
 
-                <th className="px-3 py-2.5 w-[120px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-right border-r border-theme-border" onClick={() => handleSort('manual_time')}>
-                  Manual (W)
+                <th className="px-3 py-2.5 w-[120px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-right border-r border-theme-border cursor-pointer" onClick={() => handleSort('manual_time')}>
+                  Manual (W) {sortConfig.key === 'manual_time' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[120px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-right border-r border-theme-border" onClick={() => handleSort('auto_time')}>
-                  Auto (W)
+                <th className="px-3 py-2.5 w-[120px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-right border-r border-theme-border cursor-pointer" onClick={() => handleSort('auto_time')}>
+                  Auto (W) {sortConfig.key === 'auto_time' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[100px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border" onClick={() => handleSort('blockers')}>
-                  Blockers
+                <th className="px-3 py-2.5 w-[100px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('blockers')}>
+                  Blockers {sortConfig.key === 'blockers' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[100px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border" onClick={() => handleSort('errors')}>
-                  Errors
+                <th className="px-3 py-2.5 w-[100px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('errors')}>
+                  Errors {sortConfig.key === 'errors' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[140px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border" onClick={() => handleSort('status')}>
-                  Status
+                <th className="px-3 py-2.5 w-[140px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('status')}>
+                  Status {sortConfig.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[140px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border" onClick={() => handleSort('created_by')}>
+                <th className="px-3 py-2.5 w-[140px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('created_by')}>
                   Creator
                 </th>
 
-                <th className="px-3 py-2.5 w-[140px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border" onClick={() => handleSort('updated_by')}>
+                <th className="px-3 py-2.5 w-[140px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('updated_by')}>
                   Last Editor
                 </th>
 
-                <th className="px-3 py-2.5 w-[150px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border" onClick={() => handleSort('created_at')}>
-                  Created
+                <th className="px-3 py-2.5 w-[150px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('created_at')}>
+                  Created {sortConfig.key === 'created_at' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
 
-                <th className="px-3 py-2.5 w-[150px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border" onClick={() => handleSort('updated_at')}>
+                <th className="px-3 py-2.5 w-[150px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer" onClick={() => handleSort('updated_at')}>
                   Modified
                 </th>
 
@@ -519,7 +605,11 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                     >
                       <td className="p-2 text-center sticky left-0 bg-[#0a1120] group-hover:bg-[#151d2e] border-r border-theme-border z-10 shadow-[2px_0_5px_rgba(0,0,0,0.3)]">
                         <button 
-                          onClick={() => toggleSelectRow(w.id)}
+                          onClick={() => {
+                            const next = new Set(selectedIds);
+                            if (next.has(w.id)) next.delete(w.id); else next.add(w.id);
+                            setSelectedIds(next);
+                          }}
                           className={cn(
                             "w-5 h-5 flex items-center justify-center rounded border transition-colors mx-auto",
                             selectedIds.has(w.id) ? "border-theme-accent bg-theme-accent/20" : "border-theme-border bg-white/[0.02]"

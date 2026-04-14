@@ -226,7 +226,7 @@ const PathOSApp: React.FC = () => {
               </div>
             )}
             {activeTab === 'workflows' && (
-              <div className="space-y-6">
+              <div className="h-full flex flex-col">
                 <WorkflowRegistry 
                   workflows={workflows} 
                   onSelect={handleSelectWorkflow} 
