@@ -27,7 +27,13 @@ import {
   Plus, 
   Monitor, Cpu, Terminal, Link2, 
   Trash, 
-  Image as ImageIcon, Paperclip, Search
+  Image as ImageIcon, Paperclip,
+  ChevronLeft,
+  Building2,
+  Users2,
+  User,
+  Info,
+  ChevronDown
 } from 'lucide-react';
 
 
@@ -147,12 +153,26 @@ interface WorkflowMetadata {
   equipment_state: 'READY' | 'MAINTENANCE' | 'ERROR';
   cleanroom_class: 'ISO5' | 'ISO7' | 'UNCONTROLLED';
   status: 'DRAFT' | 'PROD' | 'ARCHIVED';
+  // Extended fields
+  prc: string;
+  workflow_type: string;
+  tool_family: string;
+  tool_family_count: number;
+  org: string;
+  team: string;
+  poc: string;
+  forensic_description: string;
+  trigger_type: string;
+  trigger_description: string;
+  output_type: string;
+  output_description: string;
 }
 
 interface WorkflowBuilderProps {
-  initialTasks: Task[];
-  workflowMetadata: WorkflowMetadata;
-  onSave: (tasks: Task[], metadata: WorkflowMetadata) => void;
+  workflow: any;
+  taxonomy: any[];
+  onSave: (data: any) => void;
+  onBack: () => void;
 }
 
 // --- CUSTOM NODES & EDGES ---
@@ -260,8 +280,9 @@ const edgeTypes = {
 
 // --- MAIN BUILDER ---
 
-const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, workflowMetadata, onSave }) => {
+const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, onSave, onBack }) => {
   const [view, setView] = useState<'flow' | 'table'>('flow');
+  
   // Task normalization to ensure all fields exist
   const normalizeTasks = useCallback((rawTasks: any[]): Task[] => {
     return rawTasks.map(t => ({
@@ -292,7 +313,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, workflo
     }));
   }, []);
 
-  const [tasks, setTasks] = useState<Task[]>(() => normalizeTasks(initialTasks));
+  const [tasks, setTasks] = useState<Task[]>(() => normalizeTasks(workflow.tasks || []));
 
   // Get all available outputs from other nodes for source data selection
   const allAvailableOutputs = useMemo(() => {
@@ -305,10 +326,29 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, workflo
     return outputs;
   }, [tasks]);
 
-  const [metadata, setMetadata] = useState<WorkflowMetadata>(workflowMetadata);
+  const [metadata, setMetadata] = useState<WorkflowMetadata>({
+    cadence_count: workflow.cadence_count || 1,
+    cadence_unit: workflow.cadence_unit || 'week',
+    equipment_state: workflow.equipment_state || 'READY',
+    cleanroom_class: workflow.cleanroom_class || 'UNCONTROLLED',
+    status: workflow.status || 'DRAFT',
+    prc: workflow.prc || '',
+    workflow_type: workflow.workflow_type || '',
+    tool_family: workflow.tool_family || '',
+    tool_family_count: workflow.tool_family_count || 1,
+    org: workflow.org || '',
+    team: workflow.team || '',
+    poc: workflow.poc || '',
+    forensic_description: workflow.forensic_description || '',
+    trigger_type: workflow.trigger_type || '',
+    trigger_description: workflow.trigger_description || '',
+    output_type: workflow.output_type || '',
+    output_description: workflow.output_description || ''
+  });
+
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [inspectorTab, setInspectorTab] = useState<'execution' | 'data' | 'exceptions' | 'appendix'>('execution');
+  const [inspectorTab, setInspectorTab] = useState<'execution' | 'data' | 'exceptions' | 'appendix' | 'org'>('execution');
   
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -355,7 +395,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, workflo
     
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [initialTasks]);
+  }, [workflow.tasks]);
 
   const onConnect = useCallback((params: Connection) => {
     setEdges((eds) => addEdge({ 
@@ -432,76 +472,95 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, workflo
     <div className="apple-card !p-0 flex flex-col h-full overflow-hidden relative shadow-2xl border-white/10 bg-[#0a1120]">
       
       {/* --- UNIFIED HEADER --- */}
-      <div className="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-[#0a1120]/80 backdrop-blur-xl z-40">
-        <div className="flex items-center gap-6">
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <LucideWorkflow size={14} className="text-blue-400" />
-              <span className="text-[13px] font-black text-white tracking-tighter uppercase">PathOS Designer</span>
+      <div className="border-b border-white/10 bg-[#0a1120]/80 backdrop-blur-xl z-40 flex flex-col">
+        {/* Row 1: Nav & Basic Controls */}
+        <div className="h-14 flex items-center justify-between px-6">
+          <div className="flex items-center gap-6">
+            <button 
+              onClick={onBack}
+              className="flex items-center gap-2 text-theme-muted hover:text-white transition-all group"
+            >
+              <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+              <span className="text-[11px] font-black uppercase tracking-widest">Repository</span>
+            </button>
+
+            <div className="h-8 w-[1px] bg-white/10" />
+
+            <div className="flex flex-col">
+              <div className="flex items-center gap-2">
+                <LucideWorkflow size={14} className="text-blue-400" />
+                <span className="text-[13px] font-black text-white tracking-tighter uppercase">{workflow.name}</span>
+              </div>
+            </div>
+
+            <div className="h-8 w-[1px] bg-white/10 mx-2" />
+
+            {/* Org / Team / POC Context */}
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <Building2 size={12} className="text-white/20" />
+                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{metadata.org || 'Unassigned Org'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Users2 size={12} className="text-white/20" />
+                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{metadata.team || 'Unassigned Team'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <User size={12} className="text-white/20" />
+                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{metadata.poc || 'No POC'}</span>
+              </div>
             </div>
           </div>
 
-          <div className="h-8 w-[1px] bg-white/10 mx-2" />
-
-          {/* Cleanroom & Equipment State */}
           <div className="flex items-center gap-4">
-            <div className="flex flex-col gap-0.5">
-              <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/10">
-                {(['ISO5', 'ISO7', 'UNCONTROLLED'] as const).map(c => (
-                  <button 
-                    key={c}
-                    onClick={() => setMetadata({...metadata, cleanroom_class: c})}
-                    className={`px-2 py-0.5 text-[9px] font-black uppercase rounded transition-all ${metadata.cleanroom_class === c ? 'bg-white text-black' : 'text-white/40 hover:text-white'}`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
             <button 
-              onClick={() => {
-                const states: WorkflowMetadata['equipment_state'][] = ['READY', 'MAINTENANCE', 'ERROR'];
-                const next = states[(states.indexOf(metadata.equipment_state) + 1) % states.length];
-                setMetadata({...metadata, equipment_state: next});
-              }}
-              className={`flex items-center gap-2 px-2 py-1 rounded-lg border border-white/10 text-[9px] font-black transition-all ${
-                metadata.equipment_state === 'READY' ? 'bg-emerald-500/20 text-emerald-400' : 
-                metadata.equipment_state === 'MAINTENANCE' ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'
-              }`}
+              onClick={autoLayout}
+              className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
             >
-              <div className={`w-2 h-2 rounded-full ${
-                metadata.equipment_state === 'READY' ? 'bg-emerald-400' : 
-                metadata.equipment_state === 'MAINTENANCE' ? 'bg-amber-400' : 'bg-red-400'
-              }`} />
-              {metadata.equipment_state}
+              <Layers size={12} /> Auto-Layout
+            </button>
+            <div className="flex bg-white/5 p-0.5 rounded-full border border-white/10">
+              {[
+                { id: 'flow', label: 'Designer' },
+                { id: 'table', label: 'List View' },
+              ].map((v) => (
+                <button 
+                  key={v.id}
+                  onClick={() => setView(v.id as any)} 
+                  className={`px-4 py-1 text-[10px] font-black uppercase tracking-widest rounded-full transition-all duration-300 ${view === v.id ? 'bg-blue-600 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => onSave({...metadata, tasks})} className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+              <Save size={12} /> Save
             </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={autoLayout}
-            className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
-          >
-            <Layers size={12} /> Auto-Layout
-          </button>
-          <div className="flex bg-white/5 p-0.5 rounded-full border border-white/10">
-            {[
-              { id: 'flow', label: 'Designer' },
-              { id: 'table', label: 'List View' },
-            ].map((v) => (
-              <button 
-                key={v.id}
-                onClick={() => setView(v.id as any)} 
-                className={`px-4 py-1 text-[10px] font-black uppercase tracking-widest rounded-full transition-all duration-300 ${view === v.id ? 'bg-blue-600 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
-              >
-                {v.label}
-              </button>
-            ))}
-          </div>
-          <button onClick={() => onSave(tasks, metadata)} className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.3)]">
-            <Save size={12} /> Save
-          </button>
+        {/* Row 2: Forensic Description & Type/PRC */}
+        <div className="h-10 flex items-center justify-between px-6 border-t border-white/5 bg-white/[0.02]">
+           <div className="flex items-center gap-3 flex-1 overflow-hidden">
+             <Info size={12} className="text-theme-accent shrink-0" />
+             <input 
+               className="bg-transparent text-[11px] font-bold text-white/60 outline-none w-full italic truncate"
+               placeholder="Add forensic description for this industrial workflow..."
+               value={metadata.forensic_description}
+               onChange={e => setMetadata({...metadata, forensic_description: e.target.value})}
+             />
+           </div>
+
+           <div className="flex items-center gap-4 border-l border-white/10 pl-6 shrink-0">
+             <div className="flex items-center gap-2">
+                <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Type</span>
+                <span className="px-2 py-0.5 rounded bg-blue-500/10 border border-blue-500/20 text-[9px] font-black text-blue-400 uppercase">{metadata.workflow_type || 'N/A'}</span>
+             </div>
+             <div className="flex items-center gap-2">
+                <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">PRC</span>
+                <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-black text-white/60 uppercase">{metadata.prc || 'N/A'}</span>
+             </div>
+           </div>
         </div>
       </div>
 
@@ -1004,13 +1063,152 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ initialTasks, workflo
               </button>
             </div>
           ) : (
-             <div className="flex-1 flex flex-col items-center justify-center p-12 text-center space-y-4 opacity-20">
-               <div className="p-6 rounded-full bg-white/5 border border-white/10">
-                 <Search size={32} className="text-white" />
-               </div>
-               <div className="flex flex-col gap-1">
-                 <span className="text-[12px] font-black text-white uppercase tracking-widest">No Node Selected</span>
-                 <p className="text-[10px] font-bold text-white/60 uppercase">Click an operation or connection to inspect technical details.</p>
+             <div className="flex-1 flex flex-col overflow-auto custom-scrollbar bg-[#0a1120] animate-in fade-in zoom-in-95 duration-300">
+               {/* Global Process Definition (Core Info) */}
+               <div className="p-8 space-y-12">
+                 <div className="space-y-6">
+                    <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                       <LucideWorkflow className="text-theme-accent" size={20} />
+                       <h2 className="text-[16px] font-black text-white uppercase tracking-tighter">Process Definition</h2>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-8">
+                       <div className="space-y-3">
+                         <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">PRC Code</label>
+                         <select 
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-black text-white outline-none focus:border-theme-accent appearance-none transition-all"
+                            value={metadata.prc}
+                            onChange={e => setMetadata({...metadata, prc: e.target.value})}
+                         >
+                           <option value="">Select PRC...</option>
+                           {taxonomy.find(t => t.key === 'PRC')?.cached_values.map((v: any) => <option key={v} value={v}>{v}</option>)}
+                         </select>
+                       </div>
+                       <div className="space-y-3">
+                         <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Workflow Type</label>
+                         <select 
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-black text-white outline-none focus:border-theme-accent appearance-none transition-all"
+                            value={metadata.workflow_type}
+                            onChange={e => setMetadata({...metadata, workflow_type: e.target.value})}
+                         >
+                           <option value="">Select Type...</option>
+                           {taxonomy.find(t => t.key === 'WORKFLOW_TYPE')?.cached_values.map((v: any) => <option key={v} value={v}>{v}</option>)}
+                         </select>
+                       </div>
+                       <div className="space-y-3">
+                         <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Tool Family</label>
+                         <div className="flex gap-2">
+                           <select 
+                              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-black text-white outline-none focus:border-theme-accent appearance-none transition-all"
+                              value={metadata.tool_family}
+                              onChange={e => setMetadata({...metadata, tool_family: e.target.value})}
+                           >
+                             <option value="">Select Family...</option>
+                             {taxonomy.find(t => t.key === 'HARDWARE_FAMILY')?.cached_values.map((v: any) => <option key={v} value={v}>{v}</option>)}
+                           </select>
+                           <input 
+                              type="number"
+                              className="w-20 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-black text-white outline-none focus:border-theme-accent"
+                              value={metadata.tool_family_count}
+                              onChange={e => setMetadata({...metadata, tool_family_count: parseInt(e.target.value)})}
+                           />
+                         </div>
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-12">
+                    <div className="space-y-6">
+                       <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                          <Zap className="text-theme-accent" size={18} />
+                          <h2 className="text-[14px] font-black text-white uppercase tracking-widest">Trigger Architecture</h2>
+                       </div>
+                       <div className="space-y-4">
+                          <select 
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-black text-white outline-none focus:border-theme-accent appearance-none transition-all"
+                            value={metadata.trigger_type}
+                            onChange={e => setMetadata({...metadata, trigger_type: e.target.value})}
+                          >
+                            <option value="">Select Architecture...</option>
+                            {taxonomy.find(t => t.key === 'TRIGGER_ARCHITECTURE')?.cached_values.map((v: any) => <option key={v} value={v}>{v}</option>)}
+                          </select>
+                          <textarea 
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[12px] font-bold text-white/60 outline-none focus:border-theme-accent h-24"
+                            placeholder="Detailed trigger conditions..."
+                            value={metadata.trigger_description}
+                            onChange={e => setMetadata({...metadata, trigger_description: e.target.value})}
+                          />
+                       </div>
+                    </div>
+                    <div className="space-y-6">
+                       <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                          <Layers className="text-theme-accent" size={18} />
+                          <h2 className="text-[14px] font-black text-white uppercase tracking-widest">Output Classification</h2>
+                       </div>
+                       <div className="space-y-4">
+                          <select 
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-black text-white outline-none focus:border-theme-accent appearance-none transition-all"
+                            value={metadata.output_type}
+                            onChange={e => setMetadata({...metadata, output_type: e.target.value})}
+                          >
+                            <option value="">Select Classification...</option>
+                            {taxonomy.find(t => t.key === 'OUTPUT_CLASSIFICATION')?.cached_values.map((v: any) => <option key={v} value={v}>{v}</option>)}
+                          </select>
+                          <textarea 
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[12px] font-bold text-white/60 outline-none focus:border-theme-accent h-24"
+                            placeholder="Primary workflow outcome..."
+                            value={metadata.output_description}
+                            onChange={e => setMetadata({...metadata, output_description: e.target.value})}
+                          />
+                       </div>
+                    </div>
+                 </div>
+
+                 {/* Organization & POCs (Compact) */}
+                 <div className="space-y-6">
+                    <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                       <Building2 className="text-theme-accent" size={18} />
+                       <h2 className="text-[14px] font-black text-white uppercase tracking-widest">Organization & POCs</h2>
+                    </div>
+                    <div className="grid grid-cols-3 gap-6">
+                       <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
+                          <Building2 size={14} className="text-white/20" />
+                          <input 
+                            className="bg-transparent text-[12px] font-black text-white outline-none w-full"
+                            placeholder="Organization"
+                            value={metadata.org}
+                            onChange={e => setMetadata({...metadata, org: e.target.value})}
+                          />
+                       </div>
+                       <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
+                          <Users2 size={14} className="text-white/20" />
+                          <input 
+                            className="bg-transparent text-[12px] font-black text-white outline-none w-full"
+                            placeholder="Team"
+                            value={metadata.team}
+                            onChange={e => setMetadata({...metadata, team: e.target.value})}
+                          />
+                       </div>
+                       <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2">
+                          <User size={14} className="text-white/20" />
+                          <input 
+                            className="bg-transparent text-[12px] font-black text-white outline-none w-full"
+                            placeholder="POC Name / Email"
+                            value={metadata.poc}
+                            onChange={e => setMetadata({...metadata, poc: e.target.value})}
+                          />
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="pt-8 text-center">
+                    <button 
+                      onClick={() => setView('flow')}
+                      className="px-8 py-3 bg-white/5 border border-white/10 text-white rounded-xl text-[12px] font-black uppercase tracking-widest hover:bg-white/10 transition-all inline-flex items-center gap-2"
+                    >
+                      Continue to Canvas <ChevronDown size={14} className="-rotate-90" />
+                    </button>
+                 </div>
                </div>
              </div>
           )}

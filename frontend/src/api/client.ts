@@ -23,11 +23,12 @@ apiClient.interceptors.response.use(
 );
 
 export const workflowsApi = {
-  list: () => apiClient.get('/workflows').then(res => res.data),
+  list: (includeDeleted = false) => apiClient.get('/workflows', { params: { include_deleted: includeDeleted } }).then(res => res.data),
   get: (id: number) => apiClient.get(`/workflows/${id}`).then(res => res.data),
   create: (data: any) => apiClient.post('/workflows', data).then(res => res.data),
   update: (id: number, data: any) => apiClient.put(`/workflows/${id}`, data).then(res => res.data),
   delete: (id: number) => apiClient.delete(`/workflows/${id}`).then(res => res.data),
+  restore: (id: number) => apiClient.post(`/workflows/${id}/restore`).then(res => res.data),
   updateTasks: (id: number, tasks: any[]) => apiClient.put(`/tasks/workflow/${id}/sync`, tasks).then(res => res.data),
 };
 

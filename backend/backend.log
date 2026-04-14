@@ -563,3 +563,73 @@ INFO:     Application startup complete.
 [SQL: SELECT system_parameters."key", system_parameters.label, system_parameters.description, system_parameters.is_dynamic, system_parameters.manual_values, system_parameters.python_code, system_parameters.last_executed, system_parameters.cached_values, system_parameters.pending_values, system_parameters.has_discrepancy, system_parameters.id, system_parameters.created_at, system_parameters.updated_at, system_parameters.is_deleted, system_parameters.created_by 
 FROM system_parameters]
 (Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-04-14 08:12:39,423 - PathOS - INFO - Executing background parameter refresh...
+2026-04-14 08:12:39,435 - PathOS - ERROR - Error in background parameter task: (sqlite3.OperationalError) no such table: system_parameters
+[SQL: SELECT system_parameters."key", system_parameters.label, system_parameters.description, system_parameters.is_dynamic, system_parameters.manual_values, system_parameters.python_code, system_parameters.last_executed, system_parameters.cached_values, system_parameters.pending_values, system_parameters.has_discrepancy, system_parameters.id, system_parameters.created_at, system_parameters.updated_at, system_parameters.is_deleted, system_parameters.created_by 
+FROM system_parameters]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  StatReload detected changes in 'app/models/models.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-14 08:25:36,442 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [86812]
+INFO:     Started server process [172]
+INFO:     Waiting for application startup.
+2026-04-14 08:25:36,860 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-14 08:25:36,864 - PathOS - INFO - Database initialized successfully.
+2026-04-14 08:25:36,864 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-14 08:25:36,922 - PathOS - INFO - Background parameter refresh complete.
+WARNING:  StatReload detected changes in 'app/schemas/schemas.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-14 08:26:31,002 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [172]
+INFO:     Started server process [1670]
+INFO:     Waiting for application startup.
+2026-04-14 08:26:31,367 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-14 08:26:31,369 - PathOS - INFO - Database initialized successfully.
+2026-04-14 08:26:31,369 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-14 08:26:31,427 - PathOS - INFO - Background parameter refresh complete.
+WARNING:  StatReload detected changes in 'app/api/workflows.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-14 08:26:37,697 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1670]
+INFO:     Started server process [1909]
+INFO:     Waiting for application startup.
+2026-04-14 08:26:38,047 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-14 08:26:38,049 - PathOS - INFO - Database initialized successfully.
+2026-04-14 08:26:38,049 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-14 08:26:38,104 - PathOS - INFO - Background parameter refresh complete.
+WARNING:  StatReload detected changes in 'app/api/workflows.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-14 08:26:42,334 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1909]
+INFO:     Started server process [2024]
+INFO:     Waiting for application startup.
+2026-04-14 08:26:42,605 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-14 08:26:42,607 - PathOS - INFO - Database initialized successfully.
+2026-04-14 08:26:42,607 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-14 08:26:42,663 - PathOS - INFO - Background parameter refresh complete.
+WARNING:  StatReload detected changes in 'app/api/workflows.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-14 08:26:46,697 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [2024]
+INFO:     Started server process [2053]
+INFO:     Waiting for application startup.
+2026-04-14 08:26:46,966 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-14 08:26:46,968 - PathOS - INFO - Database initialized successfully.
+2026-04-14 08:26:46,968 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-14 08:26:47,026 - PathOS - INFO - Background parameter refresh complete.

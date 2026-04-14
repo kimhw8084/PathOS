@@ -172,7 +172,10 @@ const PathOSApp: React.FC = () => {
     setGlobalReporter(reportError);
   }, [reportError]);
 
-  const { data: workflows = [] } = useQuery({ queryKey: ['workflows'], queryFn: workflowsApi.list });
+  const { data: workflows = [] } = useQuery({ 
+    queryKey: ['workflows'], 
+    queryFn: () => workflowsApi.list(true) 
+  });
   const { data: taxonomy = [] } = useQuery({ queryKey: ['taxonomy'], queryFn: taxonomyApi.list });
 
   const createMutation = useMutation({
@@ -193,7 +196,15 @@ const PathOSApp: React.FC = () => {
     mutationFn: workflowsApi.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
-      toast.success("Workflow deleted.");
+      toast.success("Workflow archived.");
+    }
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: workflowsApi.restore,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      toast.success("Workflow restored.");
     }
   });
 
@@ -215,13 +226,13 @@ const PathOSApp: React.FC = () => {
           )}>
             {activeTab === 'dashboard' && (
               <div className="space-y-6">
-                <ROIDashboard workflows={workflows} />
+                <ROIDashboard workflows={workflows.filter((w: any) => !w.is_deleted)} />
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-b border-theme-border/50 pb-2">
                     <h3 className="text-header-sub flex items-center gap-2"><Database size={16} className="text-theme-accent" /> Recent Workflows</h3>
                     <button onClick={() => setActiveTab('workflows')} className="text-hint text-theme-accent hover:text-white transition-colors flex items-center gap-1">View Repository <ChevronRight size={12} /></button>
                   </div>
-                  <WorkflowRegistry workflows={workflows.slice(0, 8)} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} />
+                  <WorkflowRegistry workflows={workflows.slice(0, 8)} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} onRestore={restoreMutation.mutate} />
                 </div>
               </div>
             )}
@@ -231,27 +242,23 @@ const PathOSApp: React.FC = () => {
                   workflows={workflows} 
                   onSelect={handleSelectWorkflow} 
                   onDelete={deleteMutation.mutate} 
+                  onRestore={restoreMutation.mutate}
                   onCreateNew={() => setActiveTab('intake')}
                 />
               </div>
             )}
-            {activeTab === 'intake' && <div className="max-w-4xl mx-auto"><IntakeGatekeeper taxonomy={taxonomy} onSuccess={(data) => createMutation.mutate(data)} /></div>}
+            {activeTab === 'intake' && <div className="max-w-4xl mx-auto"><IntakeGatekeeper taxonomy={taxonomy} onSuccess={(data) => createMutation.mutate(data)} onCancel={() => setActiveTab('workflows')} /></div>}
             {activeTab === 'settings' && <SettingsView />}
             {activeTab === 'builder' && selectedWorkflow && (
               <div className="h-[calc(100vh-140px)]">
                 <WorkflowBuilder 
-                  initialTasks={selectedWorkflow.tasks || []} 
-                  workflowMetadata={{ 
-                    cadence_count: selectedWorkflow.cadence_count, 
-                    cadence_unit: selectedWorkflow.cadence_unit as any,
-                    equipment_state: 'READY',
-                    cleanroom_class: 'ISO7',
-                    status: 'DRAFT'
-                  }}
-                  onSave={(tasks, meta) => workflowsApi.update(selectedWorkflow.id, { ...selectedWorkflow, tasks, ...meta }).then(() => {
+                  workflow={selectedWorkflow}
+                  taxonomy={taxonomy}
+                  onSave={(data) => workflowsApi.update(selectedWorkflow.id, data).then(() => {
                     toast.success("Configuration Saved");
                     queryClient.invalidateQueries({ queryKey: ['workflows'] });
                   })} 
+                  onBack={() => setActiveTab('workflows')}
                 />
               </div>
             )}

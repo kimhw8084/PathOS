@@ -33,6 +33,12 @@ class Workflow(Base, BaseMixin):
     tool_family = Column(String, nullable=True) # e.g. [CD-SEM], [Overlay]
     tool_family_count = Column(Integer, default=1) # New Field for 'Family + Count'
     
+    # Organization & POCs
+    org = Column(String, nullable=True)
+    team = Column(String, nullable=True)
+    poc = Column(String, nullable=True)
+    forensic_description = Column(Text, nullable=True)
+
     # Intake / Gatekeeper Fields
     trigger_type = Column(String) 
     trigger_description = Column(Text)

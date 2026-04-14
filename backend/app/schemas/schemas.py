@@ -86,6 +86,10 @@ class WorkflowBase(BaseModel):
     workflow_type: Optional[str] = None
     tool_family: Optional[str] = None
     tool_family_count: int = 1
+    org: Optional[str] = None
+    team: Optional[str] = None
+    poc: Optional[str] = None
+    forensic_description: Optional[str] = None
     trigger_type: str
     trigger_description: str
     cadence_count: float = 1.0

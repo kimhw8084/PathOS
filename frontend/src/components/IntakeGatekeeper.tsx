@@ -8,10 +8,11 @@ import { settingsApi } from '../api/client';
 
 interface IntakeGatekeeperProps {
   onSuccess: (data: any) => void;
+  onCancel?: () => void;
   taxonomy: any[];
 }
 
-const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy }) => {
+const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel, taxonomy }) => {
   const [phase, setPhase] = useState<'rubric' | 'definition'>('rubric');
   const [systemParams, setSystemParams] = useState<any[]>([]);
   const [rubricAnswers, setRubricAnswers] = useState({
@@ -80,14 +81,17 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
     return (
       <div className="max-w-xl mx-auto mt-10 animate-apple-in">
         <div className="apple-card !p-0 overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.5)] border-theme-border bg-[#111827]/80">
-          <div className="h-14 bg-white/[0.03] border-b border-theme-border flex items-center px-6 gap-3">
-            <div className="p-2 bg-blue-500/20 rounded-xl">
-              <ShieldAlert size={18} className="text-blue-400" />
+          <div className="h-14 bg-white/[0.03] border-b border-theme-border flex items-center justify-between px-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-500/20 rounded-xl">
+                <ShieldAlert size={18} className="text-blue-400" />
+              </div>
+              <div>
+                <span className="text-[12px] text-white font-black uppercase tracking-widest block leading-tight">Request Validation</span>
+                <span className="text-[9px] text-white/40 font-bold uppercase tracking-[0.2em]">Phase 01: Initial Assessment</span>
+              </div>
             </div>
-            <div>
-              <span className="text-[12px] text-white font-black uppercase tracking-widest block leading-tight">Request Validation</span>
-              <span className="text-[9px] text-white/40 font-bold uppercase tracking-[0.2em]">Phase 01: Initial Assessment</span>
-            </div>
+            <button onClick={onCancel} className="text-hint text-white/20 hover:text-white transition-all uppercase font-black">Cancel</button>
           </div>
           
           <div className="p-6 space-y-6">
@@ -162,9 +166,12 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
             </div>
           </div>
         </div>
-        <button onClick={() => setPhase('rubric')} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/40 hover:text-white hover:border-white/30 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 group">
-          <ChevronLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" /> Restart
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={onCancel} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/40 hover:text-white transition-all font-black text-[10px] uppercase tracking-widest">Cancel</button>
+          <button onClick={() => setPhase('rubric')} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/40 hover:text-white hover:border-white/30 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 group">
+            <ChevronLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" /> Restart
+          </button>
+        </div>
       </div>
 
       <div className="space-y-8">

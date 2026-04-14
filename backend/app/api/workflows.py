@@ -52,14 +52,16 @@ async def create_workflow(workflow_data: WorkflowCreate, db: AsyncSession = Depe
     return result.scalar_one()
 
 @router.get("", response_model=List[WorkflowRead])
-async def list_workflows(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Workflow)
-        .where(Workflow.is_deleted == False)
-        .options(selectinload(Workflow.tasks).selectinload(Task.blockers),
-                 selectinload(Workflow.tasks).selectinload(Task.errors))
-        .order_by(Workflow.created_at.desc())
-    )
+async def list_workflows(include_deleted: bool = False, db: AsyncSession = Depends(get_db)):
+    query = select(Workflow).options(
+        selectinload(Workflow.tasks).selectinload(Task.blockers),
+        selectinload(Workflow.tasks).selectinload(Task.errors)
+    ).order_by(Workflow.created_at.desc())
+    
+    if not include_deleted:
+        query = query.where(Workflow.is_deleted == False)
+        
+    result = await db.execute(query)
     return result.scalars().all()
 
 @router.get("/{workflow_id}", response_model=WorkflowRead)
@@ -118,6 +120,17 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
                  selectinload(Workflow.tasks).selectinload(Task.errors))
     )
     return result.scalar_one()
+
+@router.post("/{workflow_id}/restore")
+async def restore_workflow(workflow_id: int, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Workflow).where(Workflow.id == workflow_id))
+    workflow = result.scalar_one_or_none()
+    if not workflow:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    workflow.is_deleted = False 
+    await db.commit()
+    return {"message": "Workflow restored."}
 
 @router.delete("/{workflow_id}")
 async def soft_delete_workflow(workflow_id: int, db: AsyncSession = Depends(get_db)):

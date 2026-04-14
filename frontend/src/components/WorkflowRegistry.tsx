@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { 
   Trash2, 
   Zap, 
@@ -20,7 +20,9 @@ import {
   Archive,
   ChevronDown,
   Check,
-  ArrowRight
+  ArrowRight,
+  Maximize2,
+  RefreshCw
 } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import * as Popover from '@radix-ui/react-popover';
@@ -38,6 +40,7 @@ interface WorkflowRegistryProps {
   workflows: any[];
   onSelect: (workflow: any) => void;
   onDelete: (id: number) => void;
+  onRestore: (id: number) => void;
   onCreateNew?: () => void;
 }
 
@@ -128,14 +131,63 @@ const MultiSelectFilter = ({
   );
 };
 
-const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect, onDelete, onCreateNew }) => {
+const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect, onDelete, onRestore, onCreateNew }) => {
   // State for Table Features
   const [searchText, setSearchText] = useState('');
   const [activeRibbon, setActiveRibbon] = useState('Collaborative Workflows');
+  const [viewTab, setViewTab] = useState<'active' | 'deleted'>('active');
   const [isFilterBarOpen, setFilterBarOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'created_at', direction: 'desc' });
   
+  // Table Density Settings
+  const [density, setDensity] = useState({
+    fontSize: 13,
+    rowPadding: 8
+  });
+
+  // Column Resizing
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
+    workflow: 280,
+    prc: 90,
+    toolFamily: 160,
+    type: 110,
+    triggerOutput: 280,
+    freq: 80,
+    manual: 90,
+    auto: 90,
+    roi: 110,
+    blockers: 80,
+    errors: 80,
+    status: 140,
+    creator: 110,
+    editor: 110,
+    created: 110,
+    ver: 70
+  });
+
+  const resizingRef = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
+
+  const startResizing = (key: string, e: React.MouseEvent) => {
+    resizingRef.current = { key, startX: e.pageX, startWidth: columnWidths[key] };
+    document.addEventListener('mousemove', handleResizing);
+    document.addEventListener('mouseup', stopResizing);
+    e.preventDefault();
+  };
+
+  const handleResizing = (e: MouseEvent) => {
+    if (!resizingRef.current) return;
+    const diff = e.pageX - resizingRef.current.startX;
+    const newWidth = Math.max(50, resizingRef.current.startWidth + diff);
+    setColumnWidths(prev => ({ ...prev, [resizingRef.current!.key]: newWidth }));
+  };
+
+  const stopResizing = () => {
+    resizingRef.current = null;
+    document.removeEventListener('mousemove', handleResizing);
+    document.removeEventListener('mouseup', stopResizing);
+  };
+
   // Multi-select filters
   const [filters, setFilters] = useState({
     prc: [] as string[],
@@ -195,6 +247,9 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
   // Filtering Logic
   const filteredWorkflows = useMemo(() => {
     let result = workflows || [];
+
+    // Active/Deleted Tab Filtering
+    result = result.filter(w => viewTab === 'active' ? !w.is_deleted : w.is_deleted);
 
     // Ribbon Filtering
     if (activeRibbon === 'Personal Drafts') result = result.filter(w => w.status === 'DRAFT' || w.status === 'Created');
@@ -262,7 +317,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     }
 
     return result;
-  }, [workflows, activeRibbon, searchText, sortConfig, filters]);
+  }, [workflows, activeRibbon, viewTab, searchText, sortConfig, filters]);
 
   // Handlers
   const handleSort = (key: string) => {
@@ -285,22 +340,22 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     
     return (
       <span className={cn(
-        "px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border whitespace-nowrap inline-flex items-center gap-1.5 leading-none",
+        "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border whitespace-nowrap inline-flex items-center gap-1.5 leading-none max-w-full overflow-hidden",
         isProd ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
         isDraft ? "bg-slate-500/10 text-slate-400 border-slate-500/30" :
         "bg-amber-500/10 text-amber-400 border-amber-500/30"
       )}>
-        <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", 
+        <div className={cn("w-1 h-1 rounded-full shrink-0", 
           isProd ? "bg-emerald-400" : isDraft ? "bg-slate-400" : "bg-amber-400"
         )} />
-        {status}
+        <span className="truncate">{status}</span>
       </span>
     );
   };
 
   const CircledNumber = ({ count, colorClass }: { count: number, colorClass: string }) => (
     <div className={cn(
-      "w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black border",
+      "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border",
       count > 0 ? colorClass : "bg-white/[0.02] border-white/10 text-white/20"
     )}>
       {count}
@@ -310,39 +365,59 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
   const ActionMenu = ({ data }: { data: any }) => (
     <Popover.Root>
       <Popover.Trigger asChild>
-        <button className="w-8 h-8 flex items-center justify-center bg-white/[0.03] hover:bg-theme-accent/20 hover:text-white transition-all rounded-lg border border-theme-border group">
-          <MoreHorizontal size={14} className="text-theme-muted group-hover:text-white" />
+        <button className="w-7 h-7 flex items-center justify-center bg-white/[0.03] hover:bg-theme-accent/20 hover:text-white transition-all rounded-lg border border-theme-border group">
+          <MoreHorizontal size={12} className="text-theme-muted group-hover:text-white" />
         </button>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content 
-          className="w-56 bg-theme-sidebar/95 backdrop-blur-xl border border-theme-border rounded-xl shadow-2xl p-1.5 z-50 animate-apple-in"
+          className="w-52 bg-theme-sidebar/95 backdrop-blur-xl border border-theme-border rounded-xl shadow-2xl p-1.5 z-50 animate-apple-in"
           sideOffset={5}
           align="end"
         >
           <div className="space-y-0.5">
-            {[
-              { icon: Eye, label: 'View Details', onClick: () => onSelect(data) },
-              { icon: Copy, label: 'Duplicate Workflow' },
-              { icon: GitBranch, label: 'Version History' },
-              { icon: FileText, label: 'Export SOP' },
-              { icon: Share2, label: 'Collaborate' },
-            ].map((item, idx) => (
-              <button 
-                key={idx}
-                onClick={item.onClick}
-                className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-theme-secondary hover:bg-white/[0.08] hover:text-white transition-all text-[11px] font-semibold"
-              >
-                <item.icon size={13} /> {item.label}
-              </button>
-            ))}
-            <div className="h-[1px] bg-theme-border my-1 mx-1" />
-            <button 
-              onClick={() => onDelete(data.id)}
-              className="w-full flex items-center gap-3 px-4 py-2 rounded-lg text-status-error hover:bg-status-error/10 transition-all text-[11px] font-semibold"
-            >
-              <Trash2 size={13} /> Delete Record
-            </button>
+            {viewTab === 'active' ? (
+              <>
+                {[
+                  { icon: Eye, label: 'View Details', onClick: () => onSelect(data) },
+                  { icon: Copy, label: 'Duplicate Workflow' },
+                  { icon: GitBranch, label: 'Version History' },
+                  { icon: FileText, label: 'Export SOP' },
+                  { icon: Share2, label: 'Collaborate' },
+                ].map((item, idx) => (
+                  <button 
+                    key={idx}
+                    onClick={item.onClick}
+                    className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-theme-secondary hover:bg-white/[0.08] hover:text-white transition-all text-[11px] font-semibold"
+                  >
+                    <item.icon size={12} /> {item.label}
+                  </button>
+                ))}
+                <div className="h-[1px] bg-theme-border my-1 mx-1" />
+                <button 
+                  onClick={() => onDelete(data.id)}
+                  className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-status-error hover:bg-status-error/10 transition-all text-[11px] font-semibold"
+                >
+                  <Trash2 size={12} /> Archive Record
+                </button>
+              </>
+            ) : (
+              <>
+                <button 
+                  onClick={() => onRestore(data.id)}
+                  className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-theme-accent hover:bg-theme-accent/10 transition-all text-[11px] font-semibold"
+                >
+                  <RefreshCw size={12} /> Restore Workflow
+                </button>
+                <div className="h-[1px] bg-theme-border my-1 mx-1" />
+                <button 
+                  onClick={() => onDelete(data.id)} // Hard delete would be different but for now archive means soft delete
+                  className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-status-error hover:bg-status-error/10 transition-all text-[11px] font-semibold"
+                >
+                  <Trash2 size={12} /> Permanent Delete
+                </button>
+              </>
+            )}
           </div>
         </Popover.Content>
       </Popover.Portal>
@@ -358,7 +433,10 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
       <Tooltip.Root>
         <Tooltip.Trigger asChild>
           <div className="flex flex-col cursor-help group/title overflow-hidden">
-            <span className="font-bold text-white text-[13px] group-hover:text-theme-accent transition-colors truncate w-full leading-tight">
+            <span 
+              className="font-bold text-white group-hover:text-theme-accent transition-colors truncate w-full leading-tight"
+              style={{ fontSize: `${density.fontSize}px` }}
+            >
               {data.name}
             </span>
           </div>
@@ -425,24 +503,102 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     );
   };
 
+  const ResizableHeader = ({ 
+    label, 
+    widthKey, 
+    sortKey, 
+    center = false, 
+    sticky = null 
+  }: { 
+    label: string, 
+    widthKey: string, 
+    sortKey?: string, 
+    center?: boolean, 
+    sticky?: 'left' | 'right' | null 
+  }) => (
+    <th 
+      style={{ width: columnWidths[widthKey] }}
+      className={cn(
+        "p-0 text-[9px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border relative group/th bg-[#1e293b]",
+        center && "text-center",
+        sticky === 'left' && "sticky left-0 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.3)]",
+        sticky === 'right' && "sticky right-[60px] z-20"
+      )}
+    >
+      <div 
+        className={cn(
+          "w-full h-full px-3 py-2 flex items-center justify-between",
+          sortKey && "cursor-pointer hover:text-white transition-colors",
+          center && "justify-center"
+        )}
+        onClick={() => sortKey && handleSort(sortKey)}
+      >
+        <span className="truncate">{label}</span>
+        {sortKey && sortConfig.key === sortKey && (
+          <span className="ml-1 text-theme-accent">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+        )}
+      </div>
+      <div 
+        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent/50 transition-colors z-10"
+        onMouseDown={(e) => startResizing(widthKey, e)}
+      />
+    </th>
+  );
+
   return (
     <Tooltip.Provider>
     <div className="flex flex-col h-full animate-apple-in relative">
       
       {/* Top Action Bar & Global Search */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4 px-1">
         <div className="flex-1 max-w-lg relative group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-muted group-focus-within:text-theme-accent transition-colors" size={16} />
           <input 
             type="text" 
             placeholder="Search workflows, PRC, or status..." 
-            className="w-full bg-white/[0.03] border border-theme-border focus:border-theme-accent outline-none rounded-xl py-2.5 pl-10 pr-4 text-white placeholder:text-theme-muted/40 transition-all font-medium text-[13px] backdrop-blur-sm"
+            className="w-full bg-white/[0.03] border border-theme-border focus:border-theme-accent outline-none rounded-xl py-2 pl-10 pr-4 text-white placeholder:text-theme-muted/40 transition-all font-medium text-[13px] backdrop-blur-sm"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
           />
         </div>
         
         <div className="flex items-center gap-2">
+          <Popover.Root>
+            <Popover.Trigger asChild>
+              <button className="flex items-center gap-2 px-3 h-10 bg-white/[0.03] border border-theme-border hover:border-theme-accent hover:text-white transition-all rounded-lg text-theme-secondary text-[11px] font-bold uppercase tracking-widest">
+                <Maximize2 size={14} /> Density
+              </button>
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content className="w-64 bg-theme-sidebar border border-theme-border rounded-xl shadow-2xl p-4 z-50 animate-apple-in backdrop-blur-xl" sideOffset={5}>
+                 <div className="space-y-6">
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                         <label className="text-[10px] font-black uppercase text-white/40">Table Font Size</label>
+                         <span className="text-[10px] font-mono text-theme-accent">{density.fontSize}px</span>
+                      </div>
+                      <div className="flex bg-black/40 p-1 rounded-lg border border-white/5">
+                        {[11, 13, 15].map(s => (
+                          <button key={s} onClick={() => setDensity({...density, fontSize: s})} className={cn("flex-1 py-1.5 text-[10px] font-black rounded transition-all", density.fontSize === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}px</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                         <label className="text-[10px] font-black uppercase text-white/40">Row Height</label>
+                         <span className="text-[10px] font-mono text-theme-accent">{density.rowPadding * 2 + 20}px</span>
+                      </div>
+                      <div className="flex bg-black/40 p-1 rounded-lg border border-white/5">
+                        {[4, 8, 12, 16].map(p => (
+                          <button key={p} onClick={() => setDensity({...density, rowPadding: p})} className={cn("flex-1 py-1.5 text-[10px] font-black rounded transition-all", density.rowPadding === p ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{p === 4 ? 'S' : p === 8 ? 'M' : p === 12 ? 'L' : 'XL'}</button>
+                        ))}
+                      </div>
+                    </div>
+                 </div>
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+
           <button 
             onClick={() => setFilterBarOpen(!isFilterBarOpen)}
             className={cn(
@@ -467,8 +623,8 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
         </div>
       </div>
 
-      {/* Workspace Ribbon */}
-      <div className="flex items-center justify-between border-b border-theme-border/30 pb-0 mb-0">
+      {/* Workspace Ribbon & View Tabs */}
+      <div className="flex items-center justify-between border-b border-theme-border/30 pb-0 mb-0 px-1">
         <div className="flex items-center gap-0">
           {['Personal Drafts', 'Submitted Requests', 'Collaborative Workflows', 'Standard Operations'].map((ribbon) => (
             <button
@@ -490,6 +646,13 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
               )}
             </button>
           ))}
+          
+          <div className="w-[1px] h-4 bg-theme-border mx-4" />
+          
+          <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/10">
+            <button onClick={() => setViewTab('active')} className={cn("px-3 py-1 text-[9px] font-black uppercase rounded transition-all", viewTab === 'active' ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>Active</button>
+            <button onClick={() => setViewTab('deleted')} className={cn("px-3 py-1 text-[9px] font-black uppercase rounded transition-all", viewTab === 'deleted' ? "bg-status-error text-white" : "text-white/40 hover:text-white")}>Deleted</button>
+          </div>
         </div>
         
         <div className="flex items-center gap-4 pr-2">
@@ -563,80 +726,35 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
       {/* Table Container */}
       <div className="flex-1 overflow-hidden border-x border-b border-theme-border bg-[#0a1120] relative">
         <div className="absolute inset-0 overflow-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse min-w-[2100px] table-fixed">
-            <thead className="sticky top-0 z-20">
-              <tr className="bg-[#1e293b] border-b border-theme-border">
-                <th className="p-2 w-10 text-center sticky left-0 bg-[#1e293b] border-r border-theme-border shadow-[2px_0_5px_rgba(0,0,0,0.3)]">
-                  <button onClick={() => setSelectedIds(selectedIds.size === filteredWorkflows.length ? new Set() : new Set(filteredWorkflows.map(w => w.id)))} className="w-5 h-5 flex items-center justify-center rounded border border-theme-border bg-white/[0.05] mx-auto">
-                    {selectedIds.size === filteredWorkflows.length && filteredWorkflows.length > 0 ? <CheckCircle2 size={12} className="text-theme-accent" /> : <Circle size={12} className="text-white/10" />}
-                  </button>
+          <table className="w-full text-left border-collapse border-spacing-0 min-w-[2100px] table-fixed">
+            <thead className="sticky top-0 z-30">
+              <tr className="bg-[#1e293b]">
+                <th className="p-0 w-10 text-center sticky left-0 bg-[#1e293b] border-r border-b border-theme-border shadow-[2px_0_5px_rgba(0,0,0,0.3)] z-30">
+                  <div className="flex items-center justify-center h-full">
+                    <button onClick={() => setSelectedIds(selectedIds.size === filteredWorkflows.length ? new Set() : new Set(filteredWorkflows.map(w => w.id)))} className="w-4 h-4 flex items-center justify-center rounded border border-theme-border bg-white/[0.05]">
+                      {selectedIds.size === filteredWorkflows.length && filteredWorkflows.length > 0 ? <CheckCircle2 size={10} className="text-theme-accent" /> : <Circle size={10} className="text-white/10" />}
+                    </button>
+                  </div>
                 </th>
                 
-                <th className="px-4 py-3 w-[280px] text-[10px] font-black text-theme-muted uppercase tracking-widest cursor-pointer hover:text-white transition-colors border-r border-theme-border" onClick={() => handleSort('name')}>
-                  Workflow {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
+                <ResizableHeader label="Workflow" widthKey="workflow" sortKey="name" sticky="left" />
+                <ResizableHeader label="PRC" widthKey="prc" sortKey="prc" center />
+                <ResizableHeader label="Tool Family" widthKey="toolFamily" sortKey="tool_family" center />
+                <ResizableHeader label="Type" widthKey="type" sortKey="workflow_type" center />
+                <ResizableHeader label="Trigger → Output" widthKey="triggerOutput" center />
+                <ResizableHeader label="Freq" widthKey="freq" sortKey="frequency" center />
+                <ResizableHeader label="Manual" widthKey="manual" sortKey="manual_time" center />
+                <ResizableHeader label="Auto" widthKey="auto" sortKey="auto_time" center />
+                <ResizableHeader label="ROI (h/wk)" widthKey="roi" sortKey="roi" center />
+                <ResizableHeader label="Blockers" widthKey="blockers" sortKey="blockers" center />
+                <ResizableHeader label="Errors" widthKey="errors" sortKey="errors" center />
+                <ResizableHeader label="Status" widthKey="status" sortKey="status" center />
+                <ResizableHeader label="Creator" widthKey="creator" sortKey="created_by" center />
+                <ResizableHeader label="Editor" widthKey="editor" sortKey="updated_by" center />
+                <ResizableHeader label="Created" widthKey="created" sortKey="created_at" center />
+                <ResizableHeader label="Ver" widthKey="ver" sortKey="version" center sticky="right" />
 
-                <th className="px-3 py-3 w-[100px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer text-center" onClick={() => handleSort('prc')}>
-                  PRC {sortConfig.key === 'prc' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-
-                <th className="px-3 py-3 w-[160px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer text-center" onClick={() => handleSort('tool_family')}>
-                  Tool Family {sortConfig.key === 'tool_family' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-
-                <th className="px-3 py-3 w-[130px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer text-center" onClick={() => handleSort('workflow_type')}>
-                  Type {sortConfig.key === 'workflow_type' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-
-                <th className="px-3 py-3 w-[280px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border text-center">
-                  Trigger → Output
-                </th>
-
-                <th className="px-3 py-3 w-[100px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('frequency')}>
-                  Freq / Wk {sortConfig.key === 'frequency' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-
-                <th className="px-3 py-3 w-[110px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('manual_time')}>
-                  Manual {sortConfig.key === 'manual_time' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-
-                <th className="px-3 py-3 w-[110px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('auto_time')}>
-                  Auto {sortConfig.key === 'auto_time' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-
-                <th className="px-3 py-3 w-[120px] text-[10px] font-black text-theme-accent uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('roi')}>
-                  ROI (h/wk) {sortConfig.key === 'roi' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-
-                <th className="px-3 py-3 w-[90px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('blockers')}>
-                  Blockers {sortConfig.key === 'blockers' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-
-                <th className="px-3 py-3 w-[90px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer" onClick={() => handleSort('errors')}>
-                  Errors {sortConfig.key === 'errors' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-
-                <th className="px-3 py-3 w-[160px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer text-center" onClick={() => handleSort('status')}>
-                  Status {sortConfig.key === 'status' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-                </th>
-
-                <th className="px-3 py-3 w-[130px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer text-center" onClick={() => handleSort('created_by')}>
-                  Creator
-                </th>
-
-                <th className="px-3 py-3 w-[130px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer text-center" onClick={() => handleSort('updated_by')}>
-                  Editor
-                </th>
-
-                <th className="px-3 py-3 w-[140px] text-[10px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border cursor-pointer text-center" onClick={() => handleSort('created_at')}>
-                  Created
-                </th>
-
-                <th className="px-3 py-3 w-[80px] text-[10px] font-black text-theme-muted uppercase tracking-widest text-center border-r border-theme-border cursor-pointer sticky right-[60px] bg-[#1e293b] z-20" onClick={() => handleSort('version')}>
-                  Ver
-                </th>
-
-                <th className="px-3 py-3 w-[60px] bg-[#1e293b] sticky right-0 shadow-[-2px_0_5px_rgba(0,0,0,0.3)] z-20"></th>
+                <th className="p-0 w-[60px] bg-[#1e293b] sticky right-0 shadow-[-2px_0_5px_rgba(0,0,0,0.3)] z-30 border-b border-theme-border"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04]">
@@ -654,101 +772,108 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                         "group hover:bg-white/[0.03] transition-all cursor-default border-theme-border",
                         selectedIds.has(w.id) ? "bg-theme-accent/5" : ""
                       )}
+                      style={{ height: 'auto' }}
                     >
-                      <td className="p-2 text-center sticky left-0 bg-[#0a1120] group-hover:bg-[#151d2e] border-r border-theme-border z-10 shadow-[2px_0_5px_rgba(0,0,0,0.3)]">
-                        <button 
-                          onClick={() => {
-                            const next = new Set(selectedIds);
-                            if (next.has(w.id)) next.delete(w.id); else next.add(w.id);
-                            setSelectedIds(next);
-                          }}
-                          className={cn(
-                            "w-5 h-5 flex items-center justify-center rounded border transition-colors mx-auto",
-                            selectedIds.has(w.id) ? "border-theme-accent bg-theme-accent/20" : "border-theme-border bg-white/[0.02]"
-                          )}
-                        >
-                          {selectedIds.has(w.id) && <CheckCircle2 size={12} className="text-theme-accent" />}
-                        </button>
+                      <td className="p-0 text-center sticky left-0 bg-[#0a1120] group-hover:bg-[#151d2e] border-r border-theme-border z-10 shadow-[2px_0_5px_rgba(0,0,0,0.3)] transition-colors">
+                        <div className="flex items-center justify-center" style={{ padding: `${density.rowPadding}px 0` }}>
+                          <button 
+                            onClick={() => {
+                              const next = new Set(selectedIds);
+                              if (next.has(w.id)) next.delete(w.id); else next.add(w.id);
+                              setSelectedIds(next);
+                            }}
+                            className={cn(
+                              "w-4 h-4 flex items-center justify-center rounded border transition-colors",
+                              selectedIds.has(w.id) ? "border-theme-accent bg-theme-accent/20" : "border-theme-border bg-white/[0.02]"
+                            )}
+                          >
+                            {selectedIds.has(w.id) && <CheckCircle2 size={10} className="text-theme-accent" />}
+                          </button>
+                        </div>
                       </td>
 
-                      <td className="px-4 py-3 border-r border-theme-border">
+                      <td className="p-0 border-r border-theme-border sticky left-10 bg-[#0a1120] group-hover:bg-[#151d2e] z-10 transition-colors" style={{ padding: `0 12px` }}>
                         <PeekTooltip data={w} />
                       </td>
 
-                      <td className="px-3 py-3 border-r border-theme-border text-center">
-                        <span className="text-[13px] font-mono font-black text-blue-400">{w.prc || '--'}</span>
+                      <td className="p-0 border-r border-theme-border text-center" style={{ padding: `0 8px` }}>
+                        <span className="font-mono font-black text-blue-400" style={{ fontSize: `${density.fontSize}px` }}>{w.prc || '--'}</span>
                       </td>
 
-                      <td className="px-3 py-3 border-r border-theme-border text-center">
-                        <span className="text-[11px] font-black text-theme-secondary uppercase tracking-wider">
+                      <td className="p-0 border-r border-theme-border text-center" style={{ padding: `0 8px` }}>
+                        <span className="font-black text-theme-secondary uppercase tracking-wider" style={{ fontSize: `${density.fontSize - 2}px` }}>
                           {familyDisplay || 'Generic'}
                         </span>
                       </td>
 
-                      <td className="px-3 py-3 border-r border-theme-border text-center">
-                         <span className="text-[11px] font-black text-white/40 uppercase tracking-widest">{w.workflow_type || 'STANDARD'}</span>
+                      <td className="p-0 border-r border-theme-border text-center" style={{ padding: `0 8px` }}>
+                         <span className="font-black text-white/40 uppercase tracking-widest" style={{ fontSize: `${density.fontSize - 2}px` }}>{w.workflow_type || 'STANDARD'}</span>
                       </td>
 
-                      <td className="px-3 py-3 border-r border-theme-border text-center">
-                        <div className="flex items-center justify-center gap-2 text-[11px] font-bold text-white/60">
-                          <span className="truncate max-w-[120px]">{w.trigger_type}</span>
+                      <td className="p-0 border-r border-theme-border text-center" style={{ padding: `0 8px` }}>
+                        <div className="flex items-center justify-center gap-2 text-white/60 overflow-hidden">
+                          <span className="truncate" style={{ fontSize: `${density.fontSize - 2}px` }}>{w.trigger_type}</span>
                           <ArrowRight size={10} className="text-theme-accent shrink-0" />
-                          <span className="truncate max-w-[120px]">{w.output_type}</span>
+                          <span className="truncate" style={{ fontSize: `${density.fontSize - 2}px` }}>{w.output_type}</span>
                         </div>
                       </td>
 
-                      <td className="px-3 py-3 border-r border-theme-border text-center">
-                         <span className="text-[13px] font-black text-white/80">{analytics.frequencyPerWeek.toFixed(1)}</span>
+                      <td className="p-0 border-r border-theme-border text-center" style={{ padding: `0 8px` }}>
+                         <span className="font-black text-white/80" style={{ fontSize: `${density.fontSize}px` }}>{analytics.frequencyPerWeek.toFixed(1)}</span>
                       </td>
 
-                      <td className="px-3 py-3 text-center border-r border-theme-border">
-                        <span className="text-[13px] font-black text-white/80">{analytics.manualPerCycle.toFixed(1)}h</span>
+                      <td className="p-0 text-center border-r border-theme-border" style={{ padding: `0 8px` }}>
+                        <span className="font-black text-white/80" style={{ fontSize: `${density.fontSize}px` }}>{analytics.manualPerCycle.toFixed(1)}h</span>
                       </td>
 
-                      <td className="px-3 py-3 text-center border-r border-theme-border">
-                        <span className="text-[13px] font-black text-white/80">{analytics.autoPerCycle.toFixed(1)}h</span>
+                      <td className="p-0 text-center border-r border-theme-border" style={{ padding: `0 8px` }}>
+                        <span className="font-black text-white/80" style={{ fontSize: `${density.fontSize}px` }}>{analytics.autoPerCycle.toFixed(1)}h</span>
                       </td>
 
-                      <td className="px-3 py-3 text-center border-r border-theme-border">
-                        <span className="text-[13px] font-black text-theme-accent">+{analytics.manualWeekly.toFixed(1)}</span>
+                      <td className="p-0 text-center border-r border-theme-border" style={{ padding: `0 8px` }}>
+                        <span className="font-black text-theme-accent" style={{ fontSize: `${density.fontSize}px` }}>+{analytics.manualWeekly.toFixed(1)}</span>
                       </td>
 
-                      <td className="px-3 py-3 border-r border-theme-border">
+                      <td className="p-0 border-r border-theme-border" style={{ padding: `0 8px` }}>
                         <div className="flex justify-center">
                           <CircledNumber count={blockerCount} colorClass="bg-red-500/10 border-red-500/30 text-red-400" />
                         </div>
                       </td>
 
-                      <td className="px-3 py-3 border-r border-theme-border">
+                      <td className="p-0 border-r border-theme-border" style={{ padding: `0 8px` }}>
                         <div className="flex justify-center">
                           <CircledNumber count={errorCount} colorClass="bg-amber-500/10 border-amber-500/30 text-amber-400" />
                         </div>
                       </td>
 
-                      <td className="px-3 py-3 border-r border-theme-border text-center">
-                        <StatusBadge status={w.status} />
+                      <td className="p-0 border-r border-theme-border text-center" style={{ padding: `0 8px` }}>
+                        <div className="flex justify-center items-center w-full">
+                          <StatusBadge status={w.status} />
+                        </div>
                       </td>
 
-                      <td className="px-3 py-3 border-r border-theme-border text-[11px] font-bold text-theme-secondary text-center">
+                      <td className="p-0 border-r border-theme-border font-bold text-theme-secondary text-center" style={{ padding: `0 8px`, fontSize: `${density.fontSize - 2}px` }}>
                         {w.created_by?.split('_')[0] || 'System'}
                       </td>
 
-                      <td className="px-3 py-3 border-r border-theme-border text-[11px] font-bold text-theme-secondary text-center">
+                      <td className="p-0 border-r border-theme-border font-bold text-theme-secondary text-center" style={{ padding: `0 8px`, fontSize: `${density.fontSize - 2}px` }}>
                         {w.updated_by?.split('_')[0] || 'System'}
                       </td>
 
-                      <td className="px-3 py-3 border-r border-theme-border text-[11px] text-theme-muted font-mono text-center">
+                      <td className="p-0 border-r border-theme-border text-theme-muted font-mono text-center" style={{ padding: `0 8px`, fontSize: `${density.fontSize - 2}px` }}>
                         {new Date(w.created_at).toLocaleDateString()}
                       </td>
 
-                      <td className="px-3 py-3 text-center border-r border-theme-border sticky right-[60px] bg-[#0a1120] group-hover:bg-[#151d2e] z-10">
-                         <span className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[11px] font-black text-theme-secondary">
+                      <td className="p-0 text-center border-r border-theme-border sticky right-[60px] bg-[#0a1120] group-hover:bg-[#151d2e] z-10 transition-colors" style={{ padding: `0 4px` }}>
+                         <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-black text-theme-secondary">
                            V{w.version}
                          </span>
                       </td>
 
-                      <td className="px-3 py-3 text-right sticky right-0 bg-[#0a1120] group-hover:bg-[#151d2e] shadow-[-2px_0_5px_rgba(0,0,0,0.3)] z-10">
-                        <ActionMenu data={w} />
+                      <td className="p-0 text-right sticky right-0 bg-[#0a1120] group-hover:bg-[#151d2e] shadow-[-2px_0_5px_rgba(0,0,0,0.3)] z-10 transition-colors">
+                        <div className="flex justify-center items-center w-full h-full">
+                          <ActionMenu data={w} />
+                        </div>
                       </td>
                     </tr>
                   );
