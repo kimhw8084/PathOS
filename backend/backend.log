@@ -499,3 +499,67 @@ INFO:     Application startup complete.
 2026-04-14 05:23:39,995 - PathOS - INFO - Background parameter refresh complete.
 2026-04-14 06:23:40,012 - PathOS - INFO - Executing background parameter refresh...
 2026-04-14 06:23:40,107 - PathOS - INFO - Background parameter refresh complete.
+WARNING:  StatReload detected changes in 'app/models/models.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-14 07:12:00,404 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [35502]
+INFO:     Started server process [85895]
+INFO:     Waiting for application startup.
+2026-04-14 07:12:01,061 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-14 07:12:01,063 - PathOS - INFO - Database initialized successfully.
+2026-04-14 07:12:01,063 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-14 07:12:01,069 - PathOS - ERROR - Error in background parameter task: (sqlite3.OperationalError) no such table: system_parameters
+[SQL: SELECT system_parameters."key", system_parameters.label, system_parameters.description, system_parameters.is_dynamic, system_parameters.manual_values, system_parameters.python_code, system_parameters.last_executed, system_parameters.cached_values, system_parameters.pending_values, system_parameters.has_discrepancy, system_parameters.id, system_parameters.created_at, system_parameters.updated_at, system_parameters.is_deleted, system_parameters.created_by 
+FROM system_parameters]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  StatReload detected changes in 'app/schemas/schemas.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-14 07:12:11,969 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [85895]
+INFO:     Started server process [86196]
+INFO:     Waiting for application startup.
+2026-04-14 07:12:12,319 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-14 07:12:12,321 - PathOS - INFO - Database initialized successfully.
+2026-04-14 07:12:12,321 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-14 07:12:12,327 - PathOS - ERROR - Error in background parameter task: (sqlite3.OperationalError) no such table: system_parameters
+[SQL: SELECT system_parameters."key", system_parameters.label, system_parameters.description, system_parameters.is_dynamic, system_parameters.manual_values, system_parameters.python_code, system_parameters.last_executed, system_parameters.cached_values, system_parameters.pending_values, system_parameters.has_discrepancy, system_parameters.id, system_parameters.created_at, system_parameters.updated_at, system_parameters.is_deleted, system_parameters.created_by 
+FROM system_parameters]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  StatReload detected changes in 'seed.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-14 07:12:27,822 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [86196]
+INFO:     Started server process [86555]
+INFO:     Waiting for application startup.
+2026-04-14 07:12:28,187 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-14 07:12:28,189 - PathOS - INFO - Database initialized successfully.
+2026-04-14 07:12:28,189 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-14 07:12:28,194 - PathOS - ERROR - Error in background parameter task: (sqlite3.OperationalError) no such table: system_parameters
+[SQL: SELECT system_parameters."key", system_parameters.label, system_parameters.description, system_parameters.is_dynamic, system_parameters.manual_values, system_parameters.python_code, system_parameters.last_executed, system_parameters.cached_values, system_parameters.pending_values, system_parameters.has_discrepancy, system_parameters.id, system_parameters.created_at, system_parameters.updated_at, system_parameters.is_deleted, system_parameters.created_by 
+FROM system_parameters]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+WARNING:  StatReload detected changes in 'seed.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-14 07:12:38,999 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [86555]
+INFO:     Started server process [86812]
+INFO:     Waiting for application startup.
+2026-04-14 07:12:39,371 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-14 07:12:39,372 - PathOS - INFO - Database initialized successfully.
+2026-04-14 07:12:39,372 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-14 07:12:39,378 - PathOS - ERROR - Error in background parameter task: (sqlite3.OperationalError) no such table: system_parameters
+[SQL: SELECT system_parameters."key", system_parameters.label, system_parameters.description, system_parameters.is_dynamic, system_parameters.manual_values, system_parameters.python_code, system_parameters.last_executed, system_parameters.cached_values, system_parameters.pending_values, system_parameters.has_discrepancy, system_parameters.id, system_parameters.created_at, system_parameters.updated_at, system_parameters.is_deleted, system_parameters.created_by 
+FROM system_parameters]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)

@@ -27,8 +27,11 @@ class AutomationStatus(str, enum.Enum):
 class Workflow(Base, BaseMixin):
     __tablename__ = "workflows"
     name = Column(String, index=True)
-    version = Column(String, default="v1")
+    version = Column(Integer, default=1)
+    prc = Column(String, nullable=True) # New Field
+    workflow_type = Column(String, nullable=True) # New Field (e.g. SPC, FDC, OOC)
     tool_family = Column(String, nullable=True) # e.g. [CD-SEM], [Overlay]
+    tool_family_count = Column(Integer, default=1) # New Field for 'Family + Count'
     
     # Intake / Gatekeeper Fields
     trigger_type = Column(String) 

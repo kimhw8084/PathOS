@@ -74,6 +74,26 @@ async def seed_data():
                 "has_discrepancy": False
             },
             {
+                "key": "PRC",
+                "label": "Process Control Code",
+                "description": "Primary process control identifier (PRC) for this workflow.",
+                "is_dynamic": False,
+                "python_code": None,
+                "manual_values": ["PRC-801", "PRC-802", "PRC-905", "PRC-999"],
+                "cached_values": ["PRC-801", "PRC-802", "PRC-905", "PRC-999"],
+                "has_discrepancy": False
+            },
+            {
+                "key": "WORKFLOW_TYPE",
+                "label": "Workflow Operational Type",
+                "description": "Classification of the workflow operational mode (e.g. SPC, NPI, PM).",
+                "is_dynamic": False,
+                "python_code": None,
+                "manual_values": ["SPC_OOC", "NPI_SETUP", "PM_RECOVERY", "YE_INVESTIGATION"],
+                "cached_values": ["SPC_OOC", "NPI_SETUP", "PM_RECOVERY", "YE_INVESTIGATION"],
+                "has_discrepancy": False
+            },
+            {
                 "key": "TRIGGER_ARCHITECTURE",
                 "label": "Trigger Architecture",
                 "description": "The architectural source of the workflow trigger (FDC, SPC, MES, Manual).",
@@ -130,8 +150,11 @@ async def seed_data():
         workflow_definitions = [
             {
                 "name": "Advanced CD-SEM Gate Layer Recipe Creation",
-                "version": "v1.2.0",
+                "version": 1,
+                "prc": "PRC-801",
+                "workflow_type": "NPI_SETUP",
                 "tool_family": "cd_sem",
+                "tool_family_count": 4,
                 "trigger_type": "new_npi_routing",
                 "trigger_description": "New NPI Gate layer requires high-precision CD-SEM measurement for gate width control.",
                 "cadence_count": 12.0,
@@ -193,8 +216,11 @@ async def seed_data():
             },
             {
                 "name": "Daily OVL Tool Matching Protocol (300mm)",
-                "version": "v3.1.5",
+                "version": 3,
+                "prc": "PRC-802",
+                "workflow_type": "SPC_OOC",
                 "tool_family": "ovl",
+                "tool_family_count": 8,
                 "trigger_type": "shift_qual",
                 "trigger_description": "Shift-ly cross-tool matching to ensure overlay consistency across the fleet.",
                 "cadence_count": 1.0,
@@ -239,8 +265,11 @@ async def seed_data():
             },
             {
                 "name": "Post-PM Ellipsometry Calibration",
-                "version": "v1.0.1",
+                "version": 1,
+                "prc": "PRC-905",
+                "workflow_type": "PM_RECOVERY",
                 "tool_family": "ellipsometry",
+                "tool_family_count": 2,
                 "trigger_type": "tool_pm_recovery",
                 "trigger_description": "Recovery procedure for thin-film tools after preventive maintenance.",
                 "cadence_count": 1.0,

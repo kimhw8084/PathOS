@@ -22,6 +22,12 @@ import WorkflowBuilder from './components/WorkflowBuilder';
 import SettingsView from './components/SettingsView';
 import { ErrorFortressProvider, useErrorFortress } from './components/ErrorFortress';
 import * as Tooltip from '@radix-ui/react-tooltip';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 const queryClient = new QueryClient();
 
@@ -203,7 +209,10 @@ const PathOSApp: React.FC = () => {
       <main className="flex-1 flex flex-col overflow-hidden relative">
         <GlobalHeader activeTab={activeTab} />
         <div className="flex-1 overflow-auto custom-scrollbar relative">
-          <div className="max-w-[1400px] mx-auto p-4 lg:p-6 animate-apple-in">
+          <div className={cn(
+            "mx-auto p-4 lg:p-6 animate-apple-in",
+            activeTab === 'workflows' || activeTab === 'builder' ? "max-w-full h-full" : "max-w-[1400px]"
+          )}>
             {activeTab === 'dashboard' && (
               <div className="space-y-6">
                 <ROIDashboard workflows={workflows} />

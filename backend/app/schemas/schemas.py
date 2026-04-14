@@ -81,8 +81,11 @@ class TaskRead(TaskBase):
 
 class WorkflowBase(BaseModel):
     name: str = Field(..., min_length=2)
-    version: str = "v1"
+    version: int = 1
+    prc: Optional[str] = None
+    workflow_type: Optional[str] = None
     tool_family: Optional[str] = None
+    tool_family_count: int = 1
     trigger_type: str
     trigger_description: str
     cadence_count: float = 1.0

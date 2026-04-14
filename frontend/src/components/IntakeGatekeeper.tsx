@@ -22,6 +22,8 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
   
   const [formData, setFormData] = useState({
     name: '',
+    prc: '',
+    workflow_type: '',
     trigger_type: '',
     trigger_description: '',
     output_type: '',
@@ -53,6 +55,16 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
 
   const toolIds = useMemo(() => {
     const param = systemParams.find(p => p.key === 'TOOL_ID');
+    return (param?.is_dynamic ? param.cached_values : param?.manual_values) || [];
+  }, [systemParams]);
+
+  const prcValues = useMemo(() => {
+    const param = systemParams.find(p => p.key === 'PRC');
+    return (param?.is_dynamic ? param.cached_values : param?.manual_values) || [];
+  }, [systemParams]);
+
+  const workflowTypes = useMemo(() => {
+    const param = systemParams.find(p => p.key === 'WORKFLOW_TYPE');
     return (param?.is_dynamic ? param.cached_values : param?.manual_values) || [];
   }, [systemParams]);
 
@@ -176,6 +188,37 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, taxonomy
                 value={formData.name} 
                 onChange={e => setFormData({...formData, name: e.target.value})} 
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-3">
+                <label className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] px-1">Process Control (PRC)</label>
+                <div className="relative group">
+                  <select 
+                    className="w-full bg-[#1e293b]/50 border border-white/10 rounded-lg px-4 py-3 text-[12px] font-black text-white appearance-none focus:border-blue-500 outline-none transition-all cursor-pointer"
+                    value={formData.prc}
+                    onChange={e => setFormData({...formData, prc: e.target.value})}
+                  >
+                    <option value="">SELECT PRC...</option>
+                    {prcValues.map((v: string) => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                  <Settings className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none group-hover:text-blue-400 transition-colors" size={14} />
+                </div>
+              </div>
+              <div className="space-y-3">
+                <label className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] px-1">Workflow Type</label>
+                <div className="relative group">
+                  <select 
+                    className="w-full bg-[#1e293b]/50 border border-white/10 rounded-lg px-4 py-3 text-[12px] font-black text-white appearance-none focus:border-blue-500 outline-none transition-all cursor-pointer"
+                    value={formData.workflow_type}
+                    onChange={e => setFormData({...formData, workflow_type: e.target.value})}
+                  >
+                    <option value="">SELECT TYPE...</option>
+                    {workflowTypes.map((v: string) => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                  <Cpu className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none group-hover:text-blue-400 transition-colors" size={14} />
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-6">
