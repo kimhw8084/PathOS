@@ -69,7 +69,8 @@ const SearchableSelect = ({
   disabled,
   placeholder = "Select...",
   isMulti = false,
-  icon: Icon
+  icon: Icon,
+  error = false
 }: { 
   label: string, 
   options: any[], 
@@ -78,7 +79,8 @@ const SearchableSelect = ({
   disabled?: boolean,
   placeholder?: string,
   isMulti?: boolean,
-  icon?: any
+  icon?: any,
+  error?: boolean
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -110,8 +112,8 @@ const SearchableSelect = ({
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside, true);
+    return () => document.removeEventListener('mousedown', handleClickOutside, true);
   }, []);
 
   const getDisplayValue = () => {
@@ -131,13 +133,13 @@ const SearchableSelect = ({
   };
 
   return (
-    <div className={cn("space-y-2 relative", disabled && "opacity-30 pointer-events-none")} ref={containerRef} style={{ zIndex: isOpen ? 100 : 'auto' }}>
-      <label className="text-[9px] text-white/40 font-black uppercase tracking-[0.2em] px-1">{label}</label>
+    <div className={cn("space-y-2 relative", disabled && "opacity-30 pointer-events-none")} ref={containerRef} style={{ zIndex: isOpen ? 1000 : 'auto' }}>
+      <label className={cn("text-[9px] font-black uppercase tracking-[0.2em] px-1 transition-colors", error ? "text-status-error" : "text-white/40")}>{label}</label>
       <div 
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={cn(
-          "w-full bg-[#1e293b]/50 border border-white/10 rounded-lg px-4 py-3 min-h-[48px] flex flex-wrap gap-2 items-center cursor-pointer transition-all hover:border-white/20",
-          isOpen && "border-theme-accent ring-1 ring-theme-accent/20 bg-[#1e293b]"
+          "w-full bg-[#1e293b]/50 border rounded-lg px-4 py-3 min-h-[48px] flex flex-wrap gap-2 items-center cursor-pointer transition-all hover:border-white/20",
+          isOpen ? "border-theme-accent ring-1 ring-theme-accent/20 bg-[#1e293b]" : (error ? "border-status-error/50 bg-status-error/5" : "border-white/10")
         )}
       >
         <div className="flex-1 flex flex-wrap gap-2 items-center">
@@ -149,7 +151,7 @@ const SearchableSelect = ({
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl z-[100] p-2 animate-apple-in backdrop-blur-2xl">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-[#1e293b] border border-white/10 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[9999] p-2 animate-apple-in backdrop-blur-2xl">
           <div className="relative mb-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" size={14} />
             <input 
@@ -193,9 +195,11 @@ const SearchableSelect = ({
 const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel, taxonomy, initialData }) => {
   const [systemParams, setSystemParams] = useState<any[]>([]);
   const [isRegular, setIsRegular] = useState<boolean | null>(initialData ? true : null);
+  const [showErrors, setShowErrors] = useState(false);
   
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
+    forensic_description: initialData?.forensic_description || '',
     prc: initialData?.prc || '',
     workflow_type: initialData?.workflow_type || '',
     trigger_type: initialData?.trigger_type || '',
@@ -244,6 +248,19 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
 
   const isDisabled = isRegular !== true;
 
+  const handleFinalize = () => {
+    if (!formData.name || !formData.prc || !formData.workflow_type || !formData.trigger_type || !formData.output_type) {
+      setShowErrors(true);
+      return;
+    }
+
+    onSuccess({
+      ...formData,
+      tool_family: formData.tool_family.join(', '),
+      tool_id: formData.applicable_tools.join(', ')
+    });
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-apple-in pb-16">
       <CreationProgressBar currentStep={isRegular === true ? 2 : 1} />
@@ -264,7 +281,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
         </div>
         <div className="flex items-center gap-3">
           <button onClick={onCancel} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/40 hover:text-white transition-all font-black text-[10px] uppercase tracking-widest">Cancel</button>
-          <button onClick={() => { setIsRegular(null); setFormData({ ...formData, name: '', prc: '', tool_family: [], applicable_tools: [] }); }} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/40 hover:text-white hover:border-white/30 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 group">
+          <button onClick={() => { setIsRegular(null); setShowErrors(false); setFormData({ ...formData, name: '', prc: '', tool_family: [], applicable_tools: [] }); }} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/40 hover:text-white hover:border-white/30 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 group">
             <ChevronLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" /> Restart
           </button>
         </div>
@@ -316,18 +333,36 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
             </div>
             
             <div className="apple-card space-y-6 !bg-[#111827]/40 border-white/10 p-6">
-              <div className="space-y-3">
-                <div className="flex justify-between items-center px-1">
-                  <label className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em]">Workflow Name</label>
-                  <span className="text-[9px] text-white/20 font-mono">{formData.name.length} / 60</span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center px-1">
+                    <label className={cn("text-[10px] font-black uppercase tracking-[0.2em]", showErrors && !formData.name ? "text-status-error" : "text-white/40")}>Workflow Name</label>
+                    <span className="text-[9px] text-white/20 font-mono">{formData.name.length} / 60</span>
+                  </div>
+                  <input 
+                    className={cn(
+                      "w-full bg-[#1e293b]/50 border rounded-lg px-4 py-3 text-lg font-black text-white uppercase focus:border-theme-accent outline-none transition-all placeholder:text-white/5",
+                      showErrors && !formData.name ? "border-status-error/50 bg-status-error/5" : "border-white/10"
+                    )} 
+                    placeholder="ENTER WORKFLOW NAME..." 
+                    maxLength={60}
+                    value={formData.name} 
+                    onChange={e => setFormData({...formData, name: e.target.value})} 
+                  />
                 </div>
-                <input 
-                  className="w-full bg-[#1e293b]/50 border border-white/10 rounded-lg px-4 py-3 text-lg font-black text-white uppercase focus:border-theme-accent outline-none transition-all placeholder:text-white/5" 
-                  placeholder="ENTER WORKFLOW NAME..." 
-                  maxLength={60}
-                  value={formData.name} 
-                  onChange={e => setFormData({...formData, name: e.target.value})} 
-                />
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center px-1">
+                    <label className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em]">Forensic Description</label>
+                    <span className="text-[9px] text-white/20 font-mono">{formData.forensic_description.length} / 200</span>
+                  </div>
+                  <input 
+                    className="w-full bg-[#1e293b]/50 border border-white/10 rounded-lg px-4 py-3 text-[14px] font-bold text-white/80 focus:border-theme-accent outline-none transition-all placeholder:text-white/5" 
+                    placeholder="BRIEF PURPOSE STATEMENT..." 
+                    maxLength={200}
+                    value={formData.forensic_description} 
+                    onChange={e => setFormData({...formData, forensic_description: e.target.value})} 
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-3 gap-6">
@@ -338,6 +373,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                   onChange={val => setFormData({...formData, prc: val})}
                   placeholder="SELECT PRC..."
                   icon={Settings}
+                  error={showErrors && !formData.prc}
                 />
                 <SearchableSelect 
                   label="Type"
@@ -346,6 +382,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                   onChange={val => setFormData({...formData, workflow_type: val})}
                   placeholder="SELECT TYPE..."
                   icon={Cpu}
+                  error={showErrors && !formData.workflow_type}
                 />
                 <div className="space-y-2">
                   <label className="text-[9px] text-white/40 font-black uppercase tracking-[0.2em] px-1">Occurrence</label>
@@ -408,6 +445,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                   onChange={val => setFormData({...formData, trigger_type: val})}
                   placeholder="SELECT TRIGGER..."
                   icon={Zap}
+                  error={showErrors && !formData.trigger_type}
                 />
                 <SearchableSelect 
                   label="Output Classification"
@@ -416,6 +454,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                   onChange={val => setFormData({...formData, output_type: val})}
                   placeholder="SELECT OUTPUT..."
                   icon={Layers}
+                  error={showErrors && !formData.output_type}
                 />
               </div>
 
@@ -453,16 +492,14 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
 
           <div className="pt-8 border-t border-white/10 flex flex-col items-center gap-4">
             <button 
-              onClick={() => onSuccess({
-                ...formData,
-                tool_family: formData.tool_family.join(', '),
-                tool_id: formData.applicable_tools.join(', ')
-              })}
-              disabled={!formData.name || !formData.trigger_type || !formData.output_type}
+              onClick={handleFinalize}
               className="bg-theme-accent hover:bg-blue-500 text-white !px-16 !py-4 !rounded-xl shadow-xl disabled:opacity-20 group flex items-center gap-4 text-base font-black uppercase tracking-widest transition-all active:scale-[0.98]"
             >
               Finalize Configuration <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
             </button>
+            {showErrors && (
+              <p className="text-[10px] font-black text-status-error uppercase animate-pulse">Please complete all required fields highlighted above.</p>
+            )}
             <p className="text-[9px] text-white/20 font-bold uppercase tracking-[0.3em]">Advanced Planning System v4.2</p>
           </div>
         </div>
