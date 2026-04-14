@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   ShieldAlert, Zap, ArrowRight, ChevronLeft, 
   Layers,
-  Cpu, Settings, Search, Check, X
+  Cpu, Settings, Search, Check, X, ChevronDown
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -60,32 +60,46 @@ export const CreationProgressBar = ({ currentStep }: { currentStep: number }) =>
   );
 };
 
-const SearchableMultiSelect = ({ 
+const SearchableSelect = ({ 
   label, 
   options, 
-  selected, 
+  value, 
   onChange, 
   disabled,
-  placeholder = "Select options..." 
+  placeholder = "Select...",
+  isMulti = false,
+  icon: Icon
 }: { 
   label: string, 
-  options: string[], 
-  selected: string[], 
-  onChange: (vals: string[]) => void,
+  options: any[], 
+  value: any, 
+  onChange: (val: any) => void,
   disabled?: boolean,
-  placeholder?: string
+  placeholder?: string,
+  isMulti?: boolean,
+  icon?: any
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const filteredOptions = options.filter(opt => opt.toLowerCase().includes(search.toLowerCase()));
+  const filteredOptions = options.filter(opt => {
+    const label = typeof opt === 'string' ? opt : opt.label;
+    return label.toLowerCase().includes(search.toLowerCase());
+  });
 
-  const toggleOption = (opt: string) => {
-    if (selected.includes(opt)) {
-      onChange(selected.filter(s => s !== opt));
+  const toggleOption = (opt: any) => {
+    const optValue = typeof opt === 'string' ? opt : (opt.value || opt.label);
+    if (isMulti) {
+      const current = Array.isArray(value) ? value : [];
+      if (current.includes(optValue)) {
+        onChange(current.filter(s => s !== optValue));
+      } else {
+        onChange([...current, optValue]);
+      }
     } else {
-      onChange([...selected, opt]);
+      onChange(optValue);
+      setIsOpen(false);
     }
   };
 
@@ -99,30 +113,42 @@ const SearchableMultiSelect = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const getDisplayValue = () => {
+    if (isMulti) {
+      const vals = Array.isArray(value) ? value : [];
+      if (vals.length === 0) return null;
+      return vals.map(v => (
+        <span key={v} className="bg-theme-accent/20 border border-theme-accent/30 text-theme-accent text-[10px] font-black px-2 py-0.5 rounded flex items-center gap-1.5 uppercase tracking-tighter">
+          {v}
+          <X size={10} className="hover:text-white" onClick={(e) => { e.stopPropagation(); toggleOption(v); }} />
+        </span>
+      ));
+    } else {
+      if (!value) return null;
+      return <span className="text-[12px] font-black text-white uppercase">{value}</span>;
+    }
+  };
+
   return (
-    <div className={cn("space-y-3 relative", disabled && "opacity-30 pointer-events-none")} ref={containerRef}>
-      <label className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] px-1">{label}</label>
+    <div className={cn("space-y-2 relative", disabled && "opacity-30 pointer-events-none")} ref={containerRef} style={{ zIndex: isOpen ? 100 : 'auto' }}>
+      <label className="text-[9px] text-white/40 font-black uppercase tracking-[0.2em] px-1">{label}</label>
       <div 
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={cn(
-          "w-full bg-[#1e293b]/50 border border-white/10 rounded-lg px-4 py-3 min-h-[48px] flex flex-wrap gap-2 items-center cursor-pointer transition-all",
-          isOpen && "border-theme-accent ring-1 ring-theme-accent/20"
+          "w-full bg-[#1e293b]/50 border border-white/10 rounded-lg px-4 py-3 min-h-[48px] flex flex-wrap gap-2 items-center cursor-pointer transition-all hover:border-white/20",
+          isOpen && "border-theme-accent ring-1 ring-theme-accent/20 bg-[#1e293b]"
         )}
       >
-        {selected.length === 0 ? (
-          <span className="text-white/20 text-[12px] font-black uppercase tracking-widest">{placeholder}</span>
-        ) : (
-          selected.map(s => (
-            <span key={s} className="bg-theme-accent/20 border border-theme-accent/30 text-theme-accent text-[10px] font-black px-2 py-0.5 rounded flex items-center gap-1.5 uppercase tracking-tighter">
-              {s}
-              <X size={10} className="hover:text-white" onClick={(e) => { e.stopPropagation(); toggleOption(s); }} />
-            </span>
-          ))
-        )}
+        <div className="flex-1 flex flex-wrap gap-2 items-center">
+          {getDisplayValue() || (
+            <span className="text-white/20 text-[11px] font-black uppercase tracking-widest">{placeholder}</span>
+          )}
+        </div>
+        {Icon ? <Icon size={14} className={cn("text-white/20", isOpen && "text-theme-accent")} /> : <ChevronDown size={14} className={cn("text-white/20 transition-transform", isOpen && "rotate-180 text-theme-accent")} />}
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-theme-sidebar border border-theme-border rounded-xl shadow-2xl z-50 p-2 animate-apple-in backdrop-blur-xl">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl z-[100] p-2 animate-apple-in backdrop-blur-2xl">
           <div className="relative mb-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" size={14} />
             <input 
@@ -134,22 +160,28 @@ const SearchableMultiSelect = ({
               onClick={e => e.stopPropagation()}
             />
           </div>
-          <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-0.5">
+          <div className="max-h-60 overflow-y-auto custom-scrollbar space-y-0.5">
             {filteredOptions.length === 0 ? (
               <div className="py-4 text-center text-[10px] text-white/20 font-black uppercase">No results</div>
-            ) : filteredOptions.map(opt => (
-              <div 
-                key={opt}
-                onClick={(e) => { e.stopPropagation(); toggleOption(opt); }}
-                className={cn(
-                  "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-all text-[11px] font-bold",
-                  selected.includes(opt) ? "bg-theme-accent/10 text-theme-accent" : "text-white/60 hover:bg-white/5 hover:text-white"
-                )}
-              >
-                {opt}
-                {selected.includes(opt) && <Check size={12} />}
-              </div>
-            ))}
+            ) : filteredOptions.map(opt => {
+              const optValue = typeof opt === 'string' ? opt : (opt.value || opt.label);
+              const optLabel = typeof opt === 'string' ? opt : opt.label;
+              const isSelected = isMulti ? (Array.isArray(value) && value.includes(optValue)) : value === optValue;
+              
+              return (
+                <div 
+                  key={optValue}
+                  onClick={(e) => { e.stopPropagation(); toggleOption(opt); }}
+                  className={cn(
+                    "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-all text-[11px] font-bold uppercase tracking-tight",
+                    isSelected ? "bg-theme-accent/20 text-theme-accent" : "text-white/60 hover:bg-white/5 hover:text-white"
+                  )}
+                >
+                  {optLabel}
+                  {isSelected && <Check size={12} />}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -298,41 +330,29 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
               </div>
 
               <div className="grid grid-cols-3 gap-6">
-                <div className="space-y-3">
-                  <label className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] px-1">PRC</label>
-                  <div className="relative group">
-                    <select 
-                      className="w-full bg-[#1e293b]/50 border border-white/10 rounded-lg px-4 py-3 text-[12px] font-black text-white appearance-none focus:border-theme-accent outline-none transition-all cursor-pointer"
-                      value={formData.prc}
-                      onChange={e => setFormData({...formData, prc: e.target.value})}
-                    >
-                      <option value="">SELECT PRC...</option>
-                      {prcValues.map((v: string) => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                    <Settings className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none group-hover:text-theme-accent transition-colors" size={14} />
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <label className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] px-1">Type</label>
-                  <div className="relative group">
-                    <select 
-                      className="w-full bg-[#1e293b]/50 border border-white/10 rounded-lg px-4 py-3 text-[12px] font-black text-white appearance-none focus:border-theme-accent outline-none transition-all cursor-pointer"
-                      value={formData.workflow_type}
-                      onChange={e => setFormData({...formData, workflow_type: e.target.value})}
-                    >
-                      <option value="">SELECT TYPE...</option>
-                      {workflowTypes.map((v: string) => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                    <Cpu className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none group-hover:text-theme-accent transition-colors" size={14} />
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <label className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] px-1">Occurrence</label>
-                  <div className="flex items-center gap-2 bg-[#1e293b]/50 border border-white/10 rounded-lg p-1">
+                <SearchableSelect 
+                  label="PRC"
+                  options={prcValues}
+                  value={formData.prc}
+                  onChange={val => setFormData({...formData, prc: val})}
+                  placeholder="SELECT PRC..."
+                  icon={Settings}
+                />
+                <SearchableSelect 
+                  label="Type"
+                  options={workflowTypes}
+                  value={formData.workflow_type}
+                  onChange={val => setFormData({...formData, workflow_type: val})}
+                  placeholder="SELECT TYPE..."
+                  icon={Cpu}
+                />
+                <div className="space-y-2">
+                  <label className="text-[9px] text-white/40 font-black uppercase tracking-[0.2em] px-1">Occurrence</label>
+                  <div className="flex items-center gap-2 bg-[#1e293b]/50 border border-white/10 rounded-lg p-1 min-h-[48px]">
                     <input 
                       type="number" 
                       step="0.1"
-                      className="w-16 bg-black/20 font-black text-[13px] text-white text-center py-2 rounded-lg focus:border-theme-accent outline-none transition-all" 
+                      className="w-16 bg-black/40 font-black text-[13px] text-white text-center py-2 rounded-lg focus:border-theme-accent outline-none transition-all ml-1" 
                       value={formData.cadence_count} 
                       onChange={e => setFormData({...formData, cadence_count: parseFloat(e.target.value)})} 
                     />
@@ -351,19 +371,21 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
               </div>
 
               <div className="grid grid-cols-2 gap-6">
-                <SearchableMultiSelect 
+                <SearchableSelect 
                   label="Tool Family"
                   options={hardwareFamilies}
-                  selected={formData.tool_family}
+                  value={formData.tool_family}
                   onChange={vals => setFormData({...formData, tool_family: vals})}
                   placeholder="SELECT FAMILIES..."
+                  isMulti
                 />
-                <SearchableMultiSelect 
+                <SearchableSelect 
                   label="Applicable Tools"
                   options={toolIds}
-                  selected={formData.applicable_tools}
+                  value={formData.applicable_tools}
                   onChange={vals => setFormData({...formData, applicable_tools: vals})}
                   placeholder="SELECT TOOLS..."
+                  isMulti
                 />
               </div>
             </div>
@@ -378,35 +400,22 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
 
             <div className="apple-card space-y-6 !bg-[#111827]/40 border-white/10 p-6">
               <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] px-1">Trigger Mechanism</label>
-                  <div className="relative group">
-                    <select 
-                      className="w-full bg-[#1e293b]/50 border border-white/10 rounded-lg px-4 py-3 text-[12px] font-black text-white appearance-none focus:border-theme-accent outline-none transition-all cursor-pointer"
-                      value={formData.trigger_type}
-                      onChange={e => setFormData({...formData, trigger_type: e.target.value})}
-                    >
-                      <option value="">SELECT TRIGGER...</option>
-                      {triggerTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
-                    <Zap className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none group-hover:text-theme-accent transition-colors" size={14} />
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <label className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em] px-1">Output Classification</label>
-                  <div className="relative group">
-                    <select 
-                      className="w-full bg-[#1e293b]/50 border border-white/10 rounded-lg px-4 py-3 text-[12px] font-black text-white appearance-none focus:border-theme-accent outline-none transition-all cursor-pointer"
-                      value={formData.output_type}
-                      onChange={e => setFormData({...formData, output_type: e.target.value})}
-                    >
-                      <option value="">SELECT OUTPUT...</option>
-                      {outputTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
-                    <Layers className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 pointer-events-none group-hover:text-theme-accent transition-colors" size={14} />
-                  </div>
-                </div>
+                <SearchableSelect 
+                  label="Trigger Mechanism"
+                  options={triggerTypes}
+                  value={formData.trigger_type}
+                  onChange={val => setFormData({...formData, trigger_type: val})}
+                  placeholder="SELECT TRIGGER..."
+                  icon={Zap}
+                />
+                <SearchableSelect 
+                  label="Output Classification"
+                  options={outputTypes}
+                  value={formData.output_type}
+                  onChange={val => setFormData({...formData, output_type: val})}
+                  placeholder="SELECT OUTPUT..."
+                  icon={Layers}
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/5 pt-6">
