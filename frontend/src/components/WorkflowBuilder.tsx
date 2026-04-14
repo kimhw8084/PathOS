@@ -27,7 +27,7 @@ import {
   Plus, 
   Monitor, Cpu, Terminal, Link2, 
   Trash, 
-  Image as ImageIcon, Paperclip,
+  ImageIcon, Paperclip,
   ChevronLeft,
   Building2,
   Users2,
@@ -35,6 +35,7 @@ import {
   Info,
   ChevronDown
 } from 'lucide-react';
+import { CreationProgressBar } from './IntakeGatekeeper';
 
 
 // --- TYPES & INTERFACES ---
@@ -282,6 +283,7 @@ const edgeTypes = {
 
 const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, onSave, onBack }) => {
   const [view, setView] = useState<'flow' | 'table'>('flow');
+  const [isSaved, setIsSaved] = useState(false);
   
   // Task normalization to ensure all fields exist
   const normalizeTasks = useCallback((rawTasks: any[]): Task[] => {
@@ -359,7 +361,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       const sorted = [...nds].sort((a, b) => a.position.x - b.position.x);
       return sorted.map((n, i) => ({
         ...n,
-        position: { x: 100 + (i * 350), y: 250 + (i % 2 === 0 ? 0 : 80) }
+        position: { 
+          x: 100 + (i * 380), 
+          y: 300 + (i % 2 === 0 ? 0 : 120) + (i % 3 === 0 ? 40 : 0) 
+        }
       }));
     });
   }, [setNodes]);
@@ -468,77 +473,89 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId), [tasks, selectedTaskId]);
   const selectedEdge = useMemo(() => edges.find(e => e.id === selectedEdgeId), [edges, selectedEdgeId]);
 
+  const handleSave = async () => {
+    try {
+      await onSave({...metadata, tasks});
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 5000);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
-    <div className="apple-card !p-0 flex flex-col h-full overflow-hidden relative shadow-2xl border-white/10 bg-[#0a1120]">
-      
-      {/* --- UNIFIED HEADER --- */}
-      <div className="border-b border-white/10 bg-[#0a1120]/80 backdrop-blur-xl z-40 flex flex-col">
-        {/* Row 1: Nav & Basic Controls */}
-        <div className="h-14 flex items-center justify-between px-6">
-          <div className="flex items-center gap-6">
-            <button 
-              onClick={onBack}
-              className="flex items-center gap-2 text-theme-muted hover:text-white transition-all group"
-            >
-              <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-              <span className="text-[11px] font-black uppercase tracking-widest">Repository</span>
-            </button>
+    <div className="flex flex-col h-full gap-4">
+      <CreationProgressBar currentStep={isSaved ? 4 : 3} />
 
-            <div className="h-8 w-[1px] bg-white/10" />
+      <div className="apple-card !p-0 flex-1 flex flex-col overflow-hidden relative shadow-2xl border-white/10 bg-[#0a1120]">
 
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2">
-                <LucideWorkflow size={14} className="text-blue-400" />
-                <span className="text-[13px] font-black text-white tracking-tighter uppercase">{workflow.name}</span>
-              </div>
-            </div>
-
-            <div className="h-8 w-[1px] bg-white/10 mx-2" />
-
-            {/* Org / Team / POC Context */}
+        {/* --- UNIFIED HEADER --- */}
+        <div className="border-b border-white/10 bg-[#0a1120]/80 backdrop-blur-xl z-40 flex flex-col">
+          {/* Row 1: Nav & Basic Controls */}
+          <div className="h-14 flex items-center justify-between px-6">
             <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <Building2 size={12} className="text-white/20" />
-                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{metadata.org || 'Unassigned Org'}</span>
+              <button 
+                onClick={onBack}
+                className="flex items-center gap-2 text-theme-muted hover:text-white transition-all group"
+              >
+                <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
+                <span className="text-[11px] font-black uppercase tracking-widest">Repository</span>
+              </button>
+
+              <div className="h-8 w-[1px] bg-white/10" />
+
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <LucideWorkflow size={14} className="text-blue-400" />
+                  <span className="text-[13px] font-black text-white tracking-tighter uppercase">{workflow.name}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Users2 size={12} className="text-white/20" />
-                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{metadata.team || 'Unassigned Team'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <User size={12} className="text-white/20" />
-                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{metadata.poc || 'No POC'}</span>
+
+              <div className="h-8 w-[1px] bg-white/10 mx-2" />
+
+              {/* Org / Team / POC Context */}
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <Building2 size={12} className="text-white/20" />
+                  <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{metadata.org || 'Unassigned Org'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Users2 size={12} className="text-white/20" />
+                  <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{metadata.team || 'Unassigned Team'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <User size={12} className="text-white/20" />
+                  <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{metadata.poc || 'No POC'}</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={autoLayout}
-              className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
-            >
-              <Layers size={12} /> Auto-Layout
-            </button>
-            <div className="flex bg-white/5 p-0.5 rounded-full border border-white/10">
-              {[
-                { id: 'flow', label: 'Designer' },
-                { id: 'table', label: 'List View' },
-              ].map((v) => (
-                <button 
-                  key={v.id}
-                  onClick={() => setView(v.id as any)} 
-                  className={`px-4 py-1 text-[10px] font-black uppercase tracking-widest rounded-full transition-all duration-300 ${view === v.id ? 'bg-blue-600 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
-                >
-                  {v.label}
-                </button>
-              ))}
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={autoLayout}
+                className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+              >
+                <Layers size={12} /> Auto-Layout
+              </button>
+              <div className="flex bg-white/5 p-0.5 rounded-full border border-white/10">
+                {[
+                  { id: 'flow', label: 'Designer' },
+                  { id: 'table', label: 'List View' },
+                ].map((v) => (
+                  <button 
+                    key={v.id}
+                    onClick={() => setView(v.id as any)} 
+                    className={`px-4 py-1 text-[10px] font-black uppercase tracking-widest rounded-full transition-all duration-300 ${view === v.id ? 'bg-blue-600 text-white shadow-lg' : 'text-white/40 hover:text-white'}`}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+              <button onClick={handleSave} className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+                <Save size={12} /> {isSaved ? 'Saved!' : 'Save'}
+              </button>
             </div>
-            <button onClick={() => onSave({...metadata, tasks})} className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.3)]">
-              <Save size={12} /> Save
-            </button>
           </div>
-        </div>
-
         {/* Row 2: Forensic Description & Type/PRC */}
         <div className="h-10 flex items-center justify-between px-6 border-t border-white/5 bg-white/[0.02]">
            <div className="flex items-center gap-3 flex-1 overflow-hidden">
@@ -1213,6 +1230,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
              </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

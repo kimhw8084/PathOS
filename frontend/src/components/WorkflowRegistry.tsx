@@ -9,7 +9,6 @@ import {
   Plus, 
   Copy, 
   GitBranch, 
-  FileText, 
   Eye,
   Filter,
   X,
@@ -143,27 +142,27 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
   // Table Density Settings
   const [density, setDensity] = useState({
     fontSize: 13,
-    rowPadding: 8
+    rowPadding: 4
   });
 
   // Column Resizing
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
-    workflow: 280,
-    prc: 90,
-    toolFamily: 160,
-    type: 110,
-    triggerOutput: 280,
+    workflow: 320,
+    prc: 100,
+    toolFamily: 180,
+    type: 120,
+    triggerOutput: 300,
     freq: 80,
     manual: 90,
     auto: 90,
     roi: 110,
-    blockers: 80,
-    errors: 80,
-    status: 140,
-    creator: 110,
-    editor: 110,
-    created: 110,
-    ver: 70
+    blockers: 90,
+    errors: 90,
+    status: 180,
+    creator: 120,
+    editor: 120,
+    created: 120,
+    ver: 80
   });
 
   const resizingRef = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
@@ -340,7 +339,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     
     return (
       <span className={cn(
-        "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border whitespace-nowrap inline-flex items-center gap-1.5 leading-none max-w-full overflow-hidden",
+        "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border whitespace-nowrap inline-flex items-center gap-1.5 leading-none max-w-full",
         isProd ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
         isDraft ? "bg-slate-500/10 text-slate-400 border-slate-500/30" :
         "bg-amber-500/10 text-amber-400 border-amber-500/30"
@@ -348,14 +347,14 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
         <div className={cn("w-1 h-1 rounded-full shrink-0", 
           isProd ? "bg-emerald-400" : isDraft ? "bg-slate-400" : "bg-amber-400"
         )} />
-        <span className="truncate">{status}</span>
+        <span className="whitespace-nowrap">{status}</span>
       </span>
     );
   };
 
   const CircledNumber = ({ count, colorClass }: { count: number, colorClass: string }) => (
     <div className={cn(
-      "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border",
+      "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border shrink-0",
       count > 0 ? colorClass : "bg-white/[0.02] border-white/10 text-white/20"
     )}>
       {count}
@@ -382,8 +381,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                   { icon: Eye, label: 'View Details', onClick: () => onSelect(data) },
                   { icon: Copy, label: 'Duplicate Workflow' },
                   { icon: GitBranch, label: 'Version History' },
-                  { icon: FileText, label: 'Export SOP' },
-                  { icon: Share2, label: 'Collaborate' },
+                  { icon: Share2, label: 'Permission' },
                 ].map((item, idx) => (
                   <button 
                     key={idx}
@@ -533,7 +531,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
         )}
         onClick={() => sortKey && handleSort(sortKey)}
       >
-        <span className="truncate">{label}</span>
+        <span className="whitespace-nowrap">{label}</span>
         {sortKey && sortConfig.key === sortKey && (
           <span className="ml-1 text-theme-accent">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
         )}
@@ -797,41 +795,41 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                       </td>
 
                       <td className="p-0 border-r border-theme-border text-center" style={{ padding: `0 8px` }}>
-                        <span className="font-mono font-black text-blue-400" style={{ fontSize: `${density.fontSize}px` }}>{w.prc || '--'}</span>
+                        <span className="font-mono font-black text-blue-400 whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>{w.prc || '--'}</span>
                       </td>
 
                       <td className="p-0 border-r border-theme-border text-center" style={{ padding: `0 8px` }}>
-                        <span className="font-black text-theme-secondary uppercase tracking-wider" style={{ fontSize: `${density.fontSize - 2}px` }}>
+                        <span className="font-black text-theme-secondary uppercase tracking-wider whitespace-nowrap" style={{ fontSize: `${density.fontSize - 2}px` }}>
                           {familyDisplay || 'Generic'}
                         </span>
                       </td>
 
                       <td className="p-0 border-r border-theme-border text-center" style={{ padding: `0 8px` }}>
-                         <span className="font-black text-white/40 uppercase tracking-widest" style={{ fontSize: `${density.fontSize - 2}px` }}>{w.workflow_type || 'STANDARD'}</span>
+                         <span className="font-black text-white/40 uppercase tracking-widest whitespace-nowrap" style={{ fontSize: `${density.fontSize - 2}px` }}>{w.workflow_type || 'STANDARD'}</span>
                       </td>
 
                       <td className="p-0 border-r border-theme-border text-center" style={{ padding: `0 8px` }}>
-                        <div className="flex items-center justify-center gap-2 text-white/60 overflow-hidden">
-                          <span className="truncate" style={{ fontSize: `${density.fontSize - 2}px` }}>{w.trigger_type}</span>
+                        <div className="flex items-center justify-center gap-2 text-white/60">
+                          <span className="whitespace-nowrap" style={{ fontSize: `${density.fontSize - 2}px` }}>{w.trigger_type}</span>
                           <ArrowRight size={10} className="text-theme-accent shrink-0" />
-                          <span className="truncate" style={{ fontSize: `${density.fontSize - 2}px` }}>{w.output_type}</span>
+                          <span className="whitespace-nowrap" style={{ fontSize: `${density.fontSize - 2}px` }}>{w.output_type}</span>
                         </div>
                       </td>
 
                       <td className="p-0 border-r border-theme-border text-center" style={{ padding: `0 8px` }}>
-                         <span className="font-black text-white/80" style={{ fontSize: `${density.fontSize}px` }}>{analytics.frequencyPerWeek.toFixed(1)}</span>
+                         <span className="font-black text-white/80 whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>{analytics.frequencyPerWeek.toFixed(1)}</span>
                       </td>
 
                       <td className="p-0 text-center border-r border-theme-border" style={{ padding: `0 8px` }}>
-                        <span className="font-black text-white/80" style={{ fontSize: `${density.fontSize}px` }}>{analytics.manualPerCycle.toFixed(1)}h</span>
+                        <span className="font-black text-white/80 whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>{analytics.manualPerCycle.toFixed(1)}h</span>
                       </td>
 
                       <td className="p-0 text-center border-r border-theme-border" style={{ padding: `0 8px` }}>
-                        <span className="font-black text-white/80" style={{ fontSize: `${density.fontSize}px` }}>{analytics.autoPerCycle.toFixed(1)}h</span>
+                        <span className="font-black text-white/80 whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>{analytics.autoPerCycle.toFixed(1)}h</span>
                       </td>
 
                       <td className="p-0 text-center border-r border-theme-border" style={{ padding: `0 8px` }}>
-                        <span className="font-black text-theme-accent" style={{ fontSize: `${density.fontSize}px` }}>+{analytics.manualWeekly.toFixed(1)}</span>
+                        <span className="font-black text-theme-accent whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>+{analytics.manualWeekly.toFixed(1)}</span>
                       </td>
 
                       <td className="p-0 border-r border-theme-border" style={{ padding: `0 8px` }}>
@@ -853,19 +851,19 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                       </td>
 
                       <td className="p-0 border-r border-theme-border font-bold text-theme-secondary text-center" style={{ padding: `0 8px`, fontSize: `${density.fontSize - 2}px` }}>
-                        {w.created_by?.split('_')[0] || 'System'}
+                        <span className="whitespace-nowrap">{w.created_by?.split('_')[0] || 'System'}</span>
                       </td>
 
                       <td className="p-0 border-r border-theme-border font-bold text-theme-secondary text-center" style={{ padding: `0 8px`, fontSize: `${density.fontSize - 2}px` }}>
-                        {w.updated_by?.split('_')[0] || 'System'}
+                        <span className="whitespace-nowrap">{w.updated_by?.split('_')[0] || 'System'}</span>
                       </td>
 
                       <td className="p-0 border-r border-theme-border text-theme-muted font-mono text-center" style={{ padding: `0 8px`, fontSize: `${density.fontSize - 2}px` }}>
-                        {new Date(w.created_at).toLocaleDateString()}
+                        <span className="whitespace-nowrap">{new Date(w.created_at).toLocaleDateString()}</span>
                       </td>
 
                       <td className="p-0 text-center border-r border-theme-border sticky right-[60px] bg-[#0a1120] group-hover:bg-[#151d2e] z-10 transition-colors" style={{ padding: `0 4px` }}>
-                         <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-black text-theme-secondary">
+                         <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-black text-theme-secondary whitespace-nowrap">
                            V{w.version}
                          </span>
                       </td>
