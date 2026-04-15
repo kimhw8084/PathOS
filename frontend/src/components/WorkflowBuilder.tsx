@@ -124,7 +124,7 @@ interface Task {
   description: string;
   task_type: string;
   target_systems: TargetSystem[];
-  interface_type: 'GUI' | 'CLI' | 'API' | 'DECISION' | 'TRIGGER' | 'OUTCOME';
+  interface_type: 'GUI' | 'CLI' | 'API' | 'DECISION' | 'TRIGGER' | 'OUTCOME' | 'LOOP';
   manual_time_minutes: number;
   automation_time_minutes: number;
   machine_wait_time_minutes: number;
@@ -196,13 +196,16 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
     'Validation': 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10',
     'TRIGGER': 'text-cyan-400 border-cyan-400/30 bg-cyan-400/10',
     'OUTCOME': 'text-rose-400 border-rose-400/30 bg-rose-400/10',
+    'LOOP': 'text-orange-400 border-orange-400/30 bg-orange-400/10',
   };
 
   const typeColor = typeColors[data.task_type] || 'text-white/40 border-white/10 bg-white/5';
+  const isTrigger = data.interface === 'TRIGGER';
+  const isOutcome = data.interface === 'OUTCOME';
 
   return (
     <div className={cn(
-      "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-6 py-5 min-w-[320px] shadow-2xl transition-all duration-300 group relative border-2",
+      "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-6 py-5 w-[320px] shadow-2xl transition-all duration-300 group relative border-2",
       selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : 'border-white/10 hover:border-white/20'
     )}>
       <div className="flex flex-col gap-4">
@@ -235,19 +238,23 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         </div>
         
         <div className="space-y-1.5">
-          <h4 className="text-[15px] font-black text-white tracking-tighter leading-tight uppercase group-hover:text-theme-accent transition-colors">{data.label || "Untitled Task"}</h4>
+          <h4 className="text-[15px] font-black text-white tracking-tighter leading-tight uppercase group-hover:text-theme-accent transition-colors truncate">{data.label || "Untitled Task"}</h4>
           {data.description && (
-            <p className="text-[10px] text-white/40 font-bold leading-relaxed line-clamp-2 italic uppercase tracking-tight">
+            <p className="text-[10px] text-white/40 font-bold leading-relaxed line-clamp-1 italic uppercase tracking-tight overflow-hidden text-ellipsis">
               {data.description}
             </p>
           )}
           <div className="flex items-center gap-2 pt-1">
-             <span className="text-[9px] font-black text-white/20 uppercase tracking-widest truncate max-w-[200px]">{data.systems}</span>
+             <span className="text-[9px] font-black text-white/20 uppercase tracking-widest truncate">{data.systems || 'NO SYSTEMS'}</span>
           </div>
         </div>
       </div>
-      <Handle type="target" position={Position.Left} className="!bg-theme-accent !w-4 !h-4 !border-4 !border-[#0f172a] !-left-2 shadow-xl hover:scale-125 transition-transform" />
-      <Handle type="source" position={Position.Right} className="!bg-theme-accent !w-4 !h-4 !border-4 !border-[#0f172a] !-right-2 shadow-xl hover:scale-125 transition-transform" />
+      {!isTrigger && (
+        <Handle type="target" position={Position.Left} className="!bg-theme-accent !w-4 !h-4 !border-4 !border-[#0f172a] !-left-2 shadow-xl hover:scale-125 transition-transform" />
+      )}
+      {!isOutcome && (
+        <Handle type="source" position={Position.Right} className="!bg-theme-accent !w-4 !h-4 !border-4 !border-[#0f172a] !-right-2 shadow-xl hover:scale-125 transition-transform" />
+      )}
     </div>
   );
 };
@@ -257,13 +264,13 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => (
     <div className={`absolute inset-0 rotate-45 border-2 transition-all duration-300 bg-[#1e293b]/90 ${selected ? 'border-blue-400 shadow-[0_0_30px_rgba(59,130,246,0.4)]' : 'border-white/20 group-hover:border-white/40'}`} />
     <div className="relative z-10 flex flex-col items-center p-4">
       <Zap size={22} className="text-blue-400 mb-1.5" />
-      <span className="text-[10px] font-black text-white uppercase tracking-tighter text-center leading-tight">{data.label || "DECISION"}</span>
+      <span className="text-[10px] font-black text-white uppercase tracking-tighter text-center leading-tight truncate w-full px-2">{data.label || "DECISION"}</span>
     </div>
     
-    <Handle type="target" position={Position.Left} className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-left-2 shadow-lg" />
-    <Handle type="source" position={Position.Top} id="top" className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-top-2 shadow-lg" />
-    <Handle type="source" position={Position.Right} id="right" className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-right-2 shadow-lg" />
-    <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-bottom-2 shadow-lg" />
+    <Handle type="target" position={Position.Left} className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-left-2 shadow-lg z-50" />
+    <Handle type="source" position={Position.Top} id="top" className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-top-2 shadow-lg z-50" />
+    <Handle type="source" position={Position.Right} id="right" className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-right-2 shadow-lg z-50" />
+    <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-bottom-2 shadow-lg z-50" />
   </div>
 );
 
@@ -278,6 +285,7 @@ const CustomEdge = ({
   style = {},
   markerEnd,
   data,
+  selected
 }: EdgeProps) => {
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX,
@@ -288,17 +296,27 @@ const CustomEdge = ({
     targetPosition,
   });
 
+  const edgeColor = data?.color || '#3b82f6';
+
   return (
     <>
+      <path
+        id={`${id}-interaction`}
+        d={edgePath}
+        fill="none"
+        stroke="transparent"
+        strokeWidth={20}
+        className="react-flow__edge-interaction cursor-pointer"
+      />
       <path
         id={id}
         style={{
           ...style,
-          stroke: data?.color || style.stroke || '#3b82f6',
-          strokeWidth: 2.5,
+          stroke: edgeColor,
+          strokeWidth: selected ? 4 : 2.5,
           strokeDasharray: data?.style === 'dashed' ? '5,5' : 'none',
         }}
-        className="react-flow__edge-path transition-all duration-300"
+        className={cn("react-flow__edge-path transition-all duration-300", selected && "drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]")}
         d={edgePath}
         markerEnd={markerEnd}
       />
@@ -327,6 +345,7 @@ const nodeTypes = {
   DECISION: DiamondNode,
   TRIGGER: MatrixNode,
   OUTCOME: MatrixNode,
+  LOOP: MatrixNode,
 };
 
 const edgeTypes = {
@@ -580,8 +599,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   }, [reactFlowInstance, edges, setNodes]);
 
   const deleteTask = (id: string) => {
-    if (id === 'trigger-node' || id === 'outcome-node') return;
-    
     setTasks(prev => prev.filter(t => t.id !== id));
     setNodes(nds => nds.filter(n => n.id !== id));
     setEdges(eds => eds.filter(e => e.source !== id && e.target !== id));
@@ -595,7 +612,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       id: t.id,
       type: t.interface_type === 'DECISION' ? 'DECISION' : 
             t.interface_type === 'TRIGGER' ? 'TRIGGER' :
-            t.interface_type === 'OUTCOME' ? 'OUTCOME' : 'matrix',
+            t.interface_type === 'OUTCOME' ? 'OUTCOME' : 
+            t.interface_type === 'LOOP' ? 'LOOP' : 'matrix',
       data: { 
         label: t.name, 
         description: t.description,
@@ -653,28 +671,45 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   }, [tasks]);
 
   const onConnect = useCallback((params: Connection) => {
+    const isLoop = params.source === params.target || edges.some(e => e.source === params.target && e.target === params.source);
     setEdges((eds) => addEdge({ 
       ...params, 
       type: 'custom',
-      data: { label: '', color: '#3b82f6', style: 'solid' },
-      markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6' }, 
+      data: { 
+        label: isLoop ? 'RETURN/REDO' : '', 
+        color: isLoop ? '#f59e0b' : '#3b82f6', 
+        style: isLoop ? 'dashed' : 'solid' 
+      },
+      markerEnd: { type: MarkerType.ArrowClosed, color: isLoop ? '#f59e0b' : '#3b82f6' }, 
     }, eds));
-  }, [setEdges]);
+  }, [setEdges, edges]);
 
   // Handle deletions from React Flow
   const onNodesDelete = useCallback((deleted: Node[]) => {
     const deletedIds = deleted.map(n => n.id);
-    if (deletedIds.includes('trigger-node') || deletedIds.includes('outcome-node')) return;
     setTasks(prev => prev.filter(t => !deletedIds.includes(t.id)));
   }, []);
 
   const addNewNode = (type: Task['interface_type']) => {
     const id = `node-${Date.now()}`;
+    
+    let position = { x: 500, y: 300 };
+    if (reactFlowInstance) {
+      const flowBounds = document.querySelector('.react-flow')?.getBoundingClientRect();
+      if (flowBounds) {
+        const center = reactFlowInstance.project({
+          x: flowBounds.width / 2,
+          y: flowBounds.height / 2,
+        });
+        position = center;
+      }
+    }
+
     const newTask: Task = {
       id,
       name: `NEW ${type}`,
       description: '',
-      task_type: 'Technical',
+      task_type: type === 'LOOP' ? 'Validation' : 'Technical',
       target_systems: [],
       interface_type: type,
       manual_time_minutes: 0,
@@ -702,6 +737,17 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       const others = prev.filter(t => t.id !== 'outcome-node');
       return [...others, newTask, outcome].filter(Boolean) as Task[];
     });
+    
+    setNodes(nds => [...nds, {
+      id,
+      type: type === 'DECISION' ? 'DECISION' : 
+            type === 'TRIGGER' ? 'TRIGGER' :
+            type === 'OUTCOME' ? 'OUTCOME' : 
+            type === 'LOOP' ? 'LOOP' : 'matrix',
+      data: { label: newTask.name, task_type: newTask.task_type, interface: type },
+      position
+    }]);
+
     setSelectedTaskId(id);
     setSelectedEdgeId(null);
     setInspectorTab('execution');
@@ -712,13 +758,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   };
 
   const updateEdge = (id: string, updates: any) => {
-    setEdges(eds => eds.map(e => e.id === id ? { ...e, data: { ...e.data, ...updates } } : e));
+    setEdges(eds => eds.map(e => e.id === id ? { ...e, data: { ...e.data, ...updates }, markerEnd: { ...e.markerEnd as any, color: updates.color || e.data?.color } } : e));
   };
 
   const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId), [tasks, selectedTaskId]);
   const selectedEdge = useMemo(() => edges.find(e => e.id === selectedEdgeId), [edges, selectedEdgeId]);
 
-  // Trigger/Outcome protection
+  // Trigger/Outcome protection for metadata view
   const isProtected = selectedTaskId === 'trigger-node' || selectedTaskId === 'outcome-node';
 
   const handleSave = async () => {
@@ -776,7 +822,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
                   <LucideWorkflow size={14} className="text-theme-accent" />
-                  <span className="text-[13px] font-black text-white tracking-tighter uppercase">{workflow.name}</span>
+                  <span className="text-[13px] font-black text-white tracking-tighter uppercase truncate max-w-[200px]">{workflow.name}</span>
                 </div>
               </div>
             </div>
@@ -809,8 +855,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           <div className="flex-1 flex flex-col overflow-hidden relative">
             {view === 'flow' ? (
               <div className="flex-1 bg-[#0a1120] relative">
-                <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodesDelete={onNodesDelete} onNodeClick={(_, node) => { setSelectedTaskId(node.id); setInspectorTab(node.id.includes('node') ? 'execution' : 'process'); }} onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedTaskId(null); }} onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); setInspectorTab('process'); }} onInit={setReactFlowInstance} fitView className="bg-transparent">
-                  <Background variant={BackgroundVariant.Lines} color="rgba(255,255,255,0.03)" gap={40} size={1} />
+                <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodesDelete={onNodesDelete} onNodeClick={(_, node) => { setSelectedTaskId(node.id); setInspectorTab(node.id.includes('node') ? 'execution' : 'process'); }} onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedTaskId(null); }} onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); setInspectorTab('process'); }} onInit={setReactFlowInstance} snapToGrid={true} snapGrid={[20, 20]} fitView className="bg-transparent">
+                  <Background variant={BackgroundVariant.Dots} color="rgba(255,255,255,0.05)" gap={20} size={1} />
                   <Controls className="!bg-[#1e293b] !border-white/10" />
                   <Panel position="bottom-center" className="mb-6">
                      <div className="flex items-center gap-2 p-1.5 bg-[#0f172a]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/50">
@@ -818,7 +864,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                         <Plus size={16} /> Add Task
                       </button>
                       <button onClick={() => addNewNode('DECISION')} className="flex items-center gap-2 px-5 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-white/10 transition-all">
-                        <Zap size={16} /> Add Decision
+                        <Zap size={16} /> Decision
+                      </button>
+                      <button onClick={() => addNewNode('LOOP')} className="flex items-center gap-2 px-5 py-2.5 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all">
+                        <Activity size={16} /> Loop
                       </button>
                     </div>
                   </Panel>
@@ -880,7 +929,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             <div onMouseDown={handleMouseDown} className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent transition-colors z-50 group" />
             <div className="h-14 flex border-b border-white/10 bg-white/[0.02]">
               {[
-                { id: 'execution', label: 'Task Detail', icon: <Activity size={12} />, hidden: !selectedTaskId || isProtected },
+                { id: 'execution', label: 'Execution', icon: <Activity size={12} />, hidden: !selectedTaskId || isProtected },
                 { id: 'data', label: 'Data', icon: <Database size={12} />, hidden: !selectedTaskId || isProtected },
                 { id: 'exceptions', label: 'Exceptions', icon: <AlertCircle size={12} />, hidden: !selectedTaskId || isProtected },
                 { id: 'appendix', label: 'Appendix', icon: <Paperclip size={12} />, hidden: !selectedTaskId || isProtected }
@@ -912,12 +961,26 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Description</label>
                         <textarea className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-bold text-white/60 outline-none focus:border-theme-accent h-24 resize-none leading-relaxed" placeholder="Task objective and core logic..." value={selectedTask.description} onChange={e => updateTask(selectedTaskId, { description: e.target.value })} />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task Type</label>
-                        <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>
-                          {taskTypes.map((t: string) => <option key={t} value={t}>{t}</option>)}
-                        </select>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task Type</label>
+                          <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>
+                            {taskTypes.map((t: string) => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Occurrences</label>
+                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={selectedTask.occurrences_per_cycle} onChange={e => updateTask(selectedTaskId, { occurrences_per_cycle: parseInt(e.target.value) || 1 })} />
+                        </div>
                       </div>
+
+                      {selectedTask.occurrences_per_cycle > 1 && (
+                        <div className="space-y-2 animate-apple-in">
+                          <label className="text-[9px] font-black text-amber-500 uppercase tracking-widest px-1">Explanation for Multiple Occurrences</label>
+                          <textarea className="w-full bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 outline-none focus:border-amber-500 h-20 resize-none" placeholder="Why does this task occur multiple times? (e.g., iterative review, batch processing)" value={selectedTask.occurrence_condition} onChange={e => updateTask(selectedTaskId, { occurrence_condition: e.target.value })} />
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest px-1">Manual (m)</label>
@@ -929,7 +992,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                         </div>
                       </div>
                       <button onClick={() => deleteTask(selectedTaskId)} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2">
-                        <Trash size={12} /> Delete Task Entity
+                        <Trash size={12} /> Delete Entity
                       </button>
                     </div>
                   )}
@@ -937,7 +1000,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                     <div className="space-y-10 animate-apple-in">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between px-1">
-                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Source Data</label>
+                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Source Data (Inputs)</label>
                           <div className="flex gap-2">
                              <div className="relative group/search">
                                 <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 text-white/40 rounded-lg text-[9px] font-black uppercase tracking-widest hover:text-white transition-all">
@@ -993,6 +1056,24 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                               ))}
                             </tbody>
                           </table>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between px-1">
+                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Output Data (Deliverables)</label>
+                          <button onClick={() => updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '', format: '', example: '', saved_location: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all">
+                             <Plus size={12} /> Add Output
+                          </button>
+                        </div>
+                        <div className="space-y-4">
+                          {selectedTask.output_data_list.map(od => (
+                            <div key={od.id} className="p-4 bg-[#1e293b]/50 border border-white/10 rounded-2xl space-y-3 relative group">
+                              <button onClick={() => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.filter(x => x.id !== od.id) })} className="absolute top-4 right-4 text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
+                              <input className="w-full bg-transparent text-[13px] font-black text-white outline-none uppercase placeholder:text-white/10" value={od.name} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, name: e.target.value } : x) })} placeholder="OUTPUT DATA NAME" />
+                              <textarea className="w-full bg-black/20 border border-white/5 rounded-lg p-2 text-[11px] text-white/60 font-bold h-16 resize-none outline-none" placeholder="Format, destination, and purpose..." value={od.description} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, description: e.target.value } : x) })} />
+                            </div>
+                          ))}
                         </div>
                       </div>
                     </div>
@@ -1100,8 +1181,49 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                 </div>
               ) : selectedEdgeId && selectedEdge ? (
                 <div className="p-6 space-y-10 animate-apple-in">
-                   <div className="flex items-center justify-between border-b border-white/10 pb-4"><div className="flex items-center gap-3"><Link2 size={16} className="text-theme-accent" /><span className="text-[14px] font-black text-white uppercase tracking-widest">Connection</span></div></div>
-                   <div className="space-y-6"><div className="space-y-2"><label className="text-[9px] font-black text-white/40 uppercase px-1">Label</label><input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedEdge.data?.label || ''} onChange={e => updateEdge(selectedEdgeId, { label: e.target.value })} /></div></div>
+                   <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                     <div className="flex items-center gap-3">
+                       <Link2 size={16} className="text-theme-accent" />
+                       <span className="text-[14px] font-black text-white uppercase tracking-widest">Connection Style</span>
+                     </div>
+                     <button onClick={() => { setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); }} className="text-status-error hover:bg-status-error/10 p-2 rounded-lg transition-all">
+                       <Trash size={16} />
+                     </button>
+                   </div>
+                   <div className="space-y-6">
+                     <div className="space-y-2">
+                       <label className="text-[9px] font-black text-white/40 uppercase px-1">Label</label>
+                       <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" placeholder="E.G. YES / NO / RETRY" value={selectedEdge.data?.label || ''} onChange={e => updateEdge(selectedEdgeId, { label: e.target.value })} />
+                     </div>
+                     <div className="space-y-2">
+                       <label className="text-[9px] font-black text-white/40 uppercase px-1">Line Color</label>
+                       <div className="flex gap-2">
+                         {['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#a855f7', '#ffffff'].map(c => (
+                           <button 
+                             key={c} 
+                             onClick={() => updateEdge(selectedEdgeId, { color: c })}
+                             className={cn(
+                               "w-8 h-8 rounded-full border-2 transition-all",
+                               selectedEdge.data?.color === c ? "border-white scale-110 shadow-lg" : "border-transparent opacity-40 hover:opacity-100"
+                             )}
+                             style={{ backgroundColor: c }}
+                           />
+                         ))}
+                       </div>
+                     </div>
+                     <div className="space-y-2">
+                       <label className="text-[9px] font-black text-white/40 uppercase px-1">Line Style</label>
+                       <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+                         <button onClick={() => updateEdge(selectedEdgeId, { style: 'solid' })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all", selectedEdge.data?.style !== 'dashed' ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>Solid</button>
+                         <button onClick={() => updateEdge(selectedEdgeId, { style: 'dashed' })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all", selectedEdge.data?.style === 'dashed' ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>Dashed</button>
+                       </div>
+                     </div>
+                   </div>
+                   <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl">
+                      <p className="text-[10px] font-bold text-blue-400/60 leading-relaxed uppercase italic">
+                        TIP: USE DASHED AMBER LINES FOR "RETURN/REDO" LOOPS TO VISUALLY INDICATE ITERATIVE REFLOW PATHS.
+                      </p>
+                   </div>
                 </div>
               ) : (
                 <div className="space-y-8 animate-apple-in">

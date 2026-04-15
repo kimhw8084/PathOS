@@ -87,11 +87,12 @@ const SearchableSelect = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const filteredOptions = options.filter(opt => {
-    const label = typeof opt === 'string' ? opt : opt.label;
-    return label.toLowerCase().includes(search.toLowerCase());
+    const labelText = typeof opt === 'string' ? opt : opt.label;
+    return labelText.toLowerCase().includes(search.toLowerCase());
   });
 
   const toggleOption = (opt: any) => {
+    // Ensure we use the raw value without any transformations
     const optValue = typeof opt === 'string' ? opt : (opt.value || opt.label);
     if (isMulti) {
       const current = Array.isArray(value) ? value : [];
@@ -112,6 +113,7 @@ const SearchableSelect = ({
         setIsOpen(false);
       }
     };
+    // Use capture phase to ensure we catch the click before React Flow or other components
     document.addEventListener('mousedown', handleClickOutside, true);
     return () => document.removeEventListener('mousedown', handleClickOutside, true);
   }, []);
@@ -123,7 +125,7 @@ const SearchableSelect = ({
       return vals.map(v => (
         <span key={v} className="bg-theme-accent/20 border border-theme-accent/30 text-theme-accent text-[10px] font-black px-2 py-0.5 rounded flex items-center gap-1.5 uppercase tracking-tighter">
           {v}
-          <X size={10} className="hover:text-white" onClick={(e) => { e.stopPropagation(); toggleOption(v); }} />
+          <X size={10} className="hover:text-white cursor-pointer" onClick={(e) => { e.stopPropagation(); toggleOption(v); }} />
         </span>
       ));
     } else {
@@ -133,13 +135,13 @@ const SearchableSelect = ({
   };
 
   return (
-    <div className={cn("space-y-2 relative", disabled && "opacity-30 pointer-events-none")} ref={containerRef} style={{ zIndex: isOpen ? 1000 : 'auto' }}>
+    <div className={cn("space-y-2 relative", disabled && "opacity-30 pointer-events-none")} ref={containerRef} style={{ zIndex: isOpen ? 2000 : 'auto' }}>
       <label className={cn("text-[9px] font-black uppercase tracking-[0.2em] px-1 transition-colors", error ? "text-status-error" : "text-white/40")}>{label}</label>
       <div 
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={cn(
           "w-full bg-[#1e293b]/50 border rounded-lg px-4 py-3 min-h-[48px] flex flex-wrap gap-2 items-center cursor-pointer transition-all hover:border-white/20",
-          isOpen ? "border-theme-accent ring-1 ring-theme-accent/20 bg-[#1e293b]" : (error ? "border-status-error/50 bg-status-error/5" : "border-white/10")
+          isOpen ? "border-theme-accent ring-1 ring-theme-accent/20 bg-[#1e293b]" : (error ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.2)]" : "border-white/10")
         )}
       >
         <div className="flex-1 flex flex-wrap gap-2 items-center">
@@ -151,7 +153,7 @@ const SearchableSelect = ({
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-[#1e293b] border border-white/10 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[9999] p-2 animate-apple-in backdrop-blur-2xl">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-[#1e293b] border border-white/10 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-[9999] p-2 animate-apple-in backdrop-blur-3xl">
           <div className="relative mb-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" size={14} />
             <input 
