@@ -259,10 +259,16 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
       'trigger_type', 
       'trigger_description', 
       'output_type', 
-      'output_description'
+      'output_description',
+      'tool_family',
+      'applicable_tools'
     ];
     
-    const missing = requiredFields.filter(f => !formData[f as keyof typeof formData]);
+    const missing = requiredFields.filter(f => {
+      const val = formData[f as keyof typeof formData];
+      if (Array.isArray(val)) return val.length === 0;
+      return !val;
+    });
     
     if (missing.length > 0) {
       setShowErrors(true);
@@ -433,6 +439,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                   onChange={vals => setFormData({...formData, tool_family: vals})}
                   placeholder="SELECT FAMILIES..."
                   isMulti
+                  error={showErrors && formData.tool_family.length === 0}
                 />
                 <SearchableSelect 
                   label="Applicable Tools"
@@ -441,6 +448,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                   onChange={vals => setFormData({...formData, applicable_tools: vals})}
                   placeholder="SELECT TOOLS..."
                   isMulti
+                  error={showErrors && formData.applicable_tools.length === 0}
                 />
               </div>
             </div>

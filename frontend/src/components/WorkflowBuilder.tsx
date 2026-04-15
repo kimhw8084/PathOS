@@ -14,7 +14,7 @@ import ReactFlow, {
   addEdge,
   type Connection,
   type EdgeProps,
-  getBezierPath,
+  getSmoothStepPath,
   EdgeLabelRenderer
 } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -123,7 +123,7 @@ interface Task {
   description: string;
   task_type: string;
   target_systems: TargetSystem[];
-  interface_type: 'GUI' | 'CLI' | 'API' | 'DECISION' | 'TRIGGER' | 'OUTCOME' | 'LOOP';
+  interface_type: 'GUI' | 'CLI' | 'API' | 'CONDITION' | 'TRIGGER' | 'OUTCOME' | 'LOOP';
   manual_time_minutes: number;
   automation_time_minutes: number;
   machine_wait_time_minutes: number;
@@ -258,6 +258,11 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
       {!isTrigger && (
         <Handle type="target" position={Position.Left} className="!bg-theme-accent !w-4 !h-4 !border-4 !border-[#0f172a] !-left-2 shadow-xl hover:scale-125 transition-transform" />
       )}
+      <Handle type="target" position={Position.Top} id="top-target" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-top-1.5 !left-[30%] opacity-0 group-hover:opacity-100 transition-opacity" />
+      <Handle type="source" position={Position.Top} id="top-source" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-top-1.5 !left-[70%] opacity-0 group-hover:opacity-100 transition-opacity" />
+      
+      <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-bottom-1.5 !left-[30%] opacity-0 group-hover:opacity-100 transition-opacity" />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-bottom-1.5 !left-[70%] opacity-0 group-hover:opacity-100 transition-opacity" />
       {!isOutcome && (
         <Handle type="source" position={Position.Right} className="!bg-theme-accent !w-4 !h-4 !border-4 !border-[#0f172a] !-right-2 shadow-xl hover:scale-125 transition-transform" />
       )}
@@ -267,16 +272,15 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
 
 const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => (
   <div className={`relative w-28 h-28 flex items-center justify-center transition-all duration-300 group ${selected ? 'scale-110' : ''}`}>
-    <div className={`absolute inset-0 rotate-45 border-2 transition-all duration-300 bg-[#1e293b]/90 ${selected ? 'border-blue-400 shadow-[0_0_30px_rgba(59,130,246,0.4)]' : 'border-white/20 group-hover:border-white/40'}`} />
+    <div className={`absolute inset-0 rotate-45 border-2 transition-all duration-300 bg-[#1e293b]/90 ${selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20 group-hover:border-white/40'}`} />
     <div className="relative z-10 flex flex-col items-center p-4">
-      <Zap size={22} className="text-blue-400 mb-1.5" />
-      <span className="text-[10px] font-black text-white uppercase tracking-tighter text-center leading-tight truncate w-full px-2">{data.label || "DECISION"}</span>
+      <span className="text-[10px] font-black text-white uppercase tracking-tighter text-center leading-tight truncate w-full px-2">{data.label || "CONDITION"}</span>
     </div>
     
-    <Handle type="target" position={Position.Top} className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-top-2 shadow-lg z-50" />
-    <Handle type="source" position={Position.Left} id="left" className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-left-2 shadow-lg z-50" />
-    <Handle type="source" position={Position.Right} id="right" className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-right-2 shadow-lg z-50" />
-    <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-bottom-2 shadow-lg z-50" />
+    <Handle type="target" position={Position.Left} id="input" className="!bg-amber-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-left-2 shadow-lg z-50" />
+    <Handle type="source" position={Position.Top} id="top" className="!bg-amber-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-top-2 shadow-lg z-50" />
+    <Handle type="source" position={Position.Right} id="right" className="!bg-amber-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-right-2 shadow-lg z-50" />
+    <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-amber-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-bottom-2 shadow-lg z-50" />
   </div>
 );
 
@@ -293,13 +297,14 @@ const CustomEdge = ({
   data,
   selected
 }: EdgeProps) => {
-  const [edgePath, labelX, labelY] = getBezierPath({
+  const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
     sourceY,
     sourcePosition,
     targetX,
     targetY,
     targetPosition,
+    borderRadius: 16
   });
 
   const edgeColor = data?.color || '#3b82f6';
@@ -348,7 +353,7 @@ const CustomEdge = ({
 
 const nodeTypes = {
   matrix: MatrixNode,
-  DECISION: DiamondNode,
+  CONDITION: DiamondNode,
   TRIGGER: MatrixNode,
   OUTCOME: MatrixNode,
   LOOP: MatrixNode,
@@ -616,7 +621,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   useEffect(() => {
     const newNodes: Node[] = tasks.map((t, idx) => ({
       id: t.id,
-      type: t.interface_type === 'DECISION' ? 'DECISION' : 
+      type: t.interface_type === 'CONDITION' ? 'CONDITION' : 
             t.interface_type === 'TRIGGER' ? 'TRIGGER' :
             t.interface_type === 'OUTCOME' ? 'OUTCOME' : 
             t.interface_type === 'LOOP' ? 'LOOP' : 'matrix',
@@ -659,6 +664,28 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     }, eds));
   }, [setEdges, edges]);
 
+  const onEdgeUpdate = useCallback(
+    (oldEdge: any, newConnection: Connection) => {
+      if (!newConnection.source || !newConnection.target) return;
+      const isLoop = newConnection.source === newConnection.target || edges.some(e => e.source === newConnection.target && e.target === newConnection.source && e.id !== oldEdge.id);
+      setEdges((els) => els.map(e => e.id === oldEdge.id ? { 
+        ...e, 
+        source: newConnection.source!,
+        target: newConnection.target!,
+        sourceHandle: newConnection.sourceHandle,
+        targetHandle: newConnection.targetHandle,
+        data: { 
+          ...e.data,
+          label: isLoop ? 'RETURN/REDO' : '', 
+          color: isLoop ? '#f59e0b' : '#3b82f6', 
+          style: isLoop ? 'dashed' : 'solid' 
+        },
+        markerEnd: { type: MarkerType.ArrowClosed, color: isLoop ? '#f59e0b' : '#3b82f6' }, 
+      } : e));
+    },
+    [setEdges, edges]
+  );
+
   // Handle deletions from React Flow
   const onNodesDelete = useCallback((deleted: Node[]) => {
     const protectedIds = ['trigger-node', 'outcome-node'];
@@ -684,7 +711,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
     const newTask: Task = {
       id,
-      name: `NEW ${type}`,
+      name: type === 'CONDITION' ? 'NEW CONDITION' : type === 'LOOP' ? 'NEW LOOP' : 'NEW TASK',
       description: '',
       task_type: type === 'LOOP' ? 'Validation' : 'Technical',
       target_systems: [],
@@ -717,7 +744,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     
     setNodes(nds => [...nds, {
       id,
-      type: type === 'DECISION' ? 'DECISION' : 
+      type: type === 'CONDITION' ? 'CONDITION' : 
             type === 'TRIGGER' ? 'TRIGGER' :
             type === 'OUTCOME' ? 'OUTCOME' : 
             type === 'LOOP' ? 'LOOP' : 'matrix',
@@ -832,7 +859,26 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           <div className="flex-1 flex flex-col overflow-hidden relative">
             {view === 'flow' ? (
               <div className="flex-1 bg-[#0a1120] relative">
-                <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} onNodesDelete={onNodesDelete} onNodeClick={(_, node) => { setSelectedTaskId(node.id); setInspectorTab(node.id.includes('node') ? 'execution' : 'process'); }} onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedTaskId(null); }} onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); setInspectorTab('process'); }} onInit={setReactFlowInstance} snapToGrid={true} snapGrid={[20, 20]} fitView className="bg-transparent">
+                <ReactFlow 
+                  nodes={nodes} 
+                  edges={edges} 
+                  nodeTypes={nodeTypes} 
+                  edgeTypes={edgeTypes} 
+                  onNodesChange={onNodesChange} 
+                  onEdgesChange={onEdgesChange} 
+                  onConnect={onConnect} 
+                  onEdgeUpdate={onEdgeUpdate}
+                  onNodesDelete={onNodesDelete} 
+                  onNodeClick={(_, node) => { setSelectedTaskId(node.id); setInspectorTab(node.id.includes('node') ? 'execution' : 'process'); }} 
+                  onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedTaskId(null); }} 
+                  onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); setInspectorTab('process'); }} 
+                  onInit={setReactFlowInstance} 
+                  snapToGrid={true} 
+                  snapGrid={[20, 20]} 
+                  fitView 
+                  elevateEdgesOnSelect={true}
+                  className="bg-transparent"
+                >
                   <Background variant={BackgroundVariant.Dots} color="rgba(255,255,255,0.05)" gap={20} size={1} />
                   <Controls className="!bg-[#1e293b] !border-white/10" />
                   <Panel position="bottom-center" className="mb-6">
@@ -840,11 +886,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                       <button onClick={() => addNewNode('GUI')} className="flex items-center gap-2 px-5 py-2.5 bg-theme-accent text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-theme-accent/20">
                         <Plus size={16} /> Add Task
                       </button>
-                      <button onClick={() => addNewNode('DECISION')} className="flex items-center gap-2 px-5 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-white/10 transition-all">
-                        <Zap size={16} /> Decision
-                      </button>
-                      <button onClick={() => addNewNode('LOOP')} className="flex items-center gap-2 px-5 py-2.5 bg-orange-500/10 border border-orange-500/20 text-orange-400 rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all">
-                        <Activity size={16} /> Loop
+                      <button onClick={() => addNewNode('CONDITION')} className="flex items-center gap-2 px-5 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-white/10 transition-all">
+                        <Plus size={16} /> Condition
                       </button>
                     </div>
                   </Panel>
@@ -1341,8 +1384,18 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                      <div className="flex items-center gap-3"><LucideWorkflow className="text-theme-accent" size={18} /><h2 className="text-[14px] font-black text-white uppercase tracking-widest">Process Definition</h2></div>
                      <button onClick={() => setIsEditingMetadata(!isEditingMetadata)} className={cn("px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all", isEditingMetadata ? "bg-theme-accent text-white" : "bg-white/5 border border-white/10 text-white/40 hover:text-white")}>{isEditingMetadata ? 'Finish' : 'Edit'}</button>
                   </div>
-                  <div className="space-y-10">
+                  <div className="space-y-8">
+                    {/* Overview & Description */}
                     <div className="space-y-4">
+                       <div className="space-y-2">
+                          <label className="text-[9px] font-black text-white/40 uppercase px-1">Forensic Description</label>
+                          {isEditingMetadata ? (
+                            <textarea className="w-full bg-[#1e293b] border border-white/10 rounded-xl p-4 text-[11px] font-bold text-white/80 leading-relaxed h-24 resize-none outline-none focus:border-theme-accent" value={metadata.forensic_description} onChange={e => setMetadata({...metadata, forensic_description: e.target.value})} />
+                          ) : (
+                            <p className="bg-white/[0.02] border border-white/5 rounded-xl p-4 text-[11px] font-bold text-white/60 leading-relaxed italic">{metadata.forensic_description || 'No description provided.'}</p>
+                          )}
+                       </div>
+
                        <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                              <label className="text-[9px] font-black text-white/40 uppercase px-1">PRC</label>
@@ -1361,14 +1414,69 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                              )}
                           </div>
                        </div>
+
+                       <div className="space-y-2">
+                          <label className="text-[9px] font-black text-white/40 uppercase px-1">Occurrence</label>
+                          <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl p-1.5">
+                             {isEditingMetadata ? (
+                               <>
+                                 <input type="number" className="w-16 bg-black/40 text-[11px] font-black text-white text-center py-1 rounded" value={metadata.cadence_count} onChange={e => setMetadata({...metadata, cadence_count: parseFloat(e.target.value)})} />
+                                 <select className="flex-1 bg-transparent text-[10px] font-black text-white uppercase outline-none" value={metadata.cadence_unit} onChange={e => setMetadata({...metadata, cadence_unit: e.target.value as any})}>
+                                    <option value="day">Daily</option>
+                                    <option value="week">Weekly</option>
+                                    <option value="month">Monthly</option>
+                                    <option value="year">Yearly</option>
+                                 </select>
+                               </>
+                             ) : (
+                               <div className="px-3 py-1 text-[11px] font-black text-theme-accent uppercase tracking-widest">{metadata.cadence_count}x PER {metadata.cadence_unit}</div>
+                             )}
+                          </div>
+                       </div>
                     </div>
+
+                    {/* Tools & Hardware */}
+                    <div className="space-y-4 p-5 bg-white/[0.02] border border-white/5 rounded-2xl">
+                       <div className="space-y-2">
+                          <label className="text-[9px] font-black text-white/40 uppercase px-1">Tool Family</label>
+                          {isEditingMetadata ? (
+                             <select multiple className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none min-h-[80px]" value={Array.isArray(metadata.tool_family) ? metadata.tool_family : (metadata.tool_family ? (metadata.tool_family as string).split(', ') : [])} onChange={e => {
+                                const selected = Array.from(e.target.selectedOptions).map(o => o.value);
+                                setMetadata({...metadata, tool_family: selected.join(', ')});
+                             }}>
+                               {taxonomy.filter(t => t.category === 'ToolType').map(t => <option key={t.label} value={t.label}>{t.label}</option>)}
+                             </select>
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                               {(metadata.tool_family ? (typeof metadata.tool_family === 'string' ? (metadata.tool_family as string).split(', ') : metadata.tool_family) : [] as string[]).map(f => (
+                                 <span key={f} className="px-2 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded text-[9px] font-black uppercase tracking-tight">{f}</span>
+                               ))}
+                               {!(metadata.tool_family?.length) && <span className="text-[10px] text-white/10 font-black italic">NO FAMILIES DEFINED</span>}
+                            </div>
+                          )}
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[9px] font-black text-white/40 uppercase px-1">Applicable Tools</label>
+                          {isEditingMetadata ? (
+                             <input className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none" value={metadata.tool_id} onChange={e => setMetadata({...metadata, tool_id: e.target.value})} placeholder="TOOL-001, TOOL-002..." />
+                          ) : (
+                            <div className="flex flex-wrap gap-2">
+                               {(metadata.tool_id ? (typeof metadata.tool_id === 'string' ? (metadata.tool_id as string).split(', ') : metadata.tool_id) : [] as string[]).map(t => (
+                                 <span key={t} className="px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded text-[9px] font-black uppercase tracking-tight">{t}</span>
+                               ))}
+                               {!(metadata.tool_id?.length) && <span className="text-[10px] text-white/10 font-black italic">NO TOOLS DEFINED</span>}
+                            </div>
+                          )}
+                       </div>
+                    </div>
+
                     <div className="space-y-6">
                       <div className="flex items-center gap-3 border-b border-white/10 pb-4"><Zap className="text-amber-500" size={16} /><h2 className="text-[14px] font-black text-white uppercase tracking-widest">Trigger</h2></div>
                       <div className="space-y-3">
                          {isEditingMetadata ? (
                            <><select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none" value={metadata.trigger_type} onChange={e => setMetadata({...metadata, trigger_type: e.target.value})}><option value="">Select Trigger...</option>{taxonomy.filter(t => t.category === 'TriggerType').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select><textarea className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-[11px] text-white/60 font-bold leading-relaxed h-20 resize-none" value={metadata.trigger_description} onChange={e => setMetadata({...metadata, trigger_description: e.target.value})} /></>
                          ) : (
-                           <div className="space-y-3"><div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2 text-[12px] font-black text-amber-500 uppercase">{metadata.trigger_type || 'Manual'}</div><p className="text-[11px] font-bold text-white/60 italic px-1">{metadata.trigger_description || 'No description.'}</p></div>
+                           <div className="space-y-3"><div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2 text-[12px] font-black text-amber-500 uppercase">{metadata.trigger_type || 'Manual'}</div><p className="text-[11px] font-bold text-white/60 italic px-1 leading-relaxed">{metadata.trigger_description || 'No description.'}</p></div>
                          )}
                       </div>
                     </div>
@@ -1378,7 +1486,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                          {isEditingMetadata ? (
                            <><select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none" value={metadata.output_type} onChange={e => setMetadata({...metadata, output_type: e.target.value})}><option value="">Select Output Type...</option>{taxonomy.filter(t => t.category === 'OutputType').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select><textarea className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-[11px] text-white/60 font-bold leading-relaxed h-20 resize-none" value={metadata.output_description} onChange={e => setMetadata({...metadata, output_description: e.target.value})} /></>
                          ) : (
-                           <div className="space-y-3"><div className="bg-theme-accent/10 border border-theme-accent/20 rounded-xl px-4 py-2 text-[12px] font-black text-theme-accent uppercase">{metadata.output_type || 'Internal'}</div><p className="text-[11px] font-bold text-white/60 italic px-1">{metadata.output_description || 'No description.'}</p></div>
+                           <div className="space-y-3"><div className="bg-theme-accent/10 border border-theme-accent/20 rounded-xl px-4 py-2 text-[12px] font-black text-theme-accent uppercase">{metadata.output_type || 'Internal'}</div><p className="text-[11px] font-bold text-white/60 italic px-1 leading-relaxed">{metadata.output_description || 'No description.'}</p></div>
                          )}
                       </div>
                     </div>
