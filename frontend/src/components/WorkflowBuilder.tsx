@@ -1042,7 +1042,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                   )}
                   {inspectorTab === 'data' && (
                     <div className="space-y-10 animate-apple-in">
-                      <div className="space-y-4">
+                      <div className="space-y-4 relative z-[2]">
                         <div className="flex items-center justify-between px-1">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Source Data (Inputs)</label>
                           <div className="flex gap-2">
@@ -1112,7 +1112,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                         </div>
                       </div>
 
-                      <div className="space-y-4">
+                      <div className="space-y-4 relative z-[1]">
                         <div className="flex items-center justify-between px-1">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Output Data (Deliverables)</label>
                           <button onClick={() => updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '', format: '', example: '', saved_location: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all">

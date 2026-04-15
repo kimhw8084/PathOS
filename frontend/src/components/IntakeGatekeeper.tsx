@@ -341,7 +341,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
 
         {/* Section 1: Overview */}
         <div className={cn("space-y-8 transition-all duration-500", isDisabled && "opacity-20 grayscale blur-[2px] pointer-events-none")}>
-          <section className="space-y-4">
+          <section className="space-y-4 relative z-[2]">
             <div className="flex items-center gap-3 text-theme-accent font-black px-1">
               <Cpu size={16} />
               <span className="text-[11px] tracking-[0.2em] uppercase">Overview</span>
@@ -447,7 +447,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
           </section>
 
           {/* Section 2: Trigger & Output */}
-          <section className="space-y-4">
+          <section className="space-y-4 relative z-[1]">
             <div className="flex items-center gap-3 text-theme-accent font-black px-1">
               <Zap size={16} />
               <span className="text-[11px] tracking-[0.2em] uppercase">Trigger & Output</span>
