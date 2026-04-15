@@ -251,20 +251,33 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
   const isDisabled = isRegular !== true;
 
   const handleFinalize = () => {
-    if (!formData.name || !formData.prc || !formData.workflow_type || !formData.trigger_type || !formData.output_type) {
+    const requiredFields = [
+      'name', 
+      'forensic_description', 
+      'prc', 
+      'workflow_type', 
+      'trigger_type', 
+      'trigger_description', 
+      'output_type', 
+      'output_description'
+    ];
+    
+    const missing = requiredFields.filter(f => !formData[f as keyof typeof formData]);
+    
+    if (missing.length > 0) {
       setShowErrors(true);
       return;
     }
 
     onSuccess({
       ...formData,
-      tool_family: formData.tool_family.join(', '),
-      tool_id: formData.applicable_tools.join(', ')
+      tool_family: Array.isArray(formData.tool_family) ? formData.tool_family.join(', ') : formData.tool_family,
+      tool_id: Array.isArray(formData.applicable_tools) ? formData.applicable_tools.join(', ') : formData.applicable_tools
     });
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-apple-in pb-16">
+    <div className="max-w-4xl mx-auto space-y-8 animate-apple-in pb-16 relative z-[100]">
       <CreationProgressBar currentStep={isRegular === true ? 2 : 1} />
 
       <div className="flex items-center justify-between border-b border-white/10 pb-6">
@@ -334,37 +347,39 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
               <span className="text-[11px] tracking-[0.2em] uppercase">Overview</span>
             </div>
             
-            <div className="apple-card space-y-6 !bg-[#111827]/40 border-white/10 p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center px-1">
-                    <label className={cn("text-[10px] font-black uppercase tracking-[0.2em]", showErrors && !formData.name ? "text-status-error" : "text-white/40")}>Workflow Name</label>
-                    <span className="text-[9px] text-white/20 font-mono">{formData.name.length} / 60</span>
-                  </div>
-                  <input 
-                    className={cn(
-                      "w-full bg-[#1e293b]/50 border rounded-lg px-4 py-3 text-lg font-black text-white uppercase focus:border-theme-accent outline-none transition-all placeholder:text-white/5",
-                      showErrors && !formData.name ? "border-status-error/50 bg-status-error/5" : "border-white/10"
-                    )} 
-                    placeholder="ENTER WORKFLOW NAME..." 
-                    maxLength={60}
-                    value={formData.name} 
-                    onChange={e => setFormData({...formData, name: e.target.value})} 
-                  />
+            <div className="apple-card space-y-6 !bg-[#111827]/40 border-white/10 p-8">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center px-1">
+                  <label className={cn("text-[10px] font-black uppercase tracking-[0.2em]", showErrors && !formData.name ? "text-status-error" : "text-white/40")}>Workflow Name</label>
+                  <span className="text-[9px] text-white/20 font-mono">{formData.name.length} / 60</span>
                 </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center px-1">
-                    <label className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em]">Forensic Description</label>
-                    <span className="text-[9px] text-white/20 font-mono">{formData.forensic_description.length} / 200</span>
-                  </div>
-                  <input 
-                    className="w-full bg-[#1e293b]/50 border border-white/10 rounded-lg px-4 py-3 text-[14px] font-bold text-white/80 focus:border-theme-accent outline-none transition-all placeholder:text-white/5" 
-                    placeholder="BRIEF PURPOSE STATEMENT..." 
-                    maxLength={200}
-                    value={formData.forensic_description} 
-                    onChange={e => setFormData({...formData, forensic_description: e.target.value})} 
-                  />
+                <input 
+                  className={cn(
+                    "w-full bg-[#1e293b]/50 border rounded-lg px-4 py-3 text-lg font-black text-white uppercase focus:border-theme-accent outline-none transition-all placeholder:text-white/5",
+                    showErrors && !formData.name ? "border-status-error/50 bg-status-error/5" : "border-white/10"
+                  )} 
+                  placeholder="ENTER WORKFLOW NAME..." 
+                  maxLength={60}
+                  value={formData.name} 
+                  onChange={e => setFormData({...formData, name: e.target.value})} 
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center px-1">
+                  <label className={cn("text-[10px] font-black uppercase tracking-[0.2em]", showErrors && !formData.forensic_description ? "text-status-error" : "text-white/40")}>Forensic Description</label>
+                  <span className="text-[9px] text-white/20 font-mono">{formData.forensic_description.length} / 500</span>
                 </div>
+                <textarea 
+                  className={cn(
+                    "w-full bg-[#1e293b]/50 border rounded-xl px-4 py-3 text-[14px] font-bold text-white/80 focus:border-theme-accent outline-none transition-all placeholder:text-white/5 h-28 resize-none leading-relaxed",
+                    showErrors && !formData.forensic_description ? "border-status-error/50 bg-status-error/5" : "border-white/10"
+                  )} 
+                  placeholder="PROVIDE A DETAILED OPERATIONAL PURPOSE STATEMENT..." 
+                  maxLength={500}
+                  value={formData.forensic_description} 
+                  onChange={e => setFormData({...formData, forensic_description: e.target.value})} 
+                />
               </div>
 
               <div className="grid grid-cols-3 gap-6">
@@ -463,11 +478,14 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-white/5 pt-6">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between px-1">
-                    <label className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em]">Trigger Description</label>
+                    <label className={cn("text-[10px] font-black uppercase tracking-[0.2em]", showErrors && !formData.trigger_description ? "text-status-error" : "text-white/40")}>Trigger Description</label>
                     <span className="text-[9px] text-white/20 font-mono">{formData.trigger_description.length} / 500</span>
                   </div>
                   <textarea 
-                    className="w-full bg-[#1e293b]/30 border border-white/10 rounded-xl px-4 py-3 text-[12px] text-white/80 font-bold leading-relaxed h-24 resize-none outline-none focus:border-theme-accent transition-all" 
+                    className={cn(
+                      "w-full bg-[#1e293b]/30 border rounded-xl px-4 py-3 text-[12px] text-white/80 font-bold leading-relaxed h-24 resize-none outline-none focus:border-theme-accent transition-all",
+                      showErrors && !formData.trigger_description ? "border-status-error/50 bg-status-error/5" : "border-white/10"
+                    )} 
                     placeholder="Specify the exact event that initiates this workflow..." 
                     maxLength={500}
                     value={formData.trigger_description} 
@@ -477,11 +495,14 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between px-1">
-                    <label className="text-[10px] text-white/40 font-black uppercase tracking-[0.2em]">Output Deliverable</label>
+                    <label className={cn("text-[10px] font-black uppercase tracking-[0.2em]", showErrors && !formData.output_description ? "text-status-error" : "text-white/40")}>Output Deliverable</label>
                     <span className="text-[9px] text-white/20 font-mono">{formData.output_description.length} / 500</span>
                   </div>
                   <textarea 
-                    className="w-full bg-[#1e293b]/30 border border-white/10 rounded-xl px-4 py-3 text-[12px] text-white/80 font-bold leading-relaxed h-24 resize-none outline-none focus:border-theme-accent transition-all" 
+                    className={cn(
+                      "w-full bg-[#1e293b]/30 border rounded-xl px-4 py-3 text-[12px] text-white/80 font-bold leading-relaxed h-24 resize-none outline-none focus:border-theme-accent transition-all",
+                      showErrors && !formData.output_description ? "border-status-error/50 bg-status-error/5" : "border-white/10"
+                    )} 
                     placeholder="Define the final product or verification result..." 
                     maxLength={500}
                     value={formData.output_description} 

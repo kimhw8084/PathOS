@@ -3,7 +3,6 @@ import ReactFlow, {
   Background, 
   Controls, 
   type Node, 
-  type Edge, 
   Position,
   ReactFlowProvider,
   useNodesState,
@@ -194,20 +193,27 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
     'Technical': 'text-purple-400 border-purple-400/30 bg-purple-400/10',
     'Physical': 'text-amber-400 border-amber-400/30 bg-amber-400/10',
     'Validation': 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10',
-    'TRIGGER': 'text-cyan-400 border-cyan-400/30 bg-cyan-400/10',
-    'OUTCOME': 'text-rose-400 border-rose-400/30 bg-rose-400/10',
+    'TRIGGER': 'text-cyan-400 border-cyan-500 bg-cyan-500/10 shadow-[0_0_20px_rgba(34,211,238,0.2)]',
+    'OUTCOME': 'text-rose-400 border-rose-500 bg-rose-500/10 shadow-[0_0_20px_rgba(244,63,94,0.2)]',
     'LOOP': 'text-orange-400 border-orange-400/30 bg-orange-400/10',
   };
 
   const typeColor = typeColors[data.task_type] || 'text-white/40 border-white/10 bg-white/5';
   const isTrigger = data.interface === 'TRIGGER';
   const isOutcome = data.interface === 'OUTCOME';
+  const isTemplate = isTrigger || isOutcome;
 
   return (
     <div className={cn(
       "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-6 py-5 w-[320px] shadow-2xl transition-all duration-300 group relative border-2",
-      selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : 'border-white/10 hover:border-white/20'
+      selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTemplate ? 'border-dashed opacity-80 hover:opacity-100' : 'border-white/10 hover:border-white/20'),
+      isTemplate && !selected && (isTrigger ? "border-cyan-500/40" : "border-rose-500/40")
     )}>
+      {isTemplate && (
+        <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-[0.2em] border z-20", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
+          SYSTEM TEMPLATE LOCKED
+        </div>
+      )}
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div className={cn("px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border", typeColor)}>
@@ -227,11 +233,11 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
             <div className="flex items-center gap-3 font-mono text-[11px] font-black">
               <div className="flex items-center gap-1 text-blue-400">
                 <User size={10} />
-                <span>{data.manual_time || 0}m</span>
+                <span>{data.manual_time || 0}min</span>
               </div>
               <div className="flex items-center gap-1 text-purple-400">
                 <Activity size={10} />
-                <span>{data.automation_time || 0}m</span>
+                <span>{data.automation_time || 0}min</span>
               </div>
             </div>
           </div>
@@ -267,8 +273,8 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => (
       <span className="text-[10px] font-black text-white uppercase tracking-tighter text-center leading-tight truncate w-full px-2">{data.label || "DECISION"}</span>
     </div>
     
-    <Handle type="target" position={Position.Left} className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-left-2 shadow-lg z-50" />
-    <Handle type="source" position={Position.Top} id="top" className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-top-2 shadow-lg z-50" />
+    <Handle type="target" position={Position.Top} className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-top-2 shadow-lg z-50" />
+    <Handle type="source" position={Position.Left} id="left" className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-left-2 shadow-lg z-50" />
     <Handle type="source" position={Position.Right} id="right" className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-right-2 shadow-lg z-50" />
     <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-blue-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-bottom-2 shadow-lg z-50" />
   </div>
@@ -614,6 +620,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             t.interface_type === 'TRIGGER' ? 'TRIGGER' :
             t.interface_type === 'OUTCOME' ? 'OUTCOME' : 
             t.interface_type === 'LOOP' ? 'LOOP' : 'matrix',
+      deletable: t.id !== 'trigger-node' && t.id !== 'outcome-node',
       data: { 
         label: t.name, 
         description: t.description,
@@ -627,45 +634,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       },
       position: nodes.find(n => n.id === t.id)?.position || (
         t.id === 'trigger-node' ? { x: 100, y: 300 } :
-        t.id === 'outcome-node' ? { x: 1000, y: 300 } :
+        t.id === 'outcome-node' ? { x: 1200, y: 300 } :
         { x: 100 + (idx * 400), y: 300 }
       ),
     }));
     
-    // Auto-connect only if edges are empty and we have more than T/O
-    if (edges.length === 0 && tasks.length > 2) {
-      const newEdges: Edge[] = [];
-      const midTasks = tasks.filter(t => t.id !== 'trigger-node' && t.id !== 'outcome-node');
-      
-      newEdges.push({
-        id: `e-trigger-${midTasks[0].id}`,
-        source: 'trigger-node',
-        target: midTasks[0].id,
-        type: 'custom',
-        markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6' }
-      });
-
-      for (let i = 0; i < midTasks.length - 1; i++) {
-        newEdges.push({
-          id: `e${midTasks[i].id}-${midTasks[i+1].id}`,
-          source: midTasks[i].id,
-          target: midTasks[i+1].id,
-          type: 'custom',
-          markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6' }
-        });
-      }
-
-      newEdges.push({
-        id: `e-${midTasks[midTasks.length-1].id}-outcome`,
-        source: midTasks[midTasks.length-1].id,
-        target: 'outcome-node',
-        type: 'custom',
-        markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6' }
-      });
-      setEdges(newEdges);
-    } else {
-      setEdges(eds => eds.filter(e => tasks.some(t => t.id === e.source) && tasks.some(t => t.id === e.target)));
-    }
+    // Only remove edges that refer to non-existent tasks, do NOT auto-connect
+    setEdges(eds => eds.filter(e => tasks.some(t => t.id === e.source) && tasks.some(t => t.id === e.target)));
     
     setNodes(newNodes);
   }, [tasks]);
@@ -686,7 +661,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   // Handle deletions from React Flow
   const onNodesDelete = useCallback((deleted: Node[]) => {
-    const deletedIds = deleted.map(n => n.id);
+    const protectedIds = ['trigger-node', 'outcome-node'];
+    const actualDeleted = deleted.filter(n => !protectedIds.includes(n.id));
+    const deletedIds = actualDeleted.map(n => n.id);
     setTasks(prev => prev.filter(t => !deletedIds.includes(t.id)));
   }, []);
 
@@ -874,50 +851,94 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                 </ReactFlow>
               </div>
             ) : (
-              <div className="flex-1 overflow-auto p-8 custom-scrollbar space-y-10 bg-[#0a1120]">
+              <div className="flex-1 overflow-auto p-8 custom-scrollbar space-y-12 bg-[#0a1120]">
                 {(() => {
-                  const sortedTasks = [...tasks]; // Simplified for brevity in list view
+                  const standaloneTasks = tasks.filter(t => 
+                    !edges.some(e => e.source === t.id || e.target === t.id)
+                  );
+                  const connectedTasks = tasks.filter(t => 
+                    edges.some(e => e.source === t.id || e.target === t.id)
+                  );
+
                   return (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3 px-2">
-                         <span className="text-[10px] font-black text-theme-accent uppercase tracking-[0.3em]">Workflow Entity Hierarchy</span>
-                         <div className="h-[1px] flex-1 bg-white/5" />
-                         <span className="text-[10px] font-black text-white/20 uppercase">{tasks.length} Entities</span>
-                      </div>
-                      <div className="overflow-hidden border border-white/10 rounded-2xl bg-white/[0.02]">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="border-b border-white/10 bg-white/5">
-                              <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest w-12 text-center">#</th>
-                              <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Entity Identity</th>
-                              <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Manual</th>
-                              <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Auto</th>
-                              <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/5">
-                            {sortedTasks.map((task, idx) => (
-                              <tr key={task.id} onClick={() => { setSelectedTaskId(task.id); setInspectorTab(task.id.includes('node') ? 'execution' : 'process'); }} className={cn("group cursor-pointer transition-all", selectedTaskId === task.id ? "bg-theme-accent/10" : "hover:bg-white/[0.04]")}>
-                                <td className="p-4 text-center"><span className="text-[12px] font-black text-white/20">{idx + 1}</span></td>
-                                <td className="p-4">
-                                  <div className="flex flex-col">
-                                    <span className="text-[13px] font-black text-white uppercase">{task.name}</span>
-                                    <span className="text-[10px] text-white/40 font-bold italic truncate max-w-[200px] uppercase">{task.description || 'No description'}</span>
-                                  </div>
-                                </td>
-                                <td className="p-4"><span className="text-[12px] font-black text-blue-400">{task.manual_time_minutes}m</span></td>
-                                <td className="p-4"><span className="text-[12px] font-black text-purple-400">{task.automation_time_minutes}m</span></td>
-                                <td className="p-4">
-                                   <div className="flex items-center gap-3">
-                                      <div className="flex items-center gap-1.5"><AlertCircle size={14} className={task.blockers.length > 0 ? "text-status-warning" : "text-white/10"} /><span className={cn("text-[11px] font-black", task.blockers.length > 0 ? "text-status-warning" : "text-white/10")}>{task.blockers.length}</span></div>
-                                      <div className="flex items-center gap-1.5"><X size={14} className={task.errors.length > 0 ? "text-status-error" : "text-white/10"} /><span className={cn("text-[11px] font-black", task.errors.length > 0 ? "text-status-error" : "text-white/10")}>{task.errors.length}</span></div>
-                                   </div>
-                                </td>
+                    <div className="space-y-12">
+                      {/* Primary Workflow Path */}
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-3 px-2">
+                           <span className="text-[10px] font-black text-theme-accent uppercase tracking-[0.3em]">Operational Workflow Chain</span>
+                           <div className="h-[1px] flex-1 bg-white/5" />
+                           <span className="text-[10px] font-black text-white/20 uppercase">{connectedTasks.length} Connected Entities</span>
+                        </div>
+                        <div className="overflow-hidden border border-white/10 rounded-2xl bg-white/[0.02]">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="border-b border-white/10 bg-white/5">
+                                <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest w-12 text-center">#</th>
+                                <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Entity Identity</th>
+                                <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Manual</th>
+                                <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Auto</th>
+                                <th className="p-4 text-[9px] font-black text-white/40 uppercase tracking-widest">Risk/Exceptions</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                              {connectedTasks.map((task, idx) => (
+                                <tr key={task.id} onClick={() => { setSelectedTaskId(task.id); setInspectorTab(task.id.includes('node') ? 'execution' : 'process'); }} className={cn("group cursor-pointer transition-all", selectedTaskId === task.id ? "bg-theme-accent/10" : "hover:bg-white/[0.04]")}>
+                                  <td className="p-4 text-center"><span className="text-[12px] font-black text-white/20">{idx + 1}</span></td>
+                                  <td className="p-4">
+                                    <div className="flex flex-col">
+                                      <span className="text-[13px] font-black text-white uppercase">{task.name}</span>
+                                      <span className="text-[10px] text-white/40 font-bold italic truncate max-w-[300px] uppercase">{task.description || 'No description'}</span>
+                                    </div>
+                                  </td>
+                                  <td className="p-4"><span className="text-[12px] font-black text-blue-400">{task.manual_time_minutes}min</span></td>
+                                  <td className="p-4"><span className="text-[12px] font-black text-purple-400">{task.automation_time_minutes}min</span></td>
+                                  <td className="p-4">
+                                     <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-1.5"><AlertCircle size={14} className={task.blockers.length > 0 ? "text-status-warning" : "text-white/10"} /><span className={cn("text-[11px] font-black", task.blockers.length > 0 ? "text-status-warning" : "text-white/10")}>{task.blockers.length}</span></div>
+                                        <div className="flex items-center gap-1.5"><X size={14} className={task.errors.length > 0 ? "text-status-error" : "text-white/10"} /><span className={cn("text-[11px] font-black", task.errors.length > 0 ? "text-status-error" : "text-white/10")}>{task.errors.length}</span></div>
+                                     </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
+
+                      {/* Standalone Entities */}
+                      {standaloneTasks.length > 0 && (
+                        <div className="space-y-4 animate-apple-in">
+                          <div className="flex items-center gap-3 px-2">
+                             <span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.3em]">Standalone Entities</span>
+                             <div className="h-[1px] flex-1 bg-white/5" />
+                             <span className="text-[10px] font-black text-white/20 uppercase">{standaloneTasks.length} Unconnected</span>
+                          </div>
+                          <div className="overflow-hidden border border-amber-500/20 rounded-2xl bg-amber-500/5">
+                            <table className="w-full text-left border-collapse">
+                              <tbody className="divide-y divide-white/5">
+                                {standaloneTasks.map((task) => (
+                                  <tr key={task.id} onClick={() => { setSelectedTaskId(task.id); setInspectorTab(task.id.includes('node') ? 'execution' : 'process'); }} className={cn("group cursor-pointer transition-all", selectedTaskId === task.id ? "bg-theme-accent/10" : "hover:bg-white/[0.04]")}>
+                                    <td className="p-4 w-12 text-center"><AlertCircle size={14} className="text-amber-500/40" /></td>
+                                    <td className="p-4">
+                                      <div className="flex flex-col">
+                                        <span className="text-[13px] font-black text-white uppercase">{task.name}</span>
+                                        <span className="text-[10px] text-white/40 font-bold italic truncate max-w-[300px] uppercase">{task.description || 'No description'}</span>
+                                      </div>
+                                    </td>
+                                    <td className="p-4"><span className="text-[12px] font-black text-blue-400">{task.manual_time_minutes}min</span></td>
+                                    <td className="p-4"><span className="text-[12px] font-black text-purple-400">{task.automation_time_minutes}min</span></td>
+                                    <td className="p-4">
+                                       <div className="flex items-center gap-2">
+                                          <span className="px-2 py-0.5 bg-amber-500/20 text-amber-500 border border-amber-500/20 rounded text-[8px] font-black uppercase">Unlinked</span>
+                                       </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -952,43 +973,66 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                     <div className="space-y-6">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task Name</label>
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Task Name</label>
                           <button onClick={() => { setSelectedTaskId(null); setInspectorTab('process'); }} className="text-white/20 hover:text-white transition-colors"><X size={14} /></button>
                         </div>
-                        <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[14px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedTask.name} onChange={e => updateTask(selectedTaskId, { name: e.target.value })} />
+                        <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[14px] font-black text-white outline-none focus:border-theme-accent transition-all" value={selectedTask.name} onChange={e => updateTask(selectedTaskId, { name: e.target.value })} />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Description</label>
+                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Description</label>
                         <textarea className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-bold text-white/60 outline-none focus:border-theme-accent h-24 resize-none leading-relaxed" placeholder="Task objective and core logic..." value={selectedTask.description} onChange={e => updateTask(selectedTaskId, { description: e.target.value })} />
                       </div>
+
+                      <div className="space-y-4 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+                        <div className="flex items-center justify-between px-1">
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Involved Systems</label>
+                          <button onClick={() => updateTask(selectedTaskId, { target_systems: [...selectedTask.target_systems, { id: Date.now().toString(), name: '', purpose: '', access_method: 'GUI' }] })} className="text-theme-accent hover:bg-theme-accent/10 p-1 rounded transition-colors"><Plus size={14} /></button>
+                        </div>
+                        <div className="space-y-3">
+                          {selectedTask.target_systems.map(sys => (
+                            <div key={sys.id} className="flex items-center gap-2">
+                               <input className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[11px] font-bold text-white outline-none focus:border-theme-accent" placeholder="System Name..." value={sys.name} onChange={e => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.map(s => s.id === sys.id ? { ...s, name: e.target.value } : s) })} />
+                               <button onClick={() => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.filter(s => s.id !== sys.id) })} className="text-white/10 hover:text-status-error transition-colors p-1"><X size={14} /></button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task Type</label>
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Task Type</label>
                           <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>
                             {taskTypes.map((t: string) => <option key={t} value={t}>{t}</option>)}
                           </select>
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Occurrences</label>
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Occurrences</label>
                           <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={selectedTask.occurrences_per_cycle} onChange={e => updateTask(selectedTaskId, { occurrences_per_cycle: parseInt(e.target.value) || 1 })} />
                         </div>
                       </div>
 
                       {selectedTask.occurrences_per_cycle > 1 && (
                         <div className="space-y-2 animate-apple-in">
-                          <label className="text-[9px] font-black text-amber-500 uppercase tracking-widest px-1">Explanation for Multiple Occurrences</label>
+                          <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest px-1">Explanation for Multiple Occurrences</label>
                           <textarea className="w-full bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 outline-none focus:border-amber-500 h-20 resize-none" placeholder="Why does this task occur multiple times? (e.g., iterative review, batch processing)" value={selectedTask.occurrence_condition} onChange={e => updateTask(selectedTaskId, { occurrence_condition: e.target.value })} />
                         </div>
                       )}
 
-                      <div className="grid grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
-                        <div className="space-y-2">
-                          <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest px-1">Manual (m)</label>
-                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[14px] font-black text-white outline-none focus:border-blue-400" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) })} />
+                      <div className="space-y-6 p-5 bg-white/[0.02] border border-white/5 rounded-2xl">
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center px-1">
+                            <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Manual Effort (min)</label>
+                            <input type="number" step="0.5" className="w-16 bg-black/60 border border-white/10 rounded-lg px-2 py-1 text-[13px] font-black text-white text-center outline-none focus:border-blue-400" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
+                          </div>
+                          <input type="range" min="0" max="60" step="0.5" className="w-full accent-blue-500 h-1.5 rounded-lg bg-white/5 cursor-pointer" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) })} />
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-[9px] font-black text-purple-400 uppercase tracking-widest px-1">Automation (m)</label>
-                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[14px] font-black text-white outline-none focus:border-purple-400" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) })} />
+
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center px-1">
+                            <label className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Automation Execution (min)</label>
+                            <input type="number" step="0.5" className="w-16 bg-black/60 border border-white/10 rounded-lg px-2 py-1 text-[13px] font-black text-white text-center outline-none focus:border-purple-400" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
+                          </div>
+                          <input type="range" min="0" max="60" step="0.5" className="w-full accent-purple-500 h-1.5 rounded-lg bg-white/5 cursor-pointer" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) })} />
                         </div>
                       </div>
                       <button onClick={() => deleteTask(selectedTaskId)} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2">
@@ -1000,11 +1044,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                     <div className="space-y-10 animate-apple-in">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between px-1">
-                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Source Data (Inputs)</label>
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Source Data (Inputs)</label>
                           <div className="flex gap-2">
                              <div className="relative group/search">
                                 <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 text-white/40 rounded-lg text-[9px] font-black uppercase tracking-widest hover:text-white transition-all">
-                                  <Search size={12} /> Search Existing
+                                  <Search size={12} /> Search
                                 </button>
                                 <div className="absolute top-full right-0 mt-2 w-64 bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl z-[100] p-2 opacity-0 invisible group-hover/search:opacity-100 group-hover/search:visible transition-all backdrop-blur-2xl">
                                    <p className="text-[8px] font-black text-white/20 uppercase px-2 py-1 border-b border-white/5 mb-2">Upstream Outputs</p>
@@ -1038,40 +1082,62 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                                 </div>
                              </div>
                              <button onClick={() => updateTask(selectedTaskId, { source_data_list: [...selectedTask.source_data_list, { id: Date.now().toString(), is_manual: true, name: '', source_location: '', format: '', example: '', description: '', purpose: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-theme-accent text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-theme-accent/20">
-                               <Plus size={12} /> Add Manual
+                               <Plus size={12} /> Add
                              </button>
                           </div>
                         </div>
-                        <div className="overflow-hidden border border-white/10 rounded-xl bg-white/[0.02]">
-                          <table className="w-full text-left border-collapse">
-                            <tbody className="divide-y divide-white/5">
-                              {selectedTask.source_data_list.map(sd => (
-                                <tr key={sd.id} className="group hover:bg-white/[0.03] transition-colors">
-                                  <td className="p-3">
-                                    <input className="bg-transparent text-[13px] font-black text-white outline-none w-full uppercase" value={sd.name} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, name: e.target.value } : x) })} placeholder="DATA NAME" />
-                                    {!sd.is_manual && <span className="text-[7px] font-black text-blue-400 uppercase tracking-widest">Linked Source</span>}
-                                  </td>
-                                  <td className="p-3"><button onClick={() => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.filter(x => x.id !== sd.id) })} className="text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button></td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                        <div className="space-y-4">
+                          {selectedTask.source_data_list.map(sd => (
+                            <div key={sd.id} className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-3 relative group animate-apple-in">
+                              <button onClick={() => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.filter(x => x.id !== sd.id) })} className="absolute top-4 right-4 text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className={cn("px-1.5 py-0.5 rounded text-[7px] font-black uppercase", sd.is_manual ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-blue-500/10 text-blue-400 border border-blue-500/20")}>
+                                  {sd.is_manual ? 'Manual Input' : 'Linked Source'}
+                                </div>
+                              </div>
+                              <input className="w-full bg-transparent text-[13px] font-black text-white outline-none uppercase placeholder:text-white/10" value={sd.name} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, name: e.target.value } : x) })} placeholder="INPUT DATA NAME" />
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                  <label className="text-[8px] font-black text-white/20 uppercase">Format</label>
+                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-2 py-1 text-[10px] text-white outline-none" placeholder="e.g. CSV, JSON" value={sd.format} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, format: e.target.value } : x) })} />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[8px] font-black text-white/20 uppercase">Location</label>
+                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-2 py-1 text-[10px] text-white outline-none" placeholder="Source Path..." value={sd.source_location} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, source_location: e.target.value } : x) })} />
+                                </div>
+                              </div>
+                              <textarea className="w-full bg-black/10 border border-white/5 rounded-lg p-2 text-[11px] text-white/40 font-bold h-16 resize-none outline-none italic" placeholder="Description and purpose of this input..." value={sd.description} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, description: e.target.value } : x) })} />
+                            </div>
+                          ))}
                         </div>
                       </div>
 
                       <div className="space-y-4">
                         <div className="flex items-center justify-between px-1">
-                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Output Data (Deliverables)</label>
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Output Data (Deliverables)</label>
                           <button onClick={() => updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '', format: '', example: '', saved_location: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all">
-                             <Plus size={12} /> Add Output
+                             <Plus size={12} /> Add
                           </button>
                         </div>
                         <div className="space-y-4">
                           {selectedTask.output_data_list.map(od => (
-                            <div key={od.id} className="p-4 bg-[#1e293b]/50 border border-white/10 rounded-2xl space-y-3 relative group">
+                            <div key={od.id} className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-3 relative group animate-apple-in">
                               <button onClick={() => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.filter(x => x.id !== od.id) })} className="absolute top-4 right-4 text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[7px] font-black uppercase">Industrial Output</div>
+                              </div>
                               <input className="w-full bg-transparent text-[13px] font-black text-white outline-none uppercase placeholder:text-white/10" value={od.name} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, name: e.target.value } : x) })} placeholder="OUTPUT DATA NAME" />
-                              <textarea className="w-full bg-black/20 border border-white/5 rounded-lg p-2 text-[11px] text-white/60 font-bold h-16 resize-none outline-none" placeholder="Format, destination, and purpose..." value={od.description} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, description: e.target.value } : x) })} />
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                  <label className="text-[8px] font-black text-white/20 uppercase">Format</label>
+                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-2 py-1 text-[10px] text-white outline-none" placeholder="e.g. PDF, Report" value={od.format} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, format: e.target.value } : x) })} />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[8px] font-black text-white/20 uppercase">Destination</label>
+                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-2 py-1 text-[10px] text-white outline-none" placeholder="Save Path..." value={od.saved_location} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, saved_location: e.target.value } : x) })} />
+                                </div>
+                              </div>
+                              <textarea className="w-full bg-black/10 border border-white/5 rounded-lg p-2 text-[11px] text-white/40 font-bold h-16 resize-none outline-none italic" placeholder="Final state and verification purpose..." value={od.description} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, description: e.target.value } : x) })} />
                             </div>
                           ))}
                         </div>
@@ -1080,60 +1146,104 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                   )}
                   {inspectorTab === 'exceptions' && (
                     <div className="space-y-10 animate-apple-in">
-                      <div className="space-y-4">
+                      <div className="space-y-6">
                         <div className="flex items-center justify-between px-1">
-                          <label className="text-[9px] font-black text-amber-500 uppercase tracking-widest">Blockers</label>
+                          <label className="text-[11px] font-black text-amber-500 uppercase tracking-widest">Process Blockers</label>
                           <button onClick={() => updateTask(selectedTaskId, { blockers: [...selectedTask.blockers, { id: Date.now().toString(), blocking_entity: '', reason: '', probability_percent: 10, average_delay_minutes: 0, standard_mitigation: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-500 transition-all"><Plus size={12} /> Add Blocker</button>
                         </div>
-                        <div className="space-y-4">
+                        <div className="space-y-6">
                           {selectedTask.blockers.map(b => (
-                            <div key={b.id} className="p-4 bg-[#1e293b]/50 border border-white/10 rounded-2xl space-y-4 group relative">
-                              <button onClick={() => updateTask(selectedTaskId, { blockers: selectedTask.blockers.filter(x => x.id !== b.id) })} className="absolute top-4 right-4 text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
-                              <div className="space-y-1.5">
-                                <label className="text-[8px] font-black text-white/20 uppercase">Blocker Name</label>
-                                <input className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-[13px] font-black text-amber-500 uppercase outline-none focus:border-amber-500" value={b.blocking_entity} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, blocking_entity: e.target.value } : x) })} />
+                            <div key={b.id} className="p-5 bg-[#1e293b]/50 border border-white/10 rounded-2xl space-y-5 group relative animate-apple-in">
+                              <button onClick={() => updateTask(selectedTaskId, { blockers: selectedTask.blockers.filter(x => x.id !== b.id) })} className="absolute top-5 right-5 text-white/10 hover:text-status-error transition-colors"><Trash size={14} /></button>
+                              <div className="space-y-2">
+                                <label className="text-[9px] font-black text-white/40 uppercase tracking-wider px-1">Blocker Identity</label>
+                                <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[14px] font-black text-amber-500 uppercase outline-none focus:border-amber-500" placeholder="E.G. PENDING APPROVAL" value={b.blocking_entity} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, blocking_entity: e.target.value } : x) })} />
                               </div>
                               <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5"><label className="text-[8px] font-black text-white/20 uppercase">Reason</label><input className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-[11px] text-white" value={b.reason} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, reason: e.target.value } : x) })} /></div>
-                                <div className="space-y-1.5"><label className="text-[8px] font-black text-white/20 uppercase">Delay (min)</label><input type="number" className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-[11px] text-white" value={b.average_delay_minutes} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, average_delay_minutes: parseFloat(e.target.value) } : x) })} /></div>
+                                <div className="space-y-2">
+                                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Reason</label>
+                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white font-bold" value={b.reason} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, reason: e.target.value } : x) })} />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Delay (min)</label>
+                                  <input type="number" className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white font-bold" value={b.average_delay_minutes} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, average_delay_minutes: parseFloat(e.target.value) } : x) })} />
+                                </div>
                               </div>
-                              <div className="space-y-1.5"><label className="text-[8px] font-black text-white/20 uppercase">Mitigation</label><input className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-[11px] text-white" value={b.standard_mitigation} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, standard_mitigation: e.target.value } : x) })} /></div>
-                              <div className="flex items-center justify-between pt-2 border-t border-white/5"><span className="text-[8px] font-black text-white/20 uppercase">Frequency (/10)</span><div className="flex items-center gap-2"><input type="range" min="1" max="10" className="w-24 accent-amber-500" value={Math.round(b.probability_percent / 10)} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, probability_percent: parseInt(e.target.value) * 10 } : x) })} /><span className="text-[10px] font-black text-white">{Math.round(b.probability_percent / 10)}</span></div></div>
+                              <div className="space-y-2">
+                                <label className="text-[9px] font-black text-white/40 uppercase px-1">Standard Mitigation</label>
+                                <textarea className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white/80 font-bold h-16 resize-none outline-none" placeholder="Official response protocol..." value={b.standard_mitigation} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, standard_mitigation: e.target.value } : x) })} />
+                              </div>
+                              <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                                <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Occurrence Probability</span>
+                                <div className="flex items-center gap-3">
+                                  <input type="range" min="1" max="10" className="w-28 accent-amber-500" value={Math.round(b.probability_percent / 10)} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, probability_percent: parseInt(e.target.value) * 10 } : x) })} />
+                                  <span className="text-[12px] font-black text-amber-500 w-6 text-right">{Math.round(b.probability_percent / 10)}/10</span>
+                                </div>
+                              </div>
                             </div>
                           ))}
                         </div>
                       </div>
-                      <div className="space-y-4">
+
+                      <div className="space-y-6">
                         <div className="flex items-center justify-between px-1">
-                          <label className="text-[9px] font-black text-status-error uppercase tracking-widest">Errors</label>
+                          <label className="text-[11px] font-black text-status-error uppercase tracking-widest">Expected Errors</label>
                           <button onClick={() => updateTask(selectedTaskId, { errors: [...selectedTask.errors, { id: Date.now().toString(), error_type: '', description: '', probability_percent: 10, recovery_time_minutes: 0, correction_method: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-status-error/10 border border-status-error/20 text-status-error rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-status-error hover:text-white transition-all"><Plus size={12} /> Add Error</button>
                         </div>
-                        <div className="space-y-4">
+                        <div className="space-y-6">
                           {selectedTask.errors.map(err => (
-                            <div key={err.id} className="p-4 bg-status-error/5 border border-status-error/10 rounded-2xl space-y-4 group relative">
-                              <button onClick={() => updateTask(selectedTaskId, { errors: selectedTask.errors.filter(x => x.id !== err.id) })} className="absolute top-4 right-4 text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
-                              <div className="space-y-1.5"><label className="text-[8px] font-black text-white/20 uppercase">Error Name</label><input className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-2 text-[13px] font-black text-status-error uppercase outline-none focus:border-status-error" value={err.error_type} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, error_type: e.target.value } : x) })} /></div>
-                              <div className="space-y-1.5"><label className="text-[8px] font-black text-white/20 uppercase">Cause</label><input className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-[11px] text-white" value={err.description} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, description: e.target.value } : x) })} /></div>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5"><label className="text-[8px] font-black text-white/20 uppercase">Correction</label><input className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-[11px] text-white" value={err.correction_method} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, correction_method: e.target.value } : x) })} /></div>
-                                <div className="space-y-1.5"><label className="text-[8px] font-black text-white/20 uppercase">Recovery (min)</label><input type="number" className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-1.5 text-[11px] text-white" value={err.recovery_time_minutes} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, recovery_time_minutes: parseFloat(e.target.value) } : x) })} /></div>
+                            <div key={err.id} className="p-5 bg-status-error/5 border border-status-error/10 rounded-2xl space-y-5 group relative animate-apple-in">
+                              <button onClick={() => updateTask(selectedTaskId, { errors: selectedTask.errors.filter(x => x.id !== err.id) })} className="absolute top-5 right-5 text-white/10 hover:text-status-error transition-colors"><Trash size={14} /></button>
+                              <div className="space-y-2">
+                                <label className="text-[9px] font-black text-white/40 uppercase tracking-wider px-1">Error Type</label>
+                                <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[14px] font-black text-status-error uppercase outline-none focus:border-status-error" placeholder="E.G. SYSTEM TIMEOUT" value={err.error_type} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, error_type: e.target.value } : x) })} />
                               </div>
-                              <div className="flex items-center justify-between pt-2 border-t border-white/5"><span className="text-[8px] font-black text-white/20 uppercase">Frequency (/10)</span><div className="flex items-center gap-2"><input type="range" min="1" max="10" className="w-24 accent-status-error" value={Math.round(err.probability_percent / 10)} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, probability_percent: parseInt(e.target.value) * 10 } : x) })} /><span className="text-[10px] font-black text-white">{Math.round(err.probability_percent / 10)}</span></div></div>
+                              <div className="space-y-2">
+                                <label className="text-[9px] font-black text-white/40 uppercase px-1">Causality / Root Cause</label>
+                                <input className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white font-bold" value={err.description} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, description: e.target.value } : x) })} />
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Recovery Protocol</label>
+                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white font-bold" value={err.correction_method} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, correction_method: e.target.value } : x) })} />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Recovery (min)</label>
+                                  <input type="number" className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white font-bold" value={err.recovery_time_minutes} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, recovery_time_minutes: parseFloat(e.target.value) } : x) })} />
+                                </div>
+                              </div>
+                              <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                                <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Failure Rate Probability</span>
+                                <div className="flex items-center gap-3">
+                                  <input type="range" min="1" max="10" className="w-28 accent-status-error" value={Math.round(err.probability_percent / 10)} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, probability_percent: parseInt(e.target.value) * 10 } : x) })} />
+                                  <span className="text-[12px] font-black text-status-error w-6 text-right">{Math.round(err.probability_percent / 10)}/10</span>
+                                </div>
+                              </div>
                             </div>
                           ))}
                         </div>
                       </div>
-                      <div className="space-y-4">
+
+                      <div className="space-y-6">
                         <div className="flex items-center justify-between px-1">
-                          <label className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Tribal Knowledge</label>
-                          <button onClick={() => updateTask(selectedTaskId, { tribal_knowledge: [...selectedTask.tribal_knowledge, { id: Date.now().toString(), knowledge: '', captured_from: '' }] })} className="text-emerald-500 hover:bg-emerald-500/10 p-1 rounded transition-colors"><Plus size={14} /></button>
+                          <label className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">Tribal Knowledge & Implicit Rules</label>
+                          <button onClick={() => updateTask(selectedTaskId, { tribal_knowledge: [...selectedTask.tribal_knowledge, { id: Date.now().toString(), knowledge: '', captured_from: '' }] })} className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 p-1.5 rounded-lg transition-colors"><Plus size={14} /></button>
                         </div>
-                        {selectedTask.tribal_knowledge.map(tk => (
-                          <div key={tk.id} className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl space-y-3 relative group">
-                            <button onClick={() => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.filter(x => x.id !== tk.id) })} className="absolute top-4 right-4 text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
-                            <textarea className="w-full bg-transparent text-[11px] text-white/80 outline-none h-16 resize-none" value={tk.knowledge} onChange={e => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, knowledge: e.target.value } : x) })} placeholder="implicit rule or tip..." />
-                          </div>
-                        ))}
+                        <div className="space-y-4">
+                          {selectedTask.tribal_knowledge.map(tk => (
+                            <div key={tk.id} className="p-5 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl space-y-4 relative group animate-apple-in">
+                              <button onClick={() => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.filter(x => x.id !== tk.id) })} className="absolute top-5 right-5 text-white/10 hover:text-status-error transition-colors"><Trash size={14} /></button>
+                              <div className="space-y-2">
+                                <label className="text-[8px] font-black text-white/20 uppercase">Operational Insight</label>
+                                <textarea className="w-full bg-transparent text-[13px] font-bold text-white/90 outline-none h-24 resize-none leading-relaxed" value={tk.knowledge} onChange={e => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, knowledge: e.target.value } : x) })} placeholder="Implicit knowledge or domain expertise tips..." />
+                              </div>
+                              <div className="flex items-center gap-3 border-t border-white/5 pt-3">
+                                <label className="text-[8px] font-black text-white/20 uppercase whitespace-nowrap">Source POC:</label>
+                                <input className="bg-transparent text-[11px] font-black text-emerald-400 outline-none w-full uppercase" placeholder="NAME / DEPARTMENT" value={tk.captured_from} onChange={e => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, captured_from: e.target.value } : x) })} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}
