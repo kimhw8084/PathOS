@@ -215,11 +215,17 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
     <div className={cn(
       "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-6 py-5 w-[320px] shadow-2xl transition-all duration-300 group relative border-2",
       selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTemplate ? 'border-dashed opacity-80 hover:opacity-100' : 'border-white/10 hover:border-white/20'),
-      isTemplate && !selected && (isTrigger ? "border-cyan-500/40" : "border-rose-500/40")
+      isTemplate && !selected && (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
+      data.validation_needed && !isTemplate && "border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
     )}>
       {isTemplate && (
         <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-[0.2em] border z-20", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
           SYSTEM TEMPLATE LOCKED
+        </div>
+      )}
+      {data.validation_needed && (
+        <div className="absolute -top-3 right-4 px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-[0.2em] bg-emerald-500 border border-emerald-400 text-white z-20 shadow-lg animate-pulse">
+          VALIDATION REQUIRED
         </div>
       )}
       <div className="flex flex-col gap-4">
@@ -282,11 +288,17 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
 
 const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => (
   <div className={`relative w-28 h-28 flex items-center justify-center transition-all duration-300 group ${selected ? 'scale-110' : ''}`}>
-    <div className={`absolute inset-0 rotate-45 border-2 transition-all duration-300 bg-[#1e293b]/90 ${selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20 group-hover:border-white/40'}`} />
+    <div className={`absolute inset-0 rotate-45 border-2 transition-all duration-300 bg-[#1e293b]/90 ${selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20 group-hover:border-white/40'} ${data.validation_needed ? 'border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.3)]' : ''}`} />
     <div className="relative z-10 flex flex-col items-center p-4">
       <span className="text-[10px] font-black text-white uppercase tracking-tighter text-center leading-tight truncate w-full px-2">{data.label || "CONDITION"}</span>
     </div>
     
+    {data.validation_needed && (
+      <div className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded text-[6px] font-black uppercase bg-emerald-500 border border-emerald-400 text-white z-20 shadow-lg animate-pulse">
+        VALID
+      </div>
+    )}
+
     <Handle type="target" position={Position.Left} id="left-target" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-left-1.5 shadow-lg z-10" />
     <Handle type="source" position={Position.Left} id="left-source" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-left-1.5 shadow-lg z-20 opacity-0" />
 
@@ -688,7 +700,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         task_type: t.task_type,
         blockerCount: t.blockers.length,
         errorCount: t.errors.length,
-        interface: t.interface_type
+        interface: t.interface_type,
+        validation_needed: t.validation_needed
       },
       position: nodes.find(n => n.id === t.id)?.position || (
         t.id === 'trigger-node' ? { x: 100, y: 300 } :
@@ -733,7 +746,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           label: isLoop ? 'RETURN/REDO' : '', 
           color: isLoop ? '#f59e0b' : '#3b82f6', 
           style: isLoop ? 'dashed' : 'solid',
-          edgeStyle: edgeStyle
+          edgeStyle: e.data?.edgeStyle || edgeStyle
         },
         markerEnd: { type: MarkerType.ArrowClosed, color: isLoop ? '#f59e0b' : '#3b82f6' }, 
       } : e));
@@ -805,7 +818,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             type === 'TRIGGER' ? 'TRIGGER' :
             type === 'OUTCOME' ? 'OUTCOME' : 
             type === 'LOOP' ? 'LOOP' : 'matrix',
-      data: { label: newTask.name, task_type: newTask.task_type, interface: type },
+      data: { label: newTask.name, task_type: newTask.task_type, interface: type, validation_needed: false },
       position
     }]);
 
@@ -820,6 +833,21 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   const updateEdge = (id: string, updates: any) => {
     setEdges(eds => eds.map(e => e.id === id ? { ...e, data: { ...e.data, ...updates }, markerEnd: { ...e.markerEnd as any, color: updates.color || e.data?.color } } : e));
+  };
+
+  const swapEdgeDirection = (id: string) => {
+    setEdges(eds => eds.map(e => {
+      if (e.id === id) {
+        return {
+          ...e,
+          source: e.target,
+          target: e.source,
+          sourceHandle: e.targetHandle,
+          targetHandle: e.sourceHandle
+        };
+      }
+      return e;
+    }));
   };
 
   const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId), [tasks, selectedTaskId]);
@@ -895,7 +923,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                 <Layers size={12} /> Auto-Layout
               </button>
               <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/10 items-center gap-1 px-2">
-                <span className="text-[8px] font-black text-white/20 uppercase tracking-widest mr-1">Edge:</span>
+                <span className="text-[8px] font-black text-white/20 uppercase tracking-widest mr-1">Global Edge:</span>
                 {(['smoothstep', 'bezier', 'straight'] as const).map((s) => (
                   <button key={s} onClick={() => setEdgeStyle(s)} className={`px-2 py-1 text-[9px] font-black uppercase tracking-tighter rounded transition-all ${edgeStyle === s ? 'bg-theme-accent text-white' : 'text-white/40 hover:text-white'}`}>{s}</button>
                 ))}
@@ -932,7 +960,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                   onConnect={onConnect} 
                   onEdgeUpdate={onEdgeUpdate}
                   onNodesDelete={onNodesDelete} 
-                  onNodeClick={(_, node) => { setSelectedTaskId(node.id); setInspectorTab(node.id.includes('node') ? 'overview' : 'process'); }} 
+                  onNodeClick={(_, node) => { setSelectedTaskId(node.id); setSelectedEdgeId(null); setInspectorTab(node.id.includes('node') ? 'overview' : 'process'); }} 
                   onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedTaskId(null); }} 
                   onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); setInspectorTab('process'); }} 
                   onInit={setReactFlowInstance} 
@@ -992,7 +1020,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                                   <td className="p-3 text-center"><span className="text-[11px] font-black text-white/20">{idx + 1}</span></td>
                                   <td className="p-3">
                                     <div className="flex flex-col">
-                                      <span className="text-[13px] font-black text-white uppercase">{task.name}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-[13px] font-black text-white uppercase">{task.name}</span>
+                                        {task.validation_needed && <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-500 border border-emerald-500/20 rounded text-[7px] font-black uppercase">Validation Required</span>}
+                                      </div>
                                       <span className="text-[9px] text-white/40 font-bold italic truncate max-w-[300px] uppercase">{task.description || 'No description'}</span>
                                     </div>
                                   </td>
@@ -1067,9 +1098,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                   {t.icon}<span className="text-[8px] font-black uppercase tracking-widest">{t.label}</span>
                 </button>
               ))}
-              {(!selectedTaskId || isProtected) && (
+              {(!selectedTaskId || isProtected) && !selectedEdgeId && (
                 <div className="flex-1 flex flex-col items-center justify-center gap-0.5 border-b-2 border-theme-accent bg-theme-accent/10 text-white">
                   <Settings size={12} /><span className="text-[8px] font-black uppercase tracking-widest">Workflow Definition</span>
+                </div>
+              )}
+              {selectedEdgeId && (
+                <div className="flex-1 flex flex-col items-center justify-center gap-0.5 border-b-2 border-theme-accent bg-theme-accent/10 text-white">
+                  <Link2 size={12} /><span className="text-[8px] font-black uppercase tracking-widest">Edge Properties</span>
                 </div>
               )}
             </div>
@@ -1210,25 +1246,31 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                         </div>
                         <div className="space-y-4">
                           {selectedTask.source_data_list.map(sd => (
-                            <div key={sd.id} className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-3 relative group animate-apple-in">
-                              <button onClick={() => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.filter(x => x.id !== sd.id) })} className="absolute top-4 right-4 text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
-                              <div className="flex items-center gap-2 mb-1">
+                            <div key={sd.id} className="p-5 bg-[#1e293b]/50 border border-white/10 rounded-2xl space-y-5 group relative animate-apple-in">
+                              <button onClick={() => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.filter(x => x.id !== sd.id) })} className="absolute top-5 right-5 text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
+                              <div className="space-y-2">
+                                <label className="text-[9px] font-black text-white/40 uppercase tracking-wider px-1">Source Data Identity</label>
+                                <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[14px] font-black text-blue-400 uppercase outline-none focus:border-blue-500" placeholder="E.G. RAW TELEMETRY LOG" value={sd.name} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, name: e.target.value } : x) })} />
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Format</label>
+                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white font-bold" placeholder="e.g. CSV, JSON" value={sd.format} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, format: e.target.value } : x) })} />
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Location</label>
+                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white font-bold" placeholder="Source Path..." value={sd.source_location} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, source_location: e.target.value } : x) })} />
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-[9px] font-black text-white/40 uppercase px-1">Purpose & Context</label>
+                                <textarea className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white/80 font-bold h-16 resize-none outline-none italic" placeholder="Description of this input..." value={sd.description} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, description: e.target.value } : x) })} />
+                              </div>
+                              <div className="flex items-center gap-2">
                                 <div className={cn("px-1.5 py-0.5 rounded text-[7px] font-black uppercase", sd.is_manual ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-blue-500/10 text-blue-400 border border-blue-500/20")}>
-                                  {sd.is_manual ? 'Manual Input' : 'Linked Source'}
+                                  {sd.is_manual ? 'Manual Extraction' : 'System-Linked Source'}
                                 </div>
                               </div>
-                              <input className="w-full bg-transparent text-[13px] font-black text-white outline-none uppercase placeholder:text-white/10" value={sd.name} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, name: e.target.value } : x) })} placeholder="INPUT DATA NAME" />
-                              <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                  <label className="text-[8px] font-black text-white/20 uppercase">Format</label>
-                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-2 py-1 text-[10px] text-white outline-none" placeholder="e.g. CSV, JSON" value={sd.format} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, format: e.target.value } : x) })} />
-                                </div>
-                                <div className="space-y-1">
-                                  <label className="text-[8px] font-black text-white/20 uppercase">Location</label>
-                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-2 py-1 text-[10px] text-white outline-none" placeholder="Source Path..." value={sd.source_location} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, source_location: e.target.value } : x) })} />
-                                </div>
-                              </div>
-                              <textarea className="w-full bg-black/10 border border-white/5 rounded-lg p-2 text-[11px] text-white/40 font-bold h-16 resize-none outline-none italic" placeholder="Description and purpose of this input..." value={sd.description} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, description: e.target.value } : x) })} />
                             </div>
                           ))}
                         </div>
@@ -1243,23 +1285,26 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                         </div>
                         <div className="space-y-4">
                           {selectedTask.output_data_list.map(od => (
-                            <div key={od.id} className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-3 relative group animate-apple-in">
-                              <button onClick={() => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.filter(x => x.id !== od.id) })} className="absolute top-4 right-4 text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
-                              <div className="flex items-center gap-2 mb-1">
-                                <div className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[7px] font-black uppercase">Industrial Output</div>
+                            <div key={od.id} className="p-5 bg-[#1e293b]/50 border border-white/10 rounded-2xl space-y-5 group relative animate-apple-in">
+                              <button onClick={() => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.filter(x => x.id !== od.id) })} className="absolute top-5 right-5 text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
+                              <div className="space-y-2">
+                                <label className="text-[9px] font-black text-white/40 uppercase tracking-wider px-1">Output Delivery Identity</label>
+                                <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[14px] font-black text-emerald-400 uppercase outline-none focus:border-emerald-500" placeholder="E.G. FINAL INSPECTION REPORT" value={od.name} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, name: e.target.value } : x) })} />
                               </div>
-                              <input className="w-full bg-transparent text-[13px] font-black text-white outline-none uppercase placeholder:text-white/10" value={od.name} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, name: e.target.value } : x) })} placeholder="OUTPUT DATA NAME" />
-                              <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                  <label className="text-[8px] font-black text-white/20 uppercase">Format</label>
-                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-2 py-1 text-[10px] text-white outline-none" placeholder="e.g. PDF, Report" value={od.format} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, format: e.target.value } : x) })} />
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Format</label>
+                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white font-bold" placeholder="e.g. PDF, Report" value={od.format} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, format: e.target.value } : x) })} />
                                 </div>
-                                <div className="space-y-1">
-                                  <label className="text-[8px] font-black text-white/20 uppercase">Destination</label>
-                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-2 py-1 text-[10px] text-white outline-none" placeholder="Save Path..." value={od.saved_location} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, saved_location: e.target.value } : x) })} />
+                                <div className="space-y-2">
+                                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Destination</label>
+                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white font-bold" placeholder="Save Path..." value={od.saved_location} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, saved_location: e.target.value } : x) })} />
                                 </div>
                               </div>
-                              <textarea className="w-full bg-black/10 border border-white/5 rounded-lg p-2 text-[11px] text-white/40 font-bold h-16 resize-none outline-none italic" placeholder="Final state and verification purpose..." value={od.description} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, description: e.target.value } : x) })} />
+                              <div className="space-y-2">
+                                <label className="text-[9px] font-black text-white/40 uppercase px-1">Output Verification Goal</label>
+                                <textarea className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white/80 font-bold h-16 resize-none outline-none italic" placeholder="Final state and verification purpose..." value={od.description} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, description: e.target.value } : x) })} />
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -1353,7 +1398,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                         </div>
                         <div className="space-y-4">
                           {selectedTask.tribal_knowledge.map(tk => (
-                            <div key={tk.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl space-y-4 relative group animate-apple-in">
+                            <div key={tk.id} className="p-5 bg-[#0f172a]/80 border border-white/10 rounded-2xl space-y-4 relative group animate-apple-in">
                               <button onClick={() => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.filter(x => x.id !== tk.id) })} className="absolute top-5 right-5 text-white/10 hover:text-status-error transition-colors"><Trash size={14} /></button>
                               <div className="space-y-2">
                                 <label className="text-[8px] font-black text-white/20 uppercase">Operational Insight</label>
@@ -1459,17 +1504,41 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                    <div className="flex items-center justify-between border-b border-white/10 pb-4">
                      <div className="flex items-center gap-3">
                        <Link2 size={16} className="text-theme-accent" />
-                       <span className="text-[14px] font-black text-white uppercase tracking-widest">Connection Style</span>
+                       <span className="text-[14px] font-black text-white uppercase tracking-widest">Edge Configuration</span>
                      </div>
-                     <button onClick={() => { setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); }} className="text-status-error hover:bg-status-error/10 p-2 rounded-lg transition-all">
-                       <Trash size={16} />
-                     </button>
+                     <div className="flex gap-2">
+                       <button onClick={() => swapEdgeDirection(selectedEdgeId)} title="Swap Direction" className="text-white/40 hover:text-white p-2 bg-white/5 border border-white/10 rounded-lg transition-all">
+                         <LucideWorkflow size={16} className="rotate-90" />
+                       </button>
+                       <button onClick={() => { setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); }} className="text-status-error hover:bg-status-error/10 p-2 border border-status-error/20 rounded-lg transition-all">
+                         <Trash size={16} />
+                       </button>
+                     </div>
                    </div>
                    <div className="space-y-6">
                      <div className="space-y-2">
                        <label className="text-[9px] font-black text-white/40 uppercase px-1">Label</label>
                        <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" placeholder="E.G. YES / NO / RETRY" value={selectedEdge.data?.label || ''} onChange={e => updateEdge(selectedEdgeId, { label: e.target.value })} />
                      </div>
+                     
+                     <div className="space-y-2">
+                       <label className="text-[9px] font-black text-white/40 uppercase px-1">Visual Path Style</label>
+                       <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+                         {(['smoothstep', 'bezier', 'straight'] as const).map((s) => (
+                           <button 
+                             key={s} 
+                             onClick={() => updateEdge(selectedEdgeId, { edgeStyle: s })} 
+                             className={cn(
+                               "flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all", 
+                               (selectedEdge.data?.edgeStyle || edgeStyle) === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white"
+                             )}
+                           >
+                             {s}
+                           </button>
+                         ))}
+                       </div>
+                     </div>
+
                      <div className="space-y-2">
                        <label className="text-[9px] font-black text-white/40 uppercase px-1">Line Color</label>
                        <div className="flex gap-2">
@@ -1487,7 +1556,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                        </div>
                      </div>
                      <div className="space-y-2">
-                       <label className="text-[9px] font-black text-white/40 uppercase px-1">Line Style</label>
+                       <label className="text-[9px] font-black text-white/40 uppercase px-1">Interaction Mode</label>
                        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
                          <button onClick={() => updateEdge(selectedEdgeId, { style: 'solid' })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all", selectedEdge.data?.style !== 'dashed' ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>Solid</button>
                          <button onClick={() => updateEdge(selectedEdgeId, { style: 'dashed' })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all", selectedEdge.data?.style === 'dashed' ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>Dashed</button>
@@ -1496,7 +1565,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                    </div>
                    <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl">
                       <p className="text-[10px] font-bold text-blue-400/60 leading-relaxed uppercase italic">
-                        TIP: USE DASHED AMBER LINES FOR "RETURN/REDO" LOOPS TO VISUALLY INDICATE ITERATIVE REFLOW PATHS.
+                        TIP: USE "STRAIGHT" LINES FOR HIGH-DENSITY VERTICAL FLOWS AND "SMOOTHSTEP" FOR BRANCHING LOGIC.
                       </p>
                    </div>
                 </div>
