@@ -15,6 +15,8 @@ import ReactFlow, {
   type Connection,
   type EdgeProps,
   getSmoothStepPath,
+  getBezierPath,
+  getStraightPath,
   EdgeLabelRenderer
 } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -140,6 +142,10 @@ interface Task {
   errors: TaskError[];
   tribal_knowledge: TribalKnowledge[];
 
+  // Validation Tab
+  validation_needed: boolean;
+  validation_procedure: string;
+
   // Appendix Tab
   media: TaskMedia[];
   reference_links: ReferenceLink[];
@@ -170,6 +176,8 @@ interface WorkflowMetadata {
   org: string;
   team: string;
   poc: string;
+  owning_position: string;
+  owning_team_name: string;
   forensic_description: string;
   trigger_type: string;
   trigger_description: string;
@@ -255,17 +263,19 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
           </div>
         </div>
       </div>
-      {!isTrigger && (
-        <Handle type="target" position={Position.Left} className="!bg-theme-accent !w-4 !h-4 !border-4 !border-[#0f172a] !-left-2 shadow-xl hover:scale-125 transition-transform" />
-      )}
-      <Handle type="target" position={Position.Top} id="top-target" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-top-1.5 !left-[30%] opacity-0 group-hover:opacity-100 transition-opacity" />
-      <Handle type="source" position={Position.Top} id="top-source" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-top-1.5 !left-[70%] opacity-0 group-hover:opacity-100 transition-opacity" />
       
-      <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-bottom-1.5 !left-[30%] opacity-0 group-hover:opacity-100 transition-opacity" />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-bottom-1.5 !left-[70%] opacity-0 group-hover:opacity-100 transition-opacity" />
-      {!isOutcome && (
-        <Handle type="source" position={Position.Right} className="!bg-theme-accent !w-4 !h-4 !border-4 !border-[#0f172a] !-right-2 shadow-xl hover:scale-125 transition-transform" />
-      )}
+      {/* Universal Multi-Handles: Dual Source/Target at all 4 poles */}
+      <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
+      <Handle type="source" position={Position.Left} id="left-source" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
+
+      <Handle type="target" position={Position.Right} id="right-target" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
+      <Handle type="source" position={Position.Right} id="right-source" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
+
+      <Handle type="target" position={Position.Top} id="top-target" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-top-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
+      <Handle type="source" position={Position.Top} id="top-source" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-top-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
+
+      <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-bottom-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-bottom-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
     </div>
   );
 };
@@ -277,10 +287,17 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => (
       <span className="text-[10px] font-black text-white uppercase tracking-tighter text-center leading-tight truncate w-full px-2">{data.label || "CONDITION"}</span>
     </div>
     
-    <Handle type="target" position={Position.Left} id="input" className="!bg-amber-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-left-2 shadow-lg z-50" />
-    <Handle type="source" position={Position.Top} id="top" className="!bg-amber-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-top-2 shadow-lg z-50" />
-    <Handle type="source" position={Position.Right} id="right" className="!bg-amber-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-right-2 shadow-lg z-50" />
-    <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-amber-400 !w-4 !h-4 !border-2 !border-[#0a1120] !-bottom-2 shadow-lg z-50" />
+    <Handle type="target" position={Position.Left} id="left-target" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-left-1.5 shadow-lg z-10" />
+    <Handle type="source" position={Position.Left} id="left-source" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-left-1.5 shadow-lg z-20 opacity-0" />
+
+    <Handle type="target" position={Position.Right} id="right-target" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-right-1.5 shadow-lg z-10" />
+    <Handle type="source" position={Position.Right} id="right-source" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-right-1.5 shadow-lg z-20 opacity-0" />
+
+    <Handle type="target" position={Position.Top} id="top-target" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-top-1.5 shadow-lg z-10" />
+    <Handle type="source" position={Position.Top} id="top-source" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-top-1.5 shadow-lg z-20 opacity-0" />
+
+    <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-bottom-1.5 shadow-lg z-10" />
+    <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-bottom-1.5 shadow-lg z-20 opacity-0" />
   </div>
 );
 
@@ -297,15 +314,39 @@ const CustomEdge = ({
   data,
   selected
 }: EdgeProps) => {
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-    borderRadius: 16
-  });
+  const edgeStyle = data?.edgeStyle || 'smoothstep';
+  
+  let edgePath = '';
+  let labelX = 0;
+  let labelY = 0;
+
+  if (edgeStyle === 'straight') {
+    [edgePath, labelX, labelY] = getStraightPath({
+      sourceX,
+      sourceY,
+      targetX,
+      targetY,
+    });
+  } else if (edgeStyle === 'bezier') {
+    [edgePath, labelX, labelY] = getBezierPath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+    });
+  } else {
+    [edgePath, labelX, labelY] = getSmoothStepPath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+      borderRadius: 16
+    });
+  }
 
   const edgeColor = data?.color || '#3b82f6';
 
@@ -402,6 +443,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       blockers: t.blockers || [],
       errors: t.errors || [],
       tribal_knowledge: t.tribal_knowledge || [],
+      validation_needed: t.validation_needed || false,
+      validation_procedure: t.validation_procedure || '',
       media: t.media || [],
       reference_links: t.reference_links || [],
       tool_id: t.tool_id || 'LOCAL',
@@ -427,12 +470,16 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     org: workflow.org || '',
     team: workflow.team || '',
     poc: workflow.poc || '',
+    owning_position: workflow.owning_position || '',
+    owning_team_name: workflow.owning_team_name || '',
     forensic_description: workflow.forensic_description || '',
     trigger_type: workflow.trigger_type || '',
     trigger_description: workflow.trigger_description || '',
     output_type: workflow.output_type || '',
     output_description: workflow.output_description || ''
   });
+
+  const [edgeStyle, setEdgeStyle] = useState<'smoothstep' | 'bezier' | 'straight'>(workflow.edge_style || 'smoothstep');
 
   const [tasks, setTasks] = useState<Task[]>(() => {
     const baseTasks = normalizeTasks(workflow.tasks || []);
@@ -457,6 +504,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         blockers: [],
         errors: [],
         tribal_knowledge: [],
+        validation_needed: false,
+        validation_procedure: '',
         media: [],
         reference_links: [],
         tool_id: 'LOCAL',
@@ -487,6 +536,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         blockers: [],
         errors: [],
         tribal_knowledge: [],
+        validation_needed: false,
+        validation_procedure: '',
         media: [],
         reference_links: [],
         tool_id: 'LOCAL',
@@ -548,6 +599,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       org: workflow.org || '',
       team: workflow.team || '',
       poc: workflow.poc || '',
+      owning_position: workflow.owning_position || '',
+      owning_team_name: workflow.owning_team_name || '',
       forensic_description: workflow.forensic_description || '',
       trigger_type: workflow.trigger_type || '',
       trigger_description: workflow.trigger_description || '',
@@ -558,7 +611,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [inspectorTab, setInspectorTab] = useState<'execution' | 'data' | 'exceptions' | 'appendix' | 'process'>('process');
+  const [inspectorTab, setInspectorTab] = useState<'overview' | 'data' | 'exceptions' | 'validation' | 'appendix' | 'process'>('process');
   
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -658,11 +711,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       data: { 
         label: isLoop ? 'RETURN/REDO' : '', 
         color: isLoop ? '#f59e0b' : '#3b82f6', 
-        style: isLoop ? 'dashed' : 'solid' 
+        style: isLoop ? 'dashed' : 'solid',
+        edgeStyle: edgeStyle
       },
       markerEnd: { type: MarkerType.ArrowClosed, color: isLoop ? '#f59e0b' : '#3b82f6' }, 
     }, eds));
-  }, [setEdges, edges]);
+  }, [setEdges, edges, edgeStyle]);
 
   const onEdgeUpdate = useCallback(
     (oldEdge: any, newConnection: Connection) => {
@@ -678,12 +732,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           ...e.data,
           label: isLoop ? 'RETURN/REDO' : '', 
           color: isLoop ? '#f59e0b' : '#3b82f6', 
-          style: isLoop ? 'dashed' : 'solid' 
+          style: isLoop ? 'dashed' : 'solid',
+          edgeStyle: edgeStyle
         },
         markerEnd: { type: MarkerType.ArrowClosed, color: isLoop ? '#f59e0b' : '#3b82f6' }, 
       } : e));
     },
-    [setEdges, edges]
+    [setEdges, edges, edgeStyle]
   );
 
   // Handle deletions from React Flow
@@ -726,6 +781,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       blockers: [],
       errors: [],
       tribal_knowledge: [],
+      validation_needed: false,
+      validation_procedure: '',
       media: [],
       reference_links: [],
       tool_id: 'LOCAL',
@@ -754,7 +811,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
     setSelectedTaskId(id);
     setSelectedEdgeId(null);
-    setInspectorTab('execution');
+    setInspectorTab('overview');
   };
 
   const updateTask = (id: string, updates: Partial<Task>) => {
@@ -837,6 +894,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
               <button onClick={autoLayout} className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
                 <Layers size={12} /> Auto-Layout
               </button>
+              <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/10 items-center gap-1 px-2">
+                <span className="text-[8px] font-black text-white/20 uppercase tracking-widest mr-1">Edge:</span>
+                {(['smoothstep', 'bezier', 'straight'] as const).map((s) => (
+                  <button key={s} onClick={() => setEdgeStyle(s)} className={`px-2 py-1 text-[9px] font-black uppercase tracking-tighter rounded transition-all ${edgeStyle === s ? 'bg-theme-accent text-white' : 'text-white/40 hover:text-white'}`}>{s}</button>
+                ))}
+              </div>
               <div className="flex bg-white/5 p-0.5 rounded-full border border-white/10">
                 {[{ id: 'flow', label: 'Designer' }, { id: 'table', label: 'List View' }].map((v) => (
                   <button key={v.id} onClick={() => setView(v.id as any)} className={`px-4 py-1 text-[10px] font-black uppercase tracking-widest rounded-full transition-all duration-300 ${view === v.id ? 'bg-theme-accent text-white shadow-lg' : 'text-white/40 hover:text-white'}`}>{v.label}</button>
@@ -869,7 +932,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                   onConnect={onConnect} 
                   onEdgeUpdate={onEdgeUpdate}
                   onNodesDelete={onNodesDelete} 
-                  onNodeClick={(_, node) => { setSelectedTaskId(node.id); setInspectorTab(node.id.includes('node') ? 'execution' : 'process'); }} 
+                  onNodeClick={(_, node) => { setSelectedTaskId(node.id); setInspectorTab(node.id.includes('node') ? 'overview' : 'process'); }} 
                   onEdgeClick={(_, edge) => { setSelectedEdgeId(edge.id); setSelectedTaskId(null); }} 
                   onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); setInspectorTab('process'); }} 
                   onInit={setReactFlowInstance} 
@@ -925,16 +988,17 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                             </thead>
                             <tbody className="divide-y divide-white/5">
                               {connectedTasks.map((task, idx) => (
-                                <tr key={task.id} onClick={() => { setSelectedTaskId(task.id); setInspectorTab(task.id.includes('node') ? 'execution' : 'process'); }} className={cn("group cursor-pointer transition-all", selectedTaskId === task.id ? "bg-theme-accent/10" : "hover:bg-white/[0.04]")}>
-                                  <td className="p-4 text-center"><span className="text-[12px] font-black text-white/20">{idx + 1}</span></td>
-                                  <td className="p-4">
+                                <tr key={task.id} onClick={() => { setSelectedTaskId(task.id); setInspectorTab(task.id.includes('node') ? 'overview' : 'process'); }} className={cn("group cursor-pointer transition-all", selectedTaskId === task.id ? "bg-theme-accent/10" : "hover:bg-white/[0.04]")}>
+                                  <td className="p-3 text-center"><span className="text-[11px] font-black text-white/20">{idx + 1}</span></td>
+                                  <td className="p-3">
                                     <div className="flex flex-col">
                                       <span className="text-[13px] font-black text-white uppercase">{task.name}</span>
-                                      <span className="text-[10px] text-white/40 font-bold italic truncate max-w-[300px] uppercase">{task.description || 'No description'}</span>
+                                      <span className="text-[9px] text-white/40 font-bold italic truncate max-w-[300px] uppercase">{task.description || 'No description'}</span>
                                     </div>
                                   </td>
-                                  <td className="p-4"><span className="text-[12px] font-black text-blue-400">{task.manual_time_minutes}min</span></td>
-                                  <td className="p-4"><span className="text-[12px] font-black text-purple-400">{task.automation_time_minutes}min</span></td>
+                                  <td className="p-3"><span className="text-[11px] font-black text-blue-400">{task.manual_time_minutes}min</span></td>
+                                  <td className="p-3"><span className="text-[11px] font-black text-purple-400">{task.automation_time_minutes}min</span></td>
+
                                   <td className="p-4">
                                      <div className="flex items-center gap-3">
                                         <div className="flex items-center gap-1.5"><AlertCircle size={14} className={task.blockers.length > 0 ? "text-status-warning" : "text-white/10"} /><span className={cn("text-[11px] font-black", task.blockers.length > 0 ? "text-status-warning" : "text-white/10")}>{task.blockers.length}</span></div>
@@ -960,16 +1024,16 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                             <table className="w-full text-left border-collapse">
                               <tbody className="divide-y divide-white/5">
                                 {standaloneTasks.map((task) => (
-                                  <tr key={task.id} onClick={() => { setSelectedTaskId(task.id); setInspectorTab(task.id.includes('node') ? 'execution' : 'process'); }} className={cn("group cursor-pointer transition-all", selectedTaskId === task.id ? "bg-theme-accent/10" : "hover:bg-white/[0.04]")}>
-                                    <td className="p-4 w-12 text-center"><AlertCircle size={14} className="text-amber-500/40" /></td>
-                                    <td className="p-4">
+                                  <tr key={task.id} onClick={() => { setSelectedTaskId(task.id); setInspectorTab(task.id.includes('node') ? 'overview' : 'process'); }} className={cn("group cursor-pointer transition-all", selectedTaskId === task.id ? "bg-theme-accent/10" : "hover:bg-white/[0.04]")}>
+                                    <td className="p-3 w-12 text-center"><AlertCircle size={14} className="text-amber-500/40" /></td>
+                                    <td className="p-3">
                                       <div className="flex flex-col">
                                         <span className="text-[13px] font-black text-white uppercase">{task.name}</span>
-                                        <span className="text-[10px] text-white/40 font-bold italic truncate max-w-[300px] uppercase">{task.description || 'No description'}</span>
+                                        <span className="text-[9px] text-white/40 font-bold italic truncate max-w-[300px] uppercase">{task.description || 'No description'}</span>
                                       </div>
                                     </td>
-                                    <td className="p-4"><span className="text-[12px] font-black text-blue-400">{task.manual_time_minutes}min</span></td>
-                                    <td className="p-4"><span className="text-[12px] font-black text-purple-400">{task.automation_time_minutes}min</span></td>
+                                    <td className="p-3"><span className="text-[11px] font-black text-blue-400">{task.manual_time_minutes}min</span></td>
+                                    <td className="p-3"><span className="text-[11px] font-black text-purple-400">{task.automation_time_minutes}min</span></td>
                                     <td className="p-4">
                                        <div className="flex items-center gap-2">
                                           <span className="px-2 py-0.5 bg-amber-500/20 text-amber-500 border border-amber-500/20 rounded text-[8px] font-black uppercase">Unlinked</span>
@@ -993,9 +1057,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             <div onMouseDown={handleMouseDown} className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent transition-colors z-50 group" />
             <div className="h-14 flex border-b border-white/10 bg-white/[0.02]">
               {[
-                { id: 'execution', label: 'Execution', icon: <Activity size={12} />, hidden: !selectedTaskId || isProtected },
+                { id: 'overview', label: 'Overview', icon: <Activity size={12} />, hidden: !selectedTaskId || isProtected },
                 { id: 'data', label: 'Data', icon: <Database size={12} />, hidden: !selectedTaskId || isProtected },
                 { id: 'exceptions', label: 'Exceptions', icon: <AlertCircle size={12} />, hidden: !selectedTaskId || isProtected },
+                { id: 'validation', label: 'Validation', icon: <Zap size={12} />, hidden: !selectedTaskId || isProtected },
                 { id: 'appendix', label: 'Appendix', icon: <Paperclip size={12} />, hidden: !selectedTaskId || isProtected }
               ].filter(t => !t.hidden).map(t => (
                 <button key={t.id} onClick={() => setInspectorTab(t.id as any)} className={cn("flex-1 flex flex-col items-center justify-center gap-0.5 transition-all border-b-2", inspectorTab === t.id ? 'border-theme-accent bg-theme-accent/10 text-white' : 'border-transparent text-white/20 hover:text-white')}>
@@ -1012,7 +1077,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             <div className="flex-1 overflow-auto custom-scrollbar p-6">
               {selectedTaskId && selectedTask && !isProtected ? (
                 <div className="space-y-8 animate-apple-in">
-                  {inspectorTab === 'execution' && (
+                  {inspectorTab === 'overview' && (
                     <div className="space-y-6">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
@@ -1026,6 +1091,17 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                         <textarea className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-bold text-white/60 outline-none focus:border-theme-accent h-24 resize-none leading-relaxed" placeholder="Task objective and core logic..." value={selectedTask.description} onChange={e => updateTask(selectedTaskId, { description: e.target.value })} />
                       </div>
 
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owning Position</label>
+                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={metadata.owning_position} onChange={e => setMetadata({ ...metadata, owning_position: e.target.value })} placeholder="e.g. Lead Engineer" />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owning Team</label>
+                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={metadata.owning_team_name} onChange={e => setMetadata({ ...metadata, owning_team_name: e.target.value })} placeholder="e.g. R&D Team A" />
+                        </div>
+                      </div>
+
                       <div className="space-y-4 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
                         <div className="flex items-center justify-between px-1">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Involved Systems</label>
@@ -1033,9 +1109,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                         </div>
                         <div className="space-y-3">
                           {selectedTask.target_systems.map(sys => (
-                            <div key={sys.id} className="flex items-center gap-2">
-                               <input className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[11px] font-bold text-white outline-none focus:border-theme-accent" placeholder="System Name..." value={sys.name} onChange={e => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.map(s => s.id === sys.id ? { ...s, name: e.target.value } : s) })} />
-                               <button onClick={() => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.filter(s => s.id !== sys.id) })} className="text-white/10 hover:text-status-error transition-colors p-1"><X size={14} /></button>
+                            <div key={sys.id} className="flex flex-col gap-2 p-3 bg-black/40 border border-white/5 rounded-xl">
+                               <div className="flex items-center gap-2">
+                                  <input className="flex-1 bg-transparent border-b border-white/10 px-1 py-1 text-[11px] font-bold text-white outline-none focus:border-theme-accent" placeholder="System Name..." value={sys.name} onChange={e => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.map(s => s.id === sys.id ? { ...s, name: e.target.value } : s) })} />
+                                  <button onClick={() => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.filter(s => s.id !== sys.id) })} className="text-white/10 hover:text-status-error transition-colors p-1"><X size={14} /></button>
+                               </div>
+                               <textarea className="w-full bg-transparent text-[10px] text-white/40 outline-none resize-none h-12" placeholder="Purpose of using this system..." value={sys.purpose} onChange={e => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.map(s => s.id === sys.id ? { ...s, purpose: e.target.value } : s) })} />
                             </div>
                           ))}
                         </div>
@@ -1269,24 +1348,67 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
                       <div className="space-y-6">
                         <div className="flex items-center justify-between px-1">
-                          <label className="text-[11px] font-black text-emerald-500 uppercase tracking-widest">Tribal Knowledge & Implicit Rules</label>
-                          <button onClick={() => updateTask(selectedTaskId, { tribal_knowledge: [...selectedTask.tribal_knowledge, { id: Date.now().toString(), knowledge: '', captured_from: '' }] })} className="bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 p-1.5 rounded-lg transition-colors"><Plus size={14} /></button>
+                          <label className="text-[11px] font-black text-white uppercase tracking-widest">Tribal Knowledge & Implicit Rules</label>
+                          <button onClick={() => updateTask(selectedTaskId, { tribal_knowledge: [...selectedTask.tribal_knowledge, { id: Date.now().toString(), knowledge: '', captured_from: '' }] })} className="bg-white/10 hover:bg-white/20 text-white p-1.5 rounded-lg transition-colors"><Plus size={14} /></button>
                         </div>
                         <div className="space-y-4">
                           {selectedTask.tribal_knowledge.map(tk => (
-                            <div key={tk.id} className="p-5 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl space-y-4 relative group animate-apple-in">
+                            <div key={tk.id} className="p-5 bg-white/5 border border-white/10 rounded-2xl space-y-4 relative group animate-apple-in">
                               <button onClick={() => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.filter(x => x.id !== tk.id) })} className="absolute top-5 right-5 text-white/10 hover:text-status-error transition-colors"><Trash size={14} /></button>
                               <div className="space-y-2">
                                 <label className="text-[8px] font-black text-white/20 uppercase">Operational Insight</label>
-                                <textarea className="w-full bg-transparent text-[13px] font-bold text-white/90 outline-none h-24 resize-none leading-relaxed" value={tk.knowledge} onChange={e => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, knowledge: e.target.value } : x) })} placeholder="Implicit knowledge or domain expertise tips..." />
+                                <textarea className="w-full bg-transparent text-[13px] font-bold text-white outline-none h-24 resize-none leading-relaxed" value={tk.knowledge} onChange={e => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, knowledge: e.target.value } : x) })} placeholder="Implicit knowledge or domain expertise tips..." />
                               </div>
                               <div className="flex items-center gap-3 border-t border-white/5 pt-3">
                                 <label className="text-[8px] font-black text-white/20 uppercase whitespace-nowrap">Source POC:</label>
-                                <input className="bg-transparent text-[11px] font-black text-emerald-400 outline-none w-full uppercase" placeholder="NAME / DEPARTMENT" value={tk.captured_from} onChange={e => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, captured_from: e.target.value } : x) })} />
+                                <input className="bg-transparent text-[11px] font-black text-white outline-none w-full uppercase" placeholder="NAME / DEPARTMENT" value={tk.captured_from} onChange={e => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, captured_from: e.target.value } : x) })} />
                               </div>
                             </div>
                           ))}
                         </div>
+                      </div>
+                    </div>
+                  )}
+                  {inspectorTab === 'validation' && (
+                    <div className="space-y-8 animate-apple-in">
+                      <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-6">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-1">
+                            <h3 className="text-[14px] font-black text-white uppercase tracking-tight">Industrial Validation</h3>
+                            <p className="text-[10px] text-white/40 font-bold uppercase">Is formal verification required for this entity?</p>
+                          </div>
+                          <button 
+                            onClick={() => updateTask(selectedTaskId, { validation_needed: !selectedTask.validation_needed })}
+                            className={cn(
+                              "relative w-12 h-6 rounded-full transition-all duration-300",
+                              selectedTask.validation_needed ? "bg-theme-accent" : "bg-white/10"
+                            )}
+                          >
+                            <div className={cn(
+                              "absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300",
+                              selectedTask.validation_needed ? "left-7 shadow-[0_0_10px_rgba(255,255,255,0.5)]" : "left-1"
+                            )} />
+                          </button>
+                        </div>
+
+                        {selectedTask.validation_needed && (
+                          <div className="space-y-4 animate-apple-in pt-4 border-t border-white/5">
+                            <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Validation Procedure</label>
+                            <div className="relative">
+                              <textarea 
+                                className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 text-[13px] font-mono text-white/80 outline-none focus:border-theme-accent h-64 resize-none leading-loose custom-scrollbar pl-12"
+                                placeholder="1. Step one...\n2. Step two..."
+                                value={selectedTask.validation_procedure}
+                                onChange={e => updateTask(selectedTaskId, { validation_procedure: e.target.value })}
+                              />
+                              <div className="absolute top-6 left-4 flex flex-col pointer-events-none select-none">
+                                {selectedTask.validation_procedure.split('\n').map((_, i) => (
+                                  <span key={i} className="text-[13px] font-mono text-white/10 leading-loose text-right w-6 pr-2">{i + 1}</span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}

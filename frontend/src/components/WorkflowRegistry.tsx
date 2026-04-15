@@ -142,7 +142,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
   // Table Density Settings
   const [density, setDensity] = useState({
     fontSize: 13,
-    rowPadding: 4
+    rowPadding: 2
   });
 
   // Column Resizing
