@@ -17,7 +17,8 @@ import ReactFlow, {
   getSmoothStepPath,
   getBezierPath,
   getStraightPath,
-  EdgeLabelRenderer
+  EdgeLabelRenderer,
+  ConnectionLineType
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { 
@@ -33,17 +34,54 @@ import {
   Settings,
   Trash,
   Link2,
-  Search
+  Search,
+  MousePointer2
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { settingsApi } from '../api/client';
 import { CreationProgressBar } from './IntakeGatekeeper';
+import { toast } from 'react-hot-toast';
+import dagre from 'dagre';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// --- DAGRE LAYOUT ENGINE ---
+const dagreGraph = new dagre.graphlib.Graph();
+dagreGraph.setDefaultEdgeLabel(() => ({}));
+
+const nodeWidth = 320;
+const nodeHeight = 150;
+
+const getLayoutedElements = (nodes: Node[], edges: any[], direction = 'LR') => {
+  const isHorizontal = direction === 'LR';
+  dagreGraph.setGraph({ rankdir: direction, ranksep: 100, nodesep: 80 });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  return nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    node.targetPosition = isHorizontal ? Position.Left : Position.Top;
+    node.sourcePosition = isHorizontal ? Position.Right : Position.Bottom;
+
+    node.position = {
+      x: nodeWithPosition.x - nodeWidth / 2,
+      y: nodeWithPosition.y - nodeHeight / 2,
+    };
+
+    return node;
+  });
+};
 
 // --- TYPES & INTERFACES ---
 
@@ -191,6 +229,8 @@ interface WorkflowBuilderProps {
   onSave: (data: any) => void;
   onBack: () => void;
   onExit: () => void;
+  isDirty?: boolean;
+  setIsDirty?: (v: boolean) => void;
 }
 
 // --- CUSTOM NODES & EDGES ---
@@ -270,18 +310,18 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         </div>
       </div>
       
-      {/* Universal Multi-Handles: Dual Source/Target at all 4 poles - ENHANCED SIZE */}
-      <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-left-3.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
-      <Handle type="source" position={Position.Left} id="left-source" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-left-3.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
+      {/* Universal Multi-Handles: Dual Source/Target at all 4 poles - REDUCED SIZE FOR PRECISION */}
+      <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-transform z-10" />
+      <Handle type="source" position={Position.Left} id="left-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-transform opacity-0 z-20" />
 
-      <Handle type="target" position={Position.Right} id="right-target" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-right-3.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
-      <Handle type="source" position={Position.Right} id="right-source" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-right-3.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
+      <Handle type="target" position={Position.Right} id="right-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-transform z-10" />
+      <Handle type="source" position={Position.Right} id="right-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-transform opacity-0 z-20" />
 
-      <Handle type="target" position={Position.Top} id="top-target" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-top-3.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
-      <Handle type="source" position={Position.Top} id="top-source" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-top-3.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
+      <Handle type="target" position={Position.Top} id="top-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-top-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-transform z-10" />
+      <Handle type="source" position={Position.Top} id="top-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-top-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-transform opacity-0 z-20" />
 
-      <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-bottom-3.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-bottom-3.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
+      <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-bottom-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-transform z-10" />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-bottom-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-transform opacity-0 z-20" />
     </div>
   );
 };
@@ -299,17 +339,17 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => (
       </div>
     )}
 
-    <Handle type="target" position={Position.Left} id="left-target" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-left-3.5 shadow-lg z-10" />
-    <Handle type="source" position={Position.Left} id="left-source" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-left-3.5 shadow-lg z-20 opacity-0" />
+    <Handle type="target" position={Position.Left} id="left-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !-left-1.5 shadow-lg z-10" />
+    <Handle type="source" position={Position.Left} id="left-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !-left-1.5 shadow-lg z-20 opacity-0" />
 
-    <Handle type="target" position={Position.Right} id="right-target" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-right-3.5 shadow-lg z-10" />
-    <Handle type="source" position={Position.Right} id="right-source" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-right-3.5 shadow-lg z-20 opacity-0" />
+    <Handle type="target" position={Position.Right} id="right-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !-right-1.5 shadow-lg z-10" />
+    <Handle type="source" position={Position.Right} id="right-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !-right-1.5 shadow-lg z-20 opacity-0" />
 
-    <Handle type="target" position={Position.Top} id="top-target" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-top-3.5 shadow-lg z-10" />
-    <Handle type="source" position={Position.Top} id="top-source" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-top-3.5 shadow-lg z-20 opacity-0" />
+    <Handle type="target" position={Position.Top} id="top-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !-top-1.5 shadow-lg z-10" />
+    <Handle type="source" position={Position.Top} id="top-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !-top-1.5 shadow-lg z-20 opacity-0" />
 
-    <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-bottom-3.5 shadow-lg z-10" />
-    <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-bottom-3.5 shadow-lg z-20 opacity-0" />
+    <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !-bottom-1.5 shadow-lg z-10" />
+    <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !-bottom-1.5 shadow-lg z-20 opacity-0" />
   </div>
 );
 
@@ -326,7 +366,7 @@ const CustomEdge = ({
   data,
   selected
 }: EdgeProps) => {
-  const edgeStyle = data?.edgeStyle || 'smoothstep';
+  const edgeStyle = data?.edgeStyle || 'bezier';
   
   let edgePath = '';
   let labelX = 0;
@@ -360,7 +400,7 @@ const CustomEdge = ({
     });
   }
 
-  const edgeColor = data?.color || '#3b82f6';
+  const edgeColor = data?.color || '#ffffff';
 
   return (
     <>
@@ -377,10 +417,10 @@ const CustomEdge = ({
         style={{
           ...style,
           stroke: edgeColor,
-          strokeWidth: selected ? 4 : 2.5,
+          strokeWidth: selected ? 4 : 2,
           strokeDasharray: data?.style === 'dashed' ? '5,5' : 'none',
         }}
-        className={cn("react-flow__edge-path transition-all duration-300", selected && "drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]")}
+        className={cn("react-flow__edge-path transition-all duration-300", selected && "drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]")}
         d={edgePath}
         markerEnd={markerEnd}
       />
@@ -418,7 +458,7 @@ const edgeTypes = {
 
 // --- MAIN BUILDER ---
 
-const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, onSave, onBack, onExit }) => {
+const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, onSave, onBack, onExit, setIsDirty }) => {
   const [view, setView] = useState<'flow' | 'table'>('flow');
   const [isSaved, setIsSaved] = useState(false);
   const [systemParams, setSystemParams] = useState<any[]>([]);
@@ -491,7 +531,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     output_description: workflow.output_description || ''
   });
 
-  const [edgeStyle, setEdgeStyle] = useState<'smoothstep' | 'bezier' | 'straight'>(workflow.edge_style || 'smoothstep');
+  const [edgeStyle, setEdgeStyle] = useState<'smoothstep' | 'bezier' | 'straight'>(workflow.edge_style || 'bezier');
 
   const [tasks, setTasks] = useState<Task[]>(() => {
     const baseTasks = normalizeTasks(workflow.tasks || []);
@@ -629,50 +669,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
 
-  // Auto-Layout
-  const autoLayout = useCallback(() => {
-    if (!reactFlowInstance) return;
-    
-    setNodes(nds => {
-      const incomingCounts: Record<string, number> = {};
-      edges.forEach(e => {
-        incomingCounts[e.target] = (incomingCounts[e.target] || 0) + 1;
-      });
-
-      const roots = nds.filter(n => !incomingCounts[n.id]);
-      const levels: Record<string, number> = {};
-      
-      const assignLevel = (nodeId: string, level: number) => {
-        levels[nodeId] = Math.max(levels[nodeId] || 0, level);
-        edges.filter(e => e.source === nodeId).forEach(e => assignLevel(e.target, level + 1));
-      };
-
-      roots.forEach(r => assignLevel(r.id, 0));
-      nds.forEach(n => { if (levels[n.id] === undefined) levels[n.id] = 0; });
-
-      const levelGroups: Record<number, string[]> = {};
-      Object.entries(levels).forEach(([id, level]) => {
-        if (!levelGroups[level]) levelGroups[level] = [];
-        levelGroups[level].push(id);
-      });
-
-      return nds.map(n => {
-        const level = levels[n.id];
-        const indexInLevel = levelGroups[level].indexOf(n.id);
-        const totalInLevel = levelGroups[level].length;
-        
-        return {
-          ...n,
-          position: {
-            x: 100 + (level * 450),
-            y: 300 + (indexInLevel * 180) - ((totalInLevel - 1) * 90)
-          }
-        };
-      });
-    });
-
-    setTimeout(() => reactFlowInstance.fitView({ padding: 0.2, duration: 800 }), 100);
-  }, [reactFlowInstance, edges, setNodes]);
+  // Auto-Layout with DAGRE
+  const autoLayout = useCallback((direction = 'LR') => {
+    const layoutedElements = getLayoutedElements(nodes, edges, direction);
+    setNodes([...layoutedElements]);
+    setTimeout(() => reactFlowInstance?.fitView({ padding: 0.2, duration: 800 }), 100);
+  }, [nodes, edges, reactFlowInstance, setNodes]);
 
   const deleteTask = (id: string) => {
     setTasks(prev => prev.filter(t => t.id !== id));
@@ -680,6 +682,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     setEdges(eds => eds.filter(e => e.source !== id && e.target !== id));
     setSelectedTaskId(null);
     setInspectorTab('process');
+    setIsDirty?.(true);
   };
 
   // Sync tasks to nodes on load
@@ -717,23 +720,45 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   }, [tasks]);
 
   const onConnect = useCallback((params: Connection) => {
+    // 1. Restriction: Trigger cannot accept incoming
+    if (params.target === 'trigger-node') {
+      toast.error("Process Error: Trigger entity cannot accept incoming connections.");
+      return;
+    }
+    // 2. Restriction: Outcome cannot make outgoing
+    if (params.source === 'outcome-node') {
+      toast.error("Process Error: Outcome entity cannot make outgoing connections.");
+      return;
+    }
+
     const isLoop = params.source === params.target || edges.some(e => e.source === params.target && e.target === params.source);
     setEdges((eds) => addEdge({ 
       ...params, 
       type: 'custom',
       data: { 
         label: isLoop ? 'RETURN/REDO' : '', 
-        color: isLoop ? '#f59e0b' : '#3b82f6', 
+        color: isLoop ? '#f59e0b' : '#ffffff', 
         style: isLoop ? 'dashed' : 'solid',
         edgeStyle: edgeStyle
       },
-      markerEnd: { type: MarkerType.ArrowClosed, color: isLoop ? '#f59e0b' : '#3b82f6' }, 
+      markerEnd: { type: MarkerType.ArrowClosed, color: isLoop ? '#f59e0b' : '#ffffff' }, 
     }, eds));
-  }, [setEdges, edges, edgeStyle]);
+    setIsDirty?.(true);
+  }, [setEdges, edges, edgeStyle, setIsDirty]);
 
   const onEdgeUpdate = useCallback(
     (oldEdge: any, newConnection: Connection) => {
       if (!newConnection.source || !newConnection.target) return;
+      
+      if (newConnection.target === 'trigger-node') {
+        toast.error("Process Error: Trigger entity cannot accept incoming connections.");
+        return;
+      }
+      if (newConnection.source === 'outcome-node') {
+        toast.error("Process Error: Outcome entity cannot make outgoing connections.");
+        return;
+      }
+
       const isLoop = newConnection.source === newConnection.target || edges.some(e => e.source === newConnection.target && e.target === newConnection.source && e.id !== oldEdge.id);
       setEdges((els) => els.map(e => e.id === oldEdge.id ? { 
         ...e, 
@@ -744,14 +769,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         data: { 
           ...e.data,
           label: isLoop ? 'RETURN/REDO' : '', 
-          color: isLoop ? '#f59e0b' : '#3b82f6', 
+          color: isLoop ? '#f59e0b' : (e.data?.color || '#ffffff'), 
           style: isLoop ? 'dashed' : 'solid',
           edgeStyle: e.data?.edgeStyle || edgeStyle
         },
-        markerEnd: { type: MarkerType.ArrowClosed, color: isLoop ? '#f59e0b' : '#3b82f6' }, 
+        markerEnd: { type: MarkerType.ArrowClosed, color: isLoop ? '#f59e0b' : (e.data?.color || '#ffffff') }, 
       } : e));
+      setIsDirty?.(true);
     },
-    [setEdges, edges, edgeStyle]
+    [setEdges, edges, edgeStyle, setIsDirty]
   );
 
   // Handle deletions from React Flow
@@ -760,7 +786,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     const actualDeleted = deleted.filter(n => !protectedIds.includes(n.id));
     const deletedIds = actualDeleted.map(n => n.id);
     setTasks(prev => prev.filter(t => !deletedIds.includes(t.id)));
-  }, []);
+    setIsDirty?.(true);
+  }, [setIsDirty]);
 
   const addNewNode = (type: Task['interface_type']) => {
     const id = `node-${Date.now()}`;
@@ -825,21 +852,23 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     setSelectedTaskId(id);
     setSelectedEdgeId(null);
     setInspectorTab('overview');
+    setIsDirty?.(true);
   };
 
   const updateTask = (id: string, updates: Partial<Task>) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    setIsDirty?.(true);
   };
 
   const updateEdge = (id: string, updates: any) => {
     setEdges(eds => eds.map(e => e.id === id ? { ...e, data: { ...e.data, ...updates }, markerEnd: { ...e.markerEnd as any, color: updates.color || e.data?.color } } : e));
+    setIsDirty?.(true);
   };
 
   const swapEdgeDirection = (id: string) => {
     setEdges(eds => eds.map(e => {
       if (e.id === id) {
         // Correctly swap source/target AND their corresponding handles
-        // e.g. 'left-target' becomes 'left-source' and vice versa
         const swapHandle = (h: string | null | undefined) => {
           if (!h) return h;
           if (h.endsWith('-target')) return h.replace('-target', '-source');
@@ -847,16 +876,30 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           return h;
         };
 
+        const newSource = e.target;
+        const newTarget = e.source;
+
+        // Restriction check for swap
+        if (newTarget === 'trigger-node') {
+          toast.error("Process Error: Trigger entity cannot accept incoming connections.");
+          return e;
+        }
+        if (newSource === 'outcome-node') {
+          toast.error("Process Error: Outcome entity cannot make outgoing connections.");
+          return e;
+        }
+
         return {
           ...e,
-          source: e.target,
-          target: e.source,
+          source: newSource,
+          target: newTarget,
           sourceHandle: swapHandle(e.targetHandle),
           targetHandle: swapHandle(e.sourceHandle)
         };
       }
       return e;
     }));
+    setIsDirty?.(true);
   };
 
   const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId), [tasks, selectedTaskId]);
@@ -869,6 +912,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     try {
       await onSave({...metadata, tasks});
       setIsSaved(true);
+      setIsDirty?.(false);
       setTimeout(() => setIsSaved(false), 5000);
     } catch (err) {
       console.error(err);
@@ -928,7 +972,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
               <button onClick={() => { setSelectedTaskId(null); setInspectorTab('process'); }} className={cn("flex items-center gap-2 px-3 py-1.5 border rounded-lg text-[10px] font-black uppercase tracking-widest transition-all", inspectorTab === 'process' && !selectedTaskId ? "bg-theme-accent border-theme-accent text-white" : "bg-white/5 border-white/10 text-white/40 hover:text-white")}>
                 <Settings size={12} /> Definition
               </button>
-              <button onClick={autoLayout} className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+              <button onClick={() => autoLayout()} className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
                 <Layers size={12} /> Auto-Layout
               </button>
               <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/10 items-center gap-1 px-2">
@@ -950,7 +994,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           <div className="h-10 flex items-center justify-between px-6 border-t border-white/5 bg-white/[0.02]">
              <div className="flex items-center gap-3 flex-1 overflow-hidden">
                <Info size={12} className="text-theme-accent shrink-0" />
-               <input className="bg-transparent text-[11px] font-bold text-white/60 outline-none w-full italic truncate" placeholder="Add forensic description for this industrial workflow..." value={metadata.forensic_description} onChange={e => setMetadata({...metadata, forensic_description: e.target.value})} />
+               <input className="bg-transparent text-[11px] font-bold text-white/60 outline-none w-full italic truncate" placeholder="Add forensic description for this industrial workflow..." value={metadata.forensic_description} onChange={e => { setMetadata({...metadata, forensic_description: e.target.value}); setIsDirty?.(true); }} />
              </div>
           </div>
         </div>
@@ -974,9 +1018,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                   onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); setInspectorTab('process'); }} 
                   onInit={setReactFlowInstance} 
                   snapToGrid={true} 
-                  snapGrid={[20, 20]} 
+                  snapGrid={[10, 10]} 
                   fitView 
                   elevateEdgesOnSelect={true}
+                  connectionRadius={40}
+                  connectionLineType={ConnectionLineType.Bezier}
+                  connectionLineStyle={{ stroke: '#ffffff', strokeWidth: 2 }}
                   className="bg-transparent"
                 >
                   <Background variant={BackgroundVariant.Dots} color="rgba(255,255,255,0.05)" gap={20} size={1} />
@@ -1139,11 +1186,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owning Position</label>
-                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={metadata.owning_position} onChange={e => setMetadata({ ...metadata, owning_position: e.target.value })} placeholder="e.g. Lead Engineer" />
+                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={metadata.owning_position} onChange={e => { setMetadata({ ...metadata, owning_position: e.target.value }); setIsDirty?.(true); }} placeholder="e.g. Lead Engineer" />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owning Team</label>
-                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={metadata.owning_team_name} onChange={e => setMetadata({ ...metadata, owning_team_name: e.target.value })} placeholder="e.g. R&D Team A" />
+                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={metadata.owning_team_name} onChange={e => { setMetadata({ ...metadata, owning_team_name: e.target.value }); setIsDirty?.(true); }} placeholder="e.g. R&D Team A" />
                         </div>
                       </div>
 
@@ -1177,9 +1224,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                                   </div>
                                   <div className="space-y-1">
                                     {selectedTask.reference_links.filter(l => l.description.includes(sys.name) || !l.description).map(link => (
-                                      <div key={link.id} className="flex items-center gap-2">
+                                      <div key={link.id} className="flex items-center gap-2 group/link">
                                         <Link2 size={8} className="text-blue-400 shrink-0" />
                                         <input className="flex-1 bg-transparent text-[9px] text-blue-400 outline-none border-b border-white/5" placeholder="https://..." value={link.url} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(l => l.id === link.id ? { ...l, url: e.target.value } : l) })} />
+                                        <button onClick={() => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.filter(l => l.id !== link.id) })} className="opacity-0 group-hover/link:opacity-100 text-status-error transition-opacity"><Trash size={8} /></button>
                                       </div>
                                     ))}
                                   </div>
@@ -1204,8 +1252,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
                       {selectedTask.occurrences_per_cycle > 1 && (
                         <div className="space-y-2 animate-apple-in">
-                          <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest px-1">Explanation for Multiple Repetitions</label>
-                          <textarea className="w-full bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 outline-none focus:border-amber-500 h-20 resize-none" placeholder="Why does this task repeat? (e.g., iterative review, batch processing)" value={selectedTask.occurrence_condition} onChange={e => updateTask(selectedTaskId, { occurrence_condition: e.target.value })} />
+                          <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest px-1">Explanation for Repetition</label>
+                          <textarea className="w-full bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 outline-none focus:border-amber-500 h-20 resize-none" placeholder="Why does this task repeat?" value={selectedTask.occurrence_condition} onChange={e => updateTask(selectedTaskId, { occurrence_condition: e.target.value })} />
                         </div>
                       )}
 
@@ -1239,13 +1287,38 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                           <div className="flex gap-2">
                              <div className="relative group/search">
                                 <button className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 text-white/40 rounded-lg text-[9px] font-black uppercase tracking-widest hover:text-white transition-all">
-                                  <Search size={12} /> Search
+                                  <Activity size={12} /> Add Existing
                                 </button>
-                                <div className="absolute top-full right-0 mt-2 w-64 bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl z-[100] p-2 opacity-0 invisible group-hover/search:opacity-100 group-hover/search:visible transition-all backdrop-blur-2xl">
-                                   <p className="text-[8px] font-black text-white/20 uppercase px-2 py-1 border-b border-white/5 mb-2">Upstream Outputs</p>
-                                   <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1">
+                                <div className="absolute top-full right-0 mt-2 w-80 bg-[#1e293b]/95 border border-white/10 rounded-2xl shadow-2xl z-[100] p-4 opacity-0 invisible group-hover/search:opacity-100 group-hover/search:visible transition-all backdrop-blur-3xl scale-95 group-hover/search:scale-100 origin-top-right">
+                                   <p className="text-[9px] font-black text-theme-accent uppercase px-1 pb-3 border-b border-white/5 mb-3 flex items-center gap-2">
+                                     <MousePointer2 size={10} /> Link Upstream Deliverable
+                                   </p>
+                                   
+                                   {/* Search Input for existing data */}
+                                   <div className="relative mb-4">
+                                      <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" />
+                                      <input 
+                                        type="text" 
+                                        placeholder="Search outputs..." 
+                                        className="w-full bg-black/20 border border-white/5 rounded-xl pl-9 pr-4 py-2 text-[11px] font-bold text-white outline-none focus:border-theme-accent transition-all"
+                                        onClick={(e) => e.stopPropagation()}
+                                        onChange={(e) => {
+                                          const val = e.target.value.toLowerCase();
+                                          const items = e.currentTarget.parentElement?.nextElementSibling?.querySelectorAll('button');
+                                          items?.forEach(item => {
+                                            const text = item.textContent?.toLowerCase() || '';
+                                            (item as HTMLElement).style.display = text.includes(val) ? 'block' : 'none';
+                                          });
+                                        }}
+                                      />
+                                   </div>
+
+                                   <div className="max-h-64 overflow-y-auto custom-scrollbar space-y-2">
                                       {tasks.filter(t => t.id !== selectedTaskId).flatMap(t => t.output_data_list.map(o => ({ ...o, origin: t.name, originId: t.id }))).length === 0 ? (
-                                        <p className="text-[10px] text-white/10 text-center py-4 font-black">NO UPSTREAM OUTPUTS</p>
+                                        <div className="py-6 text-center">
+                                           <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-2"><Database size={16} className="text-white/10" /></div>
+                                           <p className="text-[10px] text-white/20 font-black uppercase">No upstream outputs</p>
+                                        </div>
                                       ) : tasks.filter(t => t.id !== selectedTaskId).flatMap(t => t.output_data_list.map(o => ({ ...o, origin: t.name, originId: t.id }))).map(o => (
                                         <button 
                                           key={o.id} 
@@ -1258,22 +1331,28 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                                               format: o.format,
                                               example: o.example,
                                               description: o.description,
-                                              purpose: 'Referenced from upstream output',
+                                              purpose: `Referenced from ${o.origin}`,
                                               origin_node_id: o.originId
                                             };
                                             updateTask(selectedTaskId, { source_data_list: [...selectedTask.source_data_list, newSource] });
                                           }} 
-                                          className="w-full text-left px-3 py-2 rounded-lg hover:bg-white/5 transition-colors group/item"
+                                          className="w-full text-left p-3 rounded-xl hover:bg-theme-accent/20 border border-transparent hover:border-theme-accent/30 transition-all group/item"
                                         >
-                                          <p className="text-[11px] font-black text-white uppercase truncate">{o.name}</p>
-                                          <p className="text-[8px] font-bold text-white/20 uppercase truncate">From: {o.origin}</p>
+                                          <div className="flex items-center justify-between mb-1">
+                                             <span className="text-[11px] font-black text-white uppercase truncate">{o.name}</span>
+                                             <span className="px-1.5 py-0.5 bg-white/5 rounded text-[7px] font-black text-white/40">{o.format}</span>
+                                          </div>
+                                          <div className="flex items-center gap-1.5">
+                                             <LucideWorkflow size={8} className="text-theme-accent" />
+                                             <span className="text-[8px] font-bold text-white/30 uppercase truncate">Source: {o.origin}</span>
+                                          </div>
                                         </button>
                                       ))}
                                    </div>
                                 </div>
                              </div>
                              <button onClick={() => updateTask(selectedTaskId, { source_data_list: [...selectedTask.source_data_list, { id: Date.now().toString(), is_manual: true, name: '', source_location: '', format: '', example: '', description: '', purpose: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-theme-accent text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-theme-accent/20">
-                               <Plus size={12} /> Add
+                               <Plus size={12} /> Add New
                              </button>
                           </div>
                         </div>
@@ -1543,7 +1622,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                        <button onClick={() => swapEdgeDirection(selectedEdgeId)} title="Swap Direction" className="text-white/40 hover:text-white p-2 bg-white/5 border border-white/10 rounded-lg transition-all">
                          <LucideWorkflow size={16} className="rotate-90" />
                        </button>
-                       <button onClick={() => { setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); }} className="text-status-error hover:bg-status-error/10 p-2 border border-status-error/20 rounded-lg transition-all">
+                       <button onClick={() => { setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); setIsDirty?.(true); }} className="text-status-error hover:bg-status-error/10 p-2 border border-status-error/20 rounded-lg transition-all">
                          <Trash size={16} />
                        </button>
                      </div>
@@ -1575,7 +1654,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                      <div className="space-y-2">
                        <label className="text-[9px] font-black text-white/40 uppercase px-1">Line Color</label>
                        <div className="flex gap-2">
-                         {['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#a855f7', '#ffffff'].map(c => (
+                         {['#ffffff', '#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#a855f7'].map(c => (
                            <button 
                              key={c} 
                              onClick={() => updateEdge(selectedEdgeId, { color: c })}
@@ -1598,7 +1677,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                    </div>
                    <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl">
                       <p className="text-[10px] font-bold text-blue-400/60 leading-relaxed uppercase italic">
-                        TIP: USE "STRAIGHT" LINES FOR HIGH-DENSITY VERTICAL FLOWS AND "SMOOTHSTEP" FOR BRANCHING LOGIC.
+                        TIP: USE "STRAIGHT" LINES FOR HIGH-DENSITY VERTICAL FLOWS AND "BEZIER" FOR ORGANIC BRANCHING.
                       </p>
                    </div>
                 </div>
@@ -1614,7 +1693,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                        <div className="space-y-2">
                           <label className="text-[9px] font-black text-white/40 uppercase px-1">Forensic Description</label>
                           {isEditingMetadata ? (
-                            <textarea className="w-full bg-[#1e293b] border border-white/10 rounded-xl p-4 text-[11px] font-bold text-white/80 leading-relaxed h-24 resize-none outline-none focus:border-theme-accent" value={metadata.forensic_description} onChange={e => setMetadata({...metadata, forensic_description: e.target.value})} />
+                            <textarea className="w-full bg-[#1e293b] border border-white/10 rounded-xl p-4 text-[11px] font-bold text-white/80 leading-relaxed h-24 resize-none outline-none focus:border-theme-accent" value={metadata.forensic_description} onChange={e => { setMetadata({...metadata, forensic_description: e.target.value}); setIsDirty?.(true); }} />
                           ) : (
                             <p className="bg-white/[0.02] border border-white/5 rounded-xl p-4 text-[11px] font-bold text-white/60 leading-relaxed italic">{metadata.forensic_description || 'No description provided.'}</p>
                           )}
@@ -1624,7 +1703,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                           <div className="space-y-2">
                              <label className="text-[9px] font-black text-white/40 uppercase px-1">PRC</label>
                              {isEditingMetadata ? (
-                               <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none" value={metadata.prc} onChange={e => setMetadata({...metadata, prc: e.target.value})}><option value="">Select PRC...</option>{taxonomy.filter(t => t.category === 'PRC').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select>
+                               <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none" value={metadata.prc} onChange={e => { setMetadata({...metadata, prc: e.target.value}); setIsDirty?.(true); }}><option value="">Select PRC...</option>{taxonomy.filter(t => t.category === 'PRC').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select>
                              ) : (
                                <div className="bg-white/5 border border-white/5 rounded-xl px-4 py-2 text-[12px] font-black text-white uppercase">{metadata.prc || 'N/A'}</div>
                              )}
@@ -1632,7 +1711,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                           <div className="space-y-2">
                              <label className="text-[9px] font-black text-white/40 uppercase px-1">Type</label>
                              {isEditingMetadata ? (
-                               <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none" value={metadata.workflow_type} onChange={e => setMetadata({...metadata, workflow_type: e.target.value})}><option value="">Select Type...</option>{taxonomy.filter(t => t.category === 'WORKFLOW_TYPE').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select>
+                               <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none" value={metadata.workflow_type} onChange={e => { setMetadata({...metadata, workflow_type: e.target.value}); setIsDirty?.(true); }}><option value="">Select Type...</option>{taxonomy.filter(t => t.category === 'WORKFLOW_TYPE').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select>
                              ) : (
                                <div className="bg-white/5 border border-white/5 rounded-xl px-4 py-2 text-[12px] font-black text-white uppercase">{metadata.workflow_type || 'N/A'}</div>
                              )}
@@ -1644,8 +1723,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                           <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl p-1.5">
                              {isEditingMetadata ? (
                                <>
-                                 <input type="number" className="w-16 bg-black/40 text-[11px] font-black text-white text-center py-1 rounded" value={metadata.cadence_count} onChange={e => setMetadata({...metadata, cadence_count: parseFloat(e.target.value)})} />
-                                 <select className="flex-1 bg-transparent text-[10px] font-black text-white uppercase outline-none" value={metadata.cadence_unit} onChange={e => setMetadata({...metadata, cadence_unit: e.target.value as any})}>
+                                 <input type="number" className="w-16 bg-black/40 text-[11px] font-black text-white text-center py-1 rounded" value={metadata.cadence_count} onChange={e => { setMetadata({...metadata, cadence_count: parseFloat(e.target.value)}); setIsDirty?.(true); }} />
+                                 <select className="flex-1 bg-transparent text-[10px] font-black text-white uppercase outline-none" value={metadata.cadence_unit} onChange={e => { setMetadata({...metadata, cadence_unit: e.target.value as any}); setIsDirty?.(true); }}>
                                     <option value="day">Daily</option>
                                     <option value="week">Weekly</option>
                                     <option value="month">Monthly</option>
@@ -1667,6 +1746,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                              <select multiple className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none min-h-[80px]" value={Array.isArray(metadata.tool_family) ? metadata.tool_family : (metadata.tool_family ? (metadata.tool_family as string).split(', ') : [])} onChange={e => {
                                 const selected = Array.from(e.target.selectedOptions).map(o => o.value);
                                 setMetadata({...metadata, tool_family: selected.join(', ')});
+                                setIsDirty?.(true);
                              }}>
                                {taxonomy.filter(t => t.category === 'ToolType').map(t => <option key={t.label} value={t.label}>{t.label}</option>)}
                              </select>
@@ -1682,7 +1762,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                        <div className="space-y-2">
                           <label className="text-[9px] font-black text-white/40 uppercase px-1">Applicable Tools</label>
                           {isEditingMetadata ? (
-                             <input className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none" value={metadata.tool_id} onChange={e => setMetadata({...metadata, tool_id: e.target.value})} placeholder="TOOL-001, TOOL-002..." />
+                             <input className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none" value={metadata.tool_id} onChange={e => { setMetadata({...metadata, tool_id: e.target.value}); setIsDirty?.(true); }} placeholder="TOOL-001, TOOL-002..." />
                           ) : (
                             <div className="flex flex-wrap gap-2">
                                {(metadata.tool_id ? (typeof metadata.tool_id === 'string' ? (metadata.tool_id as string).split(', ') : metadata.tool_id) : [] as string[]).map(t => (
@@ -1698,7 +1778,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                       <div className="flex items-center gap-3 border-b border-white/10 pb-4"><Zap className="text-amber-500" size={16} /><h2 className="text-[14px] font-black text-white uppercase tracking-widest">Trigger</h2></div>
                       <div className="space-y-3">
                          {isEditingMetadata ? (
-                           <><select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none" value={metadata.trigger_type} onChange={e => setMetadata({...metadata, trigger_type: e.target.value})}><option value="">Select Trigger...</option>{taxonomy.filter(t => t.category === 'TriggerType').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select><textarea className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-[11px] text-white/60 font-bold leading-relaxed h-20 resize-none" value={metadata.trigger_description} onChange={e => setMetadata({...metadata, trigger_description: e.target.value})} /></>
+                           <><select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none" value={metadata.trigger_type} onChange={e => { setMetadata({...metadata, trigger_type: e.target.value}); setIsDirty?.(true); }}><option value="">Select Trigger...</option>{taxonomy.filter(t => t.category === 'TriggerType').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select><textarea className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-[11px] text-white/60 font-bold leading-relaxed h-20 resize-none" value={metadata.trigger_description} onChange={e => { setMetadata({...metadata, trigger_description: e.target.value}); setIsDirty?.(true); }} /></>
                          ) : (
                            <div className="space-y-3"><div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-2 text-[12px] font-black text-amber-500 uppercase">{metadata.trigger_type || 'Manual'}</div><p className="text-[11px] font-bold text-white/60 italic px-1 leading-relaxed">{metadata.trigger_description || 'No description.'}</p></div>
                          )}
@@ -1708,7 +1788,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                       <div className="flex items-center gap-3 border-b border-white/10 pb-4"><Layers className="text-theme-accent" size={16} /><h2 className="text-[14px] font-black text-white uppercase tracking-widest">Output</h2></div>
                       <div className="space-y-3">
                          {isEditingMetadata ? (
-                           <><select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none" value={metadata.output_type} onChange={e => setMetadata({...metadata, output_type: e.target.value})}><option value="">Select Output Type...</option>{taxonomy.filter(t => t.category === 'OutputType').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select><textarea className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-[11px] text-white/60 font-bold leading-relaxed h-20 resize-none" value={metadata.output_description} onChange={e => setMetadata({...metadata, output_description: e.target.value})} /></>
+                           <><select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none" value={metadata.output_type} onChange={e => { setMetadata({...metadata, output_type: e.target.value}); setIsDirty?.(true); }}><option value="">Select Output Type...</option>{taxonomy.filter(t => t.category === 'OutputType').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select><textarea className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 text-[11px] text-white/60 font-bold leading-relaxed h-20 resize-none" value={metadata.output_description} onChange={e => { setMetadata({...metadata, output_description: e.target.value}); setIsDirty?.(true); }} /></>
                          ) : (
                            <div className="space-y-3"><div className="bg-theme-accent/10 border border-theme-accent/20 rounded-xl px-4 py-2 text-[12px] font-black text-theme-accent uppercase">{metadata.output_type || 'Internal'}</div><p className="text-[11px] font-bold text-white/60 italic px-1 leading-relaxed">{metadata.output_description || 'No description.'}</p></div>
                          )}

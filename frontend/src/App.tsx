@@ -10,10 +10,20 @@ import {
   ChevronRight,
   Layers,
   Terminal,
-  Bug
+  Bug,
+  AlertTriangle
 } from 'lucide-react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Toaster, toast } from 'react-hot-toast';
+import { 
+  BrowserRouter as Router, 
+  Routes, 
+  Route, 
+  Navigate, 
+  useNavigate, 
+  useLocation,
+  Link
+} from 'react-router-dom';
 import { workflowsApi, taxonomyApi, apiClient as client, setGlobalReporter } from './api/client';
 import IntakeGatekeeper from './components/IntakeGatekeeper';
 import WorkflowRegistry from './components/WorkflowRegistry';
@@ -22,12 +32,6 @@ import WorkflowBuilder from './components/WorkflowBuilder';
 import SettingsView from './components/SettingsView';
 import { ErrorFortressProvider, useErrorFortress } from './components/ErrorFortress';
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
 
 const queryClient = new QueryClient();
 
@@ -61,21 +65,63 @@ const ConnectionStatus = () => {
   );
 };
 
-const GlobalSidebar = ({ isOpen, setOpen, activeTab, setActiveTab }: { isOpen: boolean, setOpen: (v: boolean) => void, activeTab: string, setActiveTab: (v: string) => void }) => {
+const ConfirmationDialog = ({ isOpen, onConfirm, onCancel, title, message }: { 
+  isOpen: boolean, 
+  onConfirm: () => void, 
+  onCancel: () => void, 
+  title: string, 
+  message: string 
+}) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-apple-in">
+      <div className="apple-glass w-[400px] p-8 border border-white/10 rounded-3xl shadow-2xl flex flex-col gap-6 text-center">
+        <div className="w-16 h-16 bg-status-warning/10 rounded-full flex items-center justify-center mx-auto border border-status-warning/20">
+          <AlertTriangle size={32} className="text-status-warning" />
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-xl font-black text-white uppercase tracking-tighter">{title}</h3>
+          <p className="text-[13px] font-bold text-white/40 leading-relaxed uppercase">{message}</p>
+        </div>
+        <div className="flex gap-4">
+          <button onClick={onCancel} className="flex-1 py-3 bg-white/5 border border-white/10 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+            Stay Here
+          </button>
+          <button onClick={onConfirm} className="flex-1 py-3 bg-status-error text-white rounded-xl text-[11px] font-black uppercase tracking-widest shadow-lg shadow-status-error/20 hover:bg-rose-600 transition-all">
+            Discard Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const GlobalSidebar = ({ isOpen, setOpen, onNavigateRequested }: { 
+  isOpen: boolean, 
+  setOpen: (v: boolean) => void, 
+  onNavigateRequested: (path: string) => void
+}) => {
+  const location = useLocation();
+  const currentTab = location.pathname.split('/')[1] || 'dashboard';
+
   const menuItems = [
-    { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard },
-    { id: 'workflows', label: 'Workflow Repository', icon: Database },
-    { id: 'board', label: 'Operational Board', icon: Kanban },
-    { id: 'analytics', label: 'Performance Analytics', icon: BarChart3 },
+    { id: 'dashboard', label: 'Executive Dashboard', icon: LayoutDashboard, path: '/dashboard' },
+    { id: 'workflows', label: 'Workflow Repository', icon: Database, path: '/workflows' },
+    { id: 'board', label: 'Operational Board', icon: Kanban, path: '/board' },
+    { id: 'analytics', label: 'Performance Analytics', icon: BarChart3, path: '/analytics' },
   ];
   const bottomItems = [
-    { id: 'settings', label: 'System Settings', icon: Settings },
-    { id: 'help', label: 'Documentation', icon: HelpCircle },
+    { id: 'settings', label: 'System Settings', icon: Settings, path: '/settings' },
+    { id: 'help', label: 'Documentation', icon: HelpCircle, path: '/help' },
   ];
+
+  const handleNav = (path: string) => {
+    onNavigateRequested(path);
+  };
 
   return (
     <aside className={`relative flex flex-col transition-all duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${isOpen ? 'w-64' : 'w-16'} bg-theme-sidebar border-r border-theme-border z-30`}>
-      <div className="h-14 flex items-center px-5 mb-2 cursor-pointer group" onClick={() => setActiveTab('dashboard')}>
+      <div className="h-14 flex items-center px-5 mb-2 cursor-pointer group" onClick={() => handleNav('/dashboard')}>
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-theme-accent flex items-center justify-center text-white shadow-lg shadow-theme-accent/20 group-hover:scale-110 transition-transform duration-300">
             <Layers size={16} fill="currentColor" />
@@ -85,16 +131,16 @@ const GlobalSidebar = ({ isOpen, setOpen, activeTab, setActiveTab }: { isOpen: b
       </div>
       <nav className="flex-1 px-2.5 space-y-1">
         {menuItems.map(item => (
-          <button key={item.id} onClick={() => setActiveTab(item.id)} className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group ${activeTab === item.id ? 'sidebar-item-active text-theme-accent' : 'text-theme-secondary hover:bg-white/[0.04] hover:text-white'}`}>
-            <item.icon size={18} className={activeTab === item.id ? 'text-theme-accent' : 'text-theme-muted group-hover:text-theme-secondary'} />
+          <button key={item.id} onClick={() => handleNav(item.path)} className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group ${currentTab === item.id ? 'sidebar-item-active text-theme-accent' : 'text-theme-secondary hover:bg-white/[0.04] hover:text-white'}`}>
+            <item.icon size={18} className={currentTab === item.id ? 'text-theme-accent' : 'text-theme-muted group-hover:text-theme-secondary'} />
             {isOpen && <span className="text-nav">{item.label}</span>}
           </button>
         ))}
       </nav>
       <div className="px-2.5 py-4 space-y-1 border-t border-theme-border/50">
         {bottomItems.map(item => (
-          <button key={item.id} onClick={() => setActiveTab(item.id)} className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group ${activeTab === item.id ? 'sidebar-item-active text-theme-accent' : 'text-theme-secondary hover:bg-white/[0.04] hover:text-white'}`}>
-            <item.icon size={18} className={activeTab === item.id ? 'text-theme-accent' : 'text-theme-muted group-hover:text-theme-secondary'} />
+          <button key={item.id} onClick={() => handleNav(item.path)} className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group ${currentTab === item.id ? 'sidebar-item-active text-theme-accent' : 'text-theme-secondary hover:bg-white/[0.04] hover:text-white'}`}>
+            <item.icon size={18} className={currentTab === item.id ? 'text-theme-accent' : 'text-theme-muted group-hover:text-theme-secondary'} />
             {isOpen && <span className="text-nav">{item.label}</span>}
           </button>
         ))}
@@ -121,8 +167,10 @@ const GlobalSidebar = ({ isOpen, setOpen, activeTab, setActiveTab }: { isOpen: b
   );
 };
 
-const GlobalHeader = ({ activeTab }: { activeTab: string }) => {
+const GlobalHeader = () => {
   const { setIsOpen, isOpen, errors } = useErrorFortress();
+  const location = useLocation();
+  const currentTab = location.pathname.split('/')[1] || 'dashboard';
   
   const getTabLabel = (id: string) => {
     const labels: Record<string, string> = {
@@ -141,7 +189,7 @@ const GlobalHeader = ({ activeTab }: { activeTab: string }) => {
   return (
     <header className="h-14 bg-theme-header backdrop-blur-xl border-b border-theme-border flex items-center justify-between px-6 z-20 sticky top-0">
       <div className="flex items-center gap-6">
-        <h2 className="text-hint text-theme-muted flex items-center gap-2">PathOS <span className="opacity-30">/</span> <span className="text-white font-black uppercase tracking-[0.1em]">{getTabLabel(activeTab)}</span></h2>
+        <h2 className="text-hint text-theme-muted flex items-center gap-2">PathOS <span className="opacity-30">/</span> <span className="text-white font-black uppercase tracking-[0.1em]">{getTabLabel(currentTab)}</span></h2>
         <ConnectionStatus />
       </div>
       
@@ -161,10 +209,13 @@ const GlobalHeader = ({ activeTab }: { activeTab: string }) => {
 };
 
 const PathOSApp: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('workflows'); // Default to Repository
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [selectedWorkflow, setSelectedWorkflow] = useState<any>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
   
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { reportError } = useErrorFortress();
 
@@ -184,7 +235,7 @@ const PathOSApp: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
       toast.success("Workflow Created");
       setSelectedWorkflow(data);
-      setActiveTab('builder');
+      navigate('/workflows/builder');
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.detail || "Creation failed.");
@@ -210,59 +261,109 @@ const PathOSApp: React.FC = () => {
 
   const handleSelectWorkflow = (wf: any) => {
     setSelectedWorkflow(wf);
-    setActiveTab('builder');
+    navigate('/workflows/builder');
+  };
+
+  const handleNavigateRequest = (path: string) => {
+    if (isDirty) {
+      setPendingNavPath(path);
+      setShowConfirm(true);
+    } else {
+      navigate(path);
+    }
+  };
+
+  const confirmDiscard = () => {
+    setIsDirty(false);
+    setShowConfirm(false);
+    if (pendingNavPath) {
+      navigate(pendingNavPath);
+      setPendingNavPath(null);
+    }
   };
 
   return (
     <div className="flex h-screen bg-theme-bg text-theme-primary overflow-hidden font-sans selection:bg-theme-accent selection:text-white">
       <Toaster position="bottom-right" toastOptions={{ className: 'apple-glass border-theme-border text-white text-[13px] font-semibold rounded-xl shadow-2xl', duration: 4000 }} />
-      <GlobalSidebar isOpen={isSidebarOpen} setOpen={setSidebarOpen} activeTab={activeTab} setActiveTab={(t) => setActiveTab(t)} />
+      <GlobalSidebar 
+        isOpen={isSidebarOpen} 
+        setOpen={setSidebarOpen} 
+        onNavigateRequested={handleNavigateRequest}
+      />
+      <ConfirmationDialog 
+        isOpen={showConfirm}
+        onConfirm={confirmDiscard}
+        onCancel={() => setShowConfirm(false)}
+        title="Discard Unsaved Changes?"
+        message="You have unsaved process configurations. Moving to a different view will permanently lose these modifications."
+      />
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <GlobalHeader activeTab={activeTab} />
+        <GlobalHeader />
         <div className="flex-1 overflow-auto custom-scrollbar relative">
-          <div className={cn(
-            "mx-auto p-4 lg:p-6 animate-apple-in",
-            activeTab === 'workflows' || activeTab === 'builder' ? "max-w-full h-full" : "max-w-[1400px]"
-          )}>
-            {activeTab === 'dashboard' && (
-              <div className="space-y-6">
-                <ROIDashboard workflows={workflows.filter((w: any) => !w.is_deleted)} />
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between border-b border-theme-border/50 pb-2">
-                    <h3 className="text-header-sub flex items-center gap-2"><Database size={16} className="text-theme-accent" /> Recent Workflows</h3>
-                    <button onClick={() => setActiveTab('workflows')} className="text-hint text-theme-accent hover:text-white transition-colors flex items-center gap-1">View Repository <ChevronRight size={12} /></button>
+          <div className="mx-auto p-4 lg:p-6 animate-apple-in max-w-full h-full">
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={
+                <div className="space-y-6 max-w-[1400px] mx-auto">
+                  <ROIDashboard workflows={workflows.filter((w: any) => !w.is_deleted)} />
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b border-theme-border/50 pb-2">
+                      <h3 className="text-header-sub flex items-center gap-2"><Database size={16} className="text-theme-accent" /> Recent Workflows</h3>
+                      <Link to="/workflows" className="text-hint text-theme-accent hover:text-white transition-colors flex items-center gap-1">View Repository <ChevronRight size={12} /></Link>
+                    </div>
+                    <WorkflowRegistry workflows={workflows.slice(0, 8)} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} onRestore={restoreMutation.mutate} />
                   </div>
-                  <WorkflowRegistry workflows={workflows.slice(0, 8)} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} onRestore={restoreMutation.mutate} />
                 </div>
-              </div>
-            )}
-            {activeTab === 'workflows' && (
-              <div className="h-full flex flex-col">
+              } />
+              <Route path="/workflows" element={
                 <WorkflowRegistry 
                   workflows={workflows} 
                   onSelect={handleSelectWorkflow} 
                   onDelete={deleteMutation.mutate} 
                   onRestore={restoreMutation.mutate}
-                  onCreateNew={() => setActiveTab('intake')}
+                  onCreateNew={() => navigate('/workflows/intake')}
                 />
-              </div>
-            )}
-            {activeTab === 'intake' && <div className="max-w-4xl mx-auto"><IntakeGatekeeper initialData={selectedWorkflow} taxonomy={taxonomy} onSuccess={(data) => { if (selectedWorkflow) { workflowsApi.update(selectedWorkflow.id, data).then((updated) => { setSelectedWorkflow(updated); setActiveTab('builder'); }); } else { createMutation.mutate(data); } }} onCancel={() => setActiveTab('workflows')} /></div>}
-            {activeTab === 'settings' && <SettingsView />}
-            {activeTab === 'builder' && selectedWorkflow && (
-              <div className="h-[calc(100vh-140px)]">
-                <WorkflowBuilder 
-                  workflow={selectedWorkflow}
-                  taxonomy={taxonomy}
-                  onSave={(data) => workflowsApi.update(selectedWorkflow.id, data).then(() => {
-                    toast.success("Configuration Saved");
-                    queryClient.invalidateQueries({ queryKey: ['workflows'] });
-                  })} 
-                  onBack={() => setActiveTab('intake')}
-                  onExit={() => setActiveTab('workflows')}
-                />
-              </div>
-            )}
+              } />
+              <Route path="/workflows/intake" element={
+                <div className="max-w-4xl mx-auto">
+                  <IntakeGatekeeper 
+                    initialData={selectedWorkflow} 
+                    taxonomy={taxonomy} 
+                    onSuccess={(data) => { 
+                      if (selectedWorkflow) { 
+                        workflowsApi.update(selectedWorkflow.id, data).then((updated) => { 
+                          setSelectedWorkflow(updated); 
+                          navigate('/workflows/builder'); 
+                        }); 
+                      } else { 
+                        createMutation.mutate(data); 
+                      } 
+                    }} 
+                    onCancel={() => navigate('/workflows')} 
+                  />
+                </div>
+              } />
+              <Route path="/settings" element={<SettingsView />} />
+              <Route path="/workflows/builder" element={
+                selectedWorkflow ? (
+                  <div className="h-[calc(100vh-140px)]">
+                    <WorkflowBuilder 
+                      workflow={selectedWorkflow}
+                      taxonomy={taxonomy}
+                      onSave={(data) => workflowsApi.update(selectedWorkflow.id, data).then(() => {
+                        toast.success("Configuration Saved");
+                        queryClient.invalidateQueries({ queryKey: ['workflows'] });
+                        setIsDirty(false);
+                      })} 
+                      onBack={() => navigate('/workflows/intake')}
+                      onExit={() => handleNavigateRequest('/workflows')}
+                      setIsDirty={setIsDirty}
+                    />
+                  </div>
+                ) : <Navigate to="/workflows" replace />
+              } />
+              <Route path="*" element={<div className="flex flex-col items-center justify-center h-full text-theme-muted uppercase font-black tracking-widest gap-4 opacity-20"><Layers size={64} /> <span>Under Development</span></div>} />
+            </Routes>
           </div>
         </div>
       </main>
@@ -274,7 +375,9 @@ const App: React.FC = () => (
   <QueryClientProvider client={queryClient}>
     <Tooltip.Provider delayDuration={400}>
       <ErrorFortressProvider>
-        <PathOSApp />
+        <Router>
+          <PathOSApp />
+        </Router>
       </ErrorFortressProvider>
     </Tooltip.Provider>
   </QueryClientProvider>
