@@ -539,6 +539,54 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     setIsDirty?.(true);
   };
 
+  const onAddNode = (type: 'TASK' | 'CONDITION' | 'TRIGGER' | 'OUTCOME') => {
+    const id = `node-${Date.now()}`;
+    const newNode: Node = {
+      id,
+      type: type === 'CONDITION' ? 'diamond' : 'matrix',
+      position: { x: 100, y: 100 },
+      data: { 
+        label: type === 'TASK' ? 'New Task' : type === 'CONDITION' ? 'IF/THEN' : type === 'TRIGGER' ? 'TRIGGER' : 'OUTCOME', 
+        task_type: type === 'TASK' ? 'Documentation' : type === 'CONDITION' ? 'LOOP' : type,
+        manual_time: 0,
+        automation_time: 0,
+        systems: '',
+        validation_needed: false,
+        blockerCount: 0,
+        errorCount: 0
+      },
+    };
+
+    const newTask: TaskEntity = {
+      id,
+      name: newNode.data.label,
+      description: '',
+      task_type: newNode.data.task_type,
+      target_systems: [],
+      interface_type: type === 'TASK' ? 'GUI' : type === 'CONDITION' ? 'CONDITION' : (type as any),
+      interface: (type === 'TRIGGER' || type === 'OUTCOME') ? type : undefined,
+      manual_time_minutes: 0,
+      automation_time_minutes: 0,
+      machine_wait_time_minutes: 0,
+      occurrences_per_cycle: 1,
+      source_data_list: [],
+      output_data_list: [],
+      verification_steps: [],
+      blockers: [],
+      errors: [],
+      tribal_knowledge: [],
+      validation_needed: false,
+      validation_procedure: '',
+      media: [],
+      reference_links: []
+    };
+
+    setTasks(prev => [...prev, newTask]);
+    setNodes(nds => [...nds, newNode]);
+    setSelectedTaskId(id);
+    setIsDirty?.(true);
+  };
+
   const deleteTask = (id: string) => {
     setTasks(prev => prev.filter(t => t.id !== id));
     setNodes(nds => nds.filter(n => n.id !== id));
@@ -660,6 +708,24 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             <Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl !shadow-2xl backdrop-blur-md [&_button]:!border-white/5 [&_button]:!fill-white" />
           </ReactFlow>
 
+          {/* Entity Fabrication Bar */}
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 p-1.5 bg-[#0a1120]/80 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-110">
+             <button onClick={() => onAddNode('TRIGGER')} className="flex items-center gap-2 px-4 py-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                <Zap size={14} /> Add Trigger
+             </button>
+             <div className="w-px h-6 bg-white/10 mx-1" />
+             <button onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2.5 bg-theme-accent/10 hover:bg-theme-accent/20 border border-theme-accent/30 text-theme-accent rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                <Plus size={14} /> Add Task
+             </button>
+             <button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                <Activity size={14} className="rotate-45" /> Add Condition
+             </button>
+             <div className="w-px h-6 bg-white/10 mx-1" />
+             <button onClick={() => onAddNode('OUTCOME')} className="flex items-center gap-2 px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
+                <Database size={14} /> Add Outcome
+             </button>
+          </div>
+
           {/* Quick Stats Overlay */}
           <div className="absolute bottom-6 left-6 z-10 flex gap-4 pointer-events-none">
             <div className="apple-glass px-4 py-3 rounded-2xl border border-white/10 flex flex-col">
@@ -710,9 +776,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                      <Activity size={18} className="text-theme-accent" />
                      <span className="text-[11px] font-black text-theme-accent uppercase tracking-widest">Workflow Boundary Entity</span>
                   </div>
-                  <p className="text-[13px] text-white/60 font-bold uppercase tracking-widest text-center py-12 border border-dashed border-white/10 rounded-3xl">
+                  <p className="text-[13px] text-white/60 font-bold uppercase tracking-widest text-center py-12 border border-dashed border-white/10 rounded-3xl mb-6">
                     This entity is managed via the main workflow definition window.
                   </p>
+                  <button onClick={() => deleteTask(selectedTaskId as string)} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2">
+                    <Trash size={12} /> Delete Boundary Entity
+                  </button>
                 </div>
               ) : selectedTask.interface_type === 'CONDITION' ? (
                 <div className="space-y-6">
