@@ -25,6 +25,7 @@ import {
   Workflow as LucideWorkflow, 
   X, Zap,
   Activity, Database, AlertCircle,
+  Clock,
   Plus, 
   Paperclip,
   ChevronLeft,
@@ -152,6 +153,7 @@ interface WorkflowMetadata {
   prc: string;
   workflow_type: string;
   tool_family: string;
+  tool_family_count?: number;
   tool_id: string;
   trigger_type: string;
   trigger_description: string;
@@ -163,6 +165,8 @@ interface WorkflowMetadata {
   org: string;
   team: string;
   poc: string;
+  yield_risk?: boolean;
+  involves_equipment?: boolean;
   cleanroom_execution_required: boolean;
   cleanroom_class: string;
   automation_notes: string;
@@ -411,6 +415,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     prc: workflow.prc,
     workflow_type: workflow.workflow_type,
     tool_family: workflow.tool_family,
+    tool_family_count: workflow.tool_family_count || 1,
     tool_id: workflow.tool_id,
     trigger_type: workflow.trigger_type,
     trigger_description: workflow.trigger_description,
@@ -422,6 +427,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     org: workflow.org,
     team: workflow.team,
     poc: workflow.poc,
+    yield_risk: workflow.yield_risk || false,
+    involves_equipment: workflow.involves_equipment || false,
     cleanroom_execution_required: workflow.cleanroom_execution_required || false,
     cleanroom_class: workflow.cleanroom_class || 'UNCONTROLLED',
     automation_notes: workflow.automation_notes || '',
@@ -453,9 +460,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId), [tasks, selectedTaskId]);
   const selectedEdge = useMemo(() => edges.find(e => e.id === selectedEdgeId), [edges, selectedEdgeId]);
-  const isProtected = selectedTask?.interface === 'TRIGGER' || selectedTask?.interface === 'OUTCOME';
+  const isProtected = selectedTask?.interface_type === 'TRIGGER' || selectedTask?.interface_type === 'OUTCOME';
 
-  const taskTypes = taxonomy.find(t => t.category === 'TaskType')?.cached_values || ['Admin', 'Technical', 'Physical', 'Validation', 'LOOP'];
+  const taskTypes = taxonomy.find(t => t.category === 'TASK_TYPE')?.cached_values || ['Documentation', 'Hands-on', 'System Interaction', 'Shadow IT', 'Verification', 'Communication'];
 
   useEffect(() => {
     const initialNodes: Node[] = tasks.map((t, idx) => ({
@@ -915,7 +922,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                       <div className="space-y-4 relative z-[1]">
                         <div className="flex items-center justify-between px-1">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Output Data (Deliverables)</label>
-                          <button onClick={() => updateTask(selectedTaskId as string, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '', format: '', example: '', saved_location: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">
+                          <button onClick={() => updateTask(selectedTaskId as string, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '', format: '', example: '', saved_location: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-theme-accent text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-theme-accent/20">
                              <Plus size={12} /> Add New
                           </button>
                         </div>
@@ -1201,39 +1208,228 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                </div>
             </div>
           ) : (
-            <div className="space-y-8 animate-apple-in">
+            <div className="space-y-10 animate-apple-in pb-20">
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                 <div className="flex items-center gap-3"><LucideWorkflow className="text-theme-accent" size={18} /><h2 className="text-[14px] font-black text-white uppercase tracking-widest">Process Definition</h2></div>
-                 <button onClick={() => setIsEditingMetadata(!isEditingMetadata)} className={cn("px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all", isEditingMetadata ? "bg-theme-accent text-white" : "bg-white/5 border border-white/10 text-white/40 hover:text-white")}>{isEditingMetadata ? 'Finish' : 'Edit'}</button>
+                 <div className="flex items-center gap-3">
+                    <LucideWorkflow className="text-theme-accent" size={18} />
+                    <h2 className="text-[14px] font-black text-white uppercase tracking-widest">Process Definition</h2>
+                 </div>
+                 <button 
+                   onClick={() => setIsEditingMetadata(!isEditingMetadata)} 
+                   className={cn(
+                     "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                     isEditingMetadata ? "bg-theme-accent text-white shadow-lg shadow-theme-accent/20" : "bg-white/5 border border-white/10 text-white/40 hover:text-white"
+                   )}
+                 >
+                   {isEditingMetadata ? 'Save & Finish' : 'Edit Definition'}
+                 </button>
               </div>
-              <div className="space-y-8">
-                <div className="space-y-4">
+
+              <div className="space-y-12">
+                {/* 1. Strategic Identity */}
+                <div className="space-y-6">
                    <div className="space-y-2">
-                      <label className="text-[9px] font-black text-white/40 uppercase px-1">Forensic Description</label>
+                      <label className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em] px-1">Workflow Nomenclature</label>
                       {isEditingMetadata ? (
-                        <textarea className="w-full bg-[#1e293b] border border-white/10 rounded-xl p-4 text-[11px] font-bold text-white/80 leading-relaxed h-24 resize-none outline-none focus:border-theme-accent" value={metadata.forensic_description} onChange={e => { setMetadata({...metadata, forensic_description: e.target.value}); setIsDirty?.(true); }} />
+                        <input className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-3 text-[14px] font-black text-white outline-none focus:border-theme-accent" value={metadata.name} onChange={e => { setMetadata({...metadata, name: e.target.value}); setIsDirty?.(true); }} />
                       ) : (
-                        <p className="bg-white/[0.02] border border-white/5 rounded-xl p-4 text-[11px] font-bold text-white/60 leading-relaxed italic">{metadata.forensic_description || 'No description provided.'}</p>
+                        <h3 className="text-[18px] font-black text-white uppercase tracking-tight px-1 leading-tight">{metadata.name || 'Untitled Workflow'}</h3>
                       )}
                    </div>
 
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                         <label className="text-[9px] font-black text-white/40 uppercase px-1">PRC</label>
+                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">PRC (Process Code)</label>
                          {isEditingMetadata ? (
-                           <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none" value={metadata.prc} onChange={e => { setMetadata({...metadata, prc: e.target.value}); setIsDirty?.(true); }}><option value="">Select PRC...</option>{taxonomy.filter(t => t.category === 'PRC').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select>
+                           <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 h-[44px] text-[11px] font-black text-white outline-none" value={metadata.prc} onChange={e => { setMetadata({...metadata, prc: e.target.value}); setIsDirty?.(true); }}><option value="">Select PRC...</option>{taxonomy.filter(t => t.category === 'PRC').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select>
                          ) : (
-                           <div className="bg-white/5 border border-white/5 rounded-xl px-4 py-2 text-[12px] font-black text-white uppercase">{metadata.prc || 'N/A'}</div>
+                           <div className="bg-white/5 border border-white/5 rounded-xl px-4 py-2.5 text-[12px] font-black text-white uppercase">{metadata.prc || 'N/A'}</div>
                          )}
                       </div>
                       <div className="space-y-2">
-                         <label className="text-[9px] font-black text-white/40 uppercase px-1">Type</label>
+                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Operational Type</label>
                          {isEditingMetadata ? (
-                           <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2 text-[11px] font-black text-white outline-none" value={metadata.workflow_type} onChange={e => { setMetadata({...metadata, workflow_type: e.target.value}); setIsDirty?.(true); }}><option value="">Select Type...</option>{taxonomy.filter(t => t.category === 'WORKFLOW_TYPE').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select>
+                           <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 h-[44px] text-[11px] font-black text-white outline-none" value={metadata.workflow_type} onChange={e => { setMetadata({...metadata, workflow_type: e.target.value}); setIsDirty?.(true); }}><option value="">Select Type...</option>{taxonomy.filter(t => t.category === 'WORKFLOW_TYPE').flatMap(t => t.cached_values || []).map((v: any) => <option key={v} value={v}>{v}</option>)}</select>
                          ) : (
-                           <div className="bg-white/5 border border-white/5 rounded-xl px-4 py-2 text-[12px] font-black text-white uppercase">{metadata.workflow_type || 'N/A'}</div>
+                           <div className="bg-white/5 border border-white/5 rounded-xl px-4 py-2.5 text-[12px] font-black text-white uppercase">{metadata.workflow_type || 'N/A'}</div>
                          )}
                       </div>
+                   </div>
+
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Tool Family</label>
+                         {isEditingMetadata ? (
+                           <input className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 h-[44px] text-[11px] font-black text-white outline-none" value={metadata.tool_family} onChange={e => { setMetadata({...metadata, tool_family: e.target.value}); setIsDirty?.(true); }} />
+                         ) : (
+                           <div className="bg-white/5 border border-white/5 rounded-xl px-4 py-2.5 text-[12px] font-black text-white uppercase">{metadata.tool_family || 'N/A'}</div>
+                         )}
+                      </div>
+                      <div className="space-y-2">
+                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Family Count</label>
+                         {isEditingMetadata ? (
+                           <input type="number" className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 h-[44px] text-[11px] font-black text-white outline-none" value={metadata.tool_family_count || 1} onChange={e => { setMetadata({...metadata, tool_family_count: parseInt(e.target.value) || 1}); setIsDirty?.(true); }} />
+                         ) : (
+                           <div className="bg-white/5 border border-white/5 rounded-xl px-4 py-2.5 text-[12px] font-black text-white uppercase">{metadata.tool_family_count || 1} Tools</div>
+                         )}
+                      </div>
+                   </div>
+                </div>
+
+                {/* 2. Execution Cadence */}
+                <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-6">
+                   <div className="flex items-center gap-2 mb-2">
+                      <Clock size={14} className="text-theme-accent" />
+                      <span className="text-[10px] font-black text-white uppercase tracking-widest">Operational Cadence</span>
+                   </div>
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                         <label className="text-[9px] font-black text-white/40 uppercase px-1">Cycle Frequency</label>
+                         {isEditingMetadata ? (
+                           <input type="number" step="0.1" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 h-[52px] text-[24px] font-black text-white text-center outline-none focus:border-theme-accent" value={metadata.cadence_count} onChange={e => { setMetadata({...metadata, cadence_count: parseFloat(e.target.value) || 1}); setIsDirty?.(true); }} />
+                         ) : (
+                           <div className="bg-black/40 border border-white/5 rounded-xl flex items-center justify-center h-[52px] text-[24px] font-black text-white">{metadata.cadence_count}</div>
+                         )}
+                      </div>
+                      <div className="space-y-2">
+                         <label className="text-[9px] font-black text-white/40 uppercase px-1">Time Unit</label>
+                         {isEditingMetadata ? (
+                           <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 h-[52px] text-[12px] font-black text-white text-center appearance-none outline-none focus:border-theme-accent" value={metadata.cadence_unit} onChange={e => { setMetadata({...metadata, cadence_unit: e.target.value}); setIsDirty?.(true); }}><option value="day">PER DAY</option><option value="week">PER WEEK</option><option value="month">PER MONTH</option><option value="year">PER YEAR</option></select>
+                         ) : (
+                           <div className="bg-white/5 border border-white/5 rounded-xl flex items-center justify-center h-[52px] text-[12px] font-black text-white uppercase tracking-widest">PER {metadata.cadence_unit}</div>
+                         )}
+                      </div>
+                   </div>
+                </div>
+
+                {/* 3. Trigger & Outcome Architecture */}
+                <div className="space-y-8">
+                   <div className="space-y-4 p-5 bg-blue-500/5 border border-blue-500/10 rounded-3xl">
+                      <div className="flex items-center gap-2 mb-1">
+                         <Activity size={14} className="text-blue-400" />
+                         <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Trigger Mechanism</span>
+                      </div>
+                      <div className="space-y-4">
+                         <div className="space-y-2">
+                            <label className="text-[9px] font-black text-white/30 uppercase px-1">Trigger Classification</label>
+                            {isEditingMetadata ? (
+                              <select className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none" value={metadata.trigger_type} onChange={e => { setMetadata({...metadata, trigger_type: e.target.value}); setIsDirty?.(true); }}><option value="">Select Trigger...</option>{taxonomy.filter(t => t.category === 'TriggerType').map((v: any) => <option key={v.value} value={v.value}>{v.label}</option>)}</select>
+                            ) : (
+                              <div className="text-[13px] font-black text-white uppercase">{taxonomy.find(t => t.value === metadata.trigger_type)?.label || metadata.trigger_type || 'N/A'}</div>
+                            )}
+                         </div>
+                         <div className="space-y-2">
+                            <label className="text-[9px] font-black text-white/30 uppercase px-1">Causal Description</label>
+                            {isEditingMetadata ? (
+                              <textarea className="w-full bg-[#0f172a] border border-white/10 rounded-xl p-4 text-[11px] font-bold text-white h-24 resize-none outline-none focus:border-blue-500" value={metadata.trigger_description} onChange={e => { setMetadata({...metadata, trigger_description: e.target.value}); setIsDirty?.(true); }} />
+                            ) : (
+                              <p className="text-[12px] text-white/60 font-medium leading-relaxed italic">{metadata.trigger_description || 'No trigger description provided.'}</p>
+                            )}
+                         </div>
+                      </div>
+                   </div>
+
+                   <div className="space-y-4 p-5 bg-purple-500/5 border border-purple-500/10 rounded-3xl">
+                      <div className="flex items-center gap-2 mb-1">
+                         <Database size={14} className="text-purple-400" />
+                         <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Process Deliverable</span>
+                      </div>
+                      <div className="space-y-4">
+                         <div className="space-y-2">
+                            <label className="text-[9px] font-black text-white/30 uppercase px-1">Output Classification</label>
+                            {isEditingMetadata ? (
+                              <select className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none" value={metadata.output_type} onChange={e => { setMetadata({...metadata, output_type: e.target.value}); setIsDirty?.(true); }}><option value="">Select Output...</option>{taxonomy.filter(t => t.category === 'OutputType').map((v: any) => <option key={v.value} value={v.value}>{v.label}</option>)}</select>
+                            ) : (
+                              <div className="text-[13px] font-black text-white uppercase">{taxonomy.find(t => t.value === metadata.output_type)?.label || metadata.output_type || 'N/A'}</div>
+                            )}
+                         </div>
+                         <div className="space-y-2">
+                            <label className="text-[9px] font-black text-white/30 uppercase px-1">Deliverable Nature</label>
+                            {isEditingMetadata ? (
+                              <textarea className="w-full bg-[#0f172a] border border-white/10 rounded-xl p-4 text-[11px] font-bold text-white h-24 resize-none outline-none focus:border-purple-500" value={metadata.output_description} onChange={e => { setMetadata({...metadata, output_description: e.target.value}); setIsDirty?.(true); }} />
+                            ) : (
+                              <p className="text-[12px] text-white/60 font-medium leading-relaxed italic">{metadata.output_description || 'No output description provided.'}</p>
+                            )}
+                         </div>
+                      </div>
+                   </div>
+                </div>
+
+                {/* 4. Industrial Risk & Documentation */}
+                <div className="space-y-6">
+                   <div className="space-y-2">
+                      <label className="text-[9px] font-black text-white/40 uppercase px-1">Forensic Description</label>
+                      {isEditingMetadata ? (
+                        <textarea className="w-full bg-[#1e293b] border border-white/10 rounded-xl p-4 text-[11px] font-bold text-white/80 leading-relaxed h-32 resize-none outline-none focus:border-theme-accent" placeholder="Provide a deep technical summary of the process lifecycle..." value={metadata.forensic_description} onChange={e => { setMetadata({...metadata, forensic_description: e.target.value}); setIsDirty?.(true); }} />
+                      ) : (
+                        <p className="bg-white/[0.02] border border-white/5 rounded-xl p-4 text-[11px] font-bold text-white/60 leading-relaxed">{metadata.forensic_description || 'No forensic description provided.'}</p>
+                      )}
+                   </div>
+
+                   <div className="space-y-4 p-6 bg-white/[0.02] border border-white/5 rounded-3xl">
+                      <div className="flex items-center justify-between">
+                         <div className="space-y-1">
+                            <h4 className="text-[11px] font-black text-white uppercase tracking-widest">Yield Risk Profile</h4>
+                            <p className="text-[8px] text-white/40 font-black uppercase">Does failure result in immediate wafer scrap?</p>
+                         </div>
+                         <button 
+                            onClick={() => isEditingMetadata && setMetadata({...metadata, yield_risk: !metadata.yield_risk})}
+                            className={cn(
+                              "relative w-10 h-5 rounded-full transition-all duration-300",
+                              metadata.yield_risk ? "bg-status-error" : "bg-white/10",
+                              !isEditingMetadata && "opacity-50 cursor-not-allowed"
+                            )}
+                         >
+                            <div className={cn("absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300", metadata.yield_risk ? "left-6" : "left-1")} />
+                         </button>
+                      </div>
+                      
+                      <div className="h-[1px] bg-white/5" />
+
+                      <div className="flex items-center justify-between">
+                         <div className="space-y-1">
+                            <h4 className="text-[11px] font-black text-white uppercase tracking-widest">Equipment Interaction</h4>
+                            <p className="text-[8px] text-white/40 font-black uppercase">Direct physical or remote tool state change?</p>
+                         </div>
+                         <button 
+                            onClick={() => isEditingMetadata && setMetadata({...metadata, involves_equipment: !metadata.involves_equipment})}
+                            className={cn(
+                              "relative w-10 h-5 rounded-full transition-all duration-300",
+                              metadata.involves_equipment ? "bg-theme-accent" : "bg-white/10",
+                              !isEditingMetadata && "opacity-50 cursor-not-allowed"
+                            )}
+                         >
+                            <div className={cn("absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300", metadata.involves_equipment ? "left-6" : "left-1")} />
+                         </button>
+                      </div>
+
+                      <div className="h-[1px] bg-white/5" />
+
+                      <div className="flex items-center justify-between">
+                         <div className="space-y-1">
+                            <h4 className="text-[11px] font-black text-white uppercase tracking-widest">Cleanroom Execution</h4>
+                            <p className="text-[8px] text-white/40 font-black uppercase">Requires physical presence in controlled environment?</p>
+                         </div>
+                         <button 
+                            onClick={() => isEditingMetadata && setMetadata({...metadata, cleanroom_execution_required: !metadata.cleanroom_execution_required})}
+                            className={cn(
+                              "relative w-10 h-5 rounded-full transition-all duration-300",
+                              metadata.cleanroom_execution_required ? "bg-theme-accent" : "bg-white/10",
+                              !isEditingMetadata && "opacity-50 cursor-not-allowed"
+                            )}
+                         >
+                            <div className={cn("absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300", metadata.cleanroom_execution_required ? "left-6" : "left-1")} />
+                         </button>
+                      </div>
+                   </div>
+
+                   <div className="space-y-2">
+                      <label className="text-[9px] font-black text-white/40 uppercase px-1">Automation Strategy Notes</label>
+                      {isEditingMetadata ? (
+                        <textarea className="w-full bg-[#1e293b] border border-white/10 rounded-xl p-4 text-[11px] font-bold text-white h-24 resize-none outline-none focus:border-theme-accent" value={metadata.automation_notes} onChange={e => { setMetadata({...metadata, automation_notes: e.target.value}); setIsDirty?.(true); }} />
+                      ) : (
+                        <p className="bg-white/[0.02] border border-white/5 rounded-xl p-4 text-[11px] font-bold text-white/40 leading-relaxed italic">{metadata.automation_notes || 'No automation notes recorded.'}</p>
+                      )}
                    </div>
                 </div>
               </div>
