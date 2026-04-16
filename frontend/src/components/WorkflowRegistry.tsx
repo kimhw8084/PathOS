@@ -1,10 +1,8 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { 
   Trash2, 
-  Zap, 
   Download, 
   FilterX, 
-  Clock, 
   Search, 
   Plus, 
   Copy, 
@@ -21,6 +19,7 @@ import {
   Check,
   ArrowRight,
   Maximize2,
+  HelpCircle,
   RefreshCw
 } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
@@ -28,19 +27,9 @@ import * as Popover from '@radix-ui/react-popover';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { settingsApi } from '../api/client';
 
-/** Utility for Tailwind class merging */
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
-}
-
-interface WorkflowRegistryProps {
-  workflows: any[];
-  onSelect: (workflow: any) => void;
-  onDelete: (id: number) => void;
-  onRestore: (id: number) => void;
-  onCreateNew?: () => void;
 }
 
 type SortConfig = {
@@ -48,12 +37,85 @@ type SortConfig = {
   direction: 'asc' | 'desc' | null;
 };
 
-// Automation Status Enum from Backend
-const STATUS_OPTIONS = [
-  "Created", "Workflow Review", "Priority Measurement", "Feasibility Review", 
-  "Backlog", "Automation Brainstorming", "Automation Planned", 
-  "In Automation", "Verification", "Partially Automated", "Fully Automated"
-];
+interface WorkflowRegistryProps {
+  workflows: any[];
+  onSelect: (wf: any) => void;
+  onDelete: (id: number) => void;
+  onRestore: (id: number) => void;
+  onCreateNew?: () => void;
+}
+
+// Automation Status Enum from Backend with Explanations
+const STATUS_EXPLANATIONS: Record<string, { desc: string, color: string, badgeColor: string, dotColor: string }> = {
+  "Created": { 
+    desc: "Initial entry by user. ROI is estimated based on preliminary data.", 
+    color: "slate",
+    badgeColor: "bg-slate-500/10 text-slate-400 border-slate-500/30",
+    dotColor: "bg-slate-400"
+  },
+  "Workflow Review": { 
+    desc: "Logic being reviewed by Process Integration for technical accuracy.", 
+    color: "blue",
+    badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+    dotColor: "bg-blue-400"
+  },
+  "Priority Measurement": { 
+    desc: "Determining business impact and automation feasibility ranking.", 
+    color: "purple",
+    badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/30",
+    dotColor: "bg-purple-400"
+  },
+  "Feasibility Review": { 
+    desc: "Technical evaluation of automation path and tool compatibility.", 
+    color: "cyan",
+    badgeColor: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
+    dotColor: "bg-cyan-400"
+  },
+  "Backlog": { 
+    desc: "Approved for automation, awaiting resource allocation.", 
+    color: "amber",
+    badgeColor: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+    dotColor: "bg-amber-400"
+  },
+  "Automation Brainstorming": { 
+    desc: "Designing automation script architecture and exception handling.", 
+    color: "indigo",
+    badgeColor: "bg-indigo-500/10 text-indigo-400 border-indigo-500/30",
+    dotColor: "bg-indigo-400"
+  },
+  "Automation Planned": { 
+    desc: "Development timeline and scope defined; logic locked.", 
+    color: "violet",
+    badgeColor: "bg-violet-500/10 text-violet-400 border-violet-500/30",
+    dotColor: "bg-violet-400"
+  },
+  "In Automation": { 
+    desc: "Active development of automation scripts and connectors.", 
+    color: "orange",
+    badgeColor: "bg-orange-500/10 text-orange-400 border-orange-500/30",
+    dotColor: "bg-orange-400"
+  },
+  "Verification": { 
+    desc: "Testing automation output in shadow mode for validation.", 
+    color: "fuchsia",
+    badgeColor: "bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/30",
+    dotColor: "bg-fuchsia-400"
+  },
+  "Partially Automated": { 
+    desc: "Some steps automated; manual intervention still required.", 
+    color: "teal",
+    badgeColor: "bg-teal-500/10 text-teal-400 border-teal-500/30",
+    dotColor: "bg-teal-400"
+  },
+  "Fully Automated": { 
+    desc: "Zero-touch execution in production environment.", 
+    color: "emerald",
+    badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+    dotColor: "bg-emerald-400"
+  }
+};
+
+const STATUS_OPTIONS = Object.keys(STATUS_EXPLANATIONS);
 
 const MultiSelectFilter = ({ 
   label, 
@@ -67,263 +129,237 @@ const MultiSelectFilter = ({
   onChange: (vals: string[]) => void 
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const toggleOption = (opt: string) => {
-    if (selected.includes(opt)) {
-      onChange(selected.filter(s => s !== opt));
-    } else {
-      onChange([...selected, opt]);
-    }
-  };
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
-    <div className="flex flex-col gap-1.5 min-w-[140px] relative">
-      <label className="text-[9px] font-black text-theme-muted uppercase tracking-widest">{label}</label>
-      <Popover.Root open={isOpen} onOpenChange={setIsOpen}>
-        <Popover.Trigger asChild>
-          <button className={cn(
-            "flex items-center justify-between bg-white/5 border border-white/10 rounded px-2.5 py-1.5 text-[11px] text-left transition-all hover:bg-white/10",
-            selected.length > 0 ? "text-theme-accent border-theme-accent/50" : "text-theme-secondary"
-          )}>
-            <span className="truncate max-w-[100px]">
-              {selected.length === 0 ? "All" : 
-               selected.length === 1 ? selected[0] : 
-               `${selected.length} Selected`}
-            </span>
-            <ChevronDown size={12} className={cn("transition-transform", isOpen && "rotate-180")} />
-          </button>
-        </Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Content 
-            className="w-56 bg-theme-sidebar border border-theme-border rounded-xl shadow-2xl p-1.5 z-50 animate-apple-in backdrop-blur-xl"
-            sideOffset={5}
-            align="start"
+    <div ref={containerRef} className="relative inline-block text-left">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all",
+          selected.length > 0 
+            ? "border-theme-accent bg-theme-accent/10 text-white" 
+            : "border-theme-border bg-white/[0.02] text-theme-muted hover:text-white"
+        )}
+      >
+        {label} {selected.length > 0 && `(${selected.length})`}
+        <ChevronDown size={10} className={cn("transition-transform", isOpen && "rotate-180")} />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 5 }}
+            className="absolute z-[100] mt-2 w-48 bg-theme-sidebar border border-theme-border rounded-xl shadow-2xl py-2 backdrop-blur-xl"
           >
-            <div className="max-h-60 overflow-y-auto custom-scrollbar p-1 space-y-0.5">
-              {options.length === 0 ? (
-                <div className="py-2 px-3 text-[10px] text-theme-muted italic">No options available</div>
-              ) : options.map(opt => (
-                <button 
+            <div className="max-h-60 overflow-y-auto custom-scrollbar px-1">
+              {options.map(opt => (
+                <button
                   key={opt}
-                  onClick={() => toggleOption(opt)}
-                  className="w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-theme-secondary hover:bg-white/[0.08] hover:text-white transition-all text-[11px] font-semibold"
+                  onClick={() => {
+                    const next = selected.includes(opt) 
+                      ? selected.filter(v => v !== opt) 
+                      : [...selected, opt];
+                    onChange(next);
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2 hover:bg-white/5 rounded-lg transition-colors group"
                 >
-                  {opt}
+                  <span className={cn("text-[11px] font-bold", selected.includes(opt) ? "text-theme-accent" : "text-theme-secondary group-hover:text-white")}>{opt}</span>
                   {selected.includes(opt) && <Check size={12} className="text-theme-accent" />}
                 </button>
               ))}
             </div>
-            {selected.length > 0 && (
-              <div className="border-t border-theme-border mt-1 pt-1">
-                <button 
-                  onClick={() => onChange([])}
-                  className="w-full px-3 py-1.5 text-[10px] font-black text-theme-accent hover:bg-theme-accent/10 rounded-lg uppercase tracking-widest"
-                >
-                  Clear Selection
-                </button>
-              </div>
-            )}
-          </Popover.Content>
-        </Popover.Portal>
-      </Popover.Root>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
 
+const PeekTooltip = ({ data }: { data: any }) => (
+  <Tooltip.Root>
+    <Tooltip.Trigger asChild>
+      <div className="flex flex-col cursor-help">
+        <span className="text-[13px] font-bold text-white group-hover:text-theme-accent transition-colors truncate max-w-[280px]">{data.name}</span>
+        <div className="flex items-center gap-2 opacity-40 mt-1">
+           <span className="text-[9px] font-mono tracking-tighter uppercase">{data.workflow_type || 'GENERAL'}</span>
+           <div className="w-1 h-1 rounded-full bg-white/20" />
+           <span className="text-[9px] font-mono tracking-tighter uppercase">{data.prc || 'NO-PRC'}</span>
+        </div>
+      </div>
+    </Tooltip.Trigger>
+    <Tooltip.Portal>
+      <Tooltip.Content className="bg-theme-sidebar border border-theme-border p-4 rounded-xl shadow-2xl z-50 text-[11px] font-bold text-white max-w-[320px] animate-apple-in backdrop-blur-xl" sideOffset={5}>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+             <span className="text-[9px] font-black uppercase text-theme-accent tracking-widest">Description</span>
+             <span className="px-1.5 py-0.5 rounded bg-white/10 text-[8px] font-black">V{data.version}</span>
+          </div>
+          <p className="text-theme-secondary leading-relaxed font-medium">{data.flow_summary || data.trigger_description || 'No detailed summary available.'}</p>
+          <div className="pt-2 border-t border-white/5 flex items-center justify-between opacity-50">
+             <span className="text-[9px] font-black uppercase">Tasks: {data.tasks?.length || 0}</span>
+             <span className="text-[9px] font-black uppercase">ROI: {data.total_roi_saved_hours?.toFixed(1)}h</span>
+          </div>
+        </div>
+        <Tooltip.Arrow className="fill-theme-border" />
+      </Tooltip.Content>
+    </Tooltip.Portal>
+  </Tooltip.Root>
+);
+
+const ActionMenu = ({ data, onSelect, onDelete, onRestore }: { data: any, onSelect: (wf: any) => void, onDelete: (id: number) => void, onRestore: (id: number) => void }) => (
+  <Popover.Root>
+    <Popover.Trigger asChild>
+      <button className="p-2 hover:bg-white/10 rounded-lg transition-all text-theme-muted hover:text-white">
+        <MoreHorizontal size={14} />
+      </button>
+    </Popover.Trigger>
+    <Popover.Portal>
+      <Popover.Content className="w-48 bg-theme-sidebar border border-theme-border rounded-xl shadow-2xl p-1 z-50 animate-apple-in backdrop-blur-xl" sideOffset={5} align="end">
+        <div className="space-y-0.5">
+          <button onClick={() => onSelect(data)} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg text-theme-secondary hover:text-white transition-all text-[11px] font-bold group">
+            <Eye size={14} className="group-hover:text-theme-accent" /> View Logic
+          </button>
+          <button className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg text-theme-secondary hover:text-white transition-all text-[11px] font-bold group">
+            <Copy size={14} className="group-hover:text-theme-accent" /> Clone Logic
+          </button>
+          <button className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg text-theme-secondary hover:text-white transition-all text-[11px] font-bold group">
+            <GitBranch size={14} className="group-hover:text-theme-accent" /> Fork Version
+          </button>
+          <div className="h-[1px] bg-white/5 my-1 mx-2" />
+          {data.deleted_at ? (
+            <button onClick={() => onRestore(data.id)} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-status-success/10 text-status-success hover:text-white hover:bg-status-success rounded-lg transition-all text-[11px] font-bold group">
+              <RefreshCw size={14} /> Restore Entry
+            </button>
+          ) : (
+            <button onClick={() => onDelete(data.id)} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-status-error/10 text-status-error hover:text-white hover:bg-status-error rounded-lg transition-all text-[11px] font-bold group">
+              <Trash2 size={14} /> Delete Entry
+            </button>
+          )}
+        </div>
+      </Popover.Content>
+    </Popover.Portal>
+  </Popover.Root>
+);
+
 const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect, onDelete, onRestore, onCreateNew }) => {
-  // State for Table Features
   const [searchText, setSearchText] = useState('');
-  const [activeRibbon, setActiveRibbon] = useState('Collaborative Workflows');
-  const [viewTab, setViewTab] = useState<'active' | 'deleted'>('active');
-  const [isFilterBarOpen, setFilterBarOpen] = useState(false);
+  const [filters, setFilters] = useState<any>({
+    prc: [],
+    tool_family: [],
+    type: [],
+    trigger: [],
+    output: [],
+    status: []
+  });
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'created_at', direction: 'desc' });
-  
-  // Table Density Settings
-  const [density, setDensity] = useState({
-    fontSize: 13,
-    rowPadding: 2
-  });
-
-  // Column Resizing
-  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
+  const [activeRibbon, setActiveRibbon] = useState('Personal Drafts');
+  const [density, setDensity] = useState({ fontSize: 13, rowPadding: 2 });
+  const [columnWidths, setColumnWidths] = useState<any>({
     workflow: 320,
     prc: 100,
-    toolFamily: 180,
+    toolFamily: 140,
     type: 120,
-    triggerOutput: 300,
+    triggerOutput: 220,
     freq: 80,
     manual: 90,
     auto: 90,
-    roi: 110,
-    blockers: 90,
-    errors: 90,
-    status: 180,
+    roi: 100,
+    blockers: 80,
+    errors: 80,
+    status: 160,
     creator: 120,
     editor: 120,
     created: 120,
-    ver: 80
+    ver: 60
   });
 
-  const resizingRef = useRef<{ key: string; startX: number; startWidth: number } | null>(null);
+  const [viewTab, setViewTab] = useState<'active' | 'deleted'>('active');
+  const [showStatusHelp, setShowStatusHelp] = useState(false);
+  const [isFilterBarOpen, setFilterBarOpen] = useState(false);
 
-  const startResizing = (key: string, e: React.MouseEvent) => {
-    resizingRef.current = { key, startX: e.pageX, startWidth: columnWidths[key] };
-    document.addEventListener('mousemove', handleResizing);
-    document.addEventListener('mouseup', stopResizing);
-    e.preventDefault();
-  };
-
-  const handleResizing = (e: MouseEvent) => {
-    if (!resizingRef.current) return;
-    const diff = e.pageX - resizingRef.current.startX;
-    const newWidth = Math.max(50, resizingRef.current.startWidth + diff);
-    setColumnWidths(prev => ({ ...prev, [resizingRef.current!.key]: newWidth }));
-  };
-
-  const stopResizing = () => {
-    resizingRef.current = null;
-    document.removeEventListener('mousemove', handleResizing);
-    document.removeEventListener('mouseup', stopResizing);
-  };
-
-  // Multi-select filters
-  const [filters, setFilters] = useState({
-    prc: [] as string[],
-    tool_family: [] as string[],
-    type: [] as string[],
-    trigger: [] as string[],
-    output: [] as string[],
-    status: [] as string[]
-  });
-
-  // Dynamic Parameters from Settings
-  const [params, setParams] = useState<any[]>([]);
-  useEffect(() => {
-    settingsApi.listParameters().then(setParams).catch(console.error);
-  }, []);
-
-  const getParamValues = (key: string) => {
-    const p = params.find(x => x.key === key);
-    return p ? (p.cached_values || []) : [];
-  };
-
-  // Helper to calculate analytics
-  const calculateAnalytics = (w: any) => {
-    let freqMultiplier = 1;
-    const count = w.cadence_count || 1;
-    const unit = w.cadence_unit || 'week';
-
-    if (unit === 'day') freqMultiplier = 7 * count;
-    else if (unit === 'week') freqMultiplier = count;
-    else if (unit === 'month') freqMultiplier = count / 4.33;
-    else if (unit === 'year') freqMultiplier = count / 52;
-
-    const totalManualMinutes = w.tasks?.reduce((acc: number, t: any) => 
-      acc + ((t.active_touch_time_minutes || 0) * (t.occurrences_per_cycle || 1)), 0) || 0;
+  const calculateAnalytics = (wf: any) => {
+    const totalManual = wf.tasks?.reduce((acc: number, t: any) => acc + (t.manual_time_minutes || 0) * (t.occurrences_per_cycle || 1), 0) || 0;
+    const totalAuto = wf.tasks?.reduce((acc: number, t: any) => acc + (t.automation_time_minutes || 0) * (t.occurrences_per_cycle || 1), 0) || 0;
+    const cadenceMult = wf.cadence_unit === 'day' ? 7 : wf.cadence_unit === 'month' ? 0.25 : 1;
+    const frequencyPerWeek = (wf.cadence_count || 1) * cadenceMult;
     
-    const totalAutoMinutes = w.tasks?.reduce((acc: number, t: any) => 
-      acc + ((t.machine_wait_time_minutes || 0) * (t.occurrences_per_cycle || 1)), 0) || 0;
-
-    const taskCount = w.tasks?.length || 0;
-    const decisionCount = w.tasks?.filter((t: any) => t.interface_type === 'DECISION').length || 0;
-    const inputCount = w.tasks?.reduce((acc: number, t: any) => acc + (t.source_data ? 1 : 0), 0) || 0;
-    const outputCount = w.tasks?.reduce((acc: number, t: any) => acc + (t.output_format_example ? 1 : 0), 0) || 0;
-
     return {
-      manualPerCycle: totalManualMinutes / 60, // hours
-      autoPerCycle: totalAutoMinutes / 60, // hours
-      frequencyPerWeek: freqMultiplier,
-      manualWeekly: (totalManualMinutes * freqMultiplier) / 60,
-      autoWeekly: (totalAutoMinutes * freqMultiplier) / 60,
-      taskCount,
-      decisionCount,
-      inputCount,
-      outputCount
+      manualPerCycle: totalManual / 60,
+      autoPerCycle: totalAuto / 60,
+      manualWeekly: (totalManual / 60) * frequencyPerWeek,
+      autoWeekly: (totalAuto / 60) * frequencyPerWeek,
+      frequencyPerWeek
     };
   };
 
-  // Filtering Logic
   const filteredWorkflows = useMemo(() => {
-    let result = workflows || [];
+    let result = workflows.filter(w => {
+      const isDeleted = w.deleted_at !== null;
+      if (viewTab === 'active' && isDeleted) return false;
+      if (viewTab === 'deleted' && !isDeleted) return false;
+      
+      const matchSearch = w.name.toLowerCase().includes(searchText.toLowerCase()) || 
+                         (w.prc && w.prc.toLowerCase().includes(searchText.toLowerCase())) ||
+                         w.status.toLowerCase().includes(searchText.toLowerCase());
+      
+      const matchPrc = filters.prc.length === 0 || filters.prc.includes(w.prc);
+      const matchTool = filters.tool_family.length === 0 || filters.tool_family.includes(w.tool_family);
+      const matchType = filters.type.length === 0 || filters.type.includes(w.workflow_type);
+      const matchStatus = filters.status.length === 0 || filters.status.includes(w.status);
+      
+      return matchSearch && matchPrc && matchTool && matchType && matchStatus;
+    });
 
-    // Active/Deleted Tab Filtering
-    result = result.filter(w => viewTab === 'active' ? !w.is_deleted : w.is_deleted);
-
-    // Ribbon Filtering
-    if (activeRibbon === 'Personal Drafts') result = result.filter(w => w.status === 'DRAFT' || w.status === 'Created');
-    else if (activeRibbon === 'Submitted Requests') result = result.filter(w => w.status !== 'DRAFT' && w.created_by === 'system_user');
-    else if (activeRibbon === 'Standard Operations') result = result.filter(w => w.status === 'FULLY_AUTOMATED' || w.status === 'PROD');
-
-    // Multi-select Filtering
-    if (filters.prc.length > 0) result = result.filter(w => filters.prc.includes(w.prc));
-    if (filters.tool_family.length > 0) result = result.filter(w => filters.tool_family.includes(w.tool_family));
-    if (filters.type.length > 0) result = result.filter(w => filters.type.includes(w.workflow_type));
-    if (filters.status.length > 0) result = result.filter(w => filters.status.includes(w.status));
-    
-    if (filters.trigger.length > 0) result = result.filter(w => filters.trigger.includes(w.trigger_type));
-    if (filters.output.length > 0) result = result.filter(w => filters.output.includes(w.output_type));
-
-    // Global Search Filtering
-    if (searchText) {
-      const lowerSearch = searchText.toLowerCase();
-      result = result.filter(w => 
-        w.name?.toLowerCase().includes(lowerSearch) ||
-        w.tool_family?.toLowerCase().includes(lowerSearch) ||
-        w.prc?.toLowerCase().includes(lowerSearch) ||
-        w.status?.toLowerCase().includes(lowerSearch)
-      );
-    }
-
-    // Sorting
     if (sortConfig.key && sortConfig.direction) {
-      result = [...result].sort((a, b) => {
-        let aValue = a[sortConfig.key];
-        let bValue = b[sortConfig.key];
-        
-        const aAnalytics = calculateAnalytics(a);
-        const bAnalytics = calculateAnalytics(b);
-
-        if (sortConfig.key === 'manual_time') {
-          aValue = aAnalytics.manualPerCycle;
-          bValue = bAnalytics.manualPerCycle;
-        } else if (sortConfig.key === 'auto_time') {
-          aValue = aAnalytics.autoPerCycle;
-          bValue = bAnalytics.autoPerCycle;
-        } else if (sortConfig.key === 'frequency') {
-          aValue = aAnalytics.frequencyPerWeek;
-          bValue = bAnalytics.frequencyPerWeek;
-        } else if (sortConfig.key === 'roi') {
-          aValue = aAnalytics.manualWeekly;
-          bValue = bAnalytics.manualWeekly;
-        } else if (sortConfig.key === 'blockers') {
-          aValue = a.tasks?.reduce((acc: number, t: any) => acc + (t.blockers?.length || 0), 0) || 0;
-          bValue = b.tasks?.reduce((acc: number, t: any) => acc + (t.blockers?.length || 0), 0) || 0;
-        } else if (sortConfig.key === 'errors') {
-          aValue = a.tasks?.reduce((acc: number, t: any) => acc + (t.errors?.length || 0), 0) || 0;
-          bValue = b.tasks?.reduce((acc: number, t: any) => acc + (t.errors?.length || 0), 0) || 0;
-        }
-
-        if (aValue === bValue) return 0;
-        const multiplier = sortConfig.direction === 'asc' ? 1 : -1;
-        if (aValue === null || aValue === undefined) return 1;
-        if (bValue === null || bValue === undefined) return -1;
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-          return aValue.localeCompare(bValue) * multiplier;
-        }
-        return aValue < bValue ? -1 * multiplier : 1 * multiplier;
+      result.sort((a, b) => {
+        const valA = a[sortConfig.key];
+        const valB = b[sortConfig.key];
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
       });
     }
 
     return result;
-  }, [workflows, activeRibbon, viewTab, searchText, sortConfig, filters]);
+  }, [workflows, searchText, filters, sortConfig, viewTab]);
 
-  // Handlers
   const handleSort = (key: string) => {
     setSortConfig(prev => ({
       key,
       direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
     }));
+  };
+
+  const startResizing = (key: string, e: React.MouseEvent) => {
+    const startX = e.clientX;
+    const startWidth = columnWidths[key];
+    
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      setColumnWidths((prev: any) => ({ ...prev, [key]: Math.max(60, startWidth + delta) }));
+    };
+    
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
   };
 
   const onClearFilters = () => {
@@ -332,174 +368,40 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     setSortConfig({ key: 'created_at', direction: 'desc' });
   };
 
-  // Components
   const StatusBadge = ({ status }: { status: string }) => {
-    const isProd = status === 'FULLY_AUTOMATED' || status === 'PROD';
-    const isDraft = status === 'DRAFT' || status === 'Created';
+    const config = STATUS_EXPLANATIONS[status] || { desc: "Status unknown.", color: "slate", badgeColor: "bg-slate-500/10 text-slate-400 border-slate-500/30", dotColor: "bg-slate-400" };
     
-    return (
-      <span className={cn(
-        "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border whitespace-nowrap inline-flex items-center gap-1.5 leading-none max-w-full",
-        isProd ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" :
-        isDraft ? "bg-slate-500/10 text-slate-400 border-slate-500/30" :
-        "bg-amber-500/10 text-amber-400 border-amber-500/30"
-      )}>
-        <div className={cn("w-1 h-1 rounded-full shrink-0", 
-          isProd ? "bg-emerald-400" : isDraft ? "bg-slate-400" : "bg-amber-400"
-        )} />
-        <span className="whitespace-nowrap">{status}</span>
-      </span>
-    );
-  };
-
-  const CircledNumber = ({ count, colorClass }: { count: number, colorClass: string }) => (
-    <div className={cn(
-      "w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black border shrink-0",
-      count > 0 ? colorClass : "bg-white/[0.02] border-white/10 text-white/20"
-    )}>
-      {count}
-    </div>
-  );
-
-  const ActionMenu = ({ data }: { data: any }) => (
-    <Popover.Root>
-      <Popover.Trigger asChild>
-        <button className="w-7 h-7 flex items-center justify-center bg-white/[0.03] hover:bg-theme-accent/20 hover:text-white transition-all rounded-lg border border-theme-border group">
-          <MoreHorizontal size={12} className="text-theme-muted group-hover:text-white" />
-        </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content 
-          className="w-52 bg-theme-sidebar/95 backdrop-blur-xl border border-theme-border rounded-xl shadow-2xl p-1.5 z-50 animate-apple-in"
-          sideOffset={5}
-          align="end"
-        >
-          <div className="space-y-0.5">
-            {viewTab === 'active' ? (
-              <>
-                {[
-                  { icon: Eye, label: 'View Details', onClick: () => onSelect(data) },
-                  { icon: Copy, label: 'Duplicate Workflow' },
-                  { icon: GitBranch, label: 'Version History' },
-                  { icon: Share2, label: 'Permission' },
-                ].map((item, idx) => (
-                  <button 
-                    key={idx}
-                    onClick={item.onClick}
-                    className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-theme-secondary hover:bg-white/[0.08] hover:text-white transition-all text-[11px] font-semibold"
-                  >
-                    <item.icon size={12} /> {item.label}
-                  </button>
-                ))}
-                <div className="h-[1px] bg-theme-border my-1 mx-1" />
-                <button 
-                  onClick={() => onDelete(data.id)}
-                  className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-status-error hover:bg-status-error/10 transition-all text-[11px] font-semibold"
-                >
-                  <Trash2 size={12} /> Archive Record
-                </button>
-              </>
-            ) : (
-              <>
-                <button 
-                  onClick={() => onRestore(data.id)}
-                  className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-theme-accent hover:bg-theme-accent/10 transition-all text-[11px] font-semibold"
-                >
-                  <RefreshCw size={12} /> Restore Workflow
-                </button>
-                <div className="h-[1px] bg-theme-border my-1 mx-1" />
-                <button 
-                  onClick={() => onDelete(data.id)} // Hard delete would be different but for now archive means soft delete
-                  className="w-full flex items-center gap-3 px-3 py-1.5 rounded-lg text-status-error hover:bg-status-error/10 transition-all text-[11px] font-semibold"
-                >
-                  <Trash2 size={12} /> Permanent Delete
-                </button>
-              </>
-            )}
-          </div>
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
-  );
-
-  const PeekTooltip = ({ data }: { data: any }) => {
-    const stats = calculateAnalytics(data);
-    const blockerCount = data.tasks?.reduce((acc: number, t: any) => acc + (t.blockers?.length || 0), 0) || 0;
-    const errorCount = data.tasks?.reduce((acc: number, t: any) => acc + (t.errors?.length || 0), 0) || 0;
-
     return (
       <Tooltip.Root>
         <Tooltip.Trigger asChild>
-          <div className="flex flex-col cursor-help group/title overflow-hidden">
-            <span 
-              className="font-bold text-white group-hover:text-theme-accent transition-colors truncate w-full leading-tight"
-              style={{ fontSize: `${density.fontSize}px` }}
-            >
-              {data.name}
-            </span>
-          </div>
+          <span className={cn(
+            "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border whitespace-nowrap inline-flex items-center gap-1.5 leading-none cursor-help shadow-sm transition-all hover:bg-white/10",
+            config.badgeColor
+          )}>
+            <div className={cn("w-1.5 h-1.5 rounded-full shrink-0 animate-pulse", 
+              config.dotColor
+            )} />
+            <span className="whitespace-nowrap">{status}</span>
+          </span>
         </Tooltip.Trigger>
         <Tooltip.Portal>
-          <Tooltip.Content 
-            className="w-80 bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl p-4 z-50 animate-apple-in backdrop-blur-2xl"
-            sideOffset={8}
-          >
-            <div className="space-y-4">
-              <div className="flex items-center justify-between border-b border-white/5 pb-2">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-theme-accent">Industrial Analytics</span>
-                <span className="text-[10px] font-bold text-white/40">{data.id_prefix || 'WF'}-{data.id}</span>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <span className="text-[9px] text-white/30 font-black uppercase tracking-widest">Entities</span>
-                  <div className="text-[11px] text-white font-bold flex flex-col gap-0.5">
-                    <div className="flex justify-between"><span>Tasks:</span> <span className="text-theme-accent">{stats.taskCount}</span></div>
-                    <div className="flex justify-between"><span>Decisions:</span> <span className="text-theme-accent">{stats.decisionCount}</span></div>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-[9px] text-white/30 font-black uppercase tracking-widest">Data Flux</span>
-                  <div className="text-[11px] text-white font-bold flex flex-col gap-0.5">
-                    <div className="flex justify-between"><span>Inputs:</span> <span className="text-emerald-400">{stats.inputCount}</span></div>
-                    <div className="flex justify-between"><span>Outputs:</span> <span className="text-emerald-400">{stats.outputCount}</span></div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/5 space-y-2">
-                <span className="text-[9px] text-white/30 font-black uppercase tracking-widest block">ROI Projection (Weekly)</span>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Clock size={12} className="text-theme-accent" />
-                    <span className="text-[12px] font-black text-white">{stats.manualWeekly.toFixed(1)}h <span className="text-[9px] text-white/40">Manual</span></span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Zap size={12} className="text-emerald-400" />
-                    <span className="text-[12px] font-black text-white">{stats.autoWeekly.toFixed(1)}h <span className="text-[9px] text-white/40">Auto</span></span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <div className="flex-1 p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-center">
-                   <span className="text-[10px] font-black text-red-400 uppercase tracking-tighter">{blockerCount} Blockers</span>
-                </div>
-                <div className="flex-1 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-center">
-                   <span className="text-[10px] font-black text-amber-400 uppercase tracking-tighter">{errorCount} Errors</span>
-                </div>
-              </div>
-
-              <div className="text-[11px] text-white/60 italic leading-relaxed border-t border-white/5 pt-2">
-                {data.description || "System-generated industrial workflow definition."}
-              </div>
-            </div>
-            <Tooltip.Arrow className="fill-white/10" />
+          <Tooltip.Content className="bg-theme-sidebar border border-theme-border p-3 rounded-xl shadow-2xl z-[100] text-[10px] font-bold text-white max-w-[200px] backdrop-blur-xl animate-apple-in" sideOffset={5}>
+            <p className="leading-relaxed opacity-90">{config.desc}</p>
+            <Tooltip.Arrow className="fill-theme-border" />
           </Tooltip.Content>
         </Tooltip.Portal>
       </Tooltip.Root>
     );
   };
+
+  const CircledNumber = ({ count, colorClass }: { count: number, colorClass: string }) => (
+    <div className={cn(
+      "w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black border",
+      count === 0 ? "opacity-10 border-white text-white" : colorClass
+    )}>
+      {count}
+    </div>
+  );
 
   const ResizableHeader = ({ 
     label, 
@@ -624,10 +526,10 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
       {/* Workspace Ribbon & View Tabs */}
       <div className="flex items-center justify-between border-b border-theme-border/30 pb-0 mb-0 px-1">
         <div className="flex items-center gap-0">
-          {['Personal Drafts', 'Submitted Requests', 'Collaborative Workflows', 'Standard Operations'].map((ribbon) => (
+          {['Personal Drafts', 'Submitted Requests', 'Collaborative Workflows', 'Standard Operations', 'Status'].map((ribbon) => (
             <button
               key={ribbon}
-              onClick={() => setActiveRibbon(ribbon)}
+              onClick={() => ribbon === 'Status' ? setShowStatusHelp(true) : setActiveRibbon(ribbon)}
               className={cn(
                 "px-4 py-3 text-[10px] font-bold uppercase tracking-widest transition-all relative",
                 activeRibbon === ribbon 
@@ -635,7 +537,14 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                   : 'text-theme-muted hover:text-theme-secondary'
               )}
             >
-              {ribbon}
+              <div className="flex items-center gap-2">
+                {ribbon}
+                {ribbon === 'Status' && (
+                  <div className="w-4 h-4 rounded-full bg-theme-accent/20 flex items-center justify-center group-hover:bg-theme-accent transition-all">
+                    <HelpCircle size={10} className="text-theme-accent group-hover:text-white" />
+                  </div>
+                )}
+              </div>
               {activeRibbon === ribbon && (
                 <motion.div 
                   layoutId="activeRibbon"
@@ -654,6 +563,9 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
         </div>
         
         <div className="flex items-center gap-4 pr-2">
+           <button onClick={() => setShowStatusHelp(true)} className="p-2 bg-theme-accent/10 hover:bg-theme-accent/20 border border-theme-accent/30 rounded-full text-theme-accent transition-all hover:scale-110" title="Automation Status Guide">
+             <HelpCircle size={16} />
+           </button>
            <button onClick={onClearFilters} className="text-[10px] font-bold text-theme-muted hover:text-white flex items-center gap-1.5 transition-all uppercase tracking-wider">
              <FilterX size={12} /> Reset
            </button>
@@ -675,33 +587,27 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
             <div className="p-4 flex flex-wrap gap-4 border-b border-theme-border items-end">
               <MultiSelectFilter 
                 label="PRC" 
-                options={getParamValues('PRC')} 
+                options={['CD', 'INS', 'RV', 'OCD', 'IM', 'THK', 'CON']} 
                 selected={filters.prc} 
                 onChange={vals => setFilters({...filters, prc: vals})} 
               />
               <MultiSelectFilter 
                 label="Tool Family" 
-                options={getParamValues('HARDWARE_FAMILY')} 
+                options={['Hitachi', 'KLA']} 
                 selected={filters.tool_family} 
                 onChange={vals => setFilters({...filters, tool_family: vals})} 
               />
               <MultiSelectFilter 
                 label="Type" 
-                options={getParamValues('WORKFLOW_TYPE')} 
+                options={['Equipment', 'Process', 'All']} 
                 selected={filters.type} 
                 onChange={vals => setFilters({...filters, type: vals})} 
               />
               <MultiSelectFilter 
-                label="Trigger" 
-                options={getParamValues('TRIGGER_ARCHITECTURE')} 
-                selected={filters.trigger} 
+                label="Applicable Tools" 
+                options={Array.from({length: 10}, (_, i) => `CDSEM_${(i+1).toString().padStart(2, '0')}`)} 
+                selected={filters.trigger}
                 onChange={vals => setFilters({...filters, trigger: vals})} 
-              />
-              <MultiSelectFilter 
-                label="Output" 
-                options={getParamValues('OUTPUT_CLASSIFICATION')} 
-                selected={filters.output} 
-                onChange={vals => setFilters({...filters, output: vals})} 
               />
               <MultiSelectFilter 
                 label="Status" 
@@ -870,7 +776,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
 
                       <td className="p-0 text-right sticky right-0 bg-[#0a1120] group-hover:bg-[#151d2e] shadow-[-2px_0_5px_rgba(0,0,0,0.3)] z-10 transition-colors">
                         <div className="flex justify-center items-center w-full h-full">
-                          <ActionMenu data={w} />
+                          <ActionMenu data={w} onSelect={onSelect} onDelete={onDelete} onRestore={onRestore} />
                         </div>
                       </td>
                     </tr>
@@ -926,6 +832,51 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
               <X size={16} />
             </button>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Status Explanation Modal */}
+      <AnimatePresence>
+        {showStatusHelp && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-full max-w-2xl bg-theme-sidebar border border-theme-border rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh] backdrop-blur-2xl"
+            >
+              <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+                 <div className="flex items-center gap-3">
+                    <div className="p-2 bg-theme-accent/20 rounded-xl text-theme-accent">
+                       <HelpCircle size={20} />
+                    </div>
+                    <div>
+                       <h3 className="text-[16px] font-black text-white uppercase tracking-tight">Automation Status Guide</h3>
+                       <p className="text-[10px] text-theme-muted font-bold uppercase tracking-widest">Understanding the PathOS Automation Lifecycle</p>
+                    </div>
+                 </div>
+                 <button onClick={() => setShowStatusHelp(false)} className="p-2 hover:bg-white/10 rounded-full text-white/40 hover:text-white transition-all"><X size={20} /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
+                 {Object.entries(STATUS_EXPLANATIONS).map(([status, config]) => (
+                   <div key={status} className="flex items-start gap-4 p-4 bg-white/[0.03] border border-white/5 rounded-2xl hover:bg-white/[0.05] transition-all group">
+                      <div className={cn("w-3 h-3 rounded-full mt-1.5 shrink-0 shadow-[0_0_15px_rgba(255,255,255,0.1)]", 
+                        config.dotColor
+                      )} />
+                      <div className="space-y-1">
+                         <span className={cn("text-[12px] font-black uppercase tracking-[0.1em]", 
+                           config.badgeColor.split(' ').find(c => c.startsWith('text-'))
+                         )}>{status}</span>
+                         <p className="text-[11px] text-theme-secondary font-medium leading-relaxed opacity-80 group-hover:opacity-100 transition-opacity">{config.desc}</p>
+                      </div>
+                   </div>
+                 ))}
+              </div>
+              <div className="p-4 bg-white/[0.02] border-t border-white/10">
+                 <button onClick={() => setShowStatusHelp(false)} className="w-full py-4 bg-theme-accent text-white rounded-2xl text-[12px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-theme-accent/20">Acknowledge</button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

@@ -270,18 +270,18 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         </div>
       </div>
       
-      {/* Universal Multi-Handles: Dual Source/Target at all 4 poles */}
-      <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
-      <Handle type="source" position={Position.Left} id="left-source" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
+      {/* Universal Multi-Handles: Dual Source/Target at all 4 poles - ENHANCED SIZE */}
+      <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-left-3.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
+      <Handle type="source" position={Position.Left} id="left-source" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-left-3.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
 
-      <Handle type="target" position={Position.Right} id="right-target" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
-      <Handle type="source" position={Position.Right} id="right-source" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
+      <Handle type="target" position={Position.Right} id="right-target" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-right-3.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
+      <Handle type="source" position={Position.Right} id="right-source" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-right-3.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
 
-      <Handle type="target" position={Position.Top} id="top-target" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-top-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
-      <Handle type="source" position={Position.Top} id="top-source" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-top-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
+      <Handle type="target" position={Position.Top} id="top-target" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-top-3.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
+      <Handle type="source" position={Position.Top} id="top-source" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-top-3.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
 
-      <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-bottom-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-theme-accent !w-3 !h-3 !border-2 !border-[#0f172a] !-bottom-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
+      <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-bottom-3.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform z-10" />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-theme-accent !w-7 !h-7 !border-[4px] !border-[#0f172a] !-bottom-3.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-125 transition-transform opacity-0 z-20" />
     </div>
   );
 };
@@ -299,17 +299,17 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => (
       </div>
     )}
 
-    <Handle type="target" position={Position.Left} id="left-target" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-left-1.5 shadow-lg z-10" />
-    <Handle type="source" position={Position.Left} id="left-source" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-left-1.5 shadow-lg z-20 opacity-0" />
+    <Handle type="target" position={Position.Left} id="left-target" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-left-3.5 shadow-lg z-10" />
+    <Handle type="source" position={Position.Left} id="left-source" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-left-3.5 shadow-lg z-20 opacity-0" />
 
-    <Handle type="target" position={Position.Right} id="right-target" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-right-1.5 shadow-lg z-10" />
-    <Handle type="source" position={Position.Right} id="right-source" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-right-1.5 shadow-lg z-20 opacity-0" />
+    <Handle type="target" position={Position.Right} id="right-target" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-right-3.5 shadow-lg z-10" />
+    <Handle type="source" position={Position.Right} id="right-source" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-right-3.5 shadow-lg z-20 opacity-0" />
 
-    <Handle type="target" position={Position.Top} id="top-target" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-top-1.5 shadow-lg z-10" />
-    <Handle type="source" position={Position.Top} id="top-source" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-top-1.5 shadow-lg z-20 opacity-0" />
+    <Handle type="target" position={Position.Top} id="top-target" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-top-3.5 shadow-lg z-10" />
+    <Handle type="source" position={Position.Top} id="top-source" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-top-3.5 shadow-lg z-20 opacity-0" />
 
-    <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-bottom-1.5 shadow-lg z-10" />
-    <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-amber-400 !w-3 !h-3 !border-2 !border-[#0a1120] !-bottom-1.5 shadow-lg z-20 opacity-0" />
+    <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-bottom-3.5 shadow-lg z-10" />
+    <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-amber-400 !w-7 !h-7 !border-[4px] !border-[#0a1120] !-bottom-3.5 shadow-lg z-20 opacity-0" />
   </div>
 );
 
@@ -838,12 +838,21 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const swapEdgeDirection = (id: string) => {
     setEdges(eds => eds.map(e => {
       if (e.id === id) {
+        // Correctly swap source/target AND their corresponding handles
+        // e.g. 'left-target' becomes 'left-source' and vice versa
+        const swapHandle = (h: string | null | undefined) => {
+          if (!h) return h;
+          if (h.endsWith('-target')) return h.replace('-target', '-source');
+          if (h.endsWith('-source')) return h.replace('-source', '-target');
+          return h;
+        };
+
         return {
           ...e,
           source: e.target,
           target: e.source,
-          sourceHandle: e.targetHandle,
-          targetHandle: e.sourceHandle
+          sourceHandle: swapHandle(e.targetHandle),
+          targetHandle: swapHandle(e.sourceHandle)
         };
       }
       return e;
@@ -1151,6 +1160,30 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                                   <button onClick={() => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.filter(s => s.id !== sys.id) })} className="text-white/10 hover:text-status-error transition-colors p-1"><X size={14} /></button>
                                </div>
                                <textarea className="w-full bg-transparent text-[10px] text-white/40 outline-none resize-none h-12" placeholder="Purpose of using this system..." value={sys.purpose} onChange={e => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.map(s => s.id === sys.id ? { ...s, purpose: e.target.value } : s) })} />
+                               
+                               {/* Applicable Links Section inside System Card */}
+                               <div className="mt-2 pt-2 border-t border-white/5 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                     <span className="text-[8px] font-black text-white/20 uppercase">Applicable Links</span>
+                                     <button 
+                                       onClick={() => {
+                                         const newLink: ReferenceLink = { id: Date.now().toString(), url: '', description: sys.name };
+                                         updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, newLink] });
+                                       }}
+                                       className="text-[8px] font-black text-theme-accent hover:underline uppercase"
+                                     >
+                                       + Add Link
+                                     </button>
+                                  </div>
+                                  <div className="space-y-1">
+                                    {selectedTask.reference_links.filter(l => l.description.includes(sys.name) || !l.description).map(link => (
+                                      <div key={link.id} className="flex items-center gap-2">
+                                        <Link2 size={8} className="text-blue-400 shrink-0" />
+                                        <input className="flex-1 bg-transparent text-[9px] text-blue-400 outline-none border-b border-white/5" placeholder="https://..." value={link.url} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(l => l.id === link.id ? { ...l, url: e.target.value } : l) })} />
+                                      </div>
+                                    ))}
+                                  </div>
+                               </div>
                             </div>
                           ))}
                         </div>
@@ -1164,15 +1197,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                           </select>
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Occurrences</label>
-                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={selectedTask.occurrences_per_cycle} onChange={e => updateTask(selectedTaskId, { occurrences_per_cycle: parseInt(e.target.value) || 1 })} />
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Repetition</label>
+                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[22px] font-black text-white text-center outline-none focus:border-theme-accent shadow-inner" value={selectedTask.occurrences_per_cycle} onChange={e => updateTask(selectedTaskId, { occurrences_per_cycle: parseInt(e.target.value) || 1 })} />
                         </div>
                       </div>
 
                       {selectedTask.occurrences_per_cycle > 1 && (
                         <div className="space-y-2 animate-apple-in">
-                          <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest px-1">Explanation for Multiple Occurrences</label>
-                          <textarea className="w-full bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 outline-none focus:border-amber-500 h-20 resize-none" placeholder="Why does this task occur multiple times? (e.g., iterative review, batch processing)" value={selectedTask.occurrence_condition} onChange={e => updateTask(selectedTaskId, { occurrence_condition: e.target.value })} />
+                          <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest px-1">Explanation for Multiple Repetitions</label>
+                          <textarea className="w-full bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 outline-none focus:border-amber-500 h-20 resize-none" placeholder="Why does this task repeat? (e.g., iterative review, batch processing)" value={selectedTask.occurrence_condition} onChange={e => updateTask(selectedTaskId, { occurrence_condition: e.target.value })} />
                         </div>
                       )}
 
@@ -1180,15 +1213,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                         <div className="space-y-3">
                           <div className="flex justify-between items-center px-1">
                             <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Manual Effort (min)</label>
-                            <input type="number" step="0.5" className="w-16 bg-black/60 border border-white/10 rounded-lg px-2 py-1 text-[13px] font-black text-white text-center outline-none focus:border-blue-400" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
+                            <input type="number" step="0.5" className="w-32 bg-black/60 border border-white/10 rounded-xl px-3 py-2.5 text-[22px] font-black text-white text-center outline-none focus:border-blue-400 shadow-2xl" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
                           </div>
                           <input type="range" min="0" max="60" step="0.5" className="w-full accent-blue-500 h-1.5 rounded-lg bg-white/5 cursor-pointer" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) })} />
                         </div>
 
                         <div className="space-y-3">
                           <div className="flex justify-between items-center px-1">
-                            <label className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Automation Execution (min)</label>
-                            <input type="number" step="0.5" className="w-16 bg-black/60 border border-white/10 rounded-lg px-2 py-1 text-[13px] font-black text-white text-center outline-none focus:border-purple-400" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
+                            <label className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Machine Effort (min)</label>
+                            <input type="number" step="0.5" className="w-32 bg-black/60 border border-white/10 rounded-xl px-3 py-2.5 text-[22px] font-black text-white text-center outline-none focus:border-purple-400 shadow-2xl" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
                           </div>
                           <input type="range" min="0" max="60" step="0.5" className="w-full accent-purple-500 h-1.5 rounded-lg bg-white/5 cursor-pointer" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) })} />
                         </div>
@@ -1607,7 +1640,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                        </div>
 
                        <div className="space-y-2">
-                          <label className="text-[9px] font-black text-white/40 uppercase px-1">Occurrence</label>
+                          <label className="text-[9px] font-black text-white/40 uppercase px-1">Repetition</label>
                           <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl p-1.5">
                              {isEditingMetadata ? (
                                <>
