@@ -308,13 +308,13 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
 
   const filteredWorkflows = useMemo(() => {
     let result = workflows.filter(w => {
-      const isDeleted = w.deleted_at !== null;
+      const isDeleted = w.is_deleted;
       if (viewTab === 'active' && isDeleted) return false;
       if (viewTab === 'deleted' && !isDeleted) return false;
       
-      const matchSearch = w.name.toLowerCase().includes(searchText.toLowerCase()) || 
+      const matchSearch = w.name?.toLowerCase().includes(searchText.toLowerCase()) || 
                          (w.prc && w.prc.toLowerCase().includes(searchText.toLowerCase())) ||
-                         w.status.toLowerCase().includes(searchText.toLowerCase());
+                         w.status?.toLowerCase().includes(searchText.toLowerCase());
       
       const matchPrc = filters.prc.length === 0 || filters.prc.includes(w.prc);
       const matchTool = filters.tool_family.length === 0 || filters.tool_family.includes(w.tool_family);

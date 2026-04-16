@@ -259,7 +259,25 @@ const PathOSApp: React.FC = () => {
     }
   });
 
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
+
   const handleSelectWorkflow = (wf: any) => {
+    if (isDirty) {
+      setPendingNavPath(`/workflows/builder`);
+      setShowConfirm(true);
+      // We don't actually navigate yet, just set the pending path
+      // but we need the workflow data. Better to just block.
+      return;
+    }
     setSelectedWorkflow(wf);
     navigate('/workflows/builder');
   };
