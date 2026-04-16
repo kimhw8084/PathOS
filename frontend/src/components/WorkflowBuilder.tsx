@@ -57,7 +57,15 @@ const nodeHeight = 150;
 
 const getLayoutedElements = (nodes: Node[], edges: any[], direction = 'LR') => {
   const isHorizontal = direction === 'LR';
-  dagreGraph.setGraph({ rankdir: direction, ranksep: 100, nodesep: 80 });
+  dagreGraph.setGraph({ 
+    rankdir: direction, 
+    ranksep: 120, 
+    nodesep: 100,
+    edgesep: 80,
+    marginx: 50,
+    marginy: 50,
+    ranker: 'network-simplex' // Better for complex flows
+  });
 
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
@@ -428,13 +436,13 @@ const CustomEdge = ({
         <div
           style={{
             position: 'absolute',
-            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+            transform: `translate(-50%, -100%) translate(${labelX}px,${labelY - 10}px)`,
             pointerEvents: 'all',
           }}
-          className="nodrag nopan"
+          className="nodrag nopan z-[100]"
         >
           {data?.label && (
-            <div className="bg-[#1e293b]/90 backdrop-blur-md px-2 py-0.5 rounded border border-white/20 text-[9px] font-black text-white uppercase tracking-widest shadow-lg">
+            <div className="bg-white px-2 py-1 rounded border border-white/20 text-[10px] font-black text-[#0f172a] uppercase tracking-widest shadow-[0_4px_12px_rgba(0,0,0,0.5)] whitespace-nowrap">
               {data.label}
             </div>
           )}
@@ -1167,8 +1175,45 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             </div>
 
             <div className="flex-1 overflow-auto custom-scrollbar p-6">
-              {selectedTaskId && selectedTask && !isProtected ? (
+              {selectedTaskId && selectedTask ? (
                 <div className="space-y-8 animate-apple-in">
+                  {selectedTask.interface_type === 'CONDITION' ? (
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                        <div className="flex items-center gap-3">
+                          <Activity size={18} className="text-amber-400" />
+                          <h2 className="text-[14px] font-black text-white uppercase tracking-widest">Condition Entity</h2>
+                        </div>
+                        <button onClick={() => { setSelectedTaskId(null); setInspectorTab('process'); }} className="text-white/20 hover:text-white transition-colors"><X size={14} /></button>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Condition Label</label>
+                        <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[14px] font-black text-white outline-none focus:border-theme-accent transition-all" value={selectedTask.name} onChange={e => updateTask(selectedTaskId, { name: e.target.value })} />
+                      </div>
+                      <button onClick={() => deleteTask(selectedTaskId)} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2">
+                        <Trash size={12} /> Delete Condition
+                      </button>
+                    </div>
+                  ) : (selectedTask.interface_type === 'TRIGGER' || selectedTask.interface_type === 'OUTCOME') ? (
+                    <div className="space-y-6">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                        <div className="flex items-center gap-3">
+                          {selectedTask.interface_type === 'TRIGGER' ? <Zap size={18} className="text-cyan-400" /> : <Layers size={18} className="text-rose-400" />}
+                          <h2 className="text-[14px] font-black text-white uppercase tracking-widest">{selectedTask.interface_type} Entity</h2>
+                        </div>
+                        <button onClick={() => { setSelectedTaskId(null); setInspectorTab('process'); }} className="text-white/20 hover:text-white transition-colors"><X size={14} /></button>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">{selectedTask.interface_type} Name</label>
+                        <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[14px] font-black text-white outline-none focus:border-theme-accent transition-all" value={selectedTask.name} onChange={e => updateTask(selectedTaskId, { name: e.target.value })} />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Description</label>
+                        <textarea className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-bold text-white/60 outline-none focus:border-theme-accent h-32 resize-none leading-relaxed" placeholder="Detailed description..." value={selectedTask.description} onChange={e => updateTask(selectedTaskId, { description: e.target.value })} />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
                   {inspectorTab === 'overview' && (
                     <div className="space-y-6">
                       <div className="space-y-2">
@@ -1200,15 +1245,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                           <button onClick={() => updateTask(selectedTaskId, { target_systems: [...selectedTask.target_systems, { id: Date.now().toString(), name: '', purpose: '', access_method: 'GUI' }] })} className="text-theme-accent hover:bg-theme-accent/10 p-1 rounded transition-colors"><Plus size={14} /></button>
                         </div>
                         <div className="space-y-3">
-                          {selectedTask.target_systems.map(sys => (
+                          {selectedTask.target_systems.map((sys, idx) => (
                             <div key={sys.id} className="flex flex-col gap-2 p-3 bg-black/40 border border-white/5 rounded-xl">
                                <div className="flex items-center gap-2">
+                                  <span className="text-[9px] font-black text-white/20 mr-1">{idx + 1}.</span>
                                   <input className="flex-1 bg-transparent border-b border-white/10 px-1 py-1 text-[11px] font-bold text-white outline-none focus:border-theme-accent" placeholder="System Name..." value={sys.name} onChange={e => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.map(s => s.id === sys.id ? { ...s, name: e.target.value } : s) })} />
                                   <button onClick={() => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.filter(s => s.id !== sys.id) })} className="text-white/10 hover:text-status-error transition-colors p-1"><X size={14} /></button>
                                </div>
                                <textarea className="w-full bg-transparent text-[10px] text-white/40 outline-none resize-none h-12" placeholder="Purpose of using this system..." value={sys.purpose} onChange={e => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.map(s => s.id === sys.id ? { ...s, purpose: e.target.value } : s) })} />
                                
-                               {/* Applicable Links Section inside System Card */}
                                <div className="mt-2 pt-2 border-t border-white/5 space-y-2">
                                   <div className="flex items-center justify-between">
                                      <span className="text-[8px] font-black text-white/20 uppercase">Applicable Links</span>
@@ -1223,8 +1268,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                                      </button>
                                   </div>
                                   <div className="space-y-1">
-                                    {selectedTask.reference_links.filter(l => l.description.includes(sys.name) || !l.description).map(link => (
+                                    {selectedTask.reference_links.filter(l => l.description.includes(sys.name) || !l.description).map((link, lIdx) => (
                                       <div key={link.id} className="flex items-center gap-2 group/link">
+                                        <span className="text-[8px] font-black text-white/10">{lIdx + 1}</span>
                                         <Link2 size={8} className="text-blue-400 shrink-0" />
                                         <input className="flex-1 bg-transparent text-[9px] text-blue-400 outline-none border-b border-white/5" placeholder="https://..." value={link.url} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(l => l.id === link.id ? { ...l, url: e.target.value } : l) })} />
                                         <button onClick={() => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.filter(l => l.id !== link.id) })} className="opacity-0 group-hover/link:opacity-100 text-status-error transition-opacity"><Trash size={8} /></button>
@@ -1240,13 +1286,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Task Type</label>
-                          <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>
+                          <select className="w-full bg-[#1e293b] border border-white/10 rounded-xl px-4 h-[52px] text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>
                             {taskTypes.map((t: string) => <option key={t} value={t}>{t}</option>)}
                           </select>
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Repetition</label>
-                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[22px] font-black text-white text-center outline-none focus:border-theme-accent shadow-inner" value={selectedTask.occurrences_per_cycle} onChange={e => updateTask(selectedTaskId, { occurrences_per_cycle: parseInt(e.target.value) || 1 })} />
+                          <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-[52px] text-[22px] font-black text-white text-center outline-none focus:border-theme-accent shadow-inner" value={selectedTask.occurrences_per_cycle} onChange={e => updateTask(selectedTaskId, { occurrences_per_cycle: Math.round(parseInt(e.target.value)) || 1 })} />
                         </div>
                       </div>
 
@@ -1257,21 +1303,29 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                         </div>
                       )}
 
-                      <div className="space-y-6 p-5 bg-white/[0.02] border border-white/5 rounded-2xl">
+                      <div className="grid grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
                         <div className="space-y-3">
-                          <div className="flex justify-between items-center px-1">
-                            <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Manual Effort (min)</label>
-                            <input type="number" step="0.5" className="w-32 bg-black/60 border border-white/10 rounded-xl px-3 py-2.5 text-[22px] font-black text-white text-center outline-none focus:border-blue-400 shadow-2xl" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
-                          </div>
-                          <input type="range" min="0" max="60" step="0.5" className="w-full accent-blue-500 h-1.5 rounded-lg bg-white/5 cursor-pointer" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) })} />
+                            <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest block text-center">Manual (min)</label>
+                            <div className="bg-black/60 border border-white/10 rounded-xl flex items-center justify-center h-20 shadow-2xl">
+                                <input 
+                                    type="number" 
+                                    className="bg-transparent w-full text-[28px] font-black text-white text-center outline-none focus:text-blue-400" 
+                                    value={selectedTask.manual_time_minutes} 
+                                    onChange={e => updateTask(selectedTaskId, { manual_time_minutes: Math.round(parseFloat(e.target.value)) || 0 })} 
+                                />
+                            </div>
                         </div>
 
                         <div className="space-y-3">
-                          <div className="flex justify-between items-center px-1">
-                            <label className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Machine Effort (min)</label>
-                            <input type="number" step="0.5" className="w-32 bg-black/60 border border-white/10 rounded-xl px-3 py-2.5 text-[22px] font-black text-white text-center outline-none focus:border-purple-400 shadow-2xl" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
-                          </div>
-                          <input type="range" min="0" max="60" step="0.5" className="w-full accent-purple-500 h-1.5 rounded-lg bg-white/5 cursor-pointer" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) })} />
+                            <label className="text-[10px] font-black text-purple-400 uppercase tracking-widest block text-center">Machine (min)</label>
+                            <div className="bg-black/60 border border-white/10 rounded-xl flex items-center justify-center h-20 shadow-2xl">
+                                <input 
+                                    type="number" 
+                                    className="bg-transparent w-full text-[28px] font-black text-white text-center outline-none focus:text-purple-400" 
+                                    value={selectedTask.automation_time_minutes} 
+                                    onChange={e => updateTask(selectedTaskId, { automation_time_minutes: Math.round(parseFloat(e.target.value)) || 0 })} 
+                                />
+                            </div>
                         </div>
                       </div>
                       <button onClick={() => deleteTask(selectedTaskId)} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2">
@@ -1294,7 +1348,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                                      <MousePointer2 size={10} /> Link Upstream Deliverable
                                    </p>
                                    
-                                   {/* Search Input for existing data */}
                                    <div className="relative mb-4">
                                       <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" />
                                       <input 
@@ -1357,31 +1410,31 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                           </div>
                         </div>
                         <div className="space-y-4">
-                          {selectedTask.source_data_list.map(sd => (
-                            <div key={sd.id} className="p-5 bg-[#1e293b]/50 border border-white/10 rounded-2xl space-y-5 group relative animate-apple-in">
+                          {selectedTask.source_data_list.map((sd, idx) => (
+                            <div key={sd.id} className={cn("p-5 border rounded-2xl space-y-5 group relative animate-apple-in", sd.is_manual ? "bg-[#1e293b]/50 border-white/10" : "bg-blue-500/5 border-blue-500/20")}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[10px] font-black text-white/20">{idx + 1}.</span>
+                                {!sd.is_manual && <Link2 size={12} className="text-blue-400" />}
+                                <span className="text-[10px] font-black uppercase tracking-widest text-white/40">{sd.is_manual ? 'Manual Source' : 'System Reference'}</span>
+                              </div>
                               <button onClick={() => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.filter(x => x.id !== sd.id) })} className="absolute top-5 right-5 text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
                               <div className="space-y-2">
                                 <label className="text-[9px] font-black text-white/40 uppercase tracking-wider px-1">Source Data Identity</label>
-                                <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[14px] font-black text-blue-400 uppercase outline-none focus:border-blue-500" placeholder="E.G. RAW TELEMETRY LOG" value={sd.name} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, name: e.target.value } : x) })} />
+                                <input readOnly={!sd.is_manual} className={cn("w-full bg-black/40 border rounded-xl px-4 py-2.5 text-[14px] font-black uppercase outline-none focus:border-blue-500", sd.is_manual ? "text-blue-400 border-white/10" : "text-white/40 border-transparent")} placeholder="E.G. RAW TELEMETRY LOG" value={sd.name} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, name: e.target.value } : x) })} />
                               </div>
                               <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Format</label>
-                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white font-bold" placeholder="e.g. CSV, JSON" value={sd.format} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, format: e.target.value } : x) })} />
+                                  <input readOnly={!sd.is_manual} className={cn("w-full bg-black/20 border rounded-lg px-3 py-2 text-[12px] font-bold", sd.is_manual ? "text-white border-white/5" : "text-white/40 border-transparent")} placeholder="e.g. CSV, JSON" value={sd.format} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, format: e.target.value } : x) })} />
                                 </div>
                                 <div className="space-y-2">
                                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Location</label>
-                                  <input className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white font-bold" placeholder="Source Path..." value={sd.source_location} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, source_location: e.target.value } : x) })} />
+                                  <input readOnly={!sd.is_manual} className={cn("w-full bg-black/20 border rounded-lg px-3 py-2 text-[12px] font-bold", sd.is_manual ? "text-white border-white/5" : "text-white/40 border-transparent")} placeholder="Source Path..." value={sd.source_location} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, source_location: e.target.value } : x) })} />
                                 </div>
                               </div>
                               <div className="space-y-2">
                                 <label className="text-[9px] font-black text-white/40 uppercase px-1">Purpose & Context</label>
-                                <textarea className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white/80 font-bold h-16 resize-none outline-none italic" placeholder="Description of this input..." value={sd.description} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, description: e.target.value } : x) })} />
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <div className={cn("px-1.5 py-0.5 rounded text-[7px] font-black uppercase", sd.is_manual ? "bg-amber-500/10 text-amber-500 border border-amber-500/20" : "bg-blue-500/10 text-blue-400 border border-blue-500/20")}>
-                                  {sd.is_manual ? 'Manual Extraction' : 'System-Linked Source'}
-                                </div>
+                                <textarea readOnly={!sd.is_manual} className={cn("w-full bg-black/20 border rounded-lg px-3 py-2 text-[12px] font-bold h-16 resize-none outline-none italic", sd.is_manual ? "text-white/80 border-white/5" : "text-white/30 border-transparent")} placeholder="Description of this input..." value={sd.description} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, description: e.target.value } : x) })} />
                               </div>
                             </div>
                           ))}
@@ -1396,10 +1449,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                           </button>
                         </div>
                         <div className="space-y-4">
-                          {selectedTask.output_data_list.map(od => (
+                          {selectedTask.output_data_list.map((od, idx) => (
                             <div key={od.id} className="p-5 bg-[#1e293b]/50 border border-white/10 rounded-2xl space-y-5 group relative animate-apple-in">
+                              <span className="text-[10px] font-black text-white/20 absolute top-5 left-5">{idx + 1}.</span>
                               <button onClick={() => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.filter(x => x.id !== od.id) })} className="absolute top-5 right-5 text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
-                              <div className="space-y-2">
+                              <div className="space-y-2 pt-2">
                                 <label className="text-[9px] font-black text-white/40 uppercase tracking-wider px-1">Output Delivery Identity</label>
                                 <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[14px] font-black text-emerald-400 uppercase outline-none focus:border-emerald-500" placeholder="E.G. FINAL INSPECTION REPORT" value={od.name} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, name: e.target.value } : x) })} />
                               </div>
@@ -1431,10 +1485,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                           <button onClick={() => updateTask(selectedTaskId, { blockers: [...selectedTask.blockers, { id: Date.now().toString(), blocking_entity: '', reason: '', probability_percent: 10, average_delay_minutes: 0, standard_mitigation: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-500 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-500 transition-all"><Plus size={12} /> Add Blocker</button>
                         </div>
                         <div className="space-y-6">
-                          {selectedTask.blockers.map(b => (
+                          {selectedTask.blockers.map((b, idx) => (
                             <div key={b.id} className="p-5 bg-[#1e293b]/50 border border-white/10 rounded-2xl space-y-5 group relative animate-apple-in">
+                              <span className="text-[10px] font-black text-white/20 absolute top-5 left-5">{idx + 1}.</span>
                               <button onClick={() => updateTask(selectedTaskId, { blockers: selectedTask.blockers.filter(x => x.id !== b.id) })} className="absolute top-5 right-5 text-white/10 hover:text-status-error transition-colors"><Trash size={14} /></button>
-                              <div className="space-y-2">
+                              <div className="space-y-2 pt-2">
                                 <label className="text-[9px] font-black text-white/40 uppercase tracking-wider px-1">Blocker Identity</label>
                                 <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[14px] font-black text-amber-500 uppercase outline-none focus:border-amber-500" placeholder="E.G. PENDING APPROVAL" value={b.blocking_entity} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, blocking_entity: e.target.value } : x) })} />
                               </div>
@@ -1445,19 +1500,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                                 </div>
                                 <div className="space-y-2">
                                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Delay (min)</label>
-                                  <input type="number" className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white font-bold" value={b.average_delay_minutes} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, average_delay_minutes: parseFloat(e.target.value) } : x) })} />
+                                  <input type="number" className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white font-bold" value={b.average_delay_minutes} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, average_delay_minutes: Math.round(parseFloat(e.target.value)) } : x) })} />
                                 </div>
                               </div>
                               <div className="space-y-2">
                                 <label className="text-[9px] font-black text-white/40 uppercase px-1">Standard Mitigation</label>
                                 <textarea className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white/80 font-bold h-16 resize-none outline-none" placeholder="Official response protocol..." value={b.standard_mitigation} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, standard_mitigation: e.target.value } : x) })} />
-                              </div>
-                              <div className="flex items-center justify-between pt-3 border-t border-white/5">
-                                <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Occurrence Probability</span>
-                                <div className="flex items-center gap-3">
-                                  <input type="range" min="1" max="10" className="w-28 accent-amber-500" value={Math.round(b.probability_percent / 10)} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, probability_percent: parseInt(e.target.value) * 10 } : x) })} />
-                                  <span className="text-[12px] font-black text-amber-500 w-6 text-right">{Math.round(b.probability_percent / 10)}/10</span>
-                                </div>
                               </div>
                             </div>
                           ))}
@@ -1470,10 +1518,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                           <button onClick={() => updateTask(selectedTaskId, { errors: [...selectedTask.errors, { id: Date.now().toString(), error_type: '', description: '', probability_percent: 10, recovery_time_minutes: 0, correction_method: '' }] })} className="flex items-center gap-1.5 px-3 py-1.5 bg-status-error/10 border border-status-error/20 text-status-error rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-status-error hover:text-white transition-all"><Plus size={12} /> Add Error</button>
                         </div>
                         <div className="space-y-6">
-                          {selectedTask.errors.map(err => (
+                          {selectedTask.errors.map((err, idx) => (
                             <div key={err.id} className="p-5 bg-status-error/5 border border-status-error/10 rounded-2xl space-y-5 group relative animate-apple-in">
+                              <span className="text-[10px] font-black text-white/20 absolute top-5 left-5">{idx + 1}.</span>
                               <button onClick={() => updateTask(selectedTaskId, { errors: selectedTask.errors.filter(x => x.id !== err.id) })} className="absolute top-5 right-5 text-white/10 hover:text-status-error transition-colors"><Trash size={14} /></button>
-                              <div className="space-y-2">
+                              <div className="space-y-2 pt-2">
                                 <label className="text-[9px] font-black text-white/40 uppercase tracking-wider px-1">Error Type</label>
                                 <input className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-[14px] font-black text-status-error uppercase outline-none focus:border-status-error" placeholder="E.G. SYSTEM TIMEOUT" value={err.error_type} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, error_type: e.target.value } : x) })} />
                               </div>
@@ -1488,14 +1537,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                                 </div>
                                 <div className="space-y-2">
                                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Recovery (min)</label>
-                                  <input type="number" className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white font-bold" value={err.recovery_time_minutes} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, recovery_time_minutes: parseFloat(e.target.value) } : x) })} />
-                                </div>
-                              </div>
-                              <div className="flex items-center justify-between pt-3 border-t border-white/5">
-                                <span className="text-[9px] font-black text-white/20 uppercase tracking-widest">Failure Rate Probability</span>
-                                <div className="flex items-center gap-3">
-                                  <input type="range" min="1" max="10" className="w-28 accent-status-error" value={Math.round(err.probability_percent / 10)} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, probability_percent: parseInt(e.target.value) * 10 } : x) })} />
-                                  <span className="text-[12px] font-black text-status-error w-6 text-right">{Math.round(err.probability_percent / 10)}/10</span>
+                                  <input type="number" className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[12px] text-white font-bold" value={err.recovery_time_minutes} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === err.id ? { ...x, recovery_time_minutes: Math.round(parseFloat(e.target.value)) } : x) })} />
                                 </div>
                               </div>
                             </div>
@@ -1509,10 +1551,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                           <button onClick={() => updateTask(selectedTaskId, { tribal_knowledge: [...selectedTask.tribal_knowledge, { id: Date.now().toString(), knowledge: '', captured_from: '' }] })} className="bg-white/10 hover:bg-white/20 text-white p-1.5 rounded-lg transition-colors"><Plus size={14} /></button>
                         </div>
                         <div className="space-y-4">
-                          {selectedTask.tribal_knowledge.map(tk => (
+                          {selectedTask.tribal_knowledge.map((tk, idx) => (
                             <div key={tk.id} className="p-5 bg-[#0f172a]/80 border border-white/10 rounded-2xl space-y-4 relative group animate-apple-in">
+                              <span className="text-[10px] font-black text-white/20 absolute top-5 left-5">{idx + 1}.</span>
                               <button onClick={() => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.filter(x => x.id !== tk.id) })} className="absolute top-5 right-5 text-white/10 hover:text-status-error transition-colors"><Trash size={14} /></button>
-                              <div className="space-y-2">
+                              <div className="space-y-2 pt-2">
                                 <label className="text-[8px] font-black text-white/20 uppercase">Operational Insight</label>
                                 <textarea className="w-full bg-transparent text-[13px] font-bold text-white outline-none h-24 resize-none leading-relaxed" value={tk.knowledge} onChange={e => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, knowledge: e.target.value } : x) })} placeholder="Implicit knowledge or domain expertise tips..." />
                               </div>
@@ -1574,8 +1617,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                        <div className="space-y-4">
                          <label className="text-[9px] font-black text-white/40 uppercase px-1">Visual Figures</label>
                          <div className="grid grid-cols-2 gap-4">
-                           {selectedTask.media.map(m => (
+                           {selectedTask.media.map((m, idx) => (
                              <div key={m.id} className="aspect-video rounded-xl overflow-hidden border border-white/10 relative group bg-black">
+                                <span className="text-[10px] font-black text-white absolute top-2 left-2 z-10 bg-black/40 px-1 rounded">{idx + 1}</span>
                                 <img src={m.url} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all" />
                                 <button onClick={() => updateTask(selectedTaskId, { media: selectedTask.media.filter(x => x.id !== m.id) })} className="absolute top-2 right-2 p-1.5 bg-status-error text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all"><Trash size={10} /></button>
                              </div>
@@ -1599,16 +1643,19 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                             <button onClick={() => updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, { id: Date.now().toString(), url: '', description: '' }] })} className="text-theme-accent hover:bg-theme-accent/10 p-1 rounded transition-colors"><Plus size={14} /></button>
                           </div>
                           <div className="space-y-3">
-                            {selectedTask.reference_links.map(link => (
+                            {selectedTask.reference_links.map((link, idx) => (
                               <div key={link.id} className="p-3 bg-white/5 border border-white/10 rounded-xl space-y-2 relative group">
+                                <span className="text-[10px] font-black text-white/20 absolute top-3 left-3">{idx + 1}.</span>
                                 <button onClick={() => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.filter(l => l.id !== link.id) })} className="absolute top-3 right-3 text-white/10 hover:text-status-error transition-colors"><X size={12} /></button>
-                                <div className="flex items-center gap-2"><Link2 size={12} className="text-blue-400" /><input className="bg-transparent text-[11px] text-blue-400 outline-none w-full" value={link.url} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(l => l.id === link.id ? { ...l, url: e.target.value } : l) })} placeholder="https://..." /></div>
-                                <input className="bg-transparent text-[11px] text-white/40 outline-none w-full pl-5" value={link.description} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(l => l.id === link.id ? { ...l, description: e.target.value } : l) })} placeholder="Description..." />
+                                <div className="flex items-center gap-2 pt-4 pl-4"><Link2 size={12} className="text-blue-400" /><input className="bg-transparent text-[11px] text-blue-400 outline-none w-full" value={link.url} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(l => l.id === link.id ? { ...l, url: e.target.value } : l) })} placeholder="https://..." /></div>
+                                <input className="bg-transparent text-[11px] text-white/40 outline-none w-full pl-8" value={link.description} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(l => l.id === link.id ? { ...l, description: e.target.value } : l) })} placeholder="Description..." />
                               </div>
                             ))}
                           </div>
                        </div>
                     </div>
+                  )}
+                    </>
                   )}
                 </div>
               ) : selectedEdgeId && selectedEdge ? (

@@ -356,3 +356,28 @@
 .animate-apple-in {
   animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* React Flow Layering Fix: Edges on Top */
+.react-flow__edges {
+  z-index: 5 !important;
+}
+
+.react-flow__nodes {
+  z-index: 4 !important;
+}
+
+.react-flow__node {
+  z-index: 4 !important;
+}
+
+.react-flow__edge {
+  z-index: 5 !important;
+}
+
+.react-flow__edge.selected {
+  z-index: 10 !important;
+}
+
+.react-flow__node.selected {
+  z-index: 6 !important;
+}
