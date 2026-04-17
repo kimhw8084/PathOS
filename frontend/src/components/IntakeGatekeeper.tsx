@@ -201,7 +201,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
   
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
-    forensic_description: initialData?.forensic_description || '',
+    description: initialData?.description || initialData?.forensic_description || '',
     prc: initialData?.prc || '',
     workflow_type: initialData?.workflow_type || '',
     trigger_type: initialData?.trigger_type || '',
@@ -210,9 +210,6 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
     output_description: initialData?.output_description || '',
     cadence_count: initialData?.cadence_count || 1.0,
     cadence_unit: initialData?.cadence_unit || 'week',
-    involves_equipment: initialData?.involves_equipment || false,
-    equipment_state: initialData?.equipment_state || 'Idle',
-    cleanroom_execution_required: initialData?.cleanroom_execution_required || false,
     tool_family: initialData?.tool_family ? (typeof initialData.tool_family === 'string' ? initialData.tool_family.split(', ') : initialData.tool_family) : [] as string[],
     applicable_tools: initialData?.tool_id ? (typeof initialData.tool_id === 'string' ? initialData.tool_id.split(', ') : initialData.tool_id) : [] as string[],
     repeatability_check: true
@@ -253,7 +250,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
   const handleFinalize = () => {
     const requiredFields = [
       'name', 
-      'forensic_description', 
+      'description', 
       'prc', 
       'workflow_type', 
       'trigger_type', 
@@ -373,18 +370,18 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
 
               <div className="space-y-4">
                 <div className="flex justify-between items-center px-1">
-                  <label className={cn("text-[10px] font-black uppercase tracking-[0.2em]", showErrors && !formData.forensic_description ? "text-status-error" : "text-white/40")}>Forensic Description</label>
-                  <span className="text-[9px] text-white/20 font-mono">{formData.forensic_description.length} / 500</span>
+                  <label className={cn("text-[10px] font-black uppercase tracking-[0.2em]", showErrors && !formData.description ? "text-status-error" : "text-white/40")}>Description</label>
+                  <span className="text-[9px] text-white/20 font-mono">{formData.description.length} / 500</span>
                 </div>
                 <textarea 
                   className={cn(
                     "w-full bg-[#1e293b]/50 border rounded-xl px-4 py-3 text-[14px] font-bold text-white/80 focus:border-theme-accent outline-none transition-all placeholder:text-white/5 h-28 resize-none leading-relaxed",
-                    showErrors && !formData.forensic_description ? "border-status-error/50 bg-status-error/5" : "border-white/10"
+                    showErrors && !formData.description ? "border-status-error/50 bg-status-error/5" : "border-white/10"
                   )} 
-                  placeholder="PROVIDE A DETAILED OPERATIONAL PURPOSE STATEMENT..." 
+                  placeholder="Provide a detailed operational purpose statement..." 
                   maxLength={500}
-                  value={formData.forensic_description} 
-                  onChange={e => setFormData({...formData, forensic_description: e.target.value})} 
+                  value={formData.description} 
+                  onChange={e => setFormData({...formData, description: e.target.value})} 
                 />
               </div>
 

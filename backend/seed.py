@@ -172,13 +172,9 @@ async def seed_data():
                 "output_type": "recipe_deployed",
                 "output_description": "Production-ready recipe synced to tool clusters across all shifts.",
                 "repeatability_check": True,
-                "involves_equipment": True,
-                "equipment_state": "Local",
-                "cleanroom_execution_required": False,
                 "status": AutomationStatus.IN_AUTOMATION.value,
-                "yield_risk": True,
                 "flow_summary": "NPI Request -> Design DB Coord Ext -> Pattern Match -> Edge Detection Tune -> Recipe Deploy",
-                "automation_notes": "Currently automating the coordinate extraction via Python script.",
+                "description": "High-precision recipe creation for gate layer metrology.",
                 "tasks": [
                     {
                         "name": "GDS Coordinate Extraction", 
@@ -238,13 +234,9 @@ async def seed_data():
                 "output_type": "report_generated",
                 "output_description": "Matching matrix and tool bias report for tool owner approval.",
                 "repeatability_check": True,
-                "involves_equipment": True,
-                "equipment_state": "Run",
-                "cleanroom_execution_required": True,
                 "status": AutomationStatus.FULLY_AUTOMATED.value,
-                "yield_risk": False,
                 "flow_summary": "Shift Start -> Load Golden Wafer -> Run Matching Sequence -> Data Analysis -> Report",
-                "automation_notes": "Matching sequence is fully scripted. Data analysis is now automated via PathOS dynamic connector.",
+                "description": "Daily tool health verification and cross-tool consistency check.",
                 "tasks": [
                     {
                         "name": "Standard Wafer Load", 
@@ -287,12 +279,9 @@ async def seed_data():
                 "output_type": "tool_released",
                 "output_description": "Tool health certification and release to production.",
                 "repeatability_check": True,
-                "involves_equipment": True,
-                "equipment_state": "Down",
-                "cleanroom_execution_required": False,
                 "status": AutomationStatus.AUTOMATION_PLANNED.value,
-                "yield_risk": True,
                 "flow_summary": "PM Finish -> Calibrate Light Source -> Measure Reference Film -> Validate Accuracy -> Release",
+                "description": "Post-maintenance calibration protocol for thin-film metrology tools.",
                 "tasks": [
                     {
                         "name": "Light Source Alignment",

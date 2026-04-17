@@ -37,7 +37,7 @@ class Workflow(Base, BaseMixin):
     org = Column(String, nullable=True)
     team = Column(String, nullable=True)
     poc = Column(String, nullable=True)
-    forensic_description = Column(Text, nullable=True)
+    description = Column(Text, nullable=True)
 
     # Intake / Gatekeeper Fields
     trigger_type = Column(String) 
@@ -51,16 +51,9 @@ class Workflow(Base, BaseMixin):
     output_description = Column(Text)
     repeatability_check = Column(Boolean, default=True)
     
-    # Environment
-    involves_equipment = Column(Boolean, default=False)
-    equipment_state = Column(String, nullable=True) # Idle, Local, Run, Down
-    cleanroom_execution_required = Column(Boolean, default=False)
-    
     # Metadata & Health
     status = Column(String, default=AutomationStatus.CREATED.value)
-    yield_risk = Column(Boolean, default=False)
     flow_summary = Column(Text, nullable=True) # Trigger -> Output preview
-    automation_notes = Column(Text, nullable=True)
     
     # ROI Metrics (Cached/Calculated)
     total_roi_saved_hours = Column(Float, default=0.0)

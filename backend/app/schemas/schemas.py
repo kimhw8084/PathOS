@@ -89,7 +89,7 @@ class WorkflowBase(BaseModel):
     org: Optional[str] = None
     team: Optional[str] = None
     poc: Optional[str] = None
-    forensic_description: Optional[str] = None
+    description: Optional[str] = None
     trigger_type: str
     trigger_description: str
     cadence_count: float = 1.0
@@ -97,10 +97,6 @@ class WorkflowBase(BaseModel):
     output_type: str
     output_description: str
     repeatability_check: bool = True
-    involves_equipment: bool = False
-    equipment_state: Optional[str] = None
-    cleanroom_execution_required: bool = False
-    yield_risk: bool = False
     flow_summary: Optional[str] = None
 
 class WorkflowCreate(WorkflowBase):
