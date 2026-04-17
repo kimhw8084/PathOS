@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import ReactFlow, { 
   Background, 
   Controls, 
@@ -17,7 +17,8 @@ import ReactFlow, {
   getBezierPath,
   getStraightPath,
   EdgeLabelRenderer,
-  BaseEdge
+  BaseEdge,
+  useReactFlow
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { 
@@ -29,7 +30,6 @@ import {
   Plus, 
   Paperclip,
   ChevronLeft,
-  User,
   Settings,
   Trash,
   Link2,
@@ -207,15 +207,15 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
       "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-6 py-5 w-[320px] shadow-2xl transition-all duration-300 group relative border-2",
       selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTemplate ? 'border-dashed opacity-80 hover:opacity-100' : 'border-white/10 hover:border-white/20'),
       isTemplate && !selected && (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
-      data.validation_needed && !isTemplate && "border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.15)]"
+      data.validation_needed && !isTemplate && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
     )}>
       {isTemplate && (
         <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-[0.2em] border z-20", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
-          SYSTEM TEMPLATE LOCKED
+          SYSTEM BOUNDARY
         </div>
       )}
-      {data.validation_needed && (
-        <div className="absolute -top-3 right-4 px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-[0.2em] bg-emerald-500 border border-emerald-400 text-white z-20 shadow-lg animate-pulse">
+      {data.validation_needed && !isTemplate && (
+        <div className="absolute -top-3 right-4 px-2 py-0.5 rounded text-[7px] font-black uppercase tracking-[0.2em] bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
           VALIDATION REQUIRED
         </div>
       )}
@@ -224,27 +224,17 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
           <div className={cn("px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border", typeColor)}>
             {data.task_type || 'GENERAL'}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {data.blockerCount > 0 && (
-              <div className="flex items-center gap-1 bg-status-warning/20 text-status-warning px-1.5 py-0.5 rounded text-[9px] font-black border border-status-warning/20">
-                <AlertCircle size={10} /> {data.blockerCount}
+              <div className="flex items-center gap-1.5 bg-status-warning text-white px-2 py-0.5 rounded-full text-[10px] font-black shadow-lg shadow-status-warning/20">
+                <AlertCircle size={12} /> {data.blockerCount}
               </div>
             )}
             {data.errorCount > 0 && (
-              <div className="flex items-center gap-1 bg-status-error/20 text-status-error px-1.5 py-0.5 rounded text-[9px] font-black border border-status-error/20">
-                <X size={10} /> {data.errorCount}
+              <div className="flex items-center gap-1.5 bg-status-error text-white px-2 py-0.5 rounded-full text-[10px] font-black shadow-lg shadow-status-error/20">
+                <X size={12} /> {data.errorCount}
               </div>
             )}
-            <div className="flex items-center gap-3 font-mono text-[11px] font-black">
-              <div className="flex items-center gap-1 text-blue-400">
-                <User size={10} />
-                <span>{(data.manual_time || 0).toFixed(0)}m</span>
-              </div>
-              <div className="flex items-center gap-1 text-purple-400">
-                <Activity size={10} />
-                <span>{(data.automation_time || 0).toFixed(0)}m</span>
-              </div>
-            </div>
           </div>
         </div>
         
@@ -267,6 +257,12 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
             </div>
           </div>
         )}
+
+        {isTemplate && (
+          <div className="pt-2">
+             <p className="text-[10px] text-white/40 font-bold uppercase tracking-tight line-clamp-2 italic">{data.description || 'No description provided.'}</p>
+          </div>
+        )}
       </div>
       
       <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-transform z-10" />
@@ -286,17 +282,13 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
 
 const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => (
   <div className={`relative w-28 h-28 flex items-center justify-center transition-all duration-300 group ${selected ? 'scale-110' : ''}`}>
-    <div className={`absolute inset-0 rotate-45 border-2 transition-all duration-300 bg-[#1e293b]/90 ${selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20 group-hover:border-white/40'} ${data.validation_needed ? 'border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.3)]' : ''}`} />
+    <div className={`absolute inset-0 rotate-45 border-2 transition-all duration-300 bg-[#1e293b]/90 ${selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20 group-hover:border-white/40'} ${data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : ''}`} />
     <div className="relative z-10 flex flex-col items-center p-4">
       <span className="text-[10px] font-black text-white uppercase tracking-tighter text-center leading-tight truncate w-full px-2">{data.label || "CONDITION"}</span>
-      <div className="mt-2 flex items-baseline gap-0.5 bg-black/40 px-2.5 py-1 rounded-full border border-white/10">
-         <span className="text-[16px] font-black text-amber-500">{(data.manual_time || 0).toFixed(0)}</span>
-         <span className="text-[7px] font-bold text-white/20 uppercase tracking-widest ml-1">min</span>
-      </div>
     </div>
     
     {data.validation_needed && (
-      <div className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded text-[6px] font-black uppercase bg-emerald-500 border border-emerald-400 text-white z-20 shadow-lg animate-pulse">
+      <div className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded text-[6px] font-black uppercase bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
         VALID
       </div>
     )}
@@ -368,7 +360,7 @@ const CustomEdge = ({
         markerEnd={markerEnd}
         style={{
           ...style,
-          stroke: data?.color || '#3b82f6',
+          stroke: data?.color || '#ffffff',
           strokeWidth: selected ? 4 : 2,
           strokeDasharray: data?.style === 'dashed' ? '5,5' : undefined,
           transition: 'all 0.3s',
@@ -379,12 +371,12 @@ const CustomEdge = ({
           <div
             style={{
               position: 'absolute',
-              transform: `translate(-50%, -100%) translate(${labelX}px, ${labelY - 10}px)`,
+              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
               zIndex: 100,
             }}
-            className="bg-white px-2 py-0.5 rounded-md border border-theme-border shadow-xl pointer-events-none"
+            className="bg-[#0f172a] px-2 py-0.5 rounded border border-white/20 shadow-xl pointer-events-none"
           >
-            <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{data.label}</span>
+            <span className="text-[9px] font-black text-white uppercase tracking-widest">{data.label}</span>
           </div>
         </EdgeLabelRenderer>
       )}
@@ -404,11 +396,13 @@ const edgeTypes = {
 const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, onSave, onBack, onExit, setIsDirty }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const { project, fitView } = useReactFlow();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [inspectorTab, setInspectorTab] = useState<'overview' | 'data' | 'exceptions' | 'validation' | 'appendix'>('overview');
   const [inspectorWidth, setInspectorWidth] = useState(450);
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
+  
   const [metadata, setMetadata] = useState<WorkflowMetadata>({
     name: workflow.name,
     version: workflow.version,
@@ -464,11 +458,79 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   const taskTypes = taxonomy.find(t => t.category === 'TASK_TYPE')?.cached_values || ['Documentation', 'Hands-on', 'System Interaction', 'Shadow IT', 'Verification', 'Communication'];
 
+  // Initialize nodes and ensure Trigger/Outcome exist
   useEffect(() => {
-    const initialNodes: Node[] = tasks.map((t, idx) => ({
+    let currentTasks = [...tasks];
+    let needsUpdate = false;
+
+    if (!currentTasks.find(t => t.interface === 'TRIGGER')) {
+      const trigger: TaskEntity = {
+        id: 'node-trigger',
+        name: 'TRIGGER',
+        description: metadata.trigger_description,
+        task_type: 'TRIGGER',
+        target_systems: [],
+        interface_type: 'TRIGGER',
+        interface: 'TRIGGER',
+        manual_time_minutes: 0,
+        automation_time_minutes: 0,
+        machine_wait_time_minutes: 0,
+        occurrences_per_cycle: 1,
+        source_data_list: [],
+        output_data_list: [],
+        verification_steps: [],
+        blockers: [],
+        errors: [],
+        tribal_knowledge: [],
+        validation_needed: false,
+        validation_procedure: '',
+        media: [],
+        reference_links: [],
+        position_x: 0,
+        position_y: 100
+      };
+      currentTasks.unshift(trigger);
+      needsUpdate = true;
+    }
+
+    if (!currentTasks.find(t => t.interface === 'OUTCOME')) {
+      const outcome: TaskEntity = {
+        id: 'node-outcome',
+        name: 'OUTCOME',
+        description: metadata.output_description,
+        task_type: 'OUTCOME',
+        target_systems: [],
+        interface_type: 'OUTCOME',
+        interface: 'OUTCOME',
+        manual_time_minutes: 0,
+        automation_time_minutes: 0,
+        machine_wait_time_minutes: 0,
+        occurrences_per_cycle: 1,
+        source_data_list: [],
+        output_data_list: [],
+        verification_steps: [],
+        blockers: [],
+        errors: [],
+        tribal_knowledge: [],
+        validation_needed: false,
+        validation_procedure: '',
+        media: [],
+        reference_links: [],
+        position_x: 1000,
+        position_y: 100
+      };
+      currentTasks.push(outcome);
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      setTasks(currentTasks);
+    }
+
+    const initialNodes: Node[] = currentTasks.map((t) => ({
       id: t.id,
       type: t.interface_type === 'CONDITION' ? 'diamond' : 'matrix',
-      position: { x: t.position_x ?? (100 + idx * 350), y: t.position_y ?? 100 },
+      position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
       data: { 
         label: t.name, 
         task_type: t.task_type,
@@ -478,7 +540,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         interface: t.interface,
         validation_needed: t.validation_needed,
         blockerCount: t.blockers.length,
-        errorCount: t.errors.length
+        errorCount: t.errors.length,
+        description: t.description
       },
     }));
 
@@ -486,13 +549,45 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       ...e,
       id: `e-${e.source}-${e.target}`,
       type: 'custom',
-      data: { label: e.label, edgeStyle: e.edge_style || 'smoothstep', color: e.color || '#3b82f6', style: e.style || 'solid' },
-      markerEnd: { type: MarkerType.ArrowClosed, color: e.color || '#3b82f6' },
+      data: { label: e.label, edgeStyle: e.edge_style || 'bezier', color: e.color || '#ffffff', style: e.style || 'solid' },
+      markerEnd: { type: MarkerType.ArrowClosed, color: e.color || '#ffffff' },
     }));
 
     setNodes(initialNodes);
     setEdges(initialEdges);
+    
+    // Auto layout on initial load if no positions
+    if (currentTasks.every(t => t.position_x === undefined)) {
+       setTimeout(() => handleLayout(), 100);
+    }
   }, []);
+
+  // Sync Trigger/Outcome data with Metadata
+  useEffect(() => {
+    setTasks(prev => prev.map(t => {
+      if (t.interface === 'TRIGGER') {
+        const typeLabel = taxonomy.find(tx => tx.category === 'TriggerType' && tx.value === metadata.trigger_type)?.label || metadata.trigger_type;
+        return { ...t, name: typeLabel || 'TRIGGER', description: metadata.trigger_description };
+      }
+      if (t.interface === 'OUTCOME') {
+        const typeLabel = taxonomy.find(tx => tx.category === 'OutputType' && tx.value === metadata.output_type)?.label || metadata.output_type;
+        return { ...t, name: typeLabel || 'OUTCOME', description: metadata.output_description };
+      }
+      return t;
+    }));
+    
+    setNodes(nds => nds.map(n => {
+      if (n.id === 'node-trigger') {
+        const typeLabel = taxonomy.find(tx => tx.category === 'TriggerType' && tx.value === metadata.trigger_type)?.label || metadata.trigger_type;
+        return { ...n, data: { ...n.data, label: typeLabel || 'TRIGGER', description: metadata.trigger_description } };
+      }
+      if (n.id === 'node-outcome') {
+        const typeLabel = taxonomy.find(tx => tx.category === 'OutputType' && tx.value === metadata.output_type)?.label || metadata.output_type;
+        return { ...n, data: { ...n.data, label: typeLabel || 'OUTCOME', description: metadata.output_description } };
+      }
+      return n;
+    }));
+  }, [metadata.trigger_type, metadata.trigger_description, metadata.output_type, metadata.output_description]);
 
   const updateTask = (id: string, updates: Partial<TaskEntity>) => {
     setTasks(prev => prev.map(t => {
@@ -509,7 +604,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             systems: updated.target_systems.map(s => s.name).join(', '),
             validation_needed: updated.validation_needed,
             blockerCount: updated.blockers.length,
-            errorCount: updated.errors.length
+            errorCount: updated.errors.length,
+            description: updated.description
           } 
         } : n));
         return updated;
@@ -520,7 +616,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   };
 
   const updateEdge = (id: string, updates: any) => {
-    setEdges(eds => eds.map(e => e.id === id ? { ...e, data: { ...e.data, ...updates }, markerEnd: updates.color ? { type: MarkerType.ArrowClosed, color: updates.color } : e.markerEnd } : e));
+    setEdges(eds => eds.map(e => e.id === id ? { 
+      ...e, 
+      data: { ...e.data, ...updates }, 
+      markerEnd: { type: MarkerType.ArrowClosed, color: updates.color || e.data?.color || '#ffffff' } 
+    } : e));
     setIsDirty?.(true);
   };
 
@@ -530,8 +630,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       ...params,
       id: `e-${params.source}-${params.target}-${Date.now()}`,
       type: 'custom',
-      data: { label: '', edgeStyle: 'smoothstep', color: '#3b82f6' },
-      markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6' },
+      data: { label: '', edgeStyle: 'bezier', color: '#ffffff', style: 'solid' },
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#ffffff' },
       source: params.source,
       target: params.target
     };
@@ -539,15 +639,20 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     setIsDirty?.(true);
   };
 
-  const onAddNode = (type: 'TASK' | 'CONDITION' | 'TRIGGER' | 'OUTCOME') => {
+  const onAddNode = (type: 'TASK' | 'CONDITION') => {
     const id = `node-${Date.now()}`;
+    const center = project({
+      x: (window.innerWidth - inspectorWidth) / 2,
+      y: window.innerHeight / 2
+    });
+
     const newNode: Node = {
       id,
       type: type === 'CONDITION' ? 'diamond' : 'matrix',
-      position: { x: 100, y: 100 },
+      position: { x: center.x - 160, y: center.y - 90 },
       data: { 
-        label: type === 'TASK' ? 'New Task' : type === 'CONDITION' ? 'IF/THEN' : type === 'TRIGGER' ? 'TRIGGER' : 'OUTCOME', 
-        task_type: type === 'TASK' ? 'Documentation' : type === 'CONDITION' ? 'LOOP' : type,
+        label: type === 'TASK' ? 'New Task' : 'New Condition', 
+        task_type: type === 'TASK' ? 'Documentation' : 'LOOP',
         manual_time: 0,
         automation_time: 0,
         systems: '',
@@ -563,8 +668,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       description: '',
       task_type: newNode.data.task_type,
       target_systems: [],
-      interface_type: type === 'TASK' ? 'GUI' : type === 'CONDITION' ? 'CONDITION' : (type as any),
-      interface: (type === 'TRIGGER' || type === 'OUTCOME') ? type : undefined,
+      interface_type: type === 'TASK' ? 'GUI' : 'CONDITION',
       manual_time_minutes: 0,
       automation_time_minutes: 0,
       machine_wait_time_minutes: 0,
@@ -588,6 +692,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   };
 
   const deleteTask = (id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (task?.interface) return; // Cannot delete Trigger/Outcome
+
     setTasks(prev => prev.filter(t => t.id !== id));
     setNodes(nds => nds.filter(n => n.id !== id));
     setEdges(eds => eds.filter(e => e.source !== id && e.target !== id));
@@ -595,21 +702,33 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     setIsDirty?.(true);
   };
 
-  const handleLayout = () => {
+  const handleLayout = useCallback(() => {
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
-    dagreGraph.setGraph({ rankdir: 'LR', ranker: 'network-simplex', ranksep: 150, nodesep: 100 });
+    dagreGraph.setGraph({ rankdir: 'LR', ranker: 'network-simplex', ranksep: 200, nodesep: 150 });
 
-    nodes.forEach((n) => dagreGraph.setNode(n.id, { width: 320, height: 180 }));
+    nodes.forEach((n) => {
+      const isDiamond = n.type === 'diamond';
+      dagreGraph.setNode(n.id, { width: isDiamond ? 120 : 320, height: isDiamond ? 120 : 250 });
+    });
     edges.forEach((e) => dagreGraph.setEdge(e.source, e.target));
 
     dagre.layout(dagreGraph);
 
     setNodes(nds => nds.map(n => {
       const nodeWithPos = dagreGraph.node(n.id);
-      return { ...n, position: { x: nodeWithPos.x - 160, y: nodeWithPos.y - 90 } };
+      const isDiamond = n.type === 'diamond';
+      return { 
+        ...n, 
+        position: { 
+          x: nodeWithPos.x - (isDiamond ? 60 : 160), 
+          y: nodeWithPos.y - (isDiamond ? 60 : 125) 
+        } 
+      };
     }));
-  };
+
+    setTimeout(() => fitView({ padding: 0.2, duration: 800 }), 100);
+  }, [nodes, edges, fitView]);
 
   const handleImagePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
@@ -664,7 +783,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   };
 
   const swapEdgeDirection = (id: string) => {
-    setEdges(eds => eds.map(e => e.id === id ? { ...e, source: e.target, target: e.source } : e));
+    setEdges(eds => eds.map(e => e.id === id ? { 
+      ...e, 
+      source: e.target, 
+      target: e.source,
+      sourceHandle: e.targetHandle,
+      targetHandle: e.sourceHandle
+    } : e));
     setIsDirty?.(true);
   };
 
@@ -703,38 +828,34 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             snapToGrid
             snapGrid={[15, 15]}
             defaultEdgeOptions={{ type: 'custom', animated: true }}
+            className="react-flow-industrial"
           >
             <Background color="#1e293b" gap={30} size={1} />
             <Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl !shadow-2xl backdrop-blur-md [&_button]:!border-white/5 [&_button]:!fill-white" />
           </ReactFlow>
 
           {/* Entity Fabrication Bar */}
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 p-1.5 bg-[#0a1120]/80 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] scale-110">
-             <button onClick={() => onAddNode('TRIGGER')} className="flex items-center gap-2 px-4 py-2.5 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                <Zap size={14} /> Add Trigger
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 p-1 bg-[#0a1120]/90 backdrop-blur-2xl border border-white/10 rounded-xl shadow-2xl">
+             <button onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-3 py-1.5 bg-theme-accent hover:bg-blue-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest transition-all shadow-lg shadow-theme-accent/20">
+                <Plus size={12} /> Add Task
              </button>
-             <div className="w-px h-6 bg-white/10 mx-1" />
-             <button onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2.5 bg-theme-accent/10 hover:bg-theme-accent/20 border border-theme-accent/30 text-theme-accent rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                <Plus size={14} /> Add Task
-             </button>
-             <button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                <Activity size={14} className="rotate-45" /> Add Condition
-             </button>
-             <div className="w-px h-6 bg-white/10 mx-1" />
-             <button onClick={() => onAddNode('OUTCOME')} className="flex items-center gap-2 px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                <Database size={14} /> Add Outcome
+             <button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all">
+                <Plus size={12} /> Add Condition
              </button>
           </div>
 
           {/* Quick Stats Overlay */}
-          <div className="absolute bottom-6 left-6 z-10 flex gap-4 pointer-events-none">
-            <div className="apple-glass px-4 py-3 rounded-2xl border border-white/10 flex flex-col">
-              <span className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Entity Count</span>
-              <span className="text-[18px] font-black text-white leading-none">{tasks.length}</span>
-            </div>
-            <div className="apple-glass px-4 py-3 rounded-2xl border border-white/10 flex flex-col">
-              <span className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">Connection Count</span>
-              <span className="text-[18px] font-black text-theme-accent leading-none">{edges.length}</span>
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex gap-3 pointer-events-none">
+            <div className="bg-[#0a1120]/80 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 flex items-center gap-3 shadow-2xl">
+              <div className="flex flex-col items-center">
+                <span className="text-[7px] font-black text-white/20 uppercase tracking-[0.2em]">Entities</span>
+                <span className="text-[14px] font-black text-white leading-none">{tasks.length}</span>
+              </div>
+              <div className="w-px h-6 bg-white/10" />
+              <div className="flex flex-col items-center">
+                <span className="text-[7px] font-black text-white/20 uppercase tracking-[0.2em]">Edges</span>
+                <span className="text-[14px] font-black text-theme-accent leading-none">{edges.length}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -745,7 +866,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         <div onMouseDown={handleMouseDown} className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent transition-colors z-50 group" />
         <div className="h-14 flex border-b border-white/10 bg-white/[0.02]">
           {[
-            { id: 'overview', label: 'Overview', icon: <Activity size={12} />, hidden: !selectedTaskId || isProtected },
+            { id: 'overview', label: 'Overview', icon: <Activity size={12} />, hidden: !selectedTaskId },
             { id: 'data', label: 'Data', icon: <Database size={12} />, hidden: !selectedTaskId || isProtected },
             { id: 'exceptions', label: 'Exceptions', icon: <AlertCircle size={12} />, hidden: !selectedTaskId || isProtected },
             { id: 'validation', label: 'Validation', icon: <Zap size={12} />, hidden: !selectedTaskId || isProtected },
@@ -755,7 +876,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
               {t.icon}<span className="text-[8px] font-black uppercase tracking-widest">{t.label}</span>
             </button>
           ))}
-          {(!selectedTaskId || isProtected) && !selectedEdgeId && (
+          {!selectedTaskId && !selectedEdgeId && (
             <div className="flex-1 flex flex-col items-center justify-center gap-0.5 border-b-2 border-theme-accent bg-theme-accent/10 text-white">
               <Settings size={12} /><span className="text-[8px] font-black uppercase tracking-widest">Workflow Definition</span>
             </div>
@@ -774,14 +895,23 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                 <div className="space-y-6">
                   <div className="flex items-center gap-3 p-4 bg-theme-accent/10 border border-theme-accent/20 rounded-2xl mb-6">
                      <Activity size={18} className="text-theme-accent" />
-                     <span className="text-[11px] font-black text-theme-accent uppercase tracking-widest">Workflow Boundary Entity</span>
+                     <span className="text-[11px] font-black text-theme-accent uppercase tracking-widest">System Boundary Entity</span>
                   </div>
-                  <p className="text-[13px] text-white/60 font-bold uppercase tracking-widest text-center py-12 border border-dashed border-white/10 rounded-3xl mb-6">
-                    This entity is managed via the main workflow definition window.
+                  
+                  <div className="space-y-6 p-6 bg-white/[0.02] border border-white/5 rounded-3xl">
+                     <div className="space-y-2">
+                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Classification</label>
+                        <div className="text-[18px] font-black text-white uppercase tracking-tight">{selectedTask.name}</div>
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Description</label>
+                        <p className="text-[12px] text-white/60 font-medium leading-relaxed italic">{selectedTask.description || 'No description provided in workflow definition.'}</p>
+                     </div>
+                  </div>
+
+                  <p className="text-[10px] text-white/20 font-black uppercase tracking-widest text-center py-6 border border-dashed border-white/10 rounded-2xl">
+                    Boundary properties are managed via Workflow Definition
                   </p>
-                  <button onClick={() => deleteTask(selectedTaskId as string)} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2">
-                    <Trash size={12} /> Delete Boundary Entity
-                  </button>
                 </div>
               ) : selectedTask.interface_type === 'CONDITION' ? (
                 <div className="space-y-6">
@@ -1130,7 +1260,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                             onClick={() => updateTask(selectedTaskId as string, { validation_needed: !selectedTask.validation_needed })}
                             className={cn(
                               "relative w-12 h-6 rounded-full transition-all duration-300",
-                              selectedTask.validation_needed ? "bg-theme-accent" : "bg-white/10"
+                              selectedTask.validation_needed ? "bg-orange-500" : "bg-white/10"
                             )}
                           >
                             <div className={cn(
@@ -1242,7 +1372,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                          onClick={() => updateEdge(selectedEdgeId as string, { edgeStyle: s })} 
                          className={cn(
                            "flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all", 
-                           (selectedEdge.data?.edgeStyle || 'smoothstep') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white"
+                           (selectedEdge.data?.edgeStyle || 'bezier') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white"
                          )}
                        >
                          {s}
@@ -1260,7 +1390,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                          onClick={() => updateEdge(selectedEdgeId as string, { color: c })}
                          className={cn(
                            "w-8 h-8 rounded-full border-2 transition-all",
-                           selectedEdge.data?.color === c ? "border-white scale-110 shadow-lg" : "border-transparent opacity-40 hover:opacity-100"
+                           (selectedEdge.data?.color || '#ffffff') === c ? "border-white scale-110 shadow-lg" : "border-transparent opacity-40 hover:opacity-100"
                          )}
                          style={{ backgroundColor: c }}
                        />
@@ -1384,7 +1514,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                             {isEditingMetadata ? (
                               <select className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none" value={metadata.trigger_type} onChange={e => { setMetadata({...metadata, trigger_type: e.target.value}); setIsDirty?.(true); }}><option value="">Select Trigger...</option>{taxonomy.filter(t => t.category === 'TriggerType').map((v: any) => <option key={v.value} value={v.value}>{v.label}</option>)}</select>
                             ) : (
-                              <div className="text-[13px] font-black text-white uppercase">{taxonomy.find(t => t.value === metadata.trigger_type)?.label || metadata.trigger_type || 'N/A'}</div>
+                              <div className="text-[13px] font-black text-white uppercase">{taxonomy.find(t => t.category === 'TriggerType' && t.value === metadata.trigger_type)?.label || metadata.trigger_type || 'N/A'}</div>
                             )}
                          </div>
                          <div className="space-y-2">
@@ -1409,7 +1539,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                             {isEditingMetadata ? (
                               <select className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-4 py-2.5 text-[11px] font-black text-white outline-none" value={metadata.output_type} onChange={e => { setMetadata({...metadata, output_type: e.target.value}); setIsDirty?.(true); }}><option value="">Select Output...</option>{taxonomy.filter(t => t.category === 'OutputType').map((v: any) => <option key={v.value} value={v.value}>{v.label}</option>)}</select>
                             ) : (
-                              <div className="text-[13px] font-black text-white uppercase">{taxonomy.find(t => t.value === metadata.output_type)?.label || metadata.output_type || 'N/A'}</div>
+                              <div className="text-[13px] font-black text-white uppercase">{taxonomy.find(t => t.category === 'OutputType' && t.value === metadata.output_type)?.label || metadata.output_type || 'N/A'}</div>
                             )}
                          </div>
                          <div className="space-y-2">
