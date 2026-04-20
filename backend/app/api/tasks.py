@@ -101,22 +101,23 @@ async def sync_tasks(workflow_id: int, tasks_data: List[TaskCreate], db: AsyncSe
     await db.execute(delete(Task).where(Task.workflow_id == workflow_id))
     
     # Create new tasks, blockers, and errors
-    for t_data in tasks_data:
+    for i, t_data in enumerate(tasks_data):
         t_dict = t_data.model_dump()
         blockers_data = t_dict.pop("blockers", [])
         errors_data = t_dict.pop("errors", [])
         
         new_task = Task(**t_dict)
         new_task.workflow_id = workflow_id
+        new_task.order_index = i
         db.add(new_task)
         await db.flush() # Get task ID
         
         for b_data in blockers_data:
-            blocker = Blocker(**b_data, task_id=new_task.id)
+            blocker = Blocker(**b_data.model_dump(), task_id=new_task.id)
             db.add(blocker)
             
         for e_data in errors_data:
-            error = TaskError(**e_data, task_id=new_task.id)
+            error = TaskError(**e_data.model_dump(), task_id=new_task.id)
             db.add(error)
     
     await db.flush()

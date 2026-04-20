@@ -32,6 +32,7 @@ class Workflow(Base, BaseMixin):
     workflow_type = Column(String, nullable=True) # New Field (e.g. SPC, FDC, OOC)
     tool_family = Column(String, nullable=True) # e.g. [CD-SEM], [Overlay]
     tool_family_count = Column(Integer, default=1) # New Field for 'Family + Count'
+    tool_id = Column(String, nullable=True) # Specific tool IDs
     
     # Organization & POCs
     org = Column(String, nullable=True)
@@ -54,6 +55,7 @@ class Workflow(Base, BaseMixin):
     # Metadata & Health
     status = Column(String, default=AutomationStatus.CREATED.value)
     flow_summary = Column(Text, nullable=True) # Trigger -> Output preview
+    edges = Column(JSON, nullable=True) # Graph edges
     
     # ROI Metrics (Cached/Calculated)
     total_roi_saved_hours = Column(Float, default=0.0)
@@ -65,8 +67,13 @@ class Task(Base, BaseMixin):
     workflow_id = Column(Integer, ForeignKey("workflows.id", ondelete="CASCADE"))
     name = Column(String)
     description = Column(Text)
-    target_system = Column(String)
-    interface_type = Column(String, nullable=True) # GUI, API, DB, File, DECISION
+    target_system = Column(String, nullable=True)
+    interface_type = Column(String, nullable=True) # GUI, API, DB, File, DECISION, TRIGGER, OUTCOME
+    interface = Column(String, nullable=True) # TRIGGER, OUTCOME
+    
+    # Canvas Position
+    position_x = Column(Float, nullable=True)
+    position_y = Column(Float, nullable=True)
     
     # Locked Operational Parameters
     tool_id = Column(String, nullable=True)
@@ -77,6 +84,8 @@ class Task(Base, BaseMixin):
     # Time & Effort
     active_touch_time_minutes = Column(Float, default=0.0)
     machine_wait_time_minutes = Column(Float, default=0.0)
+    automation_time_minutes = Column(Float, default=0.0) # Added to match frontend
+    manual_time_minutes = Column(Float, default=0.0) # Added to match frontend
     occurrences_per_cycle = Column(Integer, default=1)
     
     # Ownership
@@ -89,13 +98,22 @@ class Task(Base, BaseMixin):
     
     # Data Lineage
     source_data = Column(Text, nullable=True)
+    source_data_list = Column(JSON, nullable=True)
+    output_data_list = Column(JSON, nullable=True)
     output_format_example = Column(Text, nullable=True)
     post_task_verification = Column(Text, nullable=True)
+    verification_steps = Column(JSON, nullable=True)
+    
+    # Validation
+    validation_needed = Column(Boolean, default=False)
+    validation_procedure = Column(Text, nullable=True)
     
     # Corner Cases & Risks
     risks_yield_scrap = Column(Boolean, default=False)
     tribal_knowledge = Column(Text, nullable=True)
+    tribal_knowledge_list = Column(JSON, nullable=True)
     media = Column(JSON, nullable=True) # List of image/file references
+    reference_links = Column(JSON, nullable=True)
     
     order_index = Column(Integer, default=0)
     

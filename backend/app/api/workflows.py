@@ -91,13 +91,24 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
     
     previous_state = {c.name: getattr(workflow, c.name) for c in workflow.__table__.columns}
     
-    # Filter out task list if provided (handled separately by tasks router)
+    # Extract tasks if provided
+    tasks_data = workflow_data.get("tasks")
+    
+    # Update workflow fields
     data_to_update = {k: v for k, v in workflow_data.items() if k != "tasks"}
     
     for key, value in data_to_update.items():
         if hasattr(workflow, key):
             setattr(workflow, key, value)
     
+    # Sync Tasks if provided
+    if tasks_data is not None:
+        from .tasks import sync_tasks
+        from ..schemas.schemas import TaskCreate
+        # Convert dict tasks to TaskCreate objects for sync_tasks
+        tasks_to_sync = [TaskCreate(**t, workflow_id=workflow_id) for t in tasks_data]
+        await sync_tasks(workflow_id, tasks_to_sync, db)
+
     # Recalculate ROI
     await update_workflow_roi(workflow)
         
@@ -107,12 +118,13 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
         table_name="workflows",
         record_id=workflow.id,
         previous_state=previous_state,
-        new_state=data_to_update,
-        description=f"Updated workflow: {workflow.name}"
+        new_state=workflow_data,
+        description=f"Updated workflow: {workflow.name} including tasks and edges"
     )
     
     await db.commit()
     
+    # Reload for final return
     result = await db.execute(
         select(Workflow)
         .where(Workflow.id == workflow.id)

@@ -45,9 +45,14 @@ class TaskErrorRead(TaskErrorBase):
 class TaskBase(BaseModel):
     name: str = Field(..., min_length=1)
     description: str
-    target_system: str
+    target_system: Optional[str] = None
     interface_type: Optional[str] = None
+    interface: Optional[str] = None
     
+    # Canvas Position
+    position_x: Optional[float] = None
+    position_y: Optional[float] = None
+
     # Locked Operational Parameters
     tool_id: Optional[str] = None
     hardware_family: Optional[str] = None
@@ -56,6 +61,8 @@ class TaskBase(BaseModel):
     
     active_touch_time_minutes: float = 0.0
     machine_wait_time_minutes: float = 0.0
+    automation_time_minutes: float = 0.0
+    manual_time_minutes: float = 0.0
     occurrences_per_cycle: int = 1
     
     # Ownership
@@ -65,11 +72,20 @@ class TaskBase(BaseModel):
     shadow_it_used: bool = False
     shadow_it_link: Optional[str] = None
     source_data: Optional[str] = None
+    source_data_list: Optional[List[Any]] = []
+    output_data_list: Optional[List[Any]] = []
     output_format_example: Optional[str] = None
     post_task_verification: Optional[str] = None
+    verification_steps: Optional[List[Any]] = []
+    
+    validation_needed: bool = False
+    validation_procedure: Optional[str] = None
+
     risks_yield_scrap: bool = False
     tribal_knowledge: Optional[str] = None
+    tribal_knowledge_list: Optional[List[Any]] = []
     media: Optional[List[Any]] = None
+    reference_links: Optional[List[Any]] = []
     order_index: int = 0
 
 class TaskCreate(TaskBase):
@@ -91,6 +107,7 @@ class WorkflowBase(BaseModel):
     workflow_type: Optional[str] = None
     tool_family: Optional[str] = None
     tool_family_count: int = 1
+    tool_id: Optional[str] = None
     org: Optional[str] = None
     team: Optional[str] = None
     poc: Optional[str] = None
@@ -103,6 +120,7 @@ class WorkflowBase(BaseModel):
     output_description: str
     repeatability_check: bool = True
     flow_summary: Optional[str] = None
+    edges: Optional[List[Any]] = []
 
 class WorkflowCreate(WorkflowBase):
     pass

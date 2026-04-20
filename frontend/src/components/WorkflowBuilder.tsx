@@ -18,7 +18,9 @@ import ReactFlow, {
   getStraightPath,
   EdgeLabelRenderer,
   BaseEdge,
-  useReactFlow
+  useReactFlow,
+  ConnectionMode,
+  ConnectionLineType
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { 
@@ -204,11 +206,11 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
   if (isTemplate) {
     return (
       <div className={cn(
-        "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 shadow-2xl transition-all duration-300 group relative border-2 flex items-center justify-center min-w-[160px]",
+        "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center min-w-[200px]",
         selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
       )}>
-        <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded-sm text-[7px] font-black uppercase tracking-[0.2em] border z-20", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
-          SYSTEM BOUNDARY
+        <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-[0.2em] border z-20 shadow-lg", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
+          {isTrigger ? "TRIGGER" : "OUTCOME"}
         </div>
         <h4 
           className="font-black text-white tracking-tighter leading-tight uppercase text-center"
@@ -223,9 +225,13 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
     );
   }
 
+  const systemBadges = (data.systems || '').split(', ').filter(Boolean);
+  const visibleSystemBadges = systemBadges.slice(0, 3);
+  const hiddenSystemsCount = systemBadges.length - visibleSystemBadges.length;
+
   return (
     <div className={cn(
-      "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 w-[320px] shadow-2xl transition-all duration-300 group relative border-2 h-[250px]",
+      "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 w-[320px] shadow-2xl transition-all duration-300 group relative border-2 h-[260px]",
       selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : 'border-white/10 hover:border-white/20',
       data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
     )}>
@@ -241,36 +247,37 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
           </div>
           <div className="flex items-center gap-2">
             {data.blockerCount > 0 && (
-              <div className="flex items-center gap-1 bg-status-warning text-white px-2 py-0.5 rounded text-[10px] font-black">
-                <AlertCircle size={10} /> {data.blockerCount}
+              <div className="flex items-center gap-1.5 bg-amber-500 text-white px-2.5 py-1 rounded-md text-[11px] font-black shadow-lg shadow-amber-500/20">
+                <AlertCircle size={12} /> {data.blockerCount}
               </div>
             )}
             {data.errorCount > 0 && (
-              <div className="flex items-center gap-1 bg-status-error text-white px-2 py-0.5 rounded text-[10px] font-black">
-                <X size={10} /> {data.errorCount}
+              <div className="flex items-center gap-1.5 bg-status-error text-white px-2.5 py-1 rounded-md text-[11px] font-black shadow-lg shadow-status-error/20">
+                <X size={12} /> {data.errorCount}
               </div>
             )}
           </div>
         </div>
         
-        <div className="space-y-1">
+        <div className="space-y-1 group/title relative">
           <h4 
-            className="font-bold text-white tracking-tight leading-tight group-hover:text-theme-accent transition-colors truncate"
+            className="font-bold text-white tracking-tight leading-tight group-hover:text-theme-accent transition-colors truncate cursor-help"
             style={{ fontSize: `${titleFontSize}px` }}
           >
             {data.label || "Untitled Task"}
           </h4>
-          <div className="flex flex-wrap gap-1 items-center">
-             {data.owningTeam && (
-               <span className="text-[9px] font-black text-theme-accent uppercase tracking-widest">{data.owningTeam}</span>
-             )}
-             {data.owningTeam && data.systems && <span className="text-[9px] text-white/10">•</span>}
-             {data.systems && (
-               <div className="flex flex-wrap gap-1">
-                 {data.systems.split(', ').map((s: string, i: number) => (
-                   <span key={i} className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[8px] font-bold text-white/40 uppercase">{s}</span>
-                 ))}
-               </div>
+          {/* Tooltip for Title & Description */}
+          <div className="absolute top-full left-0 w-64 bg-[#1e293b] border border-white/10 p-3 rounded-lg shadow-2xl opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all z-[100] backdrop-blur-xl pointer-events-none">
+             <p className="text-[11px] font-black text-white uppercase mb-1">{data.label}</p>
+             <p className="text-[10px] text-white/60 font-medium leading-relaxed italic line-clamp-4">{data.description || 'No description provided.'}</p>
+          </div>
+
+          <div className="flex flex-wrap gap-1 items-center min-h-[16px]">
+             {visibleSystemBadges.map((s: string, i: number) => (
+               <span key={i} className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[8px] font-bold text-white/40 uppercase">{s}</span>
+             ))}
+             {hiddenSystemsCount > 0 && (
+               <span className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[8px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
              )}
           </div>
         </div>
@@ -289,34 +296,40 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         <div className="flex items-center justify-between pt-2 border-t border-white/5">
            <div className="flex items-center gap-3">
              <div className="flex flex-col">
-               <span className="text-[7px] font-black text-white/20 uppercase tracking-widest">Input</span>
+               <span className="text-[7px] font-black text-white/20 uppercase tracking-widest">In</span>
                <span className="text-[12px] font-black text-white">{data.sourceCount || 0}</span>
              </div>
              <div className="flex flex-col">
-               <span className="text-[7px] font-black text-white/20 uppercase tracking-widest">Output</span>
+               <span className="text-[7px] font-black text-white/20 uppercase tracking-widest">Out</span>
                <span className="text-[12px] font-black text-white">{data.outputCount || 0}</span>
              </div>
            </div>
-           {data.ownerPositions && data.ownerPositions.length > 0 && (
-             <div className="text-right">
-               <span className="text-[7px] font-black text-white/20 uppercase tracking-widest block">Owner</span>
-               <span className="text-[9px] font-black text-white/60 uppercase truncate max-w-[100px] block">{data.ownerPositions[0]}</span>
-             </div>
-           )}
+           
+           <div className="text-right flex flex-col items-end">
+              <div className="flex items-center gap-1.5">
+                 <span className="text-[9px] font-black text-white/60 uppercase truncate max-w-[80px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
+                 {(data.ownerPositions || []).length > 1 && (
+                   <span className="text-[8px] font-black text-theme-accent">+{(data.ownerPositions || []).length - 1}</span>
+                 )}
+              </div>
+              {data.owningTeam && (
+                <span className="text-[8px] font-black text-theme-accent/60 uppercase tracking-widest leading-none mt-0.5">{data.owningTeam}</span>
+              )}
+           </div>
         </div>
       </div>
       
-      <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-transform z-10" />
-      <Handle type="source" position={Position.Left} id="left-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-transform opacity-0 z-20" />
+      <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-all z-10" />
+      <Handle type="source" position={Position.Left} id="left-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-all opacity-0 z-20" />
 
-      <Handle type="target" position={Position.Right} id="right-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-transform z-10" />
-      <Handle type="source" position={Position.Right} id="right-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-transform opacity-0 z-20" />
+      <Handle type="target" position={Position.Right} id="right-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-all z-10" />
+      <Handle type="source" position={Position.Right} id="right-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-all opacity-0 z-20" />
 
-      <Handle type="target" position={Position.Top} id="top-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-top-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-transform z-10" />
-      <Handle type="source" position={Position.Top} id="top-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-top-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-transform opacity-0 z-20" />
+      <Handle type="target" position={Position.Top} id="top-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-top-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-all z-10" />
+      <Handle type="source" position={Position.Top} id="top-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-top-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-all opacity-0 z-20" />
 
-      <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-bottom-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-transform z-10" />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-bottom-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-transform opacity-0 z-20" />
+      <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-bottom-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-all z-10" />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-bottom-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-all opacity-0 z-20" />
     </div>
   );
 };
@@ -456,6 +469,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const [baseFontSize, setBaseFontSize] = useState(14);
   const [showFontSettings, setShowFontSettings] = useState(false);
   
+  const [isAppendixFocused, setIsAppendixFocused] = useState(false);
   const [metadata, setMetadata] = useState<WorkflowMetadata>({
     name: workflow.name,
     version: workflow.version,
@@ -879,9 +893,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     dagreGraph.setGraph({ 
       rankdir: 'LR', 
       ranker: 'tight-tree', 
-      ranksep: 100, 
-      nodesep: 50,
-      edgesep: 20
+      ranksep: 180, 
+      nodesep: 120,
+      edgesep: 50
     });
 
     nds.forEach((n) => {
@@ -1043,7 +1057,45 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => handleLayout()} className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-black text-white transition-all uppercase tracking-widest"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>            <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2 bg-theme-accent hover:bg-blue-500 text-white rounded-md text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-theme-accent/20"><Save size={14} /> Commit Changes</button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowFontSettings(!showFontSettings)}
+                className={cn(
+                  "p-2 rounded-md transition-all border",
+                  showFontSettings ? "bg-theme-accent border-theme-accent text-white" : "bg-white/5 border-white/10 text-white/40 hover:text-white"
+                )}
+                title="Adjust Typography"
+              >
+                <span className="text-[10px] font-black uppercase">AA</span>
+              </button>
+
+              {showFontSettings && (
+                <div className="absolute right-0 top-full mt-2 w-48 apple-glass border border-white/10 p-4 rounded-xl shadow-2xl z-[100] animate-apple-in">
+                  <label className="text-[9px] font-black text-white/40 uppercase tracking-widest block mb-3">Global Font Scale</label>
+                  <input 
+                    type="range" 
+                    min="10" 
+                    max="24" 
+                    value={baseFontSize} 
+                    onChange={(e) => setBaseFontSize(parseInt(e.target.value))}
+                    className="w-full accent-theme-accent"
+                  />
+                  <div className="flex justify-between mt-2 text-[9px] font-black text-white/20 uppercase">
+                    <span>Small</span>
+                    <span className="text-theme-accent">{baseFontSize}px</span>
+                    <span>Large</span>
+                  </div>
+                  <button 
+                    onClick={() => setBaseFontSize(14)}
+                    className="w-full mt-4 py-1.5 text-[8px] font-black uppercase tracking-widest bg-white/5 hover:bg-white/10 text-white/40 hover:text-white rounded transition-colors"
+                  >
+                    Reset Default
+                  </button>
+                </div>
+              )}
+            </div>
+            <button onClick={() => handleLayout()} className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-black text-white transition-all uppercase tracking-widest"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
+            <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2 bg-theme-accent hover:bg-blue-500 text-white rounded-md text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-theme-accent/20"><Save size={14} /> Commit Changes</button>
             <div className="w-px h-6 bg-white/10 mx-2" />
             <button onClick={onExit} className="p-2 hover:bg-status-error/10 text-white/20 hover:text-status-error rounded-md transition-colors"><X size={20} /></button>
           </div>
@@ -1064,6 +1116,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             fitView
             snapToGrid
             snapGrid={[15, 15]}
+            connectionMode={ConnectionMode.Loose}
+            connectionLineType={ConnectionLineType.SmoothStep}
+            connectionLineStyle={{ stroke: '#3b82f6', strokeWidth: 3 }}
             defaultEdgeOptions={{ type: 'custom', animated: false, data: { style: 'solid' } }}
             className="react-flow-industrial"
             deleteKeyCode={null} // Handle delete manually to protect boundary nodes
@@ -1130,26 +1185,27 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           {selectedTaskId && selectedTask ? (
             <div className="space-y-8 animate-apple-in">
               {isProtected ? (
-                <div className="space-y-6">
-                  <div className="flex items-center gap-3 p-4 bg-theme-accent/10 border border-theme-accent/20 rounded-md mb-6">
-                     <Activity size={18} className="text-theme-accent" />
-                     <span className="text-[11px] font-black text-theme-accent uppercase tracking-widest">System Boundary Entity</span>
+                <div className="space-y-8 animate-apple-in">
+                  <div className="flex items-center gap-4 p-5 bg-theme-accent/5 border border-theme-accent/10 rounded-xl">
+                     <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shadow-lg", selectedTask.interface === 'TRIGGER' ? "bg-cyan-500 text-white" : "bg-rose-500 text-white")}>
+                        <Zap size={20} />
+                     </div>
+                     <div>
+                        <span className="text-[10px] font-black text-theme-accent uppercase tracking-[0.2em] block mb-0.5">Boundary System</span>
+                        <h2 className="text-[16px] font-black text-white uppercase tracking-tight">{selectedTask.interface}</h2>
+                     </div>
                   </div>
                   
-                  <div className="space-y-6 p-6 bg-white/[0.02] border border-white/5 rounded-md">
+                  <div className="space-y-6">
                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Classification</label>
-                        <div className="text-[18px] font-black text-white uppercase tracking-tight">{selectedTask.name}</div>
+                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Type Classification</label>
+                        <div className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-[14px] font-bold text-white uppercase">{selectedTask.name}</div>
                      </div>
                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Description</label>
-                        <p className="text-[12px] text-white/60 font-medium leading-relaxed italic">{selectedTask.description || 'No description provided in workflow definition.'}</p>
+                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Description & Context</label>
+                        <p className="bg-white/[0.02] border border-white/5 rounded-lg p-5 text-[12px] text-white/60 font-medium leading-relaxed italic">{selectedTask.description || 'No description provided in workflow definition.'}</p>
                      </div>
                   </div>
-
-                  <p className="text-[10px] text-white/20 font-black uppercase tracking-widest text-center py-6 border border-dashed border-white/10 rounded-md">
-                    Boundary properties are managed via Workflow Definition
-                  </p>
                 </div>
               ) : selectedTask.interface_type === 'CONDITION' ? (
                 <div className="space-y-6">
@@ -1359,7 +1415,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                               <button onClick={() => updateTask(selectedTaskId as string, { source_data_list: selectedTask.source_data_list.filter(x => x.id !== sd.id) })} className="absolute top-5 right-5 text-white/10 hover:text-status-error transition-colors"><Trash size={12} /></button>
                               <div className="space-y-2">
                                 <label className="text-[9px] font-black text-white/40 uppercase tracking-wider px-1">Source Data Identity</label>
-                                <input readOnly={!sd.is_manual} className={cn("w-full bg-black/40 border rounded-md px-4 py-2.5 text-[14px] font-bold outline-none focus:border-blue-500", sd.is_manual ? "text-blue-400 border-white/10" : "text-white/40 border-transparent")} placeholder="e.g. Raw Telemetry Log" value={sd.name} onChange={e => updateTask(selectedTaskId as string, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, name: e.target.value } : x) })} />
+                                <input readOnly={!sd.is_manual} className={cn("w-full bg-black/40 border rounded-md px-4 py-2.5 text-[14px] font-bold outline-none focus:border-theme-accent", sd.is_manual ? "text-white border-white/10" : "text-white/40 border-transparent")} placeholder="e.g. Raw Telemetry Log" value={sd.name} onChange={e => updateTask(selectedTaskId as string, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, name: e.target.value } : x) })} />
                               </div>
                               <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
@@ -1555,7 +1611,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                   )}
 
                   {inspectorTab === 'appendix' && (
-                    <div className="space-y-8" onPaste={handleImagePaste}>
+                    <div className="space-y-8" onPaste={(e) => isAppendixFocused && handleImagePaste(e)}>
                        <div className="space-y-4">
                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Visual Figures & Assets</label>
                          <div className="grid grid-cols-2 gap-4">
@@ -1566,12 +1622,23 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                                 <button onClick={() => updateTask(selectedTaskId as string, { media: selectedTask.media.filter(x => x.id !== m.id) })} className="absolute top-2 right-2 p-1.5 bg-status-error text-white rounded-md opacity-0 group-hover:opacity-100 transition-all shadow-lg"><Trash size={12} /></button>
                              </div>
                            ))}
-                           <div className="aspect-video rounded-md border-2 border-dashed border-white/5 flex flex-col items-center justify-center bg-white/[0.02] gap-2 p-4 text-center group hover:border-theme-accent/50 transition-all">
-                              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/20 group-hover:scale-110 group-hover:text-theme-accent transition-all">
+                           <div 
+                             tabIndex={0}
+                             onFocus={() => setIsAppendixFocused(true)}
+                             onBlur={() => setIsAppendixFocused(false)}
+                             className={cn(
+                               "aspect-video rounded-md border-2 border-dashed flex flex-col items-center justify-center bg-white/[0.02] gap-2 p-4 text-center group transition-all outline-none",
+                               isAppendixFocused ? "border-theme-accent bg-theme-accent/5 ring-4 ring-theme-accent/10" : "border-white/5 hover:border-theme-accent/50"
+                             )}
+                           >
+                              <div className={cn(
+                                "w-10 h-10 rounded-full bg-white/5 flex items-center justify-center transition-all",
+                                isAppendixFocused ? "text-theme-accent scale-110" : "text-white/20 group-hover:scale-110 group-hover:text-theme-accent"
+                              )}>
                                 <Copy size={20} />
                               </div>
                               <div className="space-y-1">
-                                <p className="text-[11px] font-bold text-white">Paste Asset</p>
+                                <p className={cn("text-[11px] font-bold transition-colors", isAppendixFocused ? "text-theme-accent" : "text-white")}>Paste Asset</p>
                                 <p className="text-[8px] text-white/40 font-black uppercase tracking-widest leading-tight">Cmd+V to Attach</p>
                               </div>
                            </div>
@@ -1676,44 +1743,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                     <h2 className="text-[14px] font-black text-white uppercase tracking-widest">Process Definition</h2>
                  </div>
                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <button 
-                        onClick={() => setShowFontSettings(!showFontSettings)}
-                        className={cn(
-                          "p-2 rounded-md transition-all border",
-                          showFontSettings ? "bg-theme-accent border-theme-accent text-white" : "bg-white/5 border-white/10 text-white/40 hover:text-white"
-                        )}
-                        title="Adjust Typography"
-                      >
-                        <span className="text-[10px] font-black uppercase">AA</span>
-                      </button>
-
-                      {showFontSettings && (
-                        <div className="absolute right-0 top-full mt-2 w-48 apple-glass border border-white/10 p-4 rounded-xl shadow-2xl z-[100] animate-apple-in">
-                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest block mb-3">Global Font Scale</label>
-                          <input 
-                            type="range" 
-                            min="10" 
-                            max="24" 
-                            value={baseFontSize} 
-                            onChange={(e) => setBaseFontSize(parseInt(e.target.value))}
-                            className="w-full accent-theme-accent"
-                          />
-                          <div className="flex justify-between mt-2 text-[9px] font-black text-white/20 uppercase">
-                            <span>Small</span>
-                            <span className="text-theme-accent">{baseFontSize}px</span>
-                            <span>Large</span>
-                          </div>
-                          <button 
-                            onClick={() => setBaseFontSize(14)}
-                            className="w-full mt-4 py-1.5 text-[8px] font-black uppercase tracking-widest bg-white/5 hover:bg-white/10 text-white/40 hover:text-white rounded transition-colors"
-                          >
-                            Reset Default
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
                     <button 
                       onClick={() => setIsEditingMetadata(!isEditingMetadata)} 
                       className={cn(
@@ -1767,17 +1796,22 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                          )}
                       </div>
                       <div className="space-y-2">
-                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Family Count</label>
+                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Applicable Tools</label>
                          {isEditingMetadata ? (
-                           <input type="number" min="1" className="w-full bg-[#1e293b] border border-white/10 rounded-md px-4 h-[44px] text-[11px] font-black text-white outline-none" value={metadata.tool_family_count || 1} onChange={e => { setMetadata({...metadata, tool_family_count: parseInt(e.target.value) || 1}); setIsDirty?.(true); }} />
+                           <input className="w-full bg-[#1e293b] border border-white/10 rounded-md px-4 h-[44px] text-[11px] font-black text-white outline-none" value={metadata.tool_id} onChange={e => { setMetadata({...metadata, tool_id: e.target.value}); setIsDirty?.(true); }} />
                          ) : (
-                           <div className="relative group/tooltip flex items-center bg-white/5 border border-white/5 rounded-md px-4 py-2.5 h-[44px]">
-                              <span className="text-[12px] font-black text-white uppercase truncate">{metadata.tool_family || 'No Tool'}</span>
-                              {(metadata.tool_family_count || 1) > 1 && (
-                                <span className="ml-2 px-1.5 py-0.5 bg-theme-accent/20 text-theme-accent text-[9px] font-black rounded-sm">+{metadata.tool_family_count! - 1}</span>
+                           <div className="relative group/tooltip flex items-center bg-white/5 border border-white/5 rounded-md px-4 py-2.5 h-[44px] cursor-help">
+                              <span className="text-[12px] font-black text-white uppercase truncate">{(metadata.tool_id || '').split(', ')[0] || 'No Tool'}</span>
+                              {(metadata.tool_id || '').split(', ').filter(Boolean).length > 1 && (
+                                <span className="ml-2 px-1.5 py-0.5 bg-theme-accent/20 text-theme-accent text-[9px] font-black rounded-sm">+{(metadata.tool_id || '').split(', ').filter(Boolean).length - 1}</span>
                               )}
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#1e293b] border border-white/10 rounded-md shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all whitespace-nowrap z-50">
-                                <p className="text-[10px] font-black text-white uppercase">Total Population: {metadata.tool_family_count} Tools</p>
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-[#1e293b] border border-white/10 rounded-md shadow-2xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-50 min-w-[150px]">
+                                <p className="text-[10px] font-black text-white uppercase mb-2 border-b border-white/10 pb-1">Full Equipment List</p>
+                                <div className="space-y-1">
+                                   {(metadata.tool_id || '').split(', ').filter(Boolean).map((t, i) => (
+                                     <p key={i} className="text-[9px] text-white/60 font-medium">{t}</p>
+                                   ))}
+                                </div>
                                 <div className="absolute top-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-t-[#1e293b]" />
                               </div>
                            </div>
