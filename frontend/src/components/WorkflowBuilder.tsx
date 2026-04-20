@@ -196,10 +196,12 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
   const isTrigger = data.interface === 'TRIGGER';
   const isOutcome = data.interface === 'OUTCOME';
   const isTemplate = isTrigger || isOutcome;
+  const baseFontSize = data.baseFontSize || 14;
 
   return (
     <div className={cn(
-      "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 w-[320px] h-[250px] shadow-2xl transition-all duration-300 group relative border-2",
+      "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 w-[320px] shadow-2xl transition-all duration-300 group relative border-2",
+      isTemplate ? "h-[160px]" : "h-[250px]",
       selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTemplate ? 'border-dashed opacity-80 hover:opacity-100' : 'border-white/10 hover:border-white/20'),
       isTemplate && !selected && (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
       data.validation_needed && !isTemplate && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
@@ -234,9 +236,17 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         </div>
         
         <div className="space-y-1.5">
-          <h4 className="text-[15px] font-bold text-white tracking-tight leading-tight group-hover:text-theme-accent transition-colors truncate">{data.label || "Untitled Task"}</h4>
+          <h4 
+            className="font-bold text-white tracking-tight leading-tight group-hover:text-theme-accent transition-colors truncate"
+            style={{ fontSize: `${baseFontSize + 2}px` }}
+          >
+            {data.label || "Untitled Task"}
+          </h4>
           <div className="flex items-center gap-2 pt-1">
              <span className="text-[9px] font-black text-white/20 tracking-widest truncate">{data.systems || 'no interface defined'}</span>
+             {isTemplate && data.prc && (
+               <span className="text-[9px] font-black text-theme-accent/60 tracking-widest truncate ml-auto">PRC: {data.prc}</span>
+             )}
           </div>
         </div>
 
@@ -254,8 +264,19 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         )}
 
         {isTemplate && (
-          <div className="pt-2 mt-auto">
-             <p className="text-[10px] text-white/40 font-bold tracking-tight line-clamp-3 italic">{data.description || 'No description provided.'}</p>
+          <div className="pt-1 mt-auto overflow-hidden">
+             <p 
+               className="text-white/40 font-bold tracking-tight line-clamp-2 italic leading-snug"
+               style={{ fontSize: `${baseFontSize - 2}px` }}
+             >
+               {data.description || 'No description provided.'}
+             </p>
+             {data.tool_family && (
+               <div className="mt-2 flex items-center gap-2 opacity-60">
+                 <div className="px-1.5 py-0.5 rounded-[2px] bg-white/10 text-[8px] font-black text-white uppercase">{data.tool_family}</div>
+                 {data.workflow_type && <div className="px-1.5 py-0.5 rounded-[2px] bg-white/5 text-[8px] font-black text-white/60 uppercase">{data.workflow_type}</div>}
+               </div>
+             )}
           </div>
         )}
       </div>
@@ -275,13 +296,20 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
   );
 };
 
-const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => (
-  <div className={`relative w-[250px] h-[250px] flex items-center justify-center transition-all duration-300 group ${selected ? 'scale-105' : ''}`}>
-    {/* Visual height 250px achieved by side length a = 250 / sqrt(2) = 176.77px */}
-    <div className={`absolute w-[176.77px] h-[176.77px] rotate-45 border-2 transition-all duration-300 bg-[#1e293b]/90 ${selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20 group-hover:border-white/40'} ${data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : ''} rounded-sm`} />
-    <div className="relative z-10 flex flex-col items-center justify-center p-8 w-full h-full">
-      <span className="text-[13px] font-bold text-white text-center leading-relaxed break-words max-w-[160px]">{data.label || "Condition"}</span>
-    </div>
+const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
+  const baseFontSize = data.baseFontSize || 14;
+  return (
+    <div className={`relative w-[250px] h-[250px] flex items-center justify-center transition-all duration-300 group ${selected ? 'scale-105' : ''}`}>
+      {/* Visual height 250px achieved by side length a = 250 / sqrt(2) = 176.77px */}
+      <div className={`absolute w-[176.77px] h-[176.77px] rotate-45 border-2 transition-all duration-300 bg-[#1e293b]/90 ${selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20 group-hover:border-white/40'} ${data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : ''} rounded-sm`} />
+      <div className="relative z-10 flex flex-col items-center justify-center p-8 w-full h-full">
+        <span 
+          className="font-bold text-white text-center leading-relaxed break-words max-w-[160px]"
+          style={{ fontSize: `${baseFontSize - 1}px` }}
+        >
+          {data.label || "Condition"}
+        </span>
+      </div>
     
     {data.validation_needed && (
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[100px] px-1.5 py-0.5 rounded-sm text-[6px] font-black uppercase bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
@@ -302,6 +330,7 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => (
     <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !bottom-0 shadow-lg z-20 opacity-0" />
   </div>
 );
+};
 
 const CustomEdge = ({
   sourceX,
@@ -399,6 +428,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const [inspectorWidth, setInspectorWidth] = useState(450);
   const [isEditingMetadata, setIsEditingMetadata] = useState(false);
   const [clipboard, setClipboard] = useState<TaskEntity | null>(null);
+  const [baseFontSize, setBaseFontSize] = useState(14);
+  const [showFontSettings, setShowFontSettings] = useState(false);
   
   const [metadata, setMetadata] = useState<WorkflowMetadata>({
     name: workflow.name,
@@ -559,31 +590,73 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     setTasks(prev => prev.map(t => {
       if (t.interface === 'TRIGGER') {
         const typeLabel = taxonomy.find(tx => tx.category === 'TriggerType' && tx.value === metadata.trigger_type)?.label || metadata.trigger_type;
-        return { ...t, name: typeLabel || 'TRIGGER', description: metadata.trigger_description };
+        return { 
+          ...t, 
+          name: typeLabel || 'TRIGGER', 
+          description: metadata.trigger_description 
+        };
       }
       if (t.interface === 'OUTCOME') {
         const typeLabel = taxonomy.find(tx => tx.category === 'OutputType' && tx.value === metadata.output_type)?.label || metadata.output_type;
-        return { ...t, name: typeLabel || 'OUTCOME', description: metadata.output_description };
+        return { 
+          ...t, 
+          name: typeLabel || 'OUTCOME', 
+          description: metadata.output_description 
+        };
       }
       return t;
     }));
-    
+
     setNodes(nds => nds.map(n => {
+      // Apply baseFontSize to ALL nodes
+      const baseData = { ...n.data, baseFontSize };
+
       if (n.id === 'node-trigger') {
         const typeLabel = taxonomy.find(tx => tx.category === 'TriggerType' && tx.value === metadata.trigger_type)?.label || metadata.trigger_type;
-        return { ...n, data: { ...n.data, label: typeLabel || 'TRIGGER', description: metadata.trigger_description } };
+        return { 
+          ...n, 
+          data: { 
+            ...baseData, 
+            label: typeLabel || 'TRIGGER', 
+            description: metadata.trigger_description,
+            prc: metadata.prc,
+            workflow_type: metadata.workflow_type,
+            tool_family: metadata.tool_family,
+            tool_family_count: metadata.tool_family_count
+          } 
+        };
       }
       if (n.id === 'node-outcome') {
         const typeLabel = taxonomy.find(tx => tx.category === 'OutputType' && tx.value === metadata.output_type)?.label || metadata.output_type;
-        return { ...n, data: { ...n.data, label: typeLabel || 'OUTCOME', description: metadata.output_description } };
+        return { 
+          ...n, 
+          data: { 
+            ...baseData, 
+            label: typeLabel || 'OUTCOME', 
+            description: metadata.output_description,
+            prc: metadata.prc,
+            workflow_type: metadata.workflow_type,
+            tool_family: metadata.tool_family,
+            tool_family_count: metadata.tool_family_count
+          } 
+        };
       }
-      return n;
+      return { ...n, data: baseData };
     }));
-  }, [metadata.trigger_type, metadata.trigger_description, metadata.output_type, metadata.output_description]);
-
+  }, [metadata, baseFontSize, taxonomy]);
   // Copy-Paste Support
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input or textarea
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' || 
+        target.isContentEditable
+      ) {
+        return;
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         if (selectedTaskId && selectedTask && !isProtected) {
           setClipboard(JSON.parse(JSON.stringify(selectedTask)));
@@ -1494,15 +1567,55 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                     <LucideWorkflow className="text-theme-accent" size={18} />
                     <h2 className="text-[14px] font-black text-white uppercase tracking-widest">Process Definition</h2>
                  </div>
-                 <button 
-                   onClick={() => setIsEditingMetadata(!isEditingMetadata)} 
-                   className={cn(
-                     "px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all",
-                     isEditingMetadata ? "bg-theme-accent text-white shadow-lg shadow-theme-accent/20" : "bg-white/5 border border-white/10 text-white/40 hover:text-white"
-                   )}
-                 >
-                   {isEditingMetadata ? 'Save & Finish' : 'Edit Definition'}
-                 </button>
+                 <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <button 
+                        onClick={() => setShowFontSettings(!showFontSettings)}
+                        className={cn(
+                          "p-2 rounded-md transition-all border",
+                          showFontSettings ? "bg-theme-accent border-theme-accent text-white" : "bg-white/5 border-white/10 text-white/40 hover:text-white"
+                        )}
+                        title="Adjust Typography"
+                      >
+                        <span className="text-[10px] font-black uppercase">AA</span>
+                      </button>
+
+                      {showFontSettings && (
+                        <div className="absolute right-0 top-full mt-2 w-48 apple-glass border border-white/10 p-4 rounded-xl shadow-2xl z-[100] animate-apple-in">
+                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest block mb-3">Global Font Scale</label>
+                          <input 
+                            type="range" 
+                            min="10" 
+                            max="24" 
+                            value={baseFontSize} 
+                            onChange={(e) => setBaseFontSize(parseInt(e.target.value))}
+                            className="w-full accent-theme-accent"
+                          />
+                          <div className="flex justify-between mt-2 text-[9px] font-black text-white/20 uppercase">
+                            <span>Small</span>
+                            <span className="text-theme-accent">{baseFontSize}px</span>
+                            <span>Large</span>
+                          </div>
+                          <button 
+                            onClick={() => setBaseFontSize(14)}
+                            className="w-full mt-4 py-1.5 text-[8px] font-black uppercase tracking-widest bg-white/5 hover:bg-white/10 text-white/40 hover:text-white rounded transition-colors"
+                          >
+                            Reset Default
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <button 
+                      onClick={() => setIsEditingMetadata(!isEditingMetadata)} 
+                      className={cn(
+                        "px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all",
+                        isEditingMetadata ? "bg-theme-accent text-white shadow-lg shadow-theme-accent/20" : "bg-white/5 border border-white/10 text-white/40 hover:text-white"
+                      )}
+                    >
+                      {isEditingMetadata ? 'Save & Finish' : 'Edit Definition'}
+                    </button>
+                 </div>
               </div>
 
               <div className="space-y-12">
