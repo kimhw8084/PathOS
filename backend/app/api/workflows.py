@@ -106,8 +106,15 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
         from .tasks import sync_tasks
         from ..schemas.schemas import TaskCreate
         # Convert dict tasks to TaskCreate objects for sync_tasks
-        tasks_to_sync = [TaskCreate(**t, workflow_id=workflow_id) for t in tasks_data]
-        await sync_tasks(workflow_id, tasks_to_sync, db)
+        # Ensure workflow_id is not duplicated
+        processed_tasks = []
+        for t in tasks_data:
+            t_data = t.copy()
+            if "workflow_id" in t_data:
+                del t_data["workflow_id"]
+            processed_tasks.append(TaskCreate(**t_data, workflow_id=workflow_id))
+        
+        await sync_tasks(workflow_id, processed_tasks, db)
 
     # Recalculate ROI
     await update_workflow_roi(workflow)

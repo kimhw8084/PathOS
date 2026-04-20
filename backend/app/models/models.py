@@ -65,6 +65,7 @@ class Workflow(Base, BaseMixin):
 class Task(Base, BaseMixin):
     __tablename__ = "tasks"
     workflow_id = Column(Integer, ForeignKey("workflows.id", ondelete="CASCADE"))
+    node_id = Column(String, index=True, nullable=True) # Stable ID from Frontend (e.g. node-123)
     name = Column(String)
     description = Column(Text)
     target_system = Column(String, nullable=True)

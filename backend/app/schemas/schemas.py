@@ -44,6 +44,7 @@ class TaskErrorRead(TaskErrorBase):
 
 class TaskBase(BaseModel):
     name: str = Field(..., min_length=1)
+    node_id: Optional[str] = None
     description: str
     target_system: Optional[str] = None
     interface_type: Optional[str] = None

@@ -126,6 +126,7 @@ interface TaskMedia {
 
 interface TaskEntity {
   id: string;
+  node_id?: string;
   name: string;
   description: string;
   task_type: string;
@@ -566,6 +567,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     if (!currentTasks.find(t => t.interface === 'TRIGGER')) {
       const trigger: TaskEntity = {
         id: 'node-trigger',
+        node_id: 'node-trigger',
         name: 'TRIGGER',
         description: metadata.trigger_description,
         task_type: 'TRIGGER',
@@ -597,6 +599,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     if (!currentTasks.find(t => t.interface === 'OUTCOME')) {
       const outcome: TaskEntity = {
         id: 'node-outcome',
+        node_id: 'node-outcome',
         name: 'OUTCOME',
         description: metadata.output_description,
         task_type: 'OUTCOME',
@@ -630,10 +633,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     }
 
     const initialNodes: Node[] = currentTasks.map((t) => ({
-      id: t.id,
+      id: t.node_id || String(t.id),
       type: t.interface_type === 'CONDITION' ? 'diamond' : 'matrix',
       position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
       data: { 
+        ...t,
         label: t.name, 
         task_type: t.task_type,
         manual_time: t.manual_time_minutes,
@@ -648,23 +652,33 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         validation_needed: t.validation_needed,
         blockerCount: t.blockers.length,
         errorCount: t.errors.length,
-        description: t.description
+        description: t.description,
+        id: t.node_id || String(t.id)
       },
     }));
 
     const initialEdges: Edge[] = (workflow.edges || []).map((e: any) => ({
       ...e,
-      id: `e-${e.source}-${e.target}-${Date.now()}`,
+      id: e.id || `e-${e.source}-${e.target}-${Date.now()}`,
+      source: String(e.source),
+      target: String(e.target),
+      sourceHandle: e.source_handle || e.sourceHandle,
+      targetHandle: e.target_handle || e.targetHandle,
       type: 'custom',
-      data: { label: e.label, edgeStyle: e.edge_style || 'bezier', color: e.color || '#ffffff', style: e.style || 'solid' },
-      markerEnd: { type: MarkerType.ArrowClosed, color: e.color || '#ffffff' },
+      data: { 
+        label: e.label, 
+        edgeStyle: e.edge_style || e.data?.edgeStyle || 'bezier', 
+        color: e.color || e.data?.color || '#ffffff', 
+        style: e.style || e.data?.style || 'solid' 
+      },
+      markerEnd: { type: MarkerType.ArrowClosed, color: e.color || e.data?.color || '#ffffff' },
     }));
 
     setNodes(initialNodes);
     setEdges(initialEdges);
     
-    // Auto layout on initial load if no positions
-    if (currentTasks.every(t => t.position_x === undefined)) {
+    // Auto layout on initial load if no positions or positions are 0
+    if (currentTasks.every(t => !t.position_x && !t.position_y)) {
        setTimeout(() => handleLayout(initialNodes, initialEdges), 200);
     }
   }, []);
@@ -1049,11 +1063,16 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       ...metadata,
       tasks: tasks.map(t => {
         const node = nodes.find(n => n.id === t.id);
-        return { ...t, position_x: node?.position.x, position_y: node?.position.y };
+        return { 
+          ...t, 
+          node_id: t.id, // Save the ReactFlow ID as node_id
+          position_x: node?.position.x, 
+          position_y: node?.position.y 
+        };
       }),
       edges: edges.map(e => ({
-        source: e.source,
-        target: e.target,
+        source: String(e.source),
+        target: String(e.target),
         source_handle: e.sourceHandle,
         target_handle: e.targetHandle,
         label: e.data?.label,
