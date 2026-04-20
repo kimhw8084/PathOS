@@ -50,67 +50,67 @@ const STATUS_EXPLANATIONS: Record<string, { desc: string, color: string, badgeCo
   "Created": { 
     desc: "Initial entry by user. ROI is estimated based on preliminary data.", 
     color: "slate",
-    badgeColor: "bg-slate-500/10 text-slate-400 border-slate-500/30",
+    badgeColor: "bg-slate-500/10 text-slate-400 border-slate-500/20",
     dotColor: "bg-slate-400"
   },
   "Workflow Review": { 
     desc: "Logic being reviewed by Process Integration for technical accuracy.", 
     color: "blue",
-    badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/30",
+    badgeColor: "bg-blue-500/10 text-blue-400 border-blue-500/20",
     dotColor: "bg-blue-400"
   },
   "Priority Measurement": { 
     desc: "Determining business impact and automation feasibility ranking.", 
-    color: "purple",
-    badgeColor: "bg-purple-500/10 text-purple-400 border-purple-500/30",
-    dotColor: "bg-purple-400"
+    color: "indigo",
+    badgeColor: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+    dotColor: "bg-indigo-400"
   },
   "Feasibility Review": { 
     desc: "Technical evaluation of automation path and tool compatibility.", 
     color: "cyan",
-    badgeColor: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30",
+    badgeColor: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
     dotColor: "bg-cyan-400"
   },
   "Backlog": { 
     desc: "Approved for automation, awaiting resource allocation.", 
-    color: "amber",
-    badgeColor: "bg-amber-500/10 text-amber-400 border-amber-500/30",
-    dotColor: "bg-amber-400"
+    color: "rose",
+    badgeColor: "bg-rose-500/10 text-rose-400 border-rose-500/20",
+    dotColor: "bg-rose-400"
   },
   "Automation Brainstorming": { 
     desc: "Designing automation script architecture and exception handling.", 
-    color: "indigo",
-    badgeColor: "bg-indigo-500/10 text-indigo-400 border-indigo-500/30",
-    dotColor: "bg-indigo-400"
+    color: "amber",
+    badgeColor: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+    dotColor: "bg-amber-400"
   },
   "Automation Planned": { 
     desc: "Development timeline and scope defined; logic locked.", 
-    color: "violet",
-    badgeColor: "bg-violet-500/10 text-violet-400 border-violet-500/30",
-    dotColor: "bg-violet-400"
+    color: "orange",
+    badgeColor: "bg-orange-500/10 text-orange-400 border-orange-500/20",
+    dotColor: "bg-orange-400"
   },
   "In Automation": { 
     desc: "Active development of automation scripts and connectors.", 
-    color: "orange",
-    badgeColor: "bg-orange-500/10 text-orange-400 border-orange-500/30",
-    dotColor: "bg-orange-400"
+    color: "violet",
+    badgeColor: "bg-violet-500/10 text-violet-400 border-violet-500/20",
+    dotColor: "bg-violet-400"
   },
   "Verification": { 
     desc: "Testing automation output in shadow mode for validation.", 
     color: "fuchsia",
-    badgeColor: "bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/30",
+    badgeColor: "bg-fuchsia-500/10 text-fuchsia-400 border-fuchsia-500/20",
     dotColor: "bg-fuchsia-400"
   },
   "Partially Automated": { 
     desc: "Some steps automated; manual intervention still required.", 
     color: "teal",
-    badgeColor: "bg-teal-500/10 text-teal-400 border-teal-500/30",
+    badgeColor: "bg-teal-500/10 text-teal-400 border-teal-500/20",
     dotColor: "bg-teal-400"
   },
   "Fully Automated": { 
     desc: "Zero-touch execution in production environment.", 
     color: "emerald",
-    badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+    badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
     dotColor: "bg-emerald-400"
   }
 };
@@ -305,7 +305,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'created_at', direction: 'desc' });
   const [activeRibbon, setActiveRibbon] = useState('Personal Drafts');
-  const [density, setDensity] = useState({ fontSize: 13, rowPadding: 8 });
+  const [density, setDensity] = useState({ fontSize: 12, rowPadding: 2 });
   const [columnWidths, setColumnWidths] = useState<any>({
     workflow: 320,
     prc: 80,
@@ -313,10 +313,11 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     toolId: 140,
     type: 100,
     triggerOutput: 220,
-    freq: 70,
+    freq: 100,
     manual: 80,
     auto: 80,
     roi: 90,
+    tasks: 80,
     blockers: 70,
     errors: 70,
     status: 160,
@@ -408,20 +409,27 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
   };
 
   const StatusBadge = ({ status, fontSize }: { status: string, fontSize: number }) => {
-    const config = STATUS_EXPLANATIONS[status] || { desc: "Status unknown.", color: "slate", badgeColor: "bg-slate-500/10 text-slate-400 border-slate-500/30", dotColor: "bg-slate-400" };
+    const config = STATUS_EXPLANATIONS[status] || { desc: "Status unknown.", color: "slate", badgeColor: "bg-slate-500/10 text-slate-400 border-slate-500/20", dotColor: "bg-slate-400" };
     
     return (
       <Tooltip.Root>
         <Tooltip.Trigger asChild>
-          <span className={cn(
-            "px-2 py-0.5 rounded-full font-black uppercase tracking-widest border whitespace-nowrap inline-flex items-center gap-1.5 leading-none cursor-help shadow-sm transition-all hover:bg-white/10",
-            config.badgeColor
-          )} style={{ fontSize: `${fontSize - 4}px` }}>
-            <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", 
+          <div 
+            className={cn(
+              "w-full h-full min-h-[24px] px-3 font-black uppercase tracking-widest border flex items-center justify-center gap-2 cursor-help transition-all hover:bg-white/5",
+              config.badgeColor
+            )} 
+            style={{ 
+              fontSize: `${fontSize - 2}px`,
+              paddingTop: `${density.rowPadding}px`,
+              paddingBottom: `${density.rowPadding}px`
+            }}
+          >
+            <div className={cn("w-1.5 h-1.5 rounded-full shrink-0 animate-pulse", 
               config.dotColor
             )} />
             <span className="whitespace-nowrap">{status}</span>
-          </span>
+          </div>
         </Tooltip.Trigger>
         <Tooltip.Portal>
           <Tooltip.Content className="bg-theme-sidebar border border-theme-border p-3 rounded-xl shadow-2xl z-[100] text-[10px] font-bold text-white max-w-[200px] backdrop-blur-xl animate-apple-in" sideOffset={5}>
@@ -458,7 +466,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     <th 
       style={{ width: columnWidths[widthKey] }}
       className={cn(
-        "p-0 text-[9px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border relative group/th bg-[#1e293b]",
+        "p-0 text-[12px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border relative group/th bg-[#1e293b]",
         center && "text-center",
         sticky === 'left' && "sticky left-0 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.3)]",
         sticky === 'right' && "sticky right-[60px] z-20"
@@ -528,8 +536,10 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                          <span className="text-[10px] font-mono text-theme-accent">{density.rowPadding * 2 + 20}px</span>
                       </div>
                       <div className="flex bg-black/40 p-1 rounded-lg border border-white/5">
-                        {[4, 8, 12, 16].map(p => (
-                          <button key={p} onClick={() => setDensity({...density, rowPadding: p})} className={cn("flex-1 py-1.5 text-[10px] font-black rounded transition-all", density.rowPadding === p ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{p === 4 ? 'S' : p === 8 ? 'M' : p === 12 ? 'L' : 'XL'}</button>
+                        {[2, 4, 8, 12, 16].map(p => (
+                          <button key={p} onClick={() => setDensity({...density, rowPadding: p})} className={cn("flex-1 py-1.5 text-[10px] font-black rounded transition-all", density.rowPadding === p ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>
+                            {p === 2 ? 'XS' : p === 4 ? 'S' : p === 8 ? 'M' : p === 12 ? 'L' : 'XL'}
+                          </button>
                         ))}
                       </div>
                     </div>
@@ -677,6 +687,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                 <ResizableHeader label="Manual" widthKey="manual" center />
                 <ResizableHeader label="Auto" widthKey="auto" center />
                 <ResizableHeader label="ROI (h/wk)" widthKey="roi" sortKey="total_roi_saved_hours" center />
+                <ResizableHeader label="Tasks" widthKey="tasks" center />
                 <ResizableHeader label="Blockers" widthKey="blockers" center />
                 <ResizableHeader label="Errors" widthKey="errors" center />
                 <ResizableHeader label="Status" widthKey="status" sortKey="status" center />
@@ -750,7 +761,10 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                       </td>
 
                       <td className="p-0 border-r border-theme-border text-center" style={{ padding: `${density.rowPadding}px 8px` }}>
-                         <span className="font-black text-white/80 whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>{analytics.frequencyPerWeek.toFixed(1)}</span>
+                         <div className="flex items-center justify-center gap-1">
+                           <span className="font-black text-white/80 whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>{analytics.frequencyPerWeek.toFixed(1)}</span>
+                           <span className="text-[10px] font-bold text-white/20 uppercase tracking-tighter">/{w.cadence_unit}</span>
+                         </div>
                       </td>
 
                       <td className="p-0 text-center border-r border-theme-border" style={{ padding: `${density.rowPadding}px 8px` }}>
@@ -765,6 +779,10 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                         <span className="font-black text-theme-accent whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>+{analytics.manualWeekly.toFixed(1)}</span>
                       </td>
 
+                      <td className="p-0 text-center border-r border-theme-border" style={{ padding: `${density.rowPadding}px 8px` }}>
+                        <span className="font-black text-white/80 whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>{w.tasks?.length || 0}</span>
+                      </td>
+
                       <td className="p-0 border-r border-theme-border" style={{ padding: `${density.rowPadding}px 8px` }}>
                         <div className="flex justify-center">
                           <CircledNumber count={blockerCount} colorClass="bg-red-500/10 border-red-500/30 text-red-400" fontSize={density.fontSize} />
@@ -777,10 +795,8 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                         </div>
                       </td>
 
-                      <td className="p-0 border-r border-theme-border text-center" style={{ padding: `${density.rowPadding}px 8px` }}>
-                        <div className="flex justify-center items-center w-full h-full">
-                          <StatusBadge status={w.status} fontSize={density.fontSize} />
-                        </div>
+                      <td className="p-0 border-r border-theme-border text-center">
+                        <StatusBadge status={w.status} fontSize={density.fontSize} />
                       </td>
 
                       <td className="p-0 border-r border-theme-border font-bold text-theme-secondary text-center" style={{ padding: `${density.rowPadding}px 8px`, fontSize: `${density.fontSize - 2}px` }}>

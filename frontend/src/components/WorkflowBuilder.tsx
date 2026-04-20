@@ -289,9 +289,9 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
             {data.label || "Untitled Task"}
           </h4>
           {/* Tooltip for Title & Description */}
-          <div className="absolute top-full left-0 w-64 bg-[#1e293b] border border-white/10 p-3 rounded-lg shadow-2xl opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all z-[100] backdrop-blur-xl pointer-events-none">
-             <p className="text-[11px] font-black text-white uppercase mb-1">{data.label}</p>
-             <p className="text-[10px] text-white/60 font-medium leading-relaxed italic line-clamp-4">{data.description || 'No description provided.'}</p>
+          <div className="absolute top-full left-0 w-80 bg-[#1e293b] border border-white/20 p-5 rounded-xl shadow-2xl opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all z-[100] backdrop-blur-2xl pointer-events-none translate-y-2 group-hover/title:translate-y-0">
+             <p className="font-black text-white uppercase mb-3 border-b border-white/10 pb-2 leading-tight" style={{ fontSize: `${titleFontSize + 2}px` }}>{data.label}</p>
+             <p className="text-[12px] text-white/70 font-medium leading-relaxed italic">{data.description || 'No description provided.'}</p>
           </div>
         </div>
 
@@ -530,10 +530,19 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     description: workflow.description || workflow.forensic_description || ''
   });
 
-  const [tasks, setTasks] = useState<TaskEntity[]>(() => {
-    return (workflow.tasks || []).map((t: any) => ({
+  const [tasks, setTasks] = useState<TaskEntity[]>([]);
+
+  const selectedTask = useMemo(() => tasks.find(t => String(t.id) === String(selectedTaskId)), [tasks, selectedTaskId]);
+  const selectedEdge = useMemo(() => edges.find(e => String(e.id) === String(selectedEdgeId)), [edges, selectedEdgeId]);
+  const isProtected = selectedTask?.interface_type === 'TRIGGER' || selectedTask?.interface_type === 'OUTCOME';
+
+  const taskTypes = taxonomy.find(t => t.category === 'TASK_TYPE')?.cached_values || ['Documentation', 'Hands-on', 'System Interaction', 'Shadow IT', 'Verification', 'Communication'];
+
+  // Initialize tasks when workflow changes
+  useEffect(() => {
+    const initializedTasks = (workflow.tasks || []).map((t: any) => ({
       ...t,
-      id: String(t.node_id || t.id), // Ensure ID is a string and prefer node_id
+      id: String(t.node_id || t.id),
       node_id: String(t.node_id || t.id),
       target_systems: t.target_systems || [],
       blockers: t.blockers || [],
@@ -553,17 +562,38 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       validation_needed: t.validation_needed || false,
       validation_procedure: t.validation_procedure || '',
     }));
-  });
-
-  const selectedTask = useMemo(() => tasks.find(t => String(t.id) === String(selectedTaskId)), [tasks, selectedTaskId]);
-  const selectedEdge = useMemo(() => edges.find(e => String(e.id) === String(selectedEdgeId)), [edges, selectedEdgeId]);
-  const isProtected = selectedTask?.interface_type === 'TRIGGER' || selectedTask?.interface_type === 'OUTCOME';
-
-  const taskTypes = taxonomy.find(t => t.category === 'TASK_TYPE')?.cached_values || ['Documentation', 'Hands-on', 'System Interaction', 'Shadow IT', 'Verification', 'Communication'];
+    setTasks(initializedTasks);
+    
+    // Update metadata as well
+    setMetadata({
+      name: workflow.name,
+      version: workflow.version,
+      prc: workflow.prc,
+      workflow_type: workflow.workflow_type,
+      tool_family: workflow.tool_family,
+      tool_family_count: workflow.tool_family_count || 1,
+      tool_id: workflow.tool_id,
+      trigger_type: workflow.trigger_type,
+      trigger_description: workflow.trigger_description,
+      output_type: workflow.output_type,
+      output_description: workflow.output_description,
+      cadence_count: workflow.cadence_count || 1,
+      cadence_unit: workflow.cadence_unit || 'month',
+      total_roi_saved_hours: workflow.total_roi_saved_hours || 0,
+      org: workflow.org,
+      team: workflow.team,
+      poc: workflow.poc,
+      flow_summary: workflow.flow_summary || '',
+      description: workflow.description || workflow.forensic_description || ''
+    });
+  }, [workflow]);
 
   // Initialize nodes and ensure Trigger/Outcome exist
   useEffect(() => {
-    let currentTasks = [...tasks];
+    // We should run this if we have a workflow, even if tasks is empty
+    // because we need to at least create Trigger/Outcome nodes
+    
+    let currentTasks = tasks.length > 0 ? [...tasks] : [];
     let needsUpdate = false;
 
     if (!currentTasks.find(t => t.interface === 'TRIGGER')) {
@@ -683,7 +713,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     if (currentTasks.every(t => !t.position_x && !t.position_y)) {
        setTimeout(() => handleLayout(initialNodes, initialEdges), 200);
     }
-  }, []);
+  }, [workflow, tasks.length]);
 
   // Sync Trigger/Outcome data with Metadata
   useEffect(() => {
