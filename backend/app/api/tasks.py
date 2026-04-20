@@ -113,11 +113,11 @@ async def sync_tasks(workflow_id: int, tasks_data: List[TaskCreate], db: AsyncSe
         await db.flush() # Get task ID
         
         for b_data in blockers_data:
-            blocker = Blocker(**b_data.model_dump(), task_id=new_task.id)
+            blocker = Blocker(**b_data, task_id=new_task.id)
             db.add(blocker)
             
         for e_data in errors_data:
-            error = TaskError(**e_data.model_dump(), task_id=new_task.id)
+            error = TaskError(**e_data, task_id=new_task.id)
             db.add(error)
     
     await db.flush()

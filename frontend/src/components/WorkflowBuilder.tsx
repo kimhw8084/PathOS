@@ -283,8 +283,8 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         
         <div className="space-y-1 group/title relative">
           <h4 
-            className="font-bold text-white tracking-tight leading-tight group-hover:text-theme-accent transition-colors truncate cursor-help"
-            style={{ fontSize: `${titleFontSize}px` }}
+            className="font-bold text-white tracking-tight leading-tight group-hover:text-theme-accent transition-colors line-clamp-2 cursor-help overflow-hidden"
+            style={{ fontSize: `${titleFontSize}px`, height: `${titleFontSize * 2.4}px` }}
           >
             {data.label || "Untitled Task"}
           </h4>
@@ -363,14 +363,15 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
 
 const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
   const baseFontSize = data.baseFontSize || 14;
+  const titleFontSize = Math.max(24, baseFontSize + 10);
   return (
     <div className={`relative w-[250px] h-[250px] flex items-center justify-center transition-all duration-300 group ${selected ? 'scale-105' : ''}`}>
       {/* Visual height 250px achieved by side length a = 250 / sqrt(2) = 176.77px */}
       <div className={`absolute w-[176.77px] h-[176.77px] rotate-45 border-2 transition-all duration-300 bg-[#1e293b]/90 ${selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20 group-hover:border-white/40'} ${data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : ''} rounded-sm`} />
       <div className="relative z-10 flex flex-col items-center justify-center p-8 w-full h-full">
         <span 
-          className="font-bold text-white text-center leading-relaxed break-words max-w-[160px]"
-          style={{ fontSize: `${baseFontSize - 1}px` }}
+          className="font-bold text-white text-center leading-tight break-words max-w-[160px] line-clamp-3 overflow-hidden"
+          style={{ fontSize: `${titleFontSize}px` }}
         >
           {data.label || "Condition"}
         </span>
