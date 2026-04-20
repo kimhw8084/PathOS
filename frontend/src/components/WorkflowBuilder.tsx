@@ -550,7 +550,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     
     // Auto layout on initial load if no positions
     if (currentTasks.every(t => t.position_x === undefined)) {
-       setTimeout(() => handleLayout(), 200);
+       setTimeout(() => handleLayout(initialNodes, initialEdges), 200);
     }
   }, []);
 
@@ -738,21 +738,47 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     setIsDirty?.(true);
   };
 
-  const handleLayout = useCallback(() => {
+  const handleLayout = useCallback((nodesToLayout?: Node[], edgesToLayout?: Edge[]) => {
+    let nds = nodesToLayout || nodes;
+    const eds = edgesToLayout || edges;
+
+    if (nds.length === 0 && tasks.length > 0) {
+      // Emergency reconstruction if nodes state was lost but tasks exist
+      nds = tasks.map(t => ({
+        id: t.id,
+        type: t.interface_type === 'CONDITION' ? 'diamond' : 'matrix',
+        position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
+        data: { 
+          label: t.name, 
+          task_type: t.task_type,
+          manual_time: t.manual_time_minutes,
+          automation_time: t.automation_time_minutes,
+          systems: t.target_systems.map(s => s.name).join(', '),
+          interface: t.interface,
+          validation_needed: t.validation_needed,
+          blockerCount: t.blockers.length,
+          errorCount: t.errors.length,
+          description: t.description
+        },
+      }));
+    }
+
+    if (nds.length === 0) return;
+
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
     dagreGraph.setGraph({ rankdir: 'LR', ranker: 'network-simplex', ranksep: 200, nodesep: 150 });
 
-    nodes.forEach((n) => {
+    nds.forEach((n) => {
       const isDiamond = n.type === 'diamond';
       // Use dimensions that match our custom nodes
       dagreGraph.setNode(n.id, { width: isDiamond ? 250 : 320, height: 250 });
     });
-    edges.forEach((e) => dagreGraph.setEdge(e.source, e.target));
+    eds.forEach((e) => dagreGraph.setEdge(e.source, e.target));
 
     dagre.layout(dagreGraph);
 
-    const layoutedNodes = nodes.map(n => {
+    const layoutedNodes = nds.map(n => {
       const nodeWithPos = dagreGraph.node(n.id);
       if (!nodeWithPos) return n;
       const isDiamond = n.type === 'diamond';
@@ -767,12 +793,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     });
 
     setNodes(layoutedNodes);
+    setIsDirty?.(true);
     
     // Use a slightly longer delay and ensure fitView focuses on the new bounds
     window.requestAnimationFrame(() => {
       fitView({ padding: 0.2, duration: 800 });
     });
-  }, [nodes, edges, fitView, setNodes]);
+  }, [nodes, edges, tasks, fitView, setNodes, setIsDirty]);
 
   const handleImagePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
@@ -857,8 +884,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={handleLayout} className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-black text-white transition-all uppercase tracking-widest"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
-            <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2 bg-theme-accent hover:bg-blue-500 text-white rounded-md text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-theme-accent/20"><Save size={14} /> Commit Changes</button>
+            <button onClick={() => handleLayout()} className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md text-[10px] font-black text-white transition-all uppercase tracking-widest"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>            <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2 bg-theme-accent hover:bg-blue-500 text-white rounded-md text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-theme-accent/20"><Save size={14} /> Commit Changes</button>
             <div className="w-px h-6 bg-white/10 mx-2" />
             <button onClick={onExit} className="p-2 hover:bg-status-error/10 text-white/20 hover:text-status-error rounded-md transition-colors"><X size={20} /></button>
           </div>
