@@ -533,6 +533,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const [tasks, setTasks] = useState<TaskEntity[]>(() => {
     return (workflow.tasks || []).map((t: any) => ({
       ...t,
+      id: String(t.node_id || t.id), // Ensure ID is a string and prefer node_id
+      node_id: String(t.node_id || t.id),
       target_systems: t.target_systems || [],
       blockers: t.blockers || [],
       errors: t.errors || [],
@@ -553,8 +555,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     }));
   });
 
-  const selectedTask = useMemo(() => tasks.find(t => t.id === selectedTaskId), [tasks, selectedTaskId]);
-  const selectedEdge = useMemo(() => edges.find(e => e.id === selectedEdgeId), [edges, selectedEdgeId]);
+  const selectedTask = useMemo(() => tasks.find(t => String(t.id) === String(selectedTaskId)), [tasks, selectedTaskId]);
+  const selectedEdge = useMemo(() => edges.find(e => String(e.id) === String(selectedEdgeId)), [edges, selectedEdgeId]);
   const isProtected = selectedTask?.interface_type === 'TRIGGER' || selectedTask?.interface_type === 'OUTCOME';
 
   const taskTypes = taxonomy.find(t => t.category === 'TASK_TYPE')?.cached_values || ['Documentation', 'Hands-on', 'System Interaction', 'Shadow IT', 'Verification', 'Communication'];
@@ -633,7 +635,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     }
 
     const initialNodes: Node[] = currentTasks.map((t) => ({
-      id: t.node_id || String(t.id),
+      id: String(t.node_id || t.id),
       type: t.interface_type === 'CONDITION' ? 'diamond' : 'matrix',
       position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
       data: { 
@@ -653,13 +655,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         blockerCount: t.blockers.length,
         errorCount: t.errors.length,
         description: t.description,
-        id: t.node_id || String(t.id)
+        id: String(t.node_id || t.id)
       },
     }));
 
     const initialEdges: Edge[] = (workflow.edges || []).map((e: any) => ({
       ...e,
-      id: e.id || `e-${e.source}-${e.target}-${Date.now()}`,
+      id: String(e.id || `e-${e.source}-${e.target}-${Date.now()}`),
       source: String(e.source),
       target: String(e.target),
       sourceHandle: e.source_handle || e.sourceHandle,
@@ -1062,12 +1064,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     const finalData = {
       ...metadata,
       tasks: tasks.map(t => {
-        const node = nodes.find(n => n.id === t.id);
-        return { 
-          ...t, 
-          node_id: t.id, // Save the ReactFlow ID as node_id
-          position_x: node?.position.x, 
-          position_y: node?.position.y 
+        const node = nodes.find(n => String(n.id) === String(t.id));
+        return {
+          ...t,
+          node_id: String(t.node_id || t.id), // Force string conversion for Pydantic
+          position_x: node?.position.x,
+          position_y: node?.position.y
         };
       }),
       edges: edges.map(e => ({
@@ -1083,7 +1085,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     };
     onSave(finalData);
   };
-
   const handleMouseDown = (e: React.MouseEvent) => {
     const startX = e.pageX;
     const startWidth = inspectorWidth;
