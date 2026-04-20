@@ -8,7 +8,7 @@ async def calculate_task_roi_contribution(task: Task) -> float:
     Formula: (Active Touch Time * Occurrences) + Σ(Error Probability * Recovery Time)
     """
     touch_time = task.active_touch_time_minutes or 0.0
-    occurrences = task.occurrences_per_cycle or 1
+    occurrences = task.occurrence or 1
     base_touch_time = touch_time * occurrences
     
     error_penalty = 0.0

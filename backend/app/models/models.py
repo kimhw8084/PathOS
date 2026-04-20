@@ -86,7 +86,8 @@ class Task(Base, BaseMixin):
     machine_wait_time_minutes = Column(Float, default=0.0)
     automation_time_minutes = Column(Float, default=0.0) # Added to match frontend
     manual_time_minutes = Column(Float, default=0.0) # Added to match frontend
-    occurrences_per_cycle = Column(Integer, default=1)
+    occurrence = Column(Integer, default=1)
+    occurrence_explanation = Column(Text, nullable=True)
     
     # Ownership
     owning_team = Column(String, nullable=True)
@@ -110,7 +111,7 @@ class Task(Base, BaseMixin):
     
     # Corner Cases & Risks
     risks_yield_scrap = Column(Boolean, default=False)
-    tribal_knowledge = Column(Text, nullable=True)
+    tribal_knowledge = Column(JSON, nullable=True)
     tribal_knowledge_list = Column(JSON, nullable=True)
     media = Column(JSON, nullable=True) # List of image/file references
     reference_links = Column(JSON, nullable=True)

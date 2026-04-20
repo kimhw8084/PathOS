@@ -9,7 +9,7 @@ async def test_calculate_task_roi_contribution():
     task = Task(
         active_touch_time_minutes=10.0,
         machine_wait_time_minutes=5.0,
-        occurrences_per_cycle=2
+        occurrence=2
     )
     error = TaskError(
         error_type="Human Error",
@@ -32,10 +32,10 @@ async def test_update_workflow_roi():
     wf = Workflow(cadence_count=1.0, cadence_unit="month") 
     
     # T1: 10 min touch, 1 occurrence, no errors
-    t1 = Task(active_touch_time_minutes=10.0, occurrences_per_cycle=1)
+    t1 = Task(active_touch_time_minutes=10.0, occurrence=1)
     
     # T2: 5 min touch, 2 occurrences, 1 error (20% prob, 50 min recovery)
-    t2 = Task(active_touch_time_minutes=5.0, occurrences_per_cycle=2)
+    t2 = Task(active_touch_time_minutes=5.0, occurrence=2)
     e1 = TaskError(error_type="Test Error", probability_percent=20.0, recovery_time_minutes=50.0)
     t2.errors = [e1]
     

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Union
 from datetime import datetime
 
 class TaxonomyBase(BaseModel):
@@ -63,7 +63,8 @@ class TaskBase(BaseModel):
     machine_wait_time_minutes: float = 0.0
     automation_time_minutes: float = 0.0
     manual_time_minutes: float = 0.0
-    occurrences_per_cycle: int = 1
+    occurrence: int = 1
+    occurrence_explanation: Optional[str] = None
     
     # Ownership
     owning_team: Optional[str] = None
@@ -82,7 +83,7 @@ class TaskBase(BaseModel):
     validation_procedure: Optional[str] = None
 
     risks_yield_scrap: bool = False
-    tribal_knowledge: Optional[str] = None
+    tribal_knowledge: Optional[Union[str, List[Any]]] = None
     tribal_knowledge_list: Optional[List[Any]] = []
     media: Optional[List[Any]] = None
     reference_links: Optional[List[Any]] = []

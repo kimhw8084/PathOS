@@ -327,7 +327,7 @@ async def seed_data():
                     interface_type=t_data["interface_type"],
                     active_touch_time_minutes=t_data["active_touch"],
                     machine_wait_time_minutes=t_data["machine_wait"],
-                    occurrences_per_cycle=t_data.get("occurrences", 1),
+                    occurrence=t_data.get("occurrences", 1),
                     shadow_it_used=t_data.get("shadow_it_used", False),
                     shadow_it_link=t_data.get("shadow_it_link"),
                     source_data=t_data.get("source_data"),

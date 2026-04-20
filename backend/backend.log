@@ -1002,3 +1002,161 @@ INFO:     Waiting for application startup.
 2026-04-20 09:06:11,651 - PathOS - INFO - Executing background parameter refresh...
 INFO:     Application startup complete.
 2026-04-20 09:06:11,663 - PathOS - INFO - Background parameter refresh complete.
+WARNING:  StatReload detected changes in 'app/schemas/schemas.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-20 09:36:58,364 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [20528]
+Process SpawnProcess-47:
+Traceback (most recent call last):
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/multiprocessing/process.py", line 313, in _bootstrap
+    self.run()
+    ~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/haewonkim/home/development/pathos/backend/venv/lib/python3.13/site-packages/uvicorn/_subprocess.py", line 80, in subprocess_started
+    target(sockets=sockets)
+    ~~~~~~^^^^^^^^^^^^^^^^^
+  File "/Users/haewonkim/home/development/pathos/backend/venv/lib/python3.13/site-packages/uvicorn/server.py", line 75, in run
+    return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "/Users/haewonkim/home/development/pathos/backend/venv/lib/python3.13/site-packages/uvicorn/server.py", line 79, in serve
+    await self._serve(sockets)
+  File "/Users/haewonkim/home/development/pathos/backend/venv/lib/python3.13/site-packages/uvicorn/server.py", line 86, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/Users/haewonkim/home/development/pathos/backend/venv/lib/python3.13/site-packages/uvicorn/config.py", line 441, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/haewonkim/home/development/pathos/backend/venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.5/Frameworks/Python.framework/Versions/3.13/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/Users/haewonkim/home/development/pathos/backend/app/main.py", line 10, in <module>
+    from .api.settings import run_all_parameters
+  File "/Users/haewonkim/home/development/pathos/backend/app/api/settings.py", line 14, in <module>
+    from ..schemas.schemas import SystemParameterUpdate, SystemParameterRead, ParameterLogRead
+  File "/Users/haewonkim/home/development/pathos/backend/app/schemas/schemas.py", line 45, in <module>
+    class TaskBase(BaseModel):
+    ...<43 lines>...
+        order_index: int = 0
+  File "/Users/haewonkim/home/development/pathos/backend/app/schemas/schemas.py", line 85, in TaskBase
+    tribal_knowledge: Optional[Union[str, List[Any]]] = None
+                               ^^^^^
+NameError: name 'Union' is not defined
+WARNING:  StatReload detected changes in 'app/schemas/schemas.py'. Reloading...
+INFO:     Started server process [66389]
+INFO:     Waiting for application startup.
+2026-04-20 09:37:07,564 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-20 09:37:07,568 - PathOS - INFO - Database initialized successfully.
+2026-04-20 09:37:07,568 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-20 09:37:07,581 - PathOS - INFO - Background parameter refresh complete.
+WARNING:  StatReload detected changes in 'app/models/models.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-20 09:41:34,149 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [66389]
+INFO:     Started server process [73625]
+INFO:     Waiting for application startup.
+2026-04-20 09:41:34,555 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-20 09:41:34,557 - PathOS - INFO - Database initialized successfully.
+2026-04-20 09:41:34,557 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-20 09:41:34,570 - PathOS - INFO - Background parameter refresh complete.
+WARNING:  StatReload detected changes in 'app/models/models.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-20 09:50:12,860 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [73625]
+INFO:     Started server process [86470]
+INFO:     Waiting for application startup.
+2026-04-20 09:50:13,253 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-20 09:50:13,255 - PathOS - INFO - Database initialized successfully.
+2026-04-20 09:50:13,255 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-20 09:50:13,267 - PathOS - INFO - Background parameter refresh complete.
+WARNING:  StatReload detected changes in 'app/schemas/schemas.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-20 09:50:16,007 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [86470]
+INFO:     Started server process [86507]
+INFO:     Waiting for application startup.
+2026-04-20 09:50:16,309 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-20 09:50:16,311 - PathOS - INFO - Database initialized successfully.
+2026-04-20 09:50:16,311 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-20 09:50:16,324 - PathOS - INFO - Background parameter refresh complete.
+WARNING:  StatReload detected changes in 'app/core/metrics.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-20 09:50:27,016 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [86507]
+INFO:     Started server process [86809]
+INFO:     Waiting for application startup.
+2026-04-20 09:50:27,319 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-20 09:50:27,321 - PathOS - INFO - Database initialized successfully.
+2026-04-20 09:50:27,321 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-20 09:50:27,332 - PathOS - INFO - Background parameter refresh complete.
+WARNING:  StatReload detected changes in 'seed.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-20 09:50:51,962 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [86809]
+INFO:     Started server process [87398]
+INFO:     Waiting for application startup.
+2026-04-20 09:50:52,375 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-20 09:50:52,377 - PathOS - INFO - Database initialized successfully.
+2026-04-20 09:50:52,377 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-20 09:50:52,390 - PathOS - INFO - Background parameter refresh complete.
+WARNING:  StatReload detected changes in 'tests/test_roi.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-20 09:50:55,341 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [87398]
+INFO:     Started server process [87444]
+INFO:     Waiting for application startup.
+2026-04-20 09:50:55,635 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-20 09:50:55,637 - PathOS - INFO - Database initialized successfully.
+2026-04-20 09:50:55,637 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-20 09:50:55,650 - PathOS - INFO - Background parameter refresh complete.
+WARNING:  StatReload detected changes in 'tests/test_roi.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-04-20 09:51:02,358 - PathOS - INFO - Shutting down PathOS Backend...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [87444]
+INFO:     Started server process [87657]
+INFO:     Waiting for application startup.
+2026-04-20 09:51:02,665 - PathOS - INFO - Initializing PathOS Backend...
+2026-04-20 09:51:02,666 - PathOS - INFO - Database initialized successfully.
+2026-04-20 09:51:02,667 - PathOS - INFO - Executing background parameter refresh...
+INFO:     Application startup complete.
+2026-04-20 09:51:02,680 - PathOS - INFO - Background parameter refresh complete.

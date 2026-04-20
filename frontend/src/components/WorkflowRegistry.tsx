@@ -292,8 +292,8 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
   const [isFilterBarOpen, setFilterBarOpen] = useState(false);
 
   const calculateAnalytics = (wf: any) => {
-    const totalManual = wf.tasks?.reduce((acc: number, t: any) => acc + (t.manual_time_minutes || 0) * (t.occurrences_per_cycle || 1), 0) || 0;
-    const totalAuto = wf.tasks?.reduce((acc: number, t: any) => acc + (t.automation_time_minutes || 0) * (t.occurrences_per_cycle || 1), 0) || 0;
+    const totalManual = wf.tasks?.reduce((acc: number, t: any) => acc + (t.manual_time_minutes || 0) * (t.occurrence || 1), 0) || 0;
+    const totalAuto = wf.tasks?.reduce((acc: number, t: any) => acc + (t.automation_time_minutes || 0) * (t.occurrence || 1), 0) || 0;
     const cadenceMult = wf.cadence_unit === 'day' ? 7 : wf.cadence_unit === 'month' ? 0.25 : 1;
     const frequencyPerWeek = (wf.cadence_count || 1) * cadenceMult;
     

@@ -32,6 +32,8 @@ import {
   Plus, 
   Paperclip,
   ChevronLeft,
+  ChevronRight,
+  Brain,
   Settings,
   Trash,
   Link2,
@@ -133,8 +135,8 @@ interface TaskEntity {
   manual_time_minutes: number;
   automation_time_minutes: number;
   machine_wait_time_minutes: number;
-  occurrences_per_cycle: number;
-  occurrence_condition?: string;
+  occurrence: number;
+  occurrence_explanation?: string;
   owning_team?: string;
   owner_positions?: string[];
   source_data_list: SourceData[];
@@ -184,6 +186,20 @@ interface WorkflowBuilderProps {
 }
 
 // --- CUSTOM NODES & EDGES ---
+
+const CollapsibleSection: React.FC<{ title: string; count: number; isOpen: boolean; onToggle: () => void; children: React.ReactNode; icon?: React.ReactNode }> = ({ title, count, isOpen, onToggle, children, icon }) => (
+  <div className="space-y-4">
+    <button onClick={onToggle} className="w-full flex items-center justify-between px-1 group">
+      <div className="flex items-center gap-2">
+        {icon}
+        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest group-hover:text-white transition-colors cursor-pointer">{title}</label>
+        <span className="bg-white/5 border border-white/10 rounded-full px-2 py-0.5 text-[9px] font-black text-white/20">{count}</span>
+      </div>
+      <ChevronRight size={14} className={cn("text-white/20 transition-transform duration-300", isOpen && "rotate-90 text-theme-accent")} />
+    </button>
+    {isOpen && <div className="animate-apple-in">{children}</div>}
+  </div>
+);
 
 const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
   const typeColors: Record<string, string> = {
@@ -246,6 +262,11 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
             {data.task_type || 'GENERAL'}
           </div>
           <div className="flex items-center gap-2">
+            {data.occurrence > 1 && (
+              <div className="flex items-center gap-1.5 bg-blue-500 text-white px-2 py-1 rounded-md text-[10px] font-black shadow-lg shadow-blue-500/20">
+                <RefreshCw size={11} /> x{data.occurrence}
+              </div>
+            )}
             {data.blockerCount > 0 && (
               <div className="flex items-center gap-1.5 bg-amber-500 text-white px-2.5 py-1 rounded-md text-[11px] font-black shadow-lg shadow-amber-500/20">
                 <AlertCircle size={12} /> {data.blockerCount}
@@ -271,51 +292,56 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
              <p className="text-[11px] font-black text-white uppercase mb-1">{data.label}</p>
              <p className="text-[10px] text-white/60 font-medium leading-relaxed italic line-clamp-4">{data.description || 'No description provided.'}</p>
           </div>
+        </div>
 
-          <div className="flex flex-wrap gap-1 items-center min-h-[16px]">
+        <div className="flex flex-col gap-1.5 mt-auto">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-black/40 rounded-lg p-2.5 border border-white/5 flex flex-col items-center justify-center">
+               <span className="text-[7px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-0.5">Manual</span>
+               <span className="text-[18px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
+            </div>
+            <div className="bg-black/40 rounded-lg p-2.5 border border-white/5 flex flex-col items-center justify-center">
+               <span className="text-[7px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-0.5">Machine</span>
+               <span className="text-[18px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between py-1.5 border-t border-white/5">
+             <div className="flex items-center gap-3">
+               <div className="flex flex-col">
+                 <span className="text-[7px] font-black text-white/20 uppercase tracking-widest">In</span>
+                 <span className="text-[11px] font-black text-white">{data.sourceCount || 0}</span>
+               </div>
+               <div className="flex flex-col">
+                 <span className="text-[7px] font-black text-white/20 uppercase tracking-widest">Out</span>
+                 <span className="text-[11px] font-black text-white">{data.outputCount || 0}</span>
+               </div>
+             </div>
+             
+             <div className="text-right flex flex-col items-end">
+                <div className="flex items-center gap-1.5">
+                   <span className="text-[9px] font-black text-white/60 uppercase truncate max-w-[80px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
+                   {(data.ownerPositions || []).length > 1 && (
+                     <span className="text-[8px] font-black text-theme-accent">+{(data.ownerPositions || []).length - 1}</span>
+                   )}
+                </div>
+                {data.owningTeam && (
+                  <span className="text-[8px] font-black text-theme-accent/60 uppercase tracking-widest leading-none mt-0.5">{data.owningTeam}</span>
+                )}
+             </div>
+          </div>
+
+          <div className="flex flex-wrap gap-1 items-center pt-1.5 border-t border-white/5 min-h-[16px]">
              {visibleSystemBadges.map((s: string, i: number) => (
-               <span key={i} className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[8px] font-bold text-white/40 uppercase">{s}</span>
+               <span key={i} className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[7px] font-bold text-white/40 uppercase">{s}</span>
              ))}
              {hiddenSystemsCount > 0 && (
-               <span className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[8px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
+               <span className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[7px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
+             )}
+             {systemBadges.length === 0 && (
+               <span className="text-[7px] font-black text-white/10 uppercase tracking-widest">No Systems</span>
              )}
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 mt-auto">
-          <div className="bg-black/40 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center">
-             <span className="text-[7px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-0.5">Manual</span>
-             <span className="text-[20px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
-          </div>
-          <div className="bg-black/40 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center">
-             <span className="text-[7px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-0.5">Machine</span>
-             <span className="text-[20px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between pt-2 border-t border-white/5">
-           <div className="flex items-center gap-3">
-             <div className="flex flex-col">
-               <span className="text-[7px] font-black text-white/20 uppercase tracking-widest">In</span>
-               <span className="text-[12px] font-black text-white">{data.sourceCount || 0}</span>
-             </div>
-             <div className="flex flex-col">
-               <span className="text-[7px] font-black text-white/20 uppercase tracking-widest">Out</span>
-               <span className="text-[12px] font-black text-white">{data.outputCount || 0}</span>
-             </div>
-           </div>
-           
-           <div className="text-right flex flex-col items-end">
-              <div className="flex items-center gap-1.5">
-                 <span className="text-[9px] font-black text-white/60 uppercase truncate max-w-[80px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
-                 {(data.ownerPositions || []).length > 1 && (
-                   <span className="text-[8px] font-black text-theme-accent">+{(data.ownerPositions || []).length - 1}</span>
-                 )}
-              </div>
-              {data.owningTeam && (
-                <span className="text-[8px] font-black text-theme-accent/60 uppercase tracking-widest leading-none mt-0.5">{data.owningTeam}</span>
-              )}
-           </div>
         </div>
       </div>
       
@@ -468,6 +494,17 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const [clipboard, setClipboard] = useState<TaskEntity | null>(null);
   const [baseFontSize, setBaseFontSize] = useState(14);
   const [showFontSettings, setShowFontSettings] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    inputs: true,
+    outputs: true,
+    blockers: true,
+    errors: true,
+    tribal: true
+  });
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
   
   const [isAppendixFocused, setIsAppendixFocused] = useState(false);
   const [metadata, setMetadata] = useState<WorkflowMetadata>({
@@ -506,7 +543,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       tribal_knowledge: t.tribal_knowledge || [],
       active_touch_time_minutes: t.active_touch_time_minutes || 0,
       machine_wait_time_minutes: t.machine_wait_time_minutes || 0,
-      occurrences_per_cycle: t.occurrences_per_cycle || 1,
+      occurrence: t.occurrence || t.occurrences_per_cycle || 1,
+      occurrence_explanation: t.occurrence_explanation || t.occurrence_condition || '',
       automation_time_minutes: t.automation_time_minutes || 0,
       manual_time_minutes: t.manual_time_minutes || 0,
       validation_needed: t.validation_needed || false,
@@ -537,7 +575,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         manual_time_minutes: 0,
         automation_time_minutes: 0,
         machine_wait_time_minutes: 0,
-        occurrences_per_cycle: 1,
+        occurrence: 1,
+        occurrence_explanation: '',
         source_data_list: [],
         output_data_list: [],
         verification_steps: [],
@@ -567,7 +606,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         manual_time_minutes: 0,
         automation_time_minutes: 0,
         machine_wait_time_minutes: 0,
-        occurrences_per_cycle: 1,
+        occurrence: 1,
+        occurrence_explanation: '',
         source_data_list: [],
         output_data_list: [],
         verification_steps: [],
@@ -598,6 +638,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         task_type: t.task_type,
         manual_time: t.manual_time_minutes,
         automation_time: t.automation_time_minutes,
+        occurrence: t.occurrence,
         systems: t.target_systems.map(s => s.name).join(', '),
         owningTeam: t.owning_team,
         ownerPositions: t.owner_positions,
@@ -712,14 +753,25 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           const newNode: Node = {
             id,
             type: clipboard.interface_type === 'CONDITION' ? 'diamond' : 'matrix',
-            position: { x: center.x - 160, y: center.y - 125 },
-            data: { 
+            position: { x: center.x - 170, y: center.y - 140 },
+            data: {
               ...clipboard,
               label: clipboard.name,
-              interface: undefined // Clear interface if any
+              task_type: clipboard.task_type,
+              manual_time: clipboard.manual_time_minutes,
+              automation_time: clipboard.automation_time_minutes,
+              occurrence: clipboard.occurrence,
+              systems: clipboard.target_systems.map(s => s.name).join(', '),
+              owningTeam: clipboard.owning_team,
+              ownerPositions: clipboard.owner_positions,
+              sourceCount: clipboard.source_data_list.length,
+              outputCount: clipboard.output_data_list.length,
+              validation_needed: clipboard.validation_needed,
+              blockerCount: clipboard.blockers.length,
+              errorCount: clipboard.errors.length,
+              interface: undefined 
             },
-          };
-          const newTask: TaskEntity = {
+          };          const newTask: TaskEntity = {
             ...clipboard,
             id,
             interface: undefined,
@@ -828,7 +880,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       manual_time_minutes: 0,
       automation_time_minutes: 0,
       machine_wait_time_minutes: 0,
-      occurrences_per_cycle: 1,
+      occurrence: 1,
+      occurrence_explanation: '',
       source_data_list: [],
       output_data_list: [],
       verification_steps: [],
@@ -892,18 +945,18 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     dagreGraph.setDefaultEdgeLabel(() => ({}));
     dagreGraph.setGraph({ 
       rankdir: 'LR', 
-      ranker: 'tight-tree', 
-      ranksep: 180, 
-      nodesep: 120,
-      edgesep: 50
+      ranker: 'network-simplex', 
+      ranksep: 220, 
+      nodesep: 150,
+      edgesep: 80
     });
 
     nds.forEach((n) => {
       const isDiamond = n.type === 'diamond';
       const isTemplate = n.data.interface === 'TRIGGER' || n.data.interface === 'OUTCOME';
       dagreGraph.setNode(n.id, { 
-        width: isDiamond ? 250 : 320, 
-        height: isTemplate ? 100 : 250 
+        width: isDiamond ? 280 : 340, 
+        height: isTemplate ? 120 : 280 
       });
     });
     
@@ -919,13 +972,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       return { 
         ...n, 
         position: { 
-          x: nodeWithPos.x - (isDiamond ? 125 : 160), 
-          y: nodeWithPos.y - (isTemplate ? 50 : 125) 
+          x: nodeWithPos.x - (isDiamond ? 140 : 170), 
+          y: nodeWithPos.y - (isTemplate ? 60 : 140) 
         } 
       };
     });
 
-    // Smart Handle Assignment to avoid tangled lines
+    // Enhanced Handle Assignment for Complex Topologies
     const layoutedEdges = eds.map(e => {
       const sourceNode = layoutedNodes.find(n => n.id === e.source);
       const targetNode = layoutedNodes.find(n => n.id === e.target);
@@ -938,7 +991,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       const dx = targetNode.position.x - sourceNode.position.x;
       const dy = targetNode.position.y - sourceNode.position.y;
 
-      if (Math.abs(dx) > Math.abs(dy)) {
+      if (Math.abs(dx) > Math.abs(dy) * 1.5) {
         if (dx > 0) {
           sourceHandle = 'right-source';
           targetHandle = 'left-target';
@@ -1284,15 +1337,27 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Task Type</label>
-                          <select className="w-full bg-[#1e293b] border border-white/10 rounded-md px-4 h-[52px] text-[11px] font-black text-white outline-none focus:border-theme-accent appearance-none text-center" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId as string, { task_type: e.target.value })}>
+                          <select className="w-full bg-[#1e293b] border border-white/10 rounded-md px-4 h-[52px] text-[15px] font-black text-white outline-none focus:border-theme-accent appearance-none text-center" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId as string, { task_type: e.target.value })}>
                             {taskTypes.map((t: string) => <option key={t} value={t}>{t}</option>)}
                           </select>
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Repetition</label>
-                          <input type="number" min="1" className="w-full bg-white/5 border border-white/10 rounded-md px-4 h-[52px] text-[22px] font-black text-white text-center outline-none focus:border-theme-accent shadow-inner" value={selectedTask.occurrences_per_cycle} onChange={e => updateTask(selectedTaskId as string, { occurrences_per_cycle: Math.max(1, Math.round(parseInt(e.target.value)) || 1) })} />
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Occurrence</label>
+                          <input type="number" min="1" className="w-full bg-white/5 border border-white/10 rounded-md px-4 h-[52px] text-[22px] font-black text-white text-center outline-none focus:border-theme-accent shadow-inner" value={selectedTask.occurrence} onChange={e => updateTask(selectedTaskId as string, { occurrence: Math.max(1, Math.round(parseInt(e.target.value)) || 1) })} />
                         </div>
                       </div>
+
+                      {selectedTask.occurrence > 1 && (
+                        <div className="space-y-2 animate-apple-in">
+                          <label className="text-[10px] font-black text-theme-accent uppercase tracking-widest px-1">Occurrence Logic / Explanation</label>
+                          <textarea 
+                            className="w-full bg-theme-accent/5 border border-theme-accent/20 rounded-md px-4 py-3 text-[12px] font-medium text-white outline-none focus:border-theme-accent h-20 resize-none leading-relaxed" 
+                            placeholder="Why does this task repeat? (e.g., Per wafer, per batch, per tool...)" 
+                            value={selectedTask.occurrence_explanation || ''} 
+                            onChange={e => updateTask(selectedTaskId as string, { occurrence_explanation: e.target.value })} 
+                          />
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-md">
                         <div className="space-y-3">
@@ -1541,28 +1606,35 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                         </div>
                       </div>
 
-                      <div className="space-y-6">
-                        <div className="flex items-center justify-between px-1">
-                          <label className="text-[11px] font-black text-white uppercase tracking-widest">Tribal Knowledge & Implicit Rules</label>
-                          <button onClick={() => updateTask(selectedTaskId as string, { tribal_knowledge: [...selectedTask.tribal_knowledge, { id: Date.now().toString(), knowledge: '', captured_from: '' }] })} className="bg-white/10 hover:bg-white/20 text-white p-1.5 rounded-md transition-colors"><Plus size={14} /></button>
-                        </div>
-                        <div className="space-y-4">
-                          {selectedTask.tribal_knowledge.map((tk, idx) => (
-                            <div key={tk.id} className="p-5 bg-[#0f172a]/80 border border-white/10 rounded-md space-y-4 relative group animate-apple-in">
-                              <span className="text-[10px] font-black text-white/20 absolute top-5 left-5">{idx + 1}.</span>
-                              <button onClick={() => updateTask(selectedTaskId as string, { tribal_knowledge: selectedTask.tribal_knowledge.filter(x => x.id !== tk.id) })} className="absolute top-5 right-5 text-white/10 hover:text-status-error transition-colors"><Trash size={14} /></button>
-                              <div className="space-y-2 pt-2">
-                                <label className="text-[8px] font-black text-white/20 uppercase">Operational Insight</label>
-                                <textarea className="w-full bg-transparent text-[13px] font-medium text-white outline-none h-24 resize-none leading-relaxed" value={tk.knowledge} onChange={e => updateTask(selectedTaskId as string, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, knowledge: e.target.value } : x) })} placeholder="Implicit knowledge or domain expertise tips..." />
+                      <CollapsibleSection 
+                        title="Tribal Knowledge & Implicit Rules" 
+                        count={selectedTask.tribal_knowledge.length} 
+                        isOpen={expandedSections.tribal} 
+                        onToggle={() => toggleSection('tribal')}
+                        icon={<Brain size={12} className="text-purple-400" />}
+                      >
+                        <div className="space-y-6 pt-2">
+                          <div className="flex justify-end px-1">
+                            <button onClick={() => updateTask(selectedTaskId as string, { tribal_knowledge: [...selectedTask.tribal_knowledge, { id: Date.now().toString(), knowledge: '', captured_from: '' }] })} className="bg-white/10 hover:bg-white/20 text-white p-1.5 rounded-md transition-colors"><Plus size={14} /></button>
+                          </div>
+                          <div className="space-y-4">
+                            {selectedTask.tribal_knowledge.map((tk, idx) => (
+                              <div key={tk.id} className="p-5 bg-[#0f172a]/80 border border-white/10 rounded-md space-y-4 relative group animate-apple-in">
+                                <span className="text-[10px] font-black text-white/20 absolute top-5 left-5">{idx + 1}.</span>
+                                <button onClick={() => updateTask(selectedTaskId as string, { tribal_knowledge: selectedTask.tribal_knowledge.filter(x => x.id !== tk.id) })} className="absolute top-5 right-5 text-white/10 hover:text-status-error transition-colors"><Trash size={14} /></button>
+                                <div className="space-y-2 pt-2">
+                                  <label className="text-[8px] font-black text-white/20 uppercase">Operational Insight</label>
+                                  <textarea className="w-full bg-transparent text-[13px] font-medium text-white outline-none h-24 resize-none leading-relaxed" value={tk.knowledge} onChange={e => updateTask(selectedTaskId as string, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, knowledge: e.target.value } : x) })} placeholder="Implicit knowledge or domain expertise tips..." />
+                                </div>
+                                <div className="flex items-center gap-3 border-t border-white/5 pt-3">
+                                  <label className="text-[8px] font-black text-white/20 uppercase whitespace-nowrap">Source POC:</label>
+                                  <input className="bg-transparent text-[11px] font-black text-white outline-none w-full uppercase" placeholder="NAME / DEPARTMENT" value={tk.captured_from} onChange={e => updateTask(selectedTaskId as string, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, captured_from: e.target.value } : x) })} />
+                                </div>
                               </div>
-                              <div className="flex items-center gap-3 border-t border-white/5 pt-3">
-                                <label className="text-[8px] font-black text-white/20 uppercase whitespace-nowrap">Source POC:</label>
-                                <input className="bg-transparent text-[11px] font-black text-white outline-none w-full uppercase" placeholder="NAME / DEPARTMENT" value={tk.captured_from} onChange={e => updateTask(selectedTaskId as string, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, captured_from: e.target.value } : x) })} />
-                              </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      </CollapsibleSection>
                     </div>
                   )}
 
@@ -1790,17 +1862,17 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                       <div className="space-y-2">
                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Tool Family</label>
                          {isEditingMetadata ? (
-                           <input className="w-full bg-[#1e293b] border border-white/10 rounded-md px-4 h-[44px] text-[11px] font-black text-white outline-none" value={metadata.tool_family} onChange={e => { setMetadata({...metadata, tool_family: e.target.value}); setIsDirty?.(true); }} />
+                           <input className="w-full bg-[#1e293b] border border-white/10 rounded-md px-4 h-[44px] text-[11px] font-black text-white outline-none focus:border-theme-accent" value={metadata.tool_family} onChange={e => { setMetadata({...metadata, tool_family: e.target.value}); setIsDirty?.(true); }} />
                          ) : (
-                           <div className="bg-white/5 border border-white/5 rounded-md px-4 py-2.5 text-[12px] font-black text-white uppercase">{metadata.tool_family || 'N/A'}</div>
+                           <div className="bg-white/5 border border-white/5 rounded-md px-4 h-[44px] flex items-center text-[12px] font-black text-white uppercase">{metadata.tool_family || 'N/A'}</div>
                          )}
                       </div>
                       <div className="space-y-2">
                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Applicable Tools</label>
                          {isEditingMetadata ? (
-                           <input className="w-full bg-[#1e293b] border border-white/10 rounded-md px-4 h-[44px] text-[11px] font-black text-white outline-none" value={metadata.tool_id} onChange={e => { setMetadata({...metadata, tool_id: e.target.value}); setIsDirty?.(true); }} />
+                           <input className="w-full bg-[#1e293b] border border-white/10 rounded-md px-4 h-[44px] text-[11px] font-black text-white outline-none focus:border-theme-accent" value={metadata.tool_id} onChange={e => { setMetadata({...metadata, tool_id: e.target.value}); setIsDirty?.(true); }} />
                          ) : (
-                           <div className="relative group/tooltip flex items-center bg-white/5 border border-white/5 rounded-md px-4 py-2.5 h-[44px] cursor-help">
+                           <div className="relative group/tooltip flex items-center bg-white/5 border border-white/5 rounded-md px-4 h-[44px] cursor-help">
                               <span className="text-[12px] font-black text-white uppercase truncate">{(metadata.tool_id || '').split(', ')[0] || 'No Tool'}</span>
                               {(metadata.tool_id || '').split(', ').filter(Boolean).length > 1 && (
                                 <span className="ml-2 px-1.5 py-0.5 bg-theme-accent/20 text-theme-accent text-[9px] font-black rounded-sm">+{(metadata.tool_id || '').split(', ').filter(Boolean).length - 1}</span>
@@ -1820,11 +1892,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                    </div>
 
                    <div className="space-y-2">
-                      <label className="text-[9px] font-black text-white/40 uppercase px-1">Description</label>
+                      <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Description</label>
                       {isEditingMetadata ? (
                         <textarea className="w-full bg-[#1e293b] border border-white/10 rounded-md p-4 text-[11px] font-medium text-white/80 leading-relaxed h-24 resize-none outline-none focus:border-theme-accent" placeholder="Provide a deep technical summary of the process lifecycle..." value={metadata.description} onChange={e => { setMetadata({...metadata, description: e.target.value}); setIsDirty?.(true); }} />
                       ) : (
-                        <p className="bg-white/[0.02] border border-white/5 rounded-md p-4 text-[11px] font-medium text-white/60 leading-relaxed italic">{metadata.description || 'No description provided.'}</p>
+                        <p className="bg-white/[0.02] border border-white/5 rounded-md p-4 text-[11px] font-medium text-white/60 leading-relaxed italic min-h-[60px]">{metadata.description || 'No description provided.'}</p>
                       )}
                    </div>
                 </div>
