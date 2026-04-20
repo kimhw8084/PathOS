@@ -133,6 +133,8 @@ interface TaskEntity {
   machine_wait_time_minutes: number;
   occurrences_per_cycle: number;
   occurrence_condition?: string;
+  owning_team?: string;
+  owner_positions?: string[];
   source_data_list: SourceData[];
   output_data_list: OutputData[];
   verification_steps: VerificationStep[];
@@ -173,7 +175,7 @@ interface WorkflowBuilderProps {
   workflow: any;
   taxonomy: any[];
   onSave: (data: any) => void;
-  onBack: () => void;
+  onBack: (data?: any) => void;
   onExit: () => void;
   isDirty?: boolean;
   setIsDirty?: (v: boolean) => void;
@@ -197,88 +199,111 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
   const isOutcome = data.interface === 'OUTCOME';
   const isTemplate = isTrigger || isOutcome;
   const baseFontSize = data.baseFontSize || 14;
+  const titleFontSize = Math.max(24, baseFontSize + 10);
 
-  return (
-    <div className={cn(
-      "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 w-[320px] shadow-2xl transition-all duration-300 group relative border-2",
-      isTemplate ? "h-[160px]" : "h-[250px]",
-      selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTemplate ? 'border-dashed opacity-80 hover:opacity-100' : 'border-white/10 hover:border-white/20'),
-      isTemplate && !selected && (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
-      data.validation_needed && !isTemplate && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
-    )}>
-      {isTemplate && (
+  if (isTemplate) {
+    return (
+      <div className={cn(
+        "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 shadow-2xl transition-all duration-300 group relative border-2 flex items-center justify-center min-w-[160px]",
+        selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
+      )}>
         <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded-sm text-[7px] font-black uppercase tracking-[0.2em] border z-20", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
           SYSTEM BOUNDARY
         </div>
-      )}
-      {data.validation_needed && !isTemplate && (
+        <h4 
+          className="font-black text-white tracking-tighter leading-tight uppercase text-center"
+          style={{ fontSize: `${titleFontSize}px` }}
+        >
+          {data.label || (isTrigger ? "TRIGGER" : "OUTCOME")}
+        </h4>
+        
+        <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl z-10" />
+        <Handle type="source" position={Position.Right} id="right-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl z-10" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn(
+      "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 w-[320px] shadow-2xl transition-all duration-300 group relative border-2 h-[250px]",
+      selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : 'border-white/10 hover:border-white/20',
+      data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
+    )}>
+      {data.validation_needed && (
         <div className="absolute -top-3 right-4 px-2 py-0.5 rounded-sm text-[7px] font-black uppercase tracking-[0.2em] bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
           VALIDATION REQUIRED
         </div>
       )}
-      <div className="flex flex-col gap-4 h-full">
+      <div className="flex flex-col gap-3 h-full">
         <div className="flex items-center justify-between">
           <div className={cn("px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest border", typeColor)}>
             {data.task_type || 'GENERAL'}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
             {data.blockerCount > 0 && (
-              <div className="flex items-center gap-2.5 bg-status-warning text-white px-4 py-1.5 rounded-full text-[14px] font-black shadow-lg shadow-status-warning/30 scale-110 origin-right ml-2">
-                <AlertCircle size={16} /> {data.blockerCount}
+              <div className="flex items-center gap-1 bg-status-warning text-white px-2 py-0.5 rounded text-[10px] font-black">
+                <AlertCircle size={10} /> {data.blockerCount}
               </div>
             )}
             {data.errorCount > 0 && (
-              <div className="flex items-center gap-2.5 bg-status-error text-white px-4 py-1.5 rounded-full text-[14px] font-black shadow-lg shadow-status-error/30 scale-110 origin-right">
-                <X size={16} /> {data.errorCount}
+              <div className="flex items-center gap-1 bg-status-error text-white px-2 py-0.5 rounded text-[10px] font-black">
+                <X size={10} /> {data.errorCount}
               </div>
             )}
           </div>
         </div>
         
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <h4 
             className="font-bold text-white tracking-tight leading-tight group-hover:text-theme-accent transition-colors truncate"
-            style={{ fontSize: `${baseFontSize + 2}px` }}
+            style={{ fontSize: `${titleFontSize}px` }}
           >
             {data.label || "Untitled Task"}
           </h4>
-          <div className="flex items-center gap-2 pt-1">
-             <span className="text-[9px] font-black text-white/20 tracking-widest truncate">{data.systems || 'no interface defined'}</span>
-             {isTemplate && data.prc && (
-               <span className="text-[9px] font-black text-theme-accent/60 tracking-widest truncate ml-auto">PRC: {data.prc}</span>
+          <div className="flex flex-wrap gap-1 items-center">
+             {data.owningTeam && (
+               <span className="text-[9px] font-black text-theme-accent uppercase tracking-widest">{data.owningTeam}</span>
+             )}
+             {data.owningTeam && data.systems && <span className="text-[9px] text-white/10">•</span>}
+             {data.systems && (
+               <div className="flex flex-wrap gap-1">
+                 {data.systems.split(', ').map((s: string, i: number) => (
+                   <span key={i} className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[8px] font-bold text-white/40 uppercase">{s}</span>
+                 ))}
+               </div>
              )}
           </div>
         </div>
 
-        {!isTemplate && (
-          <div className="grid grid-cols-2 gap-3 pt-2 mt-auto">
-            <div className="bg-black/40 rounded-lg p-4 border border-white/5 flex flex-col items-center justify-center text-center">
-               <span className="text-[7px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-1">Manual (Min)</span>
-               <span className="text-[28px] font-black text-white leading-none tracking-tighter">{(data.manual_time || 0).toFixed(0)}</span>
-            </div>
-            <div className="bg-black/40 rounded-lg p-4 border border-white/5 flex flex-col items-center justify-center text-center">
-               <span className="text-[7px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-1">Machine (Min)</span>
-               <span className="text-[28px] font-black text-white leading-none tracking-tighter">{(data.automation_time || 0).toFixed(0)}</span>
-            </div>
+        <div className="grid grid-cols-2 gap-2 mt-auto">
+          <div className="bg-black/40 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center">
+             <span className="text-[7px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-0.5">Manual</span>
+             <span className="text-[20px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
           </div>
-        )}
+          <div className="bg-black/40 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center">
+             <span className="text-[7px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-0.5">Machine</span>
+             <span className="text-[20px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
+          </div>
+        </div>
 
-        {isTemplate && (
-          <div className="pt-1 mt-auto overflow-hidden">
-             <p 
-               className="text-white/40 font-bold tracking-tight line-clamp-2 italic leading-snug"
-               style={{ fontSize: `${baseFontSize - 2}px` }}
-             >
-               {data.description || 'No description provided.'}
-             </p>
-             {data.tool_family && (
-               <div className="mt-2 flex items-center gap-2 opacity-60">
-                 <div className="px-1.5 py-0.5 rounded-[2px] bg-white/10 text-[8px] font-black text-white uppercase">{data.tool_family}</div>
-                 {data.workflow_type && <div className="px-1.5 py-0.5 rounded-[2px] bg-white/5 text-[8px] font-black text-white/60 uppercase">{data.workflow_type}</div>}
-               </div>
-             )}
-          </div>
-        )}
+        <div className="flex items-center justify-between pt-2 border-t border-white/5">
+           <div className="flex items-center gap-3">
+             <div className="flex flex-col">
+               <span className="text-[7px] font-black text-white/20 uppercase tracking-widest">Input</span>
+               <span className="text-[12px] font-black text-white">{data.sourceCount || 0}</span>
+             </div>
+             <div className="flex flex-col">
+               <span className="text-[7px] font-black text-white/20 uppercase tracking-widest">Output</span>
+               <span className="text-[12px] font-black text-white">{data.outputCount || 0}</span>
+             </div>
+           </div>
+           {data.ownerPositions && data.ownerPositions.length > 0 && (
+             <div className="text-right">
+               <span className="text-[7px] font-black text-white/20 uppercase tracking-widest block">Owner</span>
+               <span className="text-[9px] font-black text-white/60 uppercase truncate max-w-[100px] block">{data.ownerPositions[0]}</span>
+             </div>
+           )}
+        </div>
       </div>
       
       <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-transform z-10" />
@@ -560,6 +585,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         manual_time: t.manual_time_minutes,
         automation_time: t.automation_time_minutes,
         systems: t.target_systems.map(s => s.name).join(', '),
+        owningTeam: t.owning_team,
+        ownerPositions: t.owner_positions,
+        sourceCount: t.source_data_list.length,
+        outputCount: t.output_data_list.length,
         interface: t.interface,
         validation_needed: t.validation_needed,
         blockerCount: t.blockers.length,
@@ -711,6 +740,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             manual_time: updated.manual_time_minutes,
             automation_time: updated.automation_time_minutes,
             systems: updated.target_systems.map(s => s.name).join(', '),
+            owningTeam: updated.owning_team,
+            ownerPositions: updated.owner_positions,
+            sourceCount: updated.source_data_list.length,
+            outputCount: updated.output_data_list.length,
             validation_needed: updated.validation_needed,
             blockerCount: updated.blockers.length,
             errorCount: updated.errors.length,
@@ -816,7 +849,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     const eds = edgesToLayout || edges;
 
     if (nds.length === 0 && tasks.length > 0) {
-      // Emergency reconstruction if nodes state was lost but tasks exist
       nds = tasks.map(t => ({
         id: t.id,
         type: t.interface_type === 'CONDITION' ? 'diamond' : 'matrix',
@@ -827,6 +859,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           manual_time: t.manual_time_minutes,
           automation_time: t.automation_time_minutes,
           systems: t.target_systems.map(s => s.name).join(', '),
+          owningTeam: t.owning_team,
+          ownerPositions: t.owner_positions,
+          sourceCount: t.source_data_list.length,
+          outputCount: t.output_data_list.length,
           interface: t.interface,
           validation_needed: t.validation_needed,
           blockerCount: t.blockers.length,
@@ -840,13 +876,23 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
-    dagreGraph.setGraph({ rankdir: 'LR', ranker: 'network-simplex', ranksep: 200, nodesep: 150 });
+    dagreGraph.setGraph({ 
+      rankdir: 'LR', 
+      ranker: 'tight-tree', 
+      ranksep: 100, 
+      nodesep: 50,
+      edgesep: 20
+    });
 
     nds.forEach((n) => {
       const isDiamond = n.type === 'diamond';
-      // Use dimensions that match our custom nodes
-      dagreGraph.setNode(n.id, { width: isDiamond ? 250 : 320, height: 250 });
+      const isTemplate = n.data.interface === 'TRIGGER' || n.data.interface === 'OUTCOME';
+      dagreGraph.setNode(n.id, { 
+        width: isDiamond ? 250 : 320, 
+        height: isTemplate ? 100 : 250 
+      });
     });
+    
     eds.forEach((e) => dagreGraph.setEdge(e.source, e.target));
 
     dagre.layout(dagreGraph);
@@ -855,24 +901,64 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       const nodeWithPos = dagreGraph.node(n.id);
       if (!nodeWithPos) return n;
       const isDiamond = n.type === 'diamond';
-      // dagre x,y is the center, so we subtract half width/height to get top-left
+      const isTemplate = n.data.interface === 'TRIGGER' || n.data.interface === 'OUTCOME';
       return { 
         ...n, 
         position: { 
           x: nodeWithPos.x - (isDiamond ? 125 : 160), 
-          y: nodeWithPos.y - 125 
+          y: nodeWithPos.y - (isTemplate ? 50 : 125) 
         } 
       };
     });
 
+    // Smart Handle Assignment to avoid tangled lines
+    const layoutedEdges = eds.map(e => {
+      const sourceNode = layoutedNodes.find(n => n.id === e.source);
+      const targetNode = layoutedNodes.find(n => n.id === e.target);
+      
+      if (!sourceNode || !targetNode) return e;
+
+      let sourceHandle = 'right-source';
+      let targetHandle = 'left-target';
+
+      const dx = targetNode.position.x - sourceNode.position.x;
+      const dy = targetNode.position.y - sourceNode.position.y;
+
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 0) {
+          sourceHandle = 'right-source';
+          targetHandle = 'left-target';
+        } else {
+          sourceHandle = 'left-source';
+          targetHandle = 'right-target';
+        }
+      } else {
+        if (dy > 0) {
+          sourceHandle = 'bottom-source';
+          targetHandle = 'top-target';
+        } else {
+          sourceHandle = 'top-source';
+          targetHandle = 'bottom-target';
+        }
+      }
+
+      return {
+        ...e,
+        sourceHandle,
+        targetHandle,
+        type: 'custom',
+        data: { ...e.data, edgeStyle: 'smoothstep' }
+      };
+    });
+
     setNodes(layoutedNodes);
+    setEdges(layoutedEdges);
     setIsDirty?.(true);
     
-    // Use a slightly longer delay and ensure fitView focuses on the new bounds
     window.requestAnimationFrame(() => {
-      fitView({ padding: 0.2, duration: 800 });
+      fitView({ padding: 0.1, duration: 800 });
     });
-  }, [nodes, edges, tasks, fitView, setNodes, setIsDirty]);
+  }, [nodes, edges, tasks, fitView, setNodes, setEdges, setIsDirty]);
 
   const handleImagePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
@@ -950,7 +1036,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       <div className="flex-1 flex flex-col min-w-0 relative">
         <div className="h-16 border-b border-white/10 bg-[#0a1120]/80 backdrop-blur-xl flex items-center justify-between px-6 z-20">
           <div className="flex items-center gap-4">
-            <button onClick={onBack} className="p-2 hover:bg-white/5 rounded-md transition-colors text-white/40 hover:text-white"><ChevronLeft size={20} /></button>
+            <button onClick={() => onBack(metadata)} className="p-2 hover:bg-white/5 rounded-md transition-colors text-white/40 hover:text-white"><ChevronLeft size={20} /></button>
             <div className="flex flex-col">
               <span className="text-[10px] font-black text-theme-accent uppercase tracking-widest leading-none mb-1">Workflow Builder</span>
               <h1 className="text-[14px] font-black text-white uppercase tracking-tight leading-none truncate max-w-[300px]">{workflow.name}</h1>
@@ -1096,6 +1182,28 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                       <div className="space-y-2">
                         <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Description</label>
                         <textarea className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-3 text-[13px] font-medium text-white/60 outline-none focus:border-theme-accent h-24 resize-none leading-relaxed" placeholder="Task objective and core logic..." value={selectedTask.description} onChange={e => updateTask(selectedTaskId as string, { description: e.target.value })} />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owning Team</label>
+                          <input className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-3 text-[12px] font-bold text-white outline-none focus:border-theme-accent transition-all" placeholder="Team Name..." value={selectedTask.owning_team || ''} onChange={e => updateTask(selectedTaskId as string, { owning_team: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                           <div className="flex items-center justify-between px-1">
+                             <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Owner Position</label>
+                             <button onClick={() => updateTask(selectedTaskId as string, { owner_positions: [...(selectedTask.owner_positions || []), ''] })} className="text-theme-accent hover:bg-theme-accent/10 p-1 rounded transition-colors"><Plus size={12} /></button>
+                           </div>
+                           <div className="space-y-2">
+                             {(selectedTask.owner_positions || []).map((pos, idx) => (
+                               <div key={idx} className="flex gap-2">
+                                 <input className="flex-1 bg-white/5 border border-white/10 rounded-md px-3 py-2 text-[11px] font-medium text-white outline-none focus:border-theme-accent" placeholder="Position..." value={pos} onChange={e => updateTask(selectedTaskId as string, { owner_positions: selectedTask.owner_positions?.map((p, i) => i === idx ? e.target.value : p) })} />
+                                 <button onClick={() => updateTask(selectedTaskId as string, { owner_positions: selectedTask.owner_positions?.filter((_, i) => i !== idx) })} className="text-white/10 hover:text-status-error transition-colors"><X size={12} /></button>
+                               </div>
+                             ))}
+                             {(selectedTask.owner_positions || []).length === 0 && <div className="text-[9px] text-white/10 italic px-2">No positions assigned</div>}
+                           </div>
+                        </div>
                       </div>
 
                       <div className="space-y-4 p-4 bg-white/[0.02] border border-white/5 rounded-md">

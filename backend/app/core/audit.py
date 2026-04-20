@@ -3,6 +3,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models.models import AuditLog
 import json
 
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+def prepare_state(state):
+    if state is None:
+        return None
+    # Use the encoder to serialize and then back to dict to ensure compatibility with JSON column
+    return json.loads(json.dumps(state, cls=DateTimeEncoder))
+
 async def log_audit(
     db: AsyncSession,
     action_type: str,
@@ -20,8 +32,8 @@ async def log_audit(
         action_type=action_type,
         table_name=table_name,
         record_id=record_id,
-        previous_state=previous_state,
-        new_state=new_state,
+        previous_state=prepare_state(previous_state),
+        new_state=prepare_state(new_state),
         user_id=user_id,
         description=description
     )

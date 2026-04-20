@@ -79,6 +79,10 @@ class Task(Base, BaseMixin):
     machine_wait_time_minutes = Column(Float, default=0.0)
     occurrences_per_cycle = Column(Integer, default=1)
     
+    # Ownership
+    owning_team = Column(String, nullable=True)
+    owner_positions = Column(JSON, nullable=True) # List of strings
+    
     # Automation & IT
     shadow_it_used = Column(Boolean, default=False)
     shadow_it_link = Column(String, nullable=True)

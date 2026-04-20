@@ -216,6 +216,7 @@ const PathOSApp: React.FC = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { reportError } = useErrorFortress();
 
@@ -354,7 +355,7 @@ const PathOSApp: React.FC = () => {
               <Route path="/workflows/intake" element={
                 <div className="max-w-4xl mx-auto">
                   <IntakeGatekeeper 
-                    key={selectedWorkflow?.id || 'new'}
+                    key={location.key}
                     initialData={selectedWorkflow} 
                     taxonomy={taxonomy} 
                     onSuccess={(data) => { 
@@ -380,12 +381,18 @@ const PathOSApp: React.FC = () => {
                       key={selectedWorkflow.id}
                       workflow={selectedWorkflow}
                       taxonomy={taxonomy}
-                      onSave={(data) => workflowsApi.update(selectedWorkflow.id, data).then(() => {
+                      onSave={(data) => workflowsApi.update(selectedWorkflow.id, data).then((updated) => {
                         toast.success("Configuration Saved");
                         queryClient.invalidateQueries({ queryKey: ['workflows'] });
+                        setSelectedWorkflow(updated);
                         setIsDirty(false);
                       })} 
-                      onBack={() => navigate('/workflows/intake')}
+                      onBack={(currentData) => {
+                        if (currentData) {
+                          setSelectedWorkflow({ ...selectedWorkflow, ...currentData });
+                        }
+                        navigate('/workflows/intake');
+                      }}
                       onExit={() => handleNavigateRequest('/workflows')}
                       setIsDirty={setIsDirty}
                     />

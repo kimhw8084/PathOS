@@ -57,6 +57,11 @@ class TaskBase(BaseModel):
     active_touch_time_minutes: float = 0.0
     machine_wait_time_minutes: float = 0.0
     occurrences_per_cycle: int = 1
+    
+    # Ownership
+    owning_team: Optional[str] = None
+    owner_positions: Optional[List[str]] = []
+    
     shadow_it_used: bool = False
     shadow_it_link: Optional[str] = None
     source_data: Optional[str] = None
