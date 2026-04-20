@@ -287,6 +287,9 @@ const PathOSApp: React.FC = () => {
       setPendingNavPath(path);
       setShowConfirm(true);
     } else {
+      if (['/workflows', '/dashboard', '/board', '/analytics', '/settings'].includes(path)) {
+        setSelectedWorkflow(null);
+      }
       navigate(path);
     }
   };
@@ -295,6 +298,9 @@ const PathOSApp: React.FC = () => {
     setIsDirty(false);
     setShowConfirm(false);
     if (pendingNavPath) {
+      if (['/workflows', '/dashboard', '/board', '/analytics', '/settings'].includes(pendingNavPath)) {
+        setSelectedWorkflow(null);
+      }
       navigate(pendingNavPath);
       setPendingNavPath(null);
     }
@@ -339,12 +345,16 @@ const PathOSApp: React.FC = () => {
                   onSelect={handleSelectWorkflow} 
                   onDelete={deleteMutation.mutate} 
                   onRestore={restoreMutation.mutate}
-                  onCreateNew={() => navigate('/workflows/intake')}
+                  onCreateNew={() => {
+                    setSelectedWorkflow(null);
+                    navigate('/workflows/intake');
+                  }}
                 />
               } />
               <Route path="/workflows/intake" element={
                 <div className="max-w-4xl mx-auto">
                   <IntakeGatekeeper 
+                    key={selectedWorkflow?.id || 'new'}
                     initialData={selectedWorkflow} 
                     taxonomy={taxonomy} 
                     onSuccess={(data) => { 
@@ -357,7 +367,8 @@ const PathOSApp: React.FC = () => {
                         createMutation.mutate(data); 
                       } 
                     }} 
-                    onCancel={() => navigate('/workflows')} 
+                    onCancel={() => handleNavigateRequest('/workflows')} 
+                    onRestart={() => setSelectedWorkflow(null)}
                   />
                 </div>
               } />

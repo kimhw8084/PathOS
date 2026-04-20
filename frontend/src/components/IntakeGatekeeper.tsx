@@ -15,6 +15,7 @@ function cn(...inputs: ClassValue[]) {
 interface IntakeGatekeeperProps {
   onSuccess: (data: any) => void;
   onCancel?: () => void;
+  onRestart?: () => void;
   taxonomy: any[];
   initialData?: any;
 }
@@ -194,7 +195,7 @@ const SearchableSelect = ({
   );
 };
 
-const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel, taxonomy, initialData }) => {
+const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel, onRestart, taxonomy, initialData }) => {
   const [systemParams, setSystemParams] = useState<any[]>([]);
   const [isRegular, setIsRegular] = useState<boolean | null>(initialData ? true : null);
   const [showErrors, setShowErrors] = useState(false);
@@ -279,6 +280,27 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
     });
   };
 
+  const handleRestart = () => {
+    setIsRegular(null);
+    setShowErrors(false);
+    setFormData({
+      name: '',
+      description: '',
+      prc: '',
+      workflow_type: '',
+      trigger_type: '',
+      trigger_description: '',
+      output_type: '',
+      output_description: '',
+      cadence_count: 1.0,
+      cadence_unit: 'week',
+      tool_family: [],
+      applicable_tools: [],
+      repeatability_check: true
+    });
+    if (onRestart) onRestart();
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-apple-in pb-16 relative z-[100]">
       <CreationProgressBar currentStep={isRegular === true ? 2 : 1} />
@@ -299,7 +321,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
         </div>
         <div className="flex items-center gap-3">
           <button onClick={onCancel} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/40 hover:text-white transition-all font-black text-[10px] uppercase tracking-widest">Cancel</button>
-          <button onClick={() => { setIsRegular(null); setShowErrors(false); setFormData({ ...formData, name: '', prc: '', tool_family: [], applicable_tools: [] }); }} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/40 hover:text-white hover:border-white/30 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 group">
+          <button onClick={handleRestart} className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/40 hover:text-white hover:border-white/30 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 group">
             <ChevronLeft size={14} className="group-hover:-translate-x-0.5 transition-transform" /> Restart
           </button>
         </div>
