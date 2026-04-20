@@ -29,7 +29,7 @@ async def calculate_task_roi_contribution(task: Task) -> float:
 
 async def update_workflow_roi(workflow: Workflow):
     """
-    Sum of ROI for all tasks in a workflow multiplied by frequency (cadence).
+    Sum of ROI for all tasks in a workflow multiplied by weekly frequency.
     """
     total_task_minutes = 0.0
     from sqlalchemy import inspect
@@ -44,17 +44,17 @@ async def update_workflow_roi(workflow: Workflow):
     cadence_count = workflow.cadence_count or 0.0
     unit = workflow.cadence_unit or "week"
     
-    # Scale to monthly frequency
+    # Scale to weekly frequency
     scale = 1.0
     if unit == "day":
-        scale = 30.44
+        scale = 7.0
     elif unit == "week":
-        scale = 4.34
-    elif unit == "month":
         scale = 1.0
+    elif unit == "month":
+        scale = 1.0 / 4.34
     elif unit == "year":
-        scale = 1.0 / 12.0
+        scale = 1.0 / 52.14
     
-    monthly_frequency = cadence_count * scale
-    workflow.total_roi_saved_hours = (total_task_minutes * monthly_frequency) / 60.0
+    weekly_frequency = cadence_count * scale
+    workflow.total_roi_saved_hours = (total_task_minutes * weekly_frequency) / 60.0
     return workflow.total_roi_saved_hours

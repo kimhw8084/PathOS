@@ -36,7 +36,7 @@ const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows }) => {
     { name: 'PENDING', value: workflows.filter(wf => !['PROD', 'DRAFT', 'Verification'].includes(wf.status)).length },
   ].filter(d => d.value > 0);
 
-  const totalMonthlySavings = workflows.reduce((acc, wf) => acc + (wf.total_roi_saved_hours || 0), 0);
+  const totalWeeklySavings = workflows.reduce((acc, wf) => acc + (wf.total_roi_saved_hours || 0), 0);
   const totalTasks = workflows.reduce((acc, wf) => acc + (wf.tasks?.length || 0), 0);
   const totalBlockers = workflows.reduce((acc, wf) => acc + (wf.tasks?.reduce((tAcc: number, t: any) => tAcc + (t.blockers?.length || 0), 0) || 0), 0);
   const avgComplexity = workflows.length > 0 ? (totalTasks / workflows.length).toFixed(1) : 0;
@@ -48,7 +48,7 @@ const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows }) => {
           <p className="text-[10px] text-white/40 font-black uppercase tracking-widest mb-1.5 border-b border-white/5 pb-1.5">{label}</p>
           <div className="flex items-center gap-2">
             <TrendingUp size={12} className="text-blue-400" />
-            <p className="text-[14px] font-black text-white">{payload[0].value.toFixed(1)} <span className="text-[10px] text-white/40">HRS / MO</span></p>
+            <p className="text-[14px] font-black text-white">{payload[0].value.toFixed(1)} <span className="text-[10px] text-white/40">HRS / WK</span></p>
           </div>
         </div>
       );
@@ -60,13 +60,14 @@ const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows }) => {
     <div className="space-y-6 animate-apple-in">
       {/* High-Density Stat Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatBox icon={Zap} label="Savings" value={`${totalMonthlySavings.toFixed(0)}h`} subValue="Monthly Cap" colorClass="text-blue-400" />
+        <StatBox icon={Zap} label="Savings" value={`${totalWeeklySavings.toFixed(0)}h`} subValue="Weekly Cap" colorClass="text-blue-400" />
         <StatBox icon={Activity} label="Coverage" value={`${(workflows.length > 0 ? (workflows.filter(wf => wf.status === 'PROD').length / workflows.length) * 100 : 0).toFixed(0)}%`} subValue="Standard Ratio" />
         <StatBox icon={Cpu} label="Operations" value={totalTasks} subValue="Active Modules" />
         <StatBox icon={ShieldAlert} label="Risks" value={totalBlockers} subValue="Critical Issues" colorClass="text-red-500" />
         <StatBox icon={Layers} label="Density" value={avgComplexity} subValue="Steps Per Op" />
         <StatBox icon={BarChart3} label="Workflows" value={workflows.length} subValue="Active Projects" />
       </div>
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Performance Visualization */}
@@ -178,7 +179,7 @@ const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows }) => {
                     <TrendingUp size={10} className="text-blue-400 opacity-40 group-hover:opacity-100 transition-opacity" />
                     <p className="text-[13px] font-black text-blue-400">+{wf.total_roi_saved_hours?.toFixed(1)}h</p>
                   </div>
-                  <p className="text-[9px] text-white/20 font-black uppercase tracking-widest leading-none">Monthly</p>
+                  <p className="text-[9px] text-white/20 font-black uppercase tracking-widest leading-none">Weekly</p>
                 </div>
                 <ChevronRight size={14} className="text-white/10 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300" />
               </div>

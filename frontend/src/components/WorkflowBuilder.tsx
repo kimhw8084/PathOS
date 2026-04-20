@@ -536,11 +536,22 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const selectedEdge = useMemo(() => edges.find(e => String(e.id) === String(selectedEdgeId)), [edges, selectedEdgeId]);
   const isProtected = selectedTask?.interface_type === 'TRIGGER' || selectedTask?.interface_type === 'OUTCOME';
 
-  const taskTypes = taxonomy.find(t => t.category === 'TASK_TYPE')?.cached_values || ['Documentation', 'Hands-on', 'System Interaction', 'Shadow IT', 'Verification', 'Communication'];
+  const taskTypes = useMemo(() => {
+    const fromTaxonomy = taxonomy.find(t => t.category === 'TASK_TYPE');
+    if (fromTaxonomy && (fromTaxonomy as any).cached_values) {
+      return (fromTaxonomy as any).cached_values;
+    }
+    // Fallback to defaults
+    return ['Documentation', 'Hands-on', 'System Interaction', 'Shadow IT', 'Verification', 'Communication'];
+  }, [taxonomy]);
 
-  // Initialize tasks when workflow changes
+  // Consolidated Initialization: Sync state with workflow prop
   useEffect(() => {
-    const initializedTasks = (workflow.tasks || []).map((t: any) => ({
+    // Only sync if it's a new workflow OR we're not currently editing (not dirty)
+    // This allows the UI to refresh after a save (when isDirty is reset to false)
+    
+    // 1. Initialize Tasks
+    let initializedTasks = (workflow.tasks || []).map((t: any) => ({
       ...t,
       id: String(t.node_id || t.id),
       node_id: String(t.node_id || t.id),
@@ -562,46 +573,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       validation_needed: t.validation_needed || false,
       validation_procedure: t.validation_procedure || '',
     }));
-    setTasks(initializedTasks);
-    
-    // Update metadata as well
-    setMetadata({
-      name: workflow.name,
-      version: workflow.version,
-      prc: workflow.prc,
-      workflow_type: workflow.workflow_type,
-      tool_family: workflow.tool_family,
-      tool_family_count: workflow.tool_family_count || 1,
-      tool_id: workflow.tool_id,
-      trigger_type: workflow.trigger_type,
-      trigger_description: workflow.trigger_description,
-      output_type: workflow.output_type,
-      output_description: workflow.output_description,
-      cadence_count: workflow.cadence_count || 1,
-      cadence_unit: workflow.cadence_unit || 'month',
-      total_roi_saved_hours: workflow.total_roi_saved_hours || 0,
-      org: workflow.org,
-      team: workflow.team,
-      poc: workflow.poc,
-      flow_summary: workflow.flow_summary || '',
-      description: workflow.description || workflow.forensic_description || ''
-    });
-  }, [workflow]);
 
-  // Initialize nodes and ensure Trigger/Outcome exist
-  useEffect(() => {
-    // We should run this if we have a workflow, even if tasks is empty
-    // because we need to at least create Trigger/Outcome nodes
-    
-    let currentTasks = tasks.length > 0 ? [...tasks] : [];
-    let needsUpdate = false;
-
-    if (!currentTasks.find(t => t.interface === 'TRIGGER')) {
-      const trigger: TaskEntity = {
+    // 2. Ensure Trigger/Outcome boundary nodes exist
+    if (!initializedTasks.find((t: any) => t.interface === 'TRIGGER')) {
+      initializedTasks.unshift({
         id: 'node-trigger',
         node_id: 'node-trigger',
-        name: 'TRIGGER',
-        description: metadata.trigger_description,
+        name: taxonomy.find(tx => tx.category === 'TriggerType' && tx.value === workflow.trigger_type)?.label || workflow.trigger_type || 'TRIGGER',
+        description: workflow.trigger_description || '',
         task_type: 'TRIGGER',
         target_systems: [],
         interface_type: 'TRIGGER',
@@ -623,17 +602,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         reference_links: [],
         position_x: 0,
         position_y: 100
-      };
-      currentTasks.unshift(trigger);
-      needsUpdate = true;
+      });
     }
 
-    if (!currentTasks.find(t => t.interface === 'OUTCOME')) {
-      const outcome: TaskEntity = {
+    if (!initializedTasks.find((t: any) => t.interface === 'OUTCOME')) {
+      initializedTasks.push({
         id: 'node-outcome',
         node_id: 'node-outcome',
-        name: 'OUTCOME',
-        description: metadata.output_description,
+        name: taxonomy.find(tx => tx.category === 'OutputType' && tx.value === workflow.output_type)?.label || workflow.output_type || 'OUTCOME',
+        description: workflow.output_description || '',
         task_type: 'OUTCOME',
         target_systems: [],
         interface_type: 'OUTCOME',
@@ -655,16 +632,36 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         reference_links: [],
         position_x: 1000,
         position_y: 100
-      };
-      currentTasks.push(outcome);
-      needsUpdate = true;
+      });
     }
 
-    if (needsUpdate) {
-      setTasks(currentTasks);
-    }
+    setTasks(initializedTasks);
 
-    const initialNodes: Node[] = currentTasks.map((t) => ({
+    // 3. Initialize Metadata state
+    setMetadata({
+      name: workflow.name,
+      version: workflow.version,
+      prc: workflow.prc,
+      workflow_type: workflow.workflow_type,
+      tool_family: workflow.tool_family,
+      tool_family_count: workflow.tool_family_count || 1,
+      tool_id: workflow.tool_id,
+      trigger_type: workflow.trigger_type,
+      trigger_description: workflow.trigger_description,
+      output_type: workflow.output_type,
+      output_description: workflow.output_description,
+      cadence_count: workflow.cadence_count || 1,
+      cadence_unit: workflow.cadence_unit || 'month',
+      total_roi_saved_hours: workflow.total_roi_saved_hours || 0,
+      org: workflow.org,
+      team: workflow.team,
+      poc: workflow.poc,
+      flow_summary: workflow.flow_summary || '',
+      description: workflow.description || workflow.forensic_description || ''
+    });
+
+    // 4. Initialize Nodes
+    const initialNodes: Node[] = initializedTasks.map((t: any) => ({
       id: String(t.node_id || t.id),
       type: t.interface_type === 'CONDITION' ? 'diamond' : 'matrix',
       position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
@@ -675,7 +672,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         manual_time: t.manual_time_minutes,
         automation_time: t.automation_time_minutes,
         occurrence: t.occurrence,
-        systems: t.target_systems.map(s => s.name).join(', '),
+        systems: t.target_systems.map((s: any) => s.name).join(', '),
         owningTeam: t.owning_team,
         ownerPositions: t.owner_positions,
         sourceCount: t.source_data_list.length,
@@ -685,10 +682,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         blockerCount: t.blockers.length,
         errorCount: t.errors.length,
         description: t.description,
-        id: String(t.node_id || t.id)
+        id: String(t.node_id || t.id),
+        baseFontSize // Ensure current font size is applied
       },
     }));
 
+    // 5. Initialize Edges
     const initialEdges: Edge[] = (workflow.edges || []).map((e: any) => ({
       ...e,
       id: String(e.id || `e-${e.source}-${e.target}-${Date.now()}`),
@@ -709,11 +708,22 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     setNodes(initialNodes);
     setEdges(initialEdges);
     
-    // Auto layout on initial load if no positions or positions are 0
-    if (currentTasks.every(t => !t.position_x && !t.position_y)) {
+    // Auto layout if new workflow or missing positions
+    if (initializedTasks.every((t: any) => !t.position_x && !t.position_y)) {
        setTimeout(() => handleLayout(initialNodes, initialEdges), 200);
     }
-  }, [workflow, tasks.length]);
+
+  }, [workflow]); // Re-run whenever workflow object changes (e.g. after save)
+
+
+  // Ensure selected state is valid after tasks change
+  useEffect(() => {
+    if (selectedTaskId && !tasks.find(t => String(t.id) === String(selectedTaskId))) {
+      setSelectedTaskId(null);
+    }
+  }, [tasks, selectedTaskId]);
+
+
 
   // Sync Trigger/Outcome data with Metadata
   useEffect(() => {
