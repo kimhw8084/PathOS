@@ -219,6 +219,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
   const isTemplate = isTrigger || isOutcome;
   const baseFontSize = data.baseFontSize || 14;
   const titleFontSize = Math.max(24, baseFontSize + 10);
+  const descFontSize = Math.max(12, titleFontSize - 3);
 
   if (isTemplate) {
     return (
@@ -248,7 +249,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
 
   return (
     <div className={cn(
-      "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 w-[320px] shadow-2xl transition-all duration-300 group relative border-2 h-[260px]",
+      "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 w-[320px] shadow-2xl transition-all duration-300 group relative border-2 h-[280px]",
       selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : 'border-white/10 hover:border-white/20',
       data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
     )}>
@@ -265,7 +266,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
           <div className="flex items-center gap-2">
             {data.occurrence > 1 && (
               <div className="flex items-center gap-1.5 bg-blue-500 text-white px-2 py-1 rounded-md text-[11px] font-black shadow-lg shadow-blue-500/20">
-                <RefreshCw size={12} /> x{data.occurrence}
+                <RefreshCw size={12} /> {data.occurrence}
               </div>
             )}
             {data.blockerCount > 0 && (
@@ -291,7 +292,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
           {/* Tooltip for Title & Description */}
           <div className="absolute top-full left-0 w-80 bg-[#1e293b] border border-white/20 p-5 rounded-xl shadow-2xl opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all z-[100] backdrop-blur-2xl pointer-events-none translate-y-2 group-hover/title:translate-y-0">
              <p className="font-black text-white uppercase mb-3 border-b border-white/10 pb-2 leading-tight" style={{ fontSize: `${titleFontSize + 2}px` }}>{data.label}</p>
-             <p className="text-[12px] text-white/70 font-medium leading-relaxed italic">{data.description || 'No description provided.'}</p>
+             <p className="text-white/70 font-medium leading-relaxed italic" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
           </div>
         </div>
 
@@ -308,12 +309,13 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
           </div>
 
           <div className="flex items-center justify-between py-1.5 border-t border-white/5">
-             <div className="flex items-center gap-4">
-               <div className="flex flex-col">
+             <div className="flex items-center gap-4 flex-1 justify-center">
+               <div className="flex flex-col items-center">
                  <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Input</span>
                  <span className="text-[14px] font-black text-white">{data.sourceCount || 0}</span>
                </div>
-               <div className="flex flex-col">
+               <div className="w-px h-6 bg-white/5" />
+               <div className="flex flex-col items-center">
                  <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Output</span>
                  <span className="text-[14px] font-black text-white">{data.outputCount || 0}</span>
                </div>
@@ -321,7 +323,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
              
              <div className="text-right flex flex-col items-end">
                 <div className="flex items-center gap-1.5">
-                   <span className="text-[11px] font-black text-white/60 uppercase truncate max-w-[100px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
+                   <span className="text-[11px] font-black text-white/60 uppercase truncate max-w-[80px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
                    {(data.ownerPositions || []).length > 1 && (
                      <span className="text-[10px] font-black text-theme-accent">+{(data.ownerPositions || []).length - 1}</span>
                    )}
@@ -332,7 +334,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
              </div>
           </div>
 
-          <div className="flex flex-wrap gap-1.5 items-center pt-1.5 border-t border-white/5 min-h-[20px]">
+          <div className="flex flex-wrap gap-1.5 items-center pt-1.5 border-t border-white/5 min-h-[36px]">
              {visibleSystemBadges.map((s: string, i: number) => (
                <span key={i} className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] font-bold text-white/40 uppercase">{s}</span>
              ))}
@@ -364,6 +366,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
 const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
   const baseFontSize = data.baseFontSize || 14;
   const titleFontSize = Math.max(24, baseFontSize + 10);
+  const descFontSize = Math.max(12, titleFontSize - 3);
   return (
     <div className={`relative w-[250px] h-[250px] flex items-center justify-center transition-all duration-300 group ${selected ? 'scale-105' : ''}`}>
       {/* Visual height 250px achieved by side length a = 250 / sqrt(2) = 176.77px */}
@@ -378,7 +381,7 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
         {/* Tooltip for Title & Description */}
         <div className="absolute top-[80%] left-1/2 -translate-x-1/2 w-80 bg-[#1e293b] border border-white/20 p-5 rounded-xl shadow-2xl opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all z-[100] backdrop-blur-2xl pointer-events-none translate-y-2 group-hover/title:translate-y-0">
            <p className="font-black text-white uppercase mb-3 border-b border-white/10 pb-2 leading-tight" style={{ fontSize: `${titleFontSize - 4}px` }}>{data.label || 'Condition'}</p>
-           <p className="text-[12px] text-white/70 font-medium leading-relaxed italic">{data.description || 'No description provided.'}</p>
+           <p className="text-white/70 font-medium leading-relaxed italic" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
         </div>
       </div>
     
@@ -402,6 +405,7 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
   </div>
 );
 };
+
 
 const CustomEdge = ({
   sourceX,
@@ -556,29 +560,32 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     // Only sync if it's a new workflow OR we're not currently editing (not dirty)
     // This allows the UI to refresh after a save (when isDirty is reset to false)
     
-    // 1. Initialize Tasks
-    let initializedTasks = (workflow.tasks || []).map((t: any) => ({
-      ...t,
-      id: String(t.node_id || t.id),
-      node_id: String(t.node_id || t.id),
-      target_systems: t.target_systems || [],
-      blockers: t.blockers || [],
-      errors: t.errors || [],
-      media: t.media || [],
-      reference_links: t.reference_links || [],
-      source_data_list: t.source_data_list || [],
-      output_data_list: t.output_data_list || [],
-      verification_steps: t.verification_steps || [],
-      tribal_knowledge: t.tribal_knowledge || [],
-      active_touch_time_minutes: t.active_touch_time_minutes || 0,
-      machine_wait_time_minutes: t.machine_wait_time_minutes || 0,
-      occurrence: t.occurrence || t.occurrences_per_cycle || 1,
-      occurrence_explanation: t.occurrence_explanation || t.occurrence_condition || '',
-      automation_time_minutes: t.automation_time_minutes || 0,
-      manual_time_minutes: t.manual_time_minutes || 0,
-      validation_needed: t.validation_needed || false,
-      validation_procedure: t.validation_procedure || '',
-    }));
+    // 1. Initialize Tasks with stable IDs (node_id preferred)
+    let initializedTasks = (workflow.tasks || []).map((t: any) => {
+      const stableId = String(t.node_id || t.id);
+      return {
+        ...t,
+        id: stableId,
+        node_id: stableId,
+        target_systems: t.target_systems || [],
+        blockers: t.blockers || [],
+        errors: t.errors || [],
+        media: t.media || [],
+        reference_links: t.reference_links || [],
+        source_data_list: t.source_data_list || [],
+        output_data_list: t.output_data_list || [],
+        verification_steps: t.verification_steps || [],
+        tribal_knowledge: t.tribal_knowledge || [],
+        active_touch_time_minutes: t.active_touch_time_minutes || 0,
+        machine_wait_time_minutes: t.machine_wait_time_minutes || 0,
+        occurrence: t.occurrence || t.occurrences_per_cycle || 1,
+        occurrence_explanation: t.occurrence_explanation || t.occurrence_condition || '',
+        automation_time_minutes: t.automation_time_minutes || 0,
+        manual_time_minutes: t.manual_time_minutes || 0,
+        validation_needed: t.validation_needed || false,
+        validation_procedure: t.validation_procedure || '',
+      };
+    });
 
     // 2. Ensure Trigger/Outcome boundary nodes exist
     if (!initializedTasks.find((t: any) => t.interface === 'TRIGGER')) {
@@ -876,6 +883,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             task_type: updated.task_type,
             manual_time: updated.manual_time_minutes,
             automation_time: updated.automation_time_minutes,
+            occurrence: updated.occurrence,
             systems: updated.target_systems.map(s => s.name).join(', '),
             owningTeam: updated.owning_team,
             ownerPositions: updated.owner_positions,
@@ -928,21 +936,27 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     const newNode: Node = {
       id,
       type: type === 'CONDITION' ? 'diamond' : 'matrix',
-      position: { x: center.x - (type === 'CONDITION' ? 125 : 160), y: center.y - (type === 'CONDITION' ? 125 : 90) },
+      position: { 
+        x: Math.round((center.x - (type === 'CONDITION' ? 125 : 160)) / 10) * 10, 
+        y: Math.round((center.y - (type === 'CONDITION' ? 125 : 140)) / 10) * 10 
+      },
       data: { 
         label: type === 'TASK' ? 'New Task' : 'New Condition', 
         task_type: type === 'TASK' ? 'Documentation' : 'LOOP',
         manual_time: 0,
         automation_time: 0,
+        occurrence: 1,
         systems: '',
         validation_needed: false,
         blockerCount: 0,
-        errorCount: 0
+        errorCount: 0,
+        baseFontSize
       },
     };
 
     const newTask: TaskEntity = {
       id,
+      node_id: id,
       name: newNode.data.label,
       description: '',
       task_type: newNode.data.task_type,
@@ -996,6 +1010,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           task_type: t.task_type,
           manual_time: t.manual_time_minutes,
           automation_time: t.automation_time_minutes,
+          occurrence: t.occurrence,
           systems: t.target_systems.map(s => s.name).join(', '),
           owningTeam: t.owning_team,
           ownerPositions: t.owner_positions,
@@ -1005,29 +1020,41 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           validation_needed: t.validation_needed,
           blockerCount: t.blockers.length,
           errorCount: t.errors.length,
-          description: t.description
+          description: t.description,
+          baseFontSize
         },
       }));
     }
 
     if (nds.length === 0) return;
 
+    // Pre-sort nodes for horizontal alignment if disconnected
+    const sortedNodes = [...nds].sort((a, b) => {
+      const aInterface = a.data.interface;
+      const bInterface = b.data.interface;
+      if (aInterface === 'TRIGGER') return -1;
+      if (bInterface === 'TRIGGER') return 1;
+      if (aInterface === 'OUTCOME') return 1;
+      if (bInterface === 'OUTCOME') return -1;
+      return 0;
+    });
+
     const dagreGraph = new dagre.graphlib.Graph();
     dagreGraph.setDefaultEdgeLabel(() => ({}));
     dagreGraph.setGraph({ 
       rankdir: 'LR', 
       ranker: 'network-simplex', 
-      ranksep: 220, 
-      nodesep: 150,
-      edgesep: 80
+      ranksep: 200, 
+      nodesep: 100,
+      edgesep: 50
     });
 
-    nds.forEach((n) => {
+    sortedNodes.forEach((n) => {
       const isDiamond = n.type === 'diamond';
       const isTemplate = n.data.interface === 'TRIGGER' || n.data.interface === 'OUTCOME';
       dagreGraph.setNode(n.id, { 
         width: isDiamond ? 250 : 320, 
-        height: isTemplate ? 120 : 260 
+        height: isTemplate ? 120 : (isDiamond ? 250 : 280) 
       });
     });
     
@@ -1035,15 +1062,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
     dagre.layout(dagreGraph);
 
-    const layoutedNodes = nds.map(n => {
+    const layoutedNodes = sortedNodes.map(n => {
       const nodeWithPos = dagreGraph.node(n.id);
       if (!nodeWithPos) return n;
       const isDiamond = n.type === 'diamond';
       const isTemplate = n.data.interface === 'TRIGGER' || n.data.interface === 'OUTCOME';
       
-      // Snap to 10px grid
+      // Center based on dagre output and standardized widths
       const targetX = nodeWithPos.x - (isDiamond ? 125 : 160);
-      const targetY = nodeWithPos.y - (isDiamond ? 125 : (isTemplate ? 60 : 130));
+      const targetY = nodeWithPos.y - (isTemplate ? 60 : (isDiamond ? 125 : 140));
       
       return { 
         ...n, 
@@ -1054,7 +1081,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       };
     });
 
-    // Enhanced Handle Assignment for Complex Topologies
+    // Handle Assignment for Straight Horizontal Connections
     const layoutedEdges = eds.map(e => {
       const sourceNode = layoutedNodes.find(n => n.id === e.source);
       const targetNode = layoutedNodes.find(n => n.id === e.target);
@@ -1067,30 +1094,22 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       const dx = targetNode.position.x - sourceNode.position.x;
       const dy = targetNode.position.y - sourceNode.position.y;
 
-      if (Math.abs(dx) > Math.abs(dy) * 1.5) {
-        if (dx > 0) {
-          sourceHandle = 'right-source';
-          targetHandle = 'left-target';
-        } else {
-          sourceHandle = 'left-source';
-          targetHandle = 'right-target';
-        }
+      // Force LR handles for horizontal flow
+      if (dx >= 0) {
+        sourceHandle = 'right-source';
+        targetHandle = 'left-target';
       } else {
-        if (dy > 0) {
-          sourceHandle = 'bottom-source';
-          targetHandle = 'top-target';
-        } else {
-          sourceHandle = 'top-source';
-          targetHandle = 'bottom-target';
-        }
+        sourceHandle = 'left-source';
+        targetHandle = 'right-target';
       }
 
+      // If vertical offset is small, it will result in a straight line
       return {
         ...e,
         sourceHandle,
         targetHandle,
         type: 'custom',
-        data: { ...e.data, edgeStyle: 'smoothstep' }
+        data: { ...e.data, edgeStyle: Math.abs(dy) < 5 ? 'straight' : 'smoothstep' }
       };
     });
 
@@ -1101,7 +1120,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     window.requestAnimationFrame(() => {
       fitView({ padding: 0.1, duration: 800 });
     });
-  }, [nodes, edges, tasks, fitView, setNodes, setEdges, setIsDirty]);
+  }, [nodes, edges, tasks, fitView, setNodes, setEdges, setIsDirty, baseFontSize]);
 
   const handleImagePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
@@ -1127,7 +1146,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         const node = nodes.find(n => String(n.id) === String(t.id));
         return {
           ...t,
-          node_id: String(t.node_id || t.id), // Force string conversion for Pydantic
+          id: undefined, // Let backend handle DB ID
+          node_id: String(t.node_id || t.id), // Ensure stable ID
           position_x: node?.position.x,
           position_y: node?.position.y
         };
@@ -1352,9 +1372,20 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                     <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Condition Label</label>
                     <input className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-3 text-[14px] font-bold text-white outline-none focus:border-theme-accent transition-all" value={selectedTask.name} onChange={e => updateTask(selectedTaskId as string, { name: e.target.value })} />
                   </div>
-                  <button onClick={() => deleteTask(selectedTaskId as string)} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-md text-[10px] font-black uppercase tracking-[0.2em] hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2">
-                    <Trash size={12} /> Delete Entity
-                  </button>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Logic Description</label>
+                    <textarea 
+                      className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-3 text-[13px] font-medium text-white/60 outline-none focus:border-theme-accent h-32 resize-none leading-relaxed" 
+                      placeholder="Describe the branching logic or condition criteria..." 
+                      value={selectedTask.description} 
+                      onChange={e => updateTask(selectedTaskId as string, { description: e.target.value })} 
+                    />
+                  </div>
+                  <div className="pt-6 border-t border-white/5">
+                    <button onClick={() => deleteTask(selectedTaskId as string)} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-md text-[10px] font-black uppercase tracking-[0.2em] hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2">
+                      <Trash size={12} /> Delete Entity
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <>
