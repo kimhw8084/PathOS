@@ -430,83 +430,338 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   const handleLayout = useCallback((nodesToLayout?: Node[], edgesToLayout?: Edge[]) => {
     try {
-      let nds = nodesToLayout || nodes;
+      const nds = nodesToLayout || nodes;
       const eds = edgesToLayout || edges;
-      if (nds.length === 0) return;
+      if (!nds || nds.length === 0) return;
+
       const sortedNodes = [...nds].sort((a, b) => {
-        const aInterface = a.data?.interface; const bInterface = b.data?.interface;
-        if (aInterface === 'TRIGGER') return -1; if (bInterface === 'TRIGGER') return 1;
-        if (aInterface === 'OUTCOME') return 1; if (bInterface === 'OUTCOME') return -1;
+        const aInterface = a.data?.interface;
+        const bInterface = b.data?.interface;
+        if (aInterface === 'TRIGGER') return -1;
+        if (bInterface === 'TRIGGER') return 1;
+        if (aInterface === 'OUTCOME') return 1;
+        if (bInterface === 'OUTCOME') return -1;
         return 0;
       });
+
       const dagreGraph = new dagre.graphlib.Graph();
       dagreGraph.setDefaultEdgeLabel(() => ({}));
       dagreGraph.setGraph({ rankdir: 'LR', ranker: 'network-simplex', ranksep: 200, nodesep: 100, edgesep: 50 });
+
       sortedNodes.forEach((n) => {
-        const isDiamond = n.type === 'diamond'; const isTemplate = n.data?.interface === 'TRIGGER' || n.data?.interface === 'OUTCOME';
+        const isDiamond = n.type === 'diamond';
+        const isTemplate = n.data?.interface === 'TRIGGER' || n.data?.interface === 'OUTCOME';
         dagreGraph.setNode(n.id, { width: isDiamond ? 250 : 320, height: isTemplate ? 120 : (isDiamond ? 250 : 280) });
       });
-      eds.forEach((e) => { if (dagreGraph.hasNode(e.source) && dagreGraph.hasNode(e.target)) dagreGraph.setEdge(e.source, e.target); });
+
+      eds.forEach((e) => {
+        if (dagreGraph.hasNode(e.source) && dagreGraph.hasNode(e.target)) {
+          dagreGraph.setEdge(e.source, e.target);
+        }
+      });
+
       dagre.layout(dagreGraph);
+
       const layoutedNodes = sortedNodes.map(n => {
-        const nodeWithPos = dagreGraph.node(n.id); if (!nodeWithPos) return n;
-        const isDiamond = n.type === 'diamond'; const isTemplate = n.data?.interface === 'TRIGGER' || n.data?.interface === 'OUTCOME';
-        return { ...n, position: { x: Math.round((nodeWithPos.x - (isDiamond ? 125 : 160)) / 10) * 10, y: Math.round((nodeWithPos.y - (isTemplate ? 60 : (isDiamond ? 125 : 140))) / 10) * 10 } };
+        const nodeWithPos = dagreGraph.node(n.id);
+        if (!nodeWithPos) return n;
+        const isDiamond = n.type === 'diamond';
+        const isTemplate = n.data?.interface === 'TRIGGER' || n.data?.interface === 'OUTCOME';
+        return {
+          ...n,
+          position: {
+            x: Math.round((nodeWithPos.x - (isDiamond ? 125 : 160)) / 10) * 10,
+            y: Math.round((nodeWithPos.y - (isTemplate ? 60 : (isDiamond ? 125 : 140))) / 10) * 10
+          }
+        };
       });
+
       const layoutedEdges = eds.map(e => {
-        const sourceNode = layoutedNodes.find(n => n.id === e.source); const targetNode = layoutedNodes.find(n => n.id === e.target);
+        const sourceNode = layoutedNodes.find(n => n.id === e.source);
+        const targetNode = layoutedNodes.find(n => n.id === e.target);
         if (!sourceNode || !targetNode) return e;
-        let sourceHandle = 'right-source'; let targetHandle = 'left-target';
-        if (targetNode.position.x < sourceNode.position.x) { sourceHandle = 'left-source'; targetHandle = 'right-target'; }
-        return { ...e, sourceHandle, targetHandle, type: 'custom', data: { ...e.data, edgeStyle: Math.abs(targetNode.position.y - sourceNode.position.y) < 5 ? 'straight' : 'smoothstep' } };
+        
+        let sourceHandle = 'right-source';
+        let targetHandle = 'left-target';
+        
+        if (targetNode.position.x < sourceNode.position.x) {
+          sourceHandle = 'left-source';
+          targetHandle = 'right-target';
+        }
+        
+        return {
+          ...e,
+          sourceHandle,
+          targetHandle,
+          type: 'custom',
+          data: {
+            ...e.data,
+            edgeStyle: Math.abs(targetNode.position.y - sourceNode.position.y) < 5 ? 'straight' : 'smoothstep'
+          }
+        };
       });
-      setNodes(layoutedNodes); setEdges(layoutedEdges); setIsDirty?.(true);
+
+      setNodes(layoutedNodes);
+      setEdges(layoutedEdges);
+      setIsDirty?.(true);
       window.requestAnimationFrame(() => fitView({ padding: 0.1, duration: 800 }));
-    } catch (error) { console.error("Dagre Layout Error:", error); }
-  }, [nodes, edges, fitView, setNodes, setEdges, setIsDirty]);
+    } catch (error) {
+      console.error("Dagre Layout Error:", error);
+    }
+  }, [fitView, setNodes, setEdges, setIsDirty]);
 
   useEffect(() => {
+    if (!workflow) return;
+
     try {
-      if (!workflow) return;
       const seenIds = new Set<string>();
       let initializedTasks = (workflow?.tasks || []).map((t: any) => {
         let stableId = String(t.node_id || t.id || `node-${Math.random().toString(36).substr(2, 9)}`);
-        if (seenIds.has(stableId)) stableId = `${stableId}-dup-${Math.random().toString(36).substr(2, 9)}`;
+        if (seenIds.has(stableId)) {
+          stableId = `${stableId}-dup-${Math.random().toString(36).substr(2, 9)}`;
+        }
         seenIds.add(stableId);
-        return { ...t, id: stableId, node_id: stableId, target_systems: t.target_systems || [], blockers: t.blockers || [], errors: t.errors || [], media: t.media || [], reference_links: t.reference_links || [], instructions: t.instructions || [], source_data_list: t.source_data_list || [], output_data_list: t.output_data_list || [], verification_steps: t.verification_steps || [], tribal_knowledge: t.tribal_knowledge || [], active_touch_time_minutes: t.active_touch_time_minutes || 0, machine_wait_time_minutes: t.machine_wait_time_minutes || 0, occurrence: t.occurrence || t.occurrences_per_cycle || 1, occurrence_explanation: t.occurrence_explanation || '', automation_time_minutes: t.automation_time_minutes || 0, manual_time_minutes: t.manual_time_minutes || 0, validation_needed: t.validation_needed || false, validation_procedure: t.validation_procedure || '', };
+        
+        return {
+          ...t,
+          id: stableId,
+          node_id: stableId,
+          target_systems: t.target_systems || [],
+          blockers: t.blockers || [],
+          errors: t.errors || [],
+          media: t.media || [],
+          reference_links: t.reference_links || [],
+          instructions: t.instructions || [],
+          source_data_list: t.source_data_list || [],
+          output_data_list: t.output_data_list || [],
+          verification_steps: t.verification_steps || [],
+          tribal_knowledge: t.tribal_knowledge || [],
+          active_touch_time_minutes: t.active_touch_time_minutes || 0,
+          machine_wait_time_minutes: t.machine_wait_time_minutes || 0,
+          occurrence: t.occurrence || t.occurrences_per_cycle || 1,
+          occurrence_explanation: t.occurrence_explanation || '',
+          automation_time_minutes: t.automation_time_minutes || 0,
+          manual_time_minutes: t.manual_time_minutes || 0,
+          validation_needed: t.validation_needed || false,
+          validation_procedure: t.validation_procedure || '',
+        };
       });
-      if (!initializedTasks.find((t: any) => t.interface === 'TRIGGER')) initializedTasks.unshift({ id: 'node-trigger', node_id: 'node-trigger', name: taxonomy.find(tx => tx.category === 'TriggerType' && tx.value === workflow?.trigger_type)?.label || workflow?.trigger_type || 'TRIGGER', description: workflow?.trigger_description || '', task_type: 'TRIGGER', target_systems: [], interface_type: 'TRIGGER', interface: 'TRIGGER', manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, occurrence: 1, occurrence_explanation: '', source_data_list: [], output_data_list: [], verification_steps: [], blockers: [], errors: [], tribal_knowledge: [], validation_needed: false, validation_procedure: '', media: [], reference_links: [], instructions: [], position_x: 0, position_y: 100 });
-      if (!initializedTasks.find((t: any) => t.interface === 'OUTCOME')) initializedTasks.push({ id: 'node-outcome', node_id: 'node-outcome', name: taxonomy.find(tx => tx.category === 'OutputType' && tx.value === workflow?.output_type)?.label || workflow?.output_type || 'OUTCOME', description: workflow?.output_description || '', task_type: 'OUTCOME', target_systems: [], interface_type: 'OUTCOME', interface: 'OUTCOME', manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, occurrence: 1, occurrence_explanation: '', source_data_list: [], output_data_list: [], verification_steps: [], blockers: [], errors: [], tribal_knowledge: [], validation_needed: false, validation_procedure: '', media: [], reference_links: [], instructions: [], position_x: 1000, position_y: 100 });
+
+      // Add boundary nodes if missing
+      if (!initializedTasks.find((t: any) => t.interface === 'TRIGGER')) {
+        initializedTasks.unshift({
+          id: 'node-trigger',
+          node_id: 'node-trigger',
+          name: taxonomy.find(tx => tx.category === 'TriggerType' && tx.value === workflow?.trigger_type)?.label || workflow?.trigger_type || 'TRIGGER',
+          description: workflow?.trigger_description || '',
+          task_type: 'TRIGGER',
+          target_systems: [],
+          interface_type: 'TRIGGER',
+          interface: 'TRIGGER',
+          manual_time_minutes: 0,
+          automation_time_minutes: 0,
+          machine_wait_time_minutes: 0,
+          occurrence: 1,
+          occurrence_explanation: '',
+          source_data_list: [],
+          output_data_list: [],
+          verification_steps: [],
+          blockers: [],
+          errors: [],
+          tribal_knowledge: [],
+          validation_needed: false,
+          validation_procedure: '',
+          media: [],
+          reference_links: [],
+          instructions: [],
+          position_x: 0,
+          position_y: 100
+        });
+      }
+
+      if (!initializedTasks.find((t: any) => t.interface === 'OUTCOME')) {
+        initializedTasks.push({
+          id: 'node-outcome',
+          node_id: 'node-outcome',
+          name: taxonomy.find(tx => tx.category === 'OutputType' && tx.value === workflow?.output_type)?.label || workflow?.output_type || 'OUTCOME',
+          description: workflow?.output_description || '',
+          task_type: 'OUTCOME',
+          target_systems: [],
+          interface_type: 'OUTCOME',
+          interface: 'OUTCOME',
+          manual_time_minutes: 0,
+          automation_time_minutes: 0,
+          machine_wait_time_minutes: 0,
+          occurrence: 1,
+          occurrence_explanation: '',
+          source_data_list: [],
+          output_data_list: [],
+          verification_steps: [],
+          blockers: [],
+          errors: [],
+          tribal_knowledge: [],
+          validation_needed: false,
+          validation_procedure: '',
+          media: [],
+          reference_links: [],
+          instructions: [],
+          position_x: 1000,
+          position_y: 100
+        });
+      }
+
       setTasks(initializedTasks);
-      setMetadata({ name: workflow?.name || 'Untitled', version: workflow?.version || 1, prc: workflow?.prc || '', workflow_type: workflow?.workflow_type || '', tool_family: workflow?.tool_family || '', tool_family_count: workflow?.tool_family_count || 1, tool_id: workflow?.tool_id || '', trigger_type: workflow?.trigger_type || 'Manual', trigger_description: workflow?.trigger_description || '', output_type: workflow?.output_type || 'Report', output_description: workflow?.output_description || '', cadence_count: workflow?.cadence_count || 1, cadence_unit: workflow?.cadence_unit || 'month', total_roi_saved_hours: workflow?.total_roi_saved_hours || 0, org: workflow?.org || '', team: workflow?.team || '', poc: workflow?.poc || '', flow_summary: workflow?.flow_summary || '', description: workflow?.description || workflow?.forensic_description || '' });
-      const initialNodes: Node[] = initializedTasks.map((t: any) => ({ id: String(t.node_id || t.id), type: t.interface_type === 'CONDITION' ? 'diamond' : 'matrix', position: { x: t.position_x ?? 0, y: t.position_y ?? 0 }, data: { ...t, label: t.name, task_type: t.task_type || 'GENERAL', manual_time: t.manual_time_minutes || 0, automation_time: t.automation_time_minutes || 0, occurrence: t.occurrence || 1, systems: (t.target_systems || []).map((s: any) => s.name).join(', '), owningTeam: t.owning_team, ownerPositions: t.owner_positions, sourceCount: (t.source_data_list || []).length, outputCount: (t.output_data_list || []).length, interface: t.interface, validation_needed: t.validation_needed, blockerCount: (t.blockers || []).length, errorCount: (t.errors || []).length, description: t.description || '', id: String(t.node_id || t.id), baseFontSize }, }));
-      const initialEdges: Edge[] = (workflow?.edges || []).map((e: any, idx: number) => {
-        const sourceId = String(e.source || ''); const targetId = String(e.target || ''); if (!sourceId || !targetId) return null;
-        let sHandle = e.source_handle || e.sourceHandle; let tHandle = e.target_handle || e.targetHandle;
-        if (sourceId === 'node-trigger' && sHandle === 'right-target') sHandle = 'right-source'; if (!sHandle) sHandle = 'right-source'; if (!tHandle) tHandle = 'left-target';
-        return { ...e, id: String(e.id || `e-${sourceId}-${targetId}-${idx}-${Date.now()}`), source: sourceId, target: targetId, sourceHandle: sHandle, targetHandle: tHandle, type: 'custom', data: { label: e.label || e.data?.label || '', edgeStyle: e.edge_style || e.data?.edgeStyle || 'bezier', color: e.color || e.data?.color || '#ffffff', style: e.style || e.data?.style || 'solid' }, markerEnd: { type: MarkerType.ArrowClosed, color: e.color || e.data?.color || '#ffffff' }, };
-      }).filter((e: any) => {
-        if (!e) return false; const sourceExists = initializedTasks.some((t: any) => String(t.node_id || t.id) === e.source); const targetExists = initializedTasks.some((t: any) => String(t.node_id || t.id) === e.target); return sourceExists && targetExists;
+      setMetadata({
+        name: workflow?.name || 'Untitled',
+        version: workflow?.version || 1,
+        prc: workflow?.prc || '',
+        workflow_type: workflow?.workflow_type || '',
+        tool_family: workflow?.tool_family || '',
+        tool_family_count: workflow?.tool_family_count || 1,
+        tool_id: workflow?.tool_id || '',
+        trigger_type: workflow?.trigger_type || 'Manual',
+        trigger_description: workflow?.trigger_description || '',
+        output_type: workflow?.output_type || 'Report',
+        output_description: workflow?.output_description || '',
+        cadence_count: workflow?.cadence_count || 1,
+        cadence_unit: workflow?.cadence_unit || 'month',
+        total_roi_saved_hours: workflow?.total_roi_saved_hours || 0,
+        org: workflow?.org || '',
+        team: workflow?.team || '',
+        poc: workflow?.poc || '',
+        flow_summary: workflow?.flow_summary || '',
+        description: workflow?.description || workflow?.forensic_description || ''
       });
-      setNodes(initialNodes); setEdges(initialEdges);
-      if (initializedTasks.every((t: any) => !t.position_x && !t.position_y)) setTimeout(() => { try { handleLayout(initialNodes, initialEdges); } catch (err) { console.error("Layout failed:", err); } }, 200);
-    } catch (err) { console.error("CRITICAL: WorkflowBuilder initialization failed:", err); setTasks([]); setNodes([]); setEdges([]); }
-  }, [workflow, taxonomy, handleLayout, baseFontSize, setNodes, setEdges]);
+      
+      const initialNodes: Node[] = initializedTasks.map((t: any) => ({
+        id: String(t.node_id || t.id),
+        type: t.interface_type === 'CONDITION' ? 'diamond' : 'matrix',
+        position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
+        data: {
+          ...t,
+          label: t.name,
+          task_type: t.task_type || 'GENERAL',
+          manual_time: t.manual_time_minutes || 0,
+          automation_time: t.automation_time_minutes || 0,
+          occurrence: t.occurrence || 1,
+          systems: (t.target_systems || []).map((s: any) => s.name).join(', '),
+          owningTeam: t.owning_team,
+          ownerPositions: t.owner_positions,
+          sourceCount: (t.source_data_list || []).length,
+          outputCount: (t.output_data_list || []).length,
+          interface: t.interface,
+          validation_needed: t.validation_needed,
+          blockerCount: (t.blockers || []).length,
+          errorCount: (t.errors || []).length,
+          description: t.description || '',
+          id: String(t.node_id || t.id),
+          baseFontSize
+        },
+      }));
+
+      const initialEdges: Edge[] = (workflow?.edges || []).map((e: any, idx: number) => {
+        const sourceId = String(e.source || '');
+        const targetId = String(e.target || '');
+        if (!sourceId || !targetId) return null;
+
+        let sHandle = e.source_handle || e.sourceHandle;
+        let tHandle = e.target_handle || e.targetHandle;
+
+        if (sourceId === 'node-trigger' && sHandle === 'right-target') sHandle = 'right-source';
+        if (!sHandle) sHandle = 'right-source';
+        if (!tHandle) tHandle = 'left-target';
+
+        return {
+          ...e,
+          id: String(e.id || `e-${sourceId}-${targetId}-${idx}-${Date.now()}`),
+          source: sourceId,
+          target: targetId,
+          sourceHandle: sHandle,
+          targetHandle: tHandle,
+          type: 'custom',
+          data: {
+            label: e.label || e.data?.label || '',
+            edgeStyle: e.edge_style || e.data?.edgeStyle || 'bezier',
+            color: e.color || e.data?.color || '#ffffff',
+            style: e.style || e.data?.style || 'solid'
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: e.color || e.data?.color || '#ffffff'
+          },
+        };
+      }).filter((e: any) => {
+        if (!e) return false;
+        const sourceExists = initializedTasks.some((t: any) => String(t.node_id || t.id) === e.source);
+        const targetExists = initializedTasks.some((t: any) => String(t.node_id || t.id) === e.target);
+        return sourceExists && targetExists;
+      });
+
+      setNodes(initialNodes);
+      setEdges(initialEdges);
+
+      if (initializedTasks.every((t: any) => !t.position_x && !t.position_y)) {
+        setTimeout(() => {
+          handleLayout(initialNodes, initialEdges);
+        }, 200);
+      }
+    } catch (err) {
+      console.error("CRITICAL: WorkflowBuilder initialization failed:", err);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run ONLY once on mount. The key in App.tsx handles re-initialization on workflow change.
 
   useEffect(() => {
-    if (selectedTaskId && !tasks.find(t => String(t.id) === String(selectedTaskId))) setSelectedTaskId(null);
+    if (selectedTaskId && !tasks.find(t => String(t.id) === String(selectedTaskId))) {
+      setSelectedTaskId(null);
+    }
   }, [tasks, selectedTaskId]);
 
   useEffect(() => {
     setTasks(prev => prev.map(t => {
-      if (t.interface === 'TRIGGER') { const typeLabel = taxonomy.find(tx => tx.category === 'TriggerType' && tx.value === metadata.trigger_type)?.label || metadata.trigger_type; return { ...t, name: typeLabel || 'TRIGGER', description: metadata.trigger_description }; }
-      if (t.interface === 'OUTCOME') { const typeLabel = taxonomy.find(tx => tx.category === 'OutputType' && tx.value === metadata.output_type)?.label || metadata.output_type; return { ...t, name: typeLabel || 'OUTCOME', description: metadata.output_description }; }
+      if (t.interface === 'TRIGGER') {
+        const typeLabel = taxonomy.find(tx => tx.category === 'TriggerType' && tx.value === metadata.trigger_type)?.label || metadata.trigger_type;
+        return { ...t, name: typeLabel || 'TRIGGER', description: metadata.trigger_description };
+      }
+      if (t.interface === 'OUTCOME') {
+        const typeLabel = taxonomy.find(tx => tx.category === 'OutputType' && tx.value === metadata.output_type)?.label || metadata.output_type;
+        return { ...t, name: typeLabel || 'OUTCOME', description: metadata.output_description };
+      }
       return t;
     }));
+
     setNodes(nds => nds.map(n => {
       const baseData = { ...n.data, baseFontSize };
-      if (n.id === 'node-trigger') { const typeLabel = taxonomy.find(tx => tx.category === 'TriggerType' && tx.value === metadata.trigger_type)?.label || metadata.trigger_type; return { ...n, data: { ...baseData, label: typeLabel || 'TRIGGER', description: metadata.trigger_description, prc: metadata.prc, workflow_type: metadata.workflow_type, tool_family: metadata.tool_family, tool_family_count: metadata.tool_family_count } }; }
-      if (n.id === 'node-outcome') { const typeLabel = taxonomy.find(tx => tx.category === 'OutputType' && tx.value === metadata.output_type)?.label || metadata.output_type; return { ...n, data: { ...baseData, label: typeLabel || 'OUTCOME', description: metadata.output_description, prc: metadata.prc, workflow_type: metadata.workflow_type, tool_family: metadata.tool_family, tool_family_count: metadata.tool_family_count } }; }
+      if (n.id === 'node-trigger') {
+        const typeLabel = taxonomy.find(tx => tx.category === 'TriggerType' && tx.value === metadata.trigger_type)?.label || metadata.trigger_type;
+        return { 
+          ...n, 
+          data: { 
+            ...baseData, 
+            label: typeLabel || 'TRIGGER', 
+            description: metadata.trigger_description,
+            prc: metadata.prc,
+            workflow_type: metadata.workflow_type,
+            tool_family: metadata.tool_family,
+            tool_family_count: metadata.tool_family_count
+          } 
+        };
+      }
+      if (n.id === 'node-outcome') {
+        const typeLabel = taxonomy.find(tx => tx.category === 'OutputType' && tx.value === metadata.output_type)?.label || metadata.output_type;
+        return { 
+          ...n, 
+          data: { 
+            ...baseData, 
+            label: typeLabel || 'OUTCOME', 
+            description: metadata.output_description,
+            prc: metadata.prc,
+            workflow_type: metadata.workflow_type,
+            tool_family: metadata.tool_family,
+            tool_family_count: metadata.tool_family_count
+          } 
+        };
+      }
       return { ...n, data: baseData };
     }));
   }, [metadata, baseFontSize, taxonomy, setNodes]);
@@ -517,40 +772,130 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       if (items[i].type.indexOf('image') !== -1) {
         const file = items[i].getAsFile();
         if (file && selectedTaskId) {
-          const reader = new FileReader(); reader.onload = (evt) => { const newMedia: TaskMedia = { id: Date.now().toString(), type: 'image', url: evt.target?.result as string, label: 'Pasted Image' }; updateTask(selectedTaskId, { media: [...(selectedTask?.media || []), newMedia] }); }; reader.readAsDataURL(file);
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            const newMedia: TaskMedia = {
+              id: Date.now().toString(),
+              type: 'image',
+              url: evt.target?.result as string,
+              label: 'Pasted Image'
+            };
+            updateTask(selectedTaskId, {
+              media: [...(selectedTask?.media || []), newMedia]
+            });
+          };
+          reader.readAsDataURL(file);
         }
       }
     }
   }, [selectedTaskId, selectedTask]);
 
   const deleteTask = useCallback((id: string) => {
-    const task = tasks.find(t => t.id === id); if (task?.interface) return;
-    setTasks(prev => prev.filter(t => t.id !== id)); setNodes(nds => nds.filter(n => n.id !== id)); setEdges(eds => eds.filter(e => e.source !== id && e.target !== id)); setSelectedTaskId(null); setIsDirty?.(true);
+    const task = tasks.find(t => t.id === id);
+    if (task?.interface) return;
+
+    setTasks(prev => prev.filter(t => t.id !== id));
+    setNodes(nds => nds.filter(n => n.id !== id));
+    setEdges(eds => eds.filter(e => e.source !== id && e.target !== id));
+    setSelectedTaskId(null);
+    setIsDirty?.(true);
   }, [tasks, setNodes, setEdges, setIsDirty]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement; if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c') { if (selectedTaskId && selectedTask && !isProtected) setClipboard(JSON.parse(JSON.stringify(selectedTask))); }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-        if (clipboard) {
-          const id = `node-${Date.now()}`; const center = project({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
-          const newNode: Node = { id, type: clipboard.interface_type === 'CONDITION' ? 'diamond' : 'matrix', position: { x: center.x - 170, y: center.y - 140 }, data: { ...clipboard, label: clipboard.name, task_type: clipboard.task_type, manual_time: clipboard.manual_time_minutes, automation_time: clipboard.automation_time_minutes, occurrence: clipboard.occurrence, systems: clipboard.target_systems.map((s:any) => s.name).join(', '), owningTeam: clipboard.owning_team, ownerPositions: clipboard.owner_positions, sourceCount: clipboard.source_data_list.length, outputCount: clipboard.output_data_list.length, validation_needed: clipboard.validation_needed, blockerCount: clipboard.blockers.length, errorCount: clipboard.errors.length, interface: undefined, baseFontSize }, };
-          const newTask: TaskEntity = { ...clipboard, id, node_id: id, interface: undefined, interface_type: clipboard.interface_type };
-          setTasks(prev => [...prev, newTask]); setNodes(nds => [...nds, newNode]); setSelectedTaskId(id); setIsDirty?.(true);
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        if (selectedTaskId && selectedTask && !isProtected) {
+          setClipboard(JSON.parse(JSON.stringify(selectedTask)));
         }
       }
-      if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedTaskId && !isProtected) deleteTask(selectedTaskId); else if (selectedEdgeId) { setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); setIsDirty?.(true); } }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        if (clipboard) {
+          const id = `node-${Date.now()}`;
+          const center = project({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+          const newNode: Node = {
+            id,
+            type: clipboard.interface_type === 'CONDITION' ? 'diamond' : 'matrix',
+            position: { x: center.x - 170, y: center.y - 140 },
+            data: {
+              ...clipboard,
+              label: clipboard.name,
+              task_type: clipboard.task_type,
+              manual_time: clipboard.manual_time_minutes,
+              automation_time: clipboard.automation_time_minutes,
+              occurrence: clipboard.occurrence,
+              systems: clipboard.target_systems.map((s:any) => s.name).join(', '),
+              owningTeam: clipboard.owning_team,
+              ownerPositions: clipboard.owner_positions,
+              sourceCount: clipboard.source_data_list.length,
+              outputCount: clipboard.output_data_list.length,
+              validation_needed: clipboard.validation_needed,
+              blockerCount: clipboard.blockers.length,
+              errorCount: clipboard.errors.length,
+              interface: undefined,
+              baseFontSize
+            },
+          };
+          const newTask: TaskEntity = {
+            ...clipboard,
+            id,
+            node_id: id,
+            interface: undefined,
+            interface_type: clipboard.interface_type
+          };
+          setTasks(prev => [...prev, newTask]);
+          setNodes(nds => [...nds, newNode]);
+          setSelectedTaskId(id);
+          setIsDirty?.(true);
+        }
+      }
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedTaskId && !isProtected) {
+          deleteTask(selectedTaskId);
+        } else if (selectedEdgeId) {
+          setEdges(eds => eds.filter(e => e.id !== selectedEdgeId));
+          setSelectedEdgeId(null);
+          setIsDirty?.(true);
+        }
+      }
     };
-    window.addEventListener('keydown', handleKeyDown); return () => window.removeEventListener('keydown', handleKeyDown);
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedTaskId, selectedEdgeId, selectedTask, isProtected, clipboard, project, setEdges, setNodes, setIsDirty, baseFontSize, deleteTask]);
 
   const updateTask = (id: string, updates: Partial<TaskEntity>) => {
-    if (updates.name !== undefined && updates.name.trim() === '') updates.name = 'Untitled';
+    if (updates.name !== undefined && updates.name.trim() === '') {
+      updates.name = 'Untitled';
+    }
+    
     setTasks(prev => prev.map(t => {
       if (t.id === id) {
         const updated = { ...t, ...updates };
-        setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { ...n.data, label: updated.name, task_type: updated.task_type, manual_time: updated.manual_time_minutes, automation_time: updated.automation_time_minutes, occurrence: updated.occurrence, systems: updated.target_systems.map((s:any) => s.name).join(', '), owningTeam: updated.owning_team, ownerPositions: updated.owner_positions, sourceCount: updated.source_data_list.length, outputCount: updated.output_data_list.length, validation_needed: updated.validation_needed, blockerCount: updated.blockers.length, errorCount: updated.errors.length, description: updated.description } } : n));
+        setNodes(nds => nds.map(n => n.id === id ? { 
+          ...n, 
+          data: { 
+            ...n.data, 
+            label: updated.name,
+            task_type: updated.task_type,
+            manual_time: updated.manual_time_minutes,
+            automation_time: updated.automation_time_minutes,
+            occurrence: updated.occurrence,
+            systems: updated.target_systems.map((s:any) => s.name).join(', '),
+            owningTeam: updated.owning_team,
+            ownerPositions: updated.owner_positions,
+            sourceCount: updated.source_data_list.length,
+            outputCount: updated.output_data_list.length,
+            validation_needed: updated.validation_needed,
+            blockerCount: updated.blockers.length,
+            errorCount: updated.errors.length,
+            description: updated.description
+          } 
+        } : n));
         return updated;
       }
       return t;
@@ -559,28 +904,132 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   };
 
   const updateEdge = (id: string, updates: any) => {
-    setEdges(eds => eds.map(e => e.id === id ? { ...e, data: { ...e.data, ...updates }, markerEnd: { type: MarkerType.ArrowClosed, color: updates.color || e.data?.color || '#ffffff' } } : e));
+    setEdges(eds => eds.map(e => e.id === id ? { 
+      ...e, 
+      data: { ...e.data, ...updates },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: updates.color || e.data?.color || '#ffffff'
+      }
+    } : e));
     setIsDirty?.(true);
   };
 
   const onConnect = (params: Connection) => {
     if (!params.source || !params.target) return;
-    const newEdge: Edge = { ...params, id: `e-${params.source}-${params.target}-${Date.now()}`, type: 'custom', data: { label: '', edgeStyle: 'bezier', color: '#ffffff', style: 'solid' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#ffffff' }, source: params.source, target: params.target };
-    setEdges(eds => addEdge(newEdge, eds)); setIsDirty?.(true);
+    const newEdge: Edge = {
+      ...params,
+      id: `e-${params.source}-${params.target}-${Date.now()}`,
+      type: 'custom',
+      data: {
+        label: '',
+        edgeStyle: 'bezier',
+        color: '#ffffff',
+        style: 'solid'
+      },
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        color: '#ffffff'
+      },
+      source: params.source,
+      target: params.target
+    };
+    setEdges(eds => addEdge(newEdge, eds));
+    setIsDirty?.(true);
   };
 
   const onAddNode = (type: 'TASK' | 'CONDITION') => {
-    const id = `node-${Date.now()}`; const center = project({ x: (window.innerWidth - inspectorWidth) / 2, y: window.innerHeight / 2 });
-    const newNode: Node = { id, type: type === 'CONDITION' ? 'diamond' : 'matrix', position: { x: Math.round((center.x - (type === 'CONDITION' ? 125 : 160)) / 10) * 10, y: Math.round((center.y - (type === 'CONDITION' ? 125 : 140)) / 10) * 10 }, data: { label: type === 'TASK' ? 'New Task' : 'New Condition', task_type: type === 'TASK' ? 'Documentation' : 'LOOP', manual_time: 0, automation_time: 0, occurrence: 1, systems: '', validation_needed: false, blockerCount: 0, errorCount: 0, baseFontSize }, };
-    const newTask: TaskEntity = { id, node_id: id, name: newNode.data.label, description: '', task_type: newNode.data.task_type, target_systems: [], interface_type: type === 'TASK' ? 'GUI' : 'CONDITION', manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, occurrence: 1, occurrence_explanation: '', source_data_list: [], output_data_list: [], verification_steps: [], blockers: [], errors: [], tribal_knowledge: [], validation_needed: false, validation_procedure: '', media: [], reference_links: [], instructions: [] };
-    setTasks(prev => [...prev, newTask]); setNodes(nds => [...nds, newNode]); setSelectedTaskId(id); setIsDirty?.(true);
+    const id = `node-${Date.now()}`;
+    const center = project({ x: (window.innerWidth - inspectorWidth) / 2, y: window.innerHeight / 2 });
+    
+    const newNode: Node = {
+      id,
+      type: type === 'CONDITION' ? 'diamond' : 'matrix',
+      position: { 
+        x: Math.round((center.x - (type === 'CONDITION' ? 125 : 160)) / 10) * 10, 
+        y: Math.round((center.y - (type === 'CONDITION' ? 125 : 140)) / 10) * 10 
+      },
+      data: {
+        label: type === 'TASK' ? 'New Task' : 'New Condition',
+        task_type: type === 'TASK' ? 'Documentation' : 'LOOP',
+        manual_time: 0,
+        automation_time: 0,
+        occurrence: 1,
+        systems: '',
+        validation_needed: false,
+        blockerCount: 0,
+        errorCount: 0,
+        baseFontSize
+      },
+    };
+
+    const newTask: TaskEntity = {
+      id,
+      node_id: id,
+      name: newNode.data.label,
+      description: '',
+      task_type: newNode.data.task_type,
+      target_systems: [],
+      interface_type: type === 'TASK' ? 'GUI' : 'CONDITION',
+      manual_time_minutes: 0,
+      automation_time_minutes: 0,
+      machine_wait_time_minutes: 0,
+      occurrence: 1,
+      occurrence_explanation: '',
+      source_data_list: [],
+      output_data_list: [],
+      verification_steps: [],
+      blockers: [],
+      errors: [],
+      tribal_knowledge: [],
+      validation_needed: false,
+      validation_procedure: '',
+      media: [],
+      reference_links: [],
+      instructions: []
+    };
+
+    setTasks(prev => [...prev, newTask]);
+    setNodes(nds => [...nds, newNode]);
+    setSelectedTaskId(id);
+    setIsDirty?.(true);
   };
 
   const handleSave = () => {
     try {
-      const finalData = { ...metadata, tasks: tasks.map(t => { const node = nodes.find(n => String(n.id) === String(t.id)); return { ...t, id: undefined, node_id: String(t.node_id || t.id), position_x: node?.position.x ?? t.position_x ?? 0, position_y: node?.position.y ?? t.position_y ?? 0 }; }), edges: edges.map(e => ({ source: String(e.source), target: String(e.target), source_handle: String(e.sourceHandle || 'right-source'), target_handle: String(e.targetHandle || 'left-target'), label: String(e.data?.label || ''), edge_style: String(e.data?.edgeStyle || 'bezier'), color: String(e.data?.color || '#ffffff'), style: String(e.data?.style || 'solid') })) };
+      if (tasks.length === 0) {
+        console.warn("Attempted to save empty task list. Aborting save to prevent data loss.");
+        return;
+      }
+
+      const finalData = {
+        ...metadata,
+        tasks: tasks.map(t => {
+          const node = nodes.find(n => String(n.id) === String(t.id));
+          return {
+            ...t,
+            id: undefined, // Let backend handle DB ID
+            node_id: String(t.node_id || t.id),
+            position_x: node?.position.x ?? t.position_x ?? 0,
+            position_y: node?.position.y ?? t.position_y ?? 0
+          };
+        }),
+        edges: edges.map(e => ({
+          source: String(e.source),
+          target: String(e.target),
+          source_handle: String(e.sourceHandle || 'right-source'),
+          target_handle: String(e.targetHandle || 'left-target'),
+          label: String(e.data?.label || ''),
+          edge_style: String(e.data?.edgeStyle || 'bezier'),
+          color: String(e.data?.color || '#ffffff'),
+          style: String(e.data?.style || 'solid')
+        }))
+      };
       onSave(finalData);
-    } catch (err) { console.error("Critical error during save preparation:", err); onSave({ ...metadata, tasks: [], edges: [] }); }
+    } catch (err) {
+      console.error("Critical error during save preparation:", err);
+      // Removed the onSave with empty tasks to prevent wiping data on error
+    }
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
