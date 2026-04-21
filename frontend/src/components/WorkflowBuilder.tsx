@@ -248,7 +248,10 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         </h4>
         
         <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl z-10" />
-        <Handle type="source" position={Position.Right} id="right-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl z-10" />
+        <Handle type="source" position={Position.Left} id="left-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl z-20 opacity-0" />
+        
+        <Handle type="target" position={Position.Right} id="right-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl z-10" />
+        <Handle type="source" position={Position.Right} id="right-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl z-20 opacity-0" />
       </div>
     );
   }
@@ -589,8 +592,16 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     // This allows the UI to refresh after a save (when isDirty is reset to false)
     
     // 1. Initialize Tasks with stable IDs (node_id preferred)
+    const seenIds = new Set<string>();
     let initializedTasks = (workflow.tasks || []).map((t: any) => {
-      const stableId = String(t.node_id || t.id);
+      let stableId = String(t.node_id || t.id);
+      
+      // Ensure uniqueness
+      if (seenIds.has(stableId)) {
+        stableId = `${stableId}-dup-${Math.random().toString(36).substr(2, 9)}`;
+      }
+      seenIds.add(stableId);
+
       return {
         ...t,
         id: stableId,
@@ -730,29 +741,54 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     }));
 
     // 5. Initialize Edges
-    const initialEdges: Edge[] = (workflow.edges || []).map((e: any) => ({
-      ...e,
-      id: String(e.id || `e-${e.source}-${e.target}-${Date.now()}`),
-      source: String(e.source),
-      target: String(e.target),
-      sourceHandle: e.source_handle || e.sourceHandle,
-      targetHandle: e.target_handle || e.targetHandle,
-      type: 'custom',
-      data: { 
-        label: e.label, 
-        edgeStyle: e.edge_style || e.data?.edgeStyle || 'bezier', 
-        color: e.color || e.data?.color || '#ffffff', 
-        style: e.style || e.data?.style || 'solid' 
-      },
-      markerEnd: { type: MarkerType.ArrowClosed, color: e.color || e.data?.color || '#ffffff' },
-    }));
+    const initialEdges: Edge[] = (workflow.edges || []).map((e: any, idx: number) => {
+      const sourceId = String(e.source);
+      const targetId = String(e.target);
+      
+      // Map handles correctly, handling legacy names or missing handles
+      let sHandle = e.source_handle || e.sourceHandle;
+      let tHandle = e.target_handle || e.targetHandle;
+      
+      // Fallback for boundary nodes which might have been saved with 'right-target' as source
+      if (sourceId === 'node-trigger' && sHandle === 'right-target') sHandle = 'right-source';
+      if (!sHandle) sHandle = 'right-source';
+      if (!tHandle) tHandle = 'left-target';
+
+      return {
+        ...e,
+        id: String(e.id || `e-${sourceId}-${targetId}-${idx}-${Date.now()}`),
+        source: sourceId,
+        target: targetId,
+        sourceHandle: sHandle,
+        targetHandle: tHandle,
+        type: 'custom',
+        data: { 
+          label: e.label || '', 
+          edgeStyle: e.edge_style || e.data?.edgeStyle || 'bezier', 
+          color: e.color || e.data?.color || '#ffffff', 
+          style: e.style || e.data?.style || 'solid' 
+        },
+        markerEnd: { type: MarkerType.ArrowClosed, color: e.color || e.data?.color || '#ffffff' },
+      };
+    }).filter((e: Edge) => {
+      // Validate that source and target nodes exist in the initializedTasks
+      const sourceExists = initializedTasks.some((t: any) => String(t.node_id || t.id) === e.source);
+      const targetExists = initializedTasks.some((t: any) => String(t.node_id || t.id) === e.target);
+      return sourceExists && targetExists;
+    });
 
     setNodes(initialNodes);
     setEdges(initialEdges);
     
     // Auto layout if new workflow or missing positions
     if (initializedTasks.every((t: any) => !t.position_x && !t.position_y)) {
-       setTimeout(() => handleLayout(initialNodes, initialEdges), 200);
+       setTimeout(() => {
+         try {
+           handleLayout(initialNodes, initialEdges);
+         } catch (err) {
+           console.error("Layout failed:", err);
+         }
+       }, 200);
     }
 
   }, [workflow]); // Re-run whenever workflow object changes (e.g. after save)
@@ -1027,129 +1063,136 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   };
 
   const handleLayout = useCallback((nodesToLayout?: Node[], edgesToLayout?: Edge[]) => {
-    let nds = nodesToLayout || nodes;
-    const eds = edgesToLayout || edges;
+    try {
+      let nds = nodesToLayout || nodes;
+      const eds = edgesToLayout || edges;
 
-    if (nds.length === 0 && tasks.length > 0) {
-      nds = tasks.map(t => ({
-        id: t.id,
-        type: t.interface_type === 'CONDITION' ? 'diamond' : 'matrix',
-        position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
-        data: { 
-          label: t.name, 
-          task_type: t.task_type,
-          manual_time: t.manual_time_minutes,
-          automation_time: t.automation_time_minutes,
-          occurrence: t.occurrence,
-          systems: t.target_systems.map(s => s.name).join(', '),
-          owningTeam: t.owning_team,
-          ownerPositions: t.owner_positions,
-          sourceCount: t.source_data_list.length,
-          outputCount: t.output_data_list.length,
-          interface: t.interface,
-          validation_needed: t.validation_needed,
-          blockerCount: t.blockers.length,
-          errorCount: t.errors.length,
-          description: t.description,
-          baseFontSize
-        },
-      }));
-    }
-
-    if (nds.length === 0) return;
-
-    // Pre-sort nodes for horizontal alignment if disconnected
-    const sortedNodes = [...nds].sort((a, b) => {
-      const aInterface = a.data.interface;
-      const bInterface = b.data.interface;
-      if (aInterface === 'TRIGGER') return -1;
-      if (bInterface === 'TRIGGER') return 1;
-      if (aInterface === 'OUTCOME') return 1;
-      if (bInterface === 'OUTCOME') return -1;
-      return 0;
-    });
-
-    const dagreGraph = new dagre.graphlib.Graph();
-    dagreGraph.setDefaultEdgeLabel(() => ({}));
-    dagreGraph.setGraph({ 
-      rankdir: 'LR', 
-      ranker: 'network-simplex', 
-      ranksep: 200, 
-      nodesep: 100,
-      edgesep: 50
-    });
-
-    sortedNodes.forEach((n) => {
-      const isDiamond = n.type === 'diamond';
-      const isTemplate = n.data.interface === 'TRIGGER' || n.data.interface === 'OUTCOME';
-      dagreGraph.setNode(n.id, { 
-        width: isDiamond ? 250 : 320, 
-        height: isTemplate ? 120 : (isDiamond ? 250 : 280) 
-      });
-    });
-    
-    eds.forEach((e) => dagreGraph.setEdge(e.source, e.target));
-
-    dagre.layout(dagreGraph);
-
-    const layoutedNodes = sortedNodes.map(n => {
-      const nodeWithPos = dagreGraph.node(n.id);
-      if (!nodeWithPos) return n;
-      const isDiamond = n.type === 'diamond';
-      const isTemplate = n.data.interface === 'TRIGGER' || n.data.interface === 'OUTCOME';
-      
-      // Center based on dagre output and standardized widths
-      const targetX = nodeWithPos.x - (isDiamond ? 125 : 160);
-      const targetY = nodeWithPos.y - (isTemplate ? 60 : (isDiamond ? 125 : 140));
-      
-      return { 
-        ...n, 
-        position: { 
-          x: Math.round(targetX / 10) * 10, 
-          y: Math.round(targetY / 10) * 10 
-        } 
-      };
-    });
-
-    // Handle Assignment for Straight Horizontal Connections
-    const layoutedEdges = eds.map(e => {
-      const sourceNode = layoutedNodes.find(n => n.id === e.source);
-      const targetNode = layoutedNodes.find(n => n.id === e.target);
-      
-      if (!sourceNode || !targetNode) return e;
-
-      let sourceHandle = 'right-source';
-      let targetHandle = 'left-target';
-
-      const dx = targetNode.position.x - sourceNode.position.x;
-      const dy = targetNode.position.y - sourceNode.position.y;
-
-      // Force LR handles for horizontal flow
-      if (dx >= 0) {
-        sourceHandle = 'right-source';
-        targetHandle = 'left-target';
-      } else {
-        sourceHandle = 'left-source';
-        targetHandle = 'right-target';
+      if (nds.length === 0 && tasks.length > 0) {
+        nds = tasks.map(t => ({
+          id: String(t.node_id || t.id),
+          type: t.interface_type === 'CONDITION' ? 'diamond' : 'matrix',
+          position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
+          data: { 
+            ...t,
+            label: t.name, 
+            task_type: t.task_type,
+            manual_time: t.manual_time_minutes,
+            automation_time: t.automation_time_minutes,
+            occurrence: t.occurrence,
+            systems: t.target_systems.map((s: any) => s.name).join(', '),
+            owningTeam: t.owning_team,
+            ownerPositions: t.owner_positions,
+            sourceCount: t.source_data_list.length,
+            outputCount: t.output_data_list.length,
+            interface: t.interface,
+            validation_needed: t.validation_needed,
+            blockerCount: t.blockers.length,
+            errorCount: t.errors.length,
+            description: t.description,
+            id: String(t.node_id || t.id),
+            baseFontSize
+          },
+        }));
       }
 
-      // If vertical offset is small, it will result in a straight line
-      return {
-        ...e,
-        sourceHandle,
-        targetHandle,
-        type: 'custom',
-        data: { ...e.data, edgeStyle: Math.abs(dy) < 5 ? 'straight' : 'smoothstep' }
-      };
-    });
+      if (nds.length === 0) return;
 
-    setNodes(layoutedNodes);
-    setEdges(layoutedEdges);
-    setIsDirty?.(true);
-    
-    window.requestAnimationFrame(() => {
-      fitView({ padding: 0.1, duration: 800 });
-    });
+      // Pre-sort nodes for horizontal alignment if disconnected
+      const sortedNodes = [...nds].sort((a, b) => {
+        const aInterface = a.data?.interface;
+        const bInterface = b.data?.interface;
+        if (aInterface === 'TRIGGER') return -1;
+        if (bInterface === 'TRIGGER') return 1;
+        if (aInterface === 'OUTCOME') return 1;
+        if (bInterface === 'OUTCOME') return -1;
+        return 0;
+      });
+
+      const dagreGraph = new dagre.graphlib.Graph();
+      dagreGraph.setDefaultEdgeLabel(() => ({}));
+      dagreGraph.setGraph({ 
+        rankdir: 'LR', 
+        ranker: 'network-simplex', 
+        ranksep: 200, 
+        nodesep: 100,
+        edgesep: 50
+      });
+
+      sortedNodes.forEach((n) => {
+        const isDiamond = n.type === 'diamond';
+        const isTemplate = n.data?.interface === 'TRIGGER' || n.data?.interface === 'OUTCOME';
+        dagreGraph.setNode(n.id, { 
+          width: isDiamond ? 250 : 320, 
+          height: isTemplate ? 120 : (isDiamond ? 250 : 280) 
+        });
+      });
+      
+      eds.forEach((e) => {
+        if (dagreGraph.hasNode(e.source) && dagreGraph.hasNode(e.target)) {
+          dagreGraph.setEdge(e.source, e.target);
+        }
+      });
+
+      dagre.layout(dagreGraph);
+
+      const layoutedNodes = sortedNodes.map(n => {
+        const nodeWithPos = dagreGraph.node(n.id);
+        if (!nodeWithPos) return n;
+        const isDiamond = n.type === 'diamond';
+        const isTemplate = n.data?.interface === 'TRIGGER' || n.data?.interface === 'OUTCOME';
+        
+        const targetX = nodeWithPos.x - (isDiamond ? 125 : 160);
+        const targetY = nodeWithPos.y - (isTemplate ? 60 : (isDiamond ? 125 : 140));
+        
+        return { 
+          ...n, 
+          position: { 
+            x: Math.round(targetX / 10) * 10, 
+            y: Math.round(targetY / 10) * 10 
+          } 
+        };
+      });
+
+      // Handle Assignment for Straight Horizontal Connections
+      const layoutedEdges = eds.map(e => {
+        const sourceNode = layoutedNodes.find(n => n.id === e.source);
+        const targetNode = layoutedNodes.find(n => n.id === e.target);
+        
+        if (!sourceNode || !targetNode) return e;
+
+        let sourceHandle = 'right-source';
+        let targetHandle = 'left-target';
+
+        const dx = targetNode.position.x - sourceNode.position.x;
+        const dy = targetNode.position.y - sourceNode.position.y;
+
+        if (dx >= 0) {
+          sourceHandle = 'right-source';
+          targetHandle = 'left-target';
+        } else {
+          sourceHandle = 'left-source';
+          targetHandle = 'right-target';
+        }
+
+        return {
+          ...e,
+          sourceHandle,
+          targetHandle,
+          type: 'custom',
+          data: { ...e.data, edgeStyle: Math.abs(dy) < 5 ? 'straight' : 'smoothstep' }
+        };
+      });
+
+      setNodes(layoutedNodes);
+      setEdges(layoutedEdges);
+      setIsDirty?.(true);
+      
+      window.requestAnimationFrame(() => {
+        fitView({ padding: 0.1, duration: 800 });
+      });
+    } catch (error) {
+      console.error("Dagre Layout Error:", error);
+    }
   }, [nodes, edges, tasks, fitView, setNodes, setEdges, setIsDirty, baseFontSize]);
 
   const handleImagePaste = (e: React.ClipboardEvent) => {
