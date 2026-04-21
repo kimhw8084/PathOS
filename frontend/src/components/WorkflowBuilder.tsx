@@ -303,7 +303,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
             {data.label || "Untitled Task"}
           </h4>
           {/* Tooltip for Title & Description */}
-          <div className="absolute top-full left-0 w-80 bg-[#1e293b] border border-white/20 p-5 rounded-xl shadow-2xl opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all z-[100] backdrop-blur-2xl pointer-events-none translate-y-2 group-hover/title:translate-y-0">
+          <div className="absolute top-full left-0 w-[800px] bg-[#1e293b] border border-white/20 p-5 rounded-xl shadow-2xl opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all z-[100] backdrop-blur-2xl pointer-events-none translate-y-2 group-hover/title:translate-y-0">
              <p className="font-black text-white uppercase mb-3 border-b border-white/10 pb-2 leading-tight" style={{ fontSize: `${titleFontSize + 2}px` }}>{data.label}</p>
              <p className="text-white/70 font-medium leading-relaxed italic" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
           </div>
@@ -392,7 +392,7 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
           {data.label || "Condition"}
         </span>
         {/* Tooltip for Title & Description */}
-        <div className="absolute top-[80%] left-1/2 -translate-x-1/2 w-80 bg-[#1e293b] border border-white/20 p-5 rounded-xl shadow-2xl opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all z-[100] backdrop-blur-2xl pointer-events-none translate-y-2 group-hover/title:translate-y-0">
+        <div className="absolute top-[80%] left-1/2 -translate-x-1/2 w-[800px] bg-[#1e293b] border border-white/20 p-5 rounded-xl shadow-2xl opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all z-[100] backdrop-blur-2xl pointer-events-none translate-y-2 group-hover/title:translate-y-0">
            <p className="font-black text-white uppercase mb-3 border-b border-white/10 pb-2 leading-tight" style={{ fontSize: `${titleFontSize - 4}px` }}>{data.label || 'Condition'}</p>
            <p className="text-white/70 font-medium leading-relaxed italic" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
         </div>
@@ -588,207 +588,215 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   // Consolidated Initialization: Sync state with workflow prop
   useEffect(() => {
-    // Only sync if it's a new workflow OR we're not currently editing (not dirty)
-    // This allows the UI to refresh after a save (when isDirty is reset to false)
-    
-    // 1. Initialize Tasks with stable IDs (node_id preferred)
-    const seenIds = new Set<string>();
-    let initializedTasks = (workflow.tasks || []).map((t: any) => {
-      let stableId = String(t.node_id || t.id);
-      
-      // Ensure uniqueness
-      if (seenIds.has(stableId)) {
-        stableId = `${stableId}-dup-${Math.random().toString(36).substr(2, 9)}`;
+    try {
+      // 1. Initialize Tasks with stable IDs (node_id preferred)
+      const seenIds = new Set<string>();
+      let initializedTasks = (workflow?.tasks || []).map((t: any) => {
+        let stableId = String(t.node_id || t.id || `node-${Math.random().toString(36).substr(2, 9)}`);
+        
+        // Ensure uniqueness
+        if (seenIds.has(stableId)) {
+          stableId = `${stableId}-dup-${Math.random().toString(36).substr(2, 9)}`;
+        }
+        seenIds.add(stableId);
+
+        return {
+          ...t,
+          id: stableId,
+          node_id: stableId,
+          target_systems: t.target_systems || [],
+          blockers: t.blockers || [],
+          errors: t.errors || [],
+          media: t.media || [],
+          reference_links: t.reference_links || [],
+          instructions: t.instructions || [],
+          source_data_list: t.source_data_list || [],
+          output_data_list: t.output_data_list || [],
+          verification_steps: t.verification_steps || [],
+          tribal_knowledge: t.tribal_knowledge || [],
+          active_touch_time_minutes: t.active_touch_time_minutes || 0,
+          machine_wait_time_minutes: t.machine_wait_time_minutes || 0,
+          occurrence: t.occurrence || t.occurrences_per_cycle || 1,
+          occurrence_explanation: t.occurrence_explanation || t.occurrence_condition || '',
+          automation_time_minutes: t.automation_time_minutes || 0,
+          manual_time_minutes: t.manual_time_minutes || 0,
+          validation_needed: t.validation_needed || false,
+          validation_procedure: t.validation_procedure || '',
+        };
+      });
+
+      // 2. Ensure Trigger/Outcome boundary nodes exist
+      if (!initializedTasks.find((t: any) => t.interface === 'TRIGGER')) {
+        initializedTasks.unshift({
+          id: 'node-trigger',
+          node_id: 'node-trigger',
+          name: taxonomy.find(tx => tx.category === 'TriggerType' && tx.value === workflow?.trigger_type)?.label || workflow?.trigger_type || 'TRIGGER',
+          description: workflow?.trigger_description || '',
+          task_type: 'TRIGGER',
+          target_systems: [],
+          interface_type: 'TRIGGER',
+          interface: 'TRIGGER',
+          manual_time_minutes: 0,
+          automation_time_minutes: 0,
+          machine_wait_time_minutes: 0,
+          occurrence: 1,
+          occurrence_explanation: '',
+          source_data_list: [],
+          output_data_list: [],
+          verification_steps: [],
+          blockers: [],
+          errors: [],
+          tribal_knowledge: [],
+          validation_needed: false,
+          validation_procedure: '',
+          media: [],
+          reference_links: [],
+          position_x: 0,
+          position_y: 100
+        });
       }
-      seenIds.add(stableId);
 
-      return {
-        ...t,
-        id: stableId,
-        node_id: stableId,
-        target_systems: t.target_systems || [],
-        blockers: t.blockers || [],
-        errors: t.errors || [],
-        media: t.media || [],
-        reference_links: t.reference_links || [],
-        instructions: t.instructions || [],
-        source_data_list: t.source_data_list || [],
-        output_data_list: t.output_data_list || [],
-        verification_steps: t.verification_steps || [],
-        tribal_knowledge: t.tribal_knowledge || [],
-        active_touch_time_minutes: t.active_touch_time_minutes || 0,
-        machine_wait_time_minutes: t.machine_wait_time_minutes || 0,
-        occurrence: t.occurrence || t.occurrences_per_cycle || 1,
-        occurrence_explanation: t.occurrence_explanation || t.occurrence_condition || '',
-        automation_time_minutes: t.automation_time_minutes || 0,
-        manual_time_minutes: t.manual_time_minutes || 0,
-        validation_needed: t.validation_needed || false,
-        validation_procedure: t.validation_procedure || '',
-      };
-    });
+      if (!initializedTasks.find((t: any) => t.interface === 'OUTCOME')) {
+        initializedTasks.push({
+          id: 'node-outcome',
+          node_id: 'node-outcome',
+          name: taxonomy.find(tx => tx.category === 'OutputType' && tx.value === workflow?.output_type)?.label || workflow?.output_type || 'OUTCOME',
+          description: workflow?.output_description || '',
+          task_type: 'OUTCOME',
+          target_systems: [],
+          interface_type: 'OUTCOME',
+          interface: 'OUTCOME',
+          manual_time_minutes: 0,
+          automation_time_minutes: 0,
+          machine_wait_time_minutes: 0,
+          occurrence: 1,
+          occurrence_explanation: '',
+          source_data_list: [],
+          output_data_list: [],
+          verification_steps: [],
+          blockers: [],
+          errors: [],
+          tribal_knowledge: [],
+          validation_needed: false,
+          validation_procedure: '',
+          media: [],
+          reference_links: [],
+          position_x: 1000,
+          position_y: 100
+        });
+      }
 
-    // 2. Ensure Trigger/Outcome boundary nodes exist
-    if (!initializedTasks.find((t: any) => t.interface === 'TRIGGER')) {
-      initializedTasks.unshift({
-        id: 'node-trigger',
-        node_id: 'node-trigger',
-        name: taxonomy.find(tx => tx.category === 'TriggerType' && tx.value === workflow.trigger_type)?.label || workflow.trigger_type || 'TRIGGER',
-        description: workflow.trigger_description || '',
-        task_type: 'TRIGGER',
-        target_systems: [],
-        interface_type: 'TRIGGER',
-        interface: 'TRIGGER',
-        manual_time_minutes: 0,
-        automation_time_minutes: 0,
-        machine_wait_time_minutes: 0,
-        occurrence: 1,
-        occurrence_explanation: '',
-        source_data_list: [],
-        output_data_list: [],
-        verification_steps: [],
-        blockers: [],
-        errors: [],
-        tribal_knowledge: [],
-        validation_needed: false,
-        validation_procedure: '',
-        media: [],
-        reference_links: [],
-        position_x: 0,
-        position_y: 100
+      setTasks(initializedTasks);
+
+      // 3. Initialize Metadata state
+      setMetadata({
+        name: workflow?.name || 'Untitled Workflow',
+        version: workflow?.version || 1,
+        prc: workflow?.prc || '',
+        workflow_type: workflow?.workflow_type || '',
+        tool_family: workflow?.tool_family || '',
+        tool_family_count: workflow?.tool_family_count || 1,
+        tool_id: workflow?.tool_id || '',
+        trigger_type: workflow?.trigger_type || 'Manual',
+        trigger_description: workflow?.trigger_description || '',
+        output_type: workflow?.output_type || 'Report',
+        output_description: workflow?.output_description || '',
+        cadence_count: workflow?.cadence_count || 1,
+        cadence_unit: workflow?.cadence_unit || 'month',
+        total_roi_saved_hours: workflow?.total_roi_saved_hours || 0,
+        org: workflow?.org || '',
+        team: workflow?.team || '',
+        poc: workflow?.poc || '',
+        flow_summary: workflow?.flow_summary || '',
+        description: workflow?.description || workflow?.forensic_description || ''
       });
-    }
 
-    if (!initializedTasks.find((t: any) => t.interface === 'OUTCOME')) {
-      initializedTasks.push({
-        id: 'node-outcome',
-        node_id: 'node-outcome',
-        name: taxonomy.find(tx => tx.category === 'OutputType' && tx.value === workflow.output_type)?.label || workflow.output_type || 'OUTCOME',
-        description: workflow.output_description || '',
-        task_type: 'OUTCOME',
-        target_systems: [],
-        interface_type: 'OUTCOME',
-        interface: 'OUTCOME',
-        manual_time_minutes: 0,
-        automation_time_minutes: 0,
-        machine_wait_time_minutes: 0,
-        occurrence: 1,
-        occurrence_explanation: '',
-        source_data_list: [],
-        output_data_list: [],
-        verification_steps: [],
-        blockers: [],
-        errors: [],
-        tribal_knowledge: [],
-        validation_needed: false,
-        validation_procedure: '',
-        media: [],
-        reference_links: [],
-        position_x: 1000,
-        position_y: 100
-      });
-    }
-
-    setTasks(initializedTasks);
-
-    // 3. Initialize Metadata state
-    setMetadata({
-      name: workflow.name,
-      version: workflow.version,
-      prc: workflow.prc,
-      workflow_type: workflow.workflow_type,
-      tool_family: workflow.tool_family,
-      tool_family_count: workflow.tool_family_count || 1,
-      tool_id: workflow.tool_id,
-      trigger_type: workflow.trigger_type,
-      trigger_description: workflow.trigger_description,
-      output_type: workflow.output_type,
-      output_description: workflow.output_description,
-      cadence_count: workflow.cadence_count || 1,
-      cadence_unit: workflow.cadence_unit || 'month',
-      total_roi_saved_hours: workflow.total_roi_saved_hours || 0,
-      org: workflow.org,
-      team: workflow.team,
-      poc: workflow.poc,
-      flow_summary: workflow.flow_summary || '',
-      description: workflow.description || workflow.forensic_description || ''
-    });
-
-    // 4. Initialize Nodes
-    const initialNodes: Node[] = initializedTasks.map((t: any) => ({
-      id: String(t.node_id || t.id),
-      type: t.interface_type === 'CONDITION' ? 'diamond' : 'matrix',
-      position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
-      data: { 
-        ...t,
-        label: t.name, 
-        task_type: t.task_type,
-        manual_time: t.manual_time_minutes,
-        automation_time: t.automation_time_minutes,
-        occurrence: t.occurrence,
-        systems: t.target_systems.map((s: any) => s.name).join(', '),
-        owningTeam: t.owning_team,
-        ownerPositions: t.owner_positions,
-        sourceCount: t.source_data_list.length,
-        outputCount: t.output_data_list.length,
-        interface: t.interface,
-        validation_needed: t.validation_needed,
-        blockerCount: t.blockers.length,
-        errorCount: t.errors.length,
-        description: t.description,
+      // 4. Initialize Nodes
+      const initialNodes: Node[] = initializedTasks.map((t: any) => ({
         id: String(t.node_id || t.id),
-        baseFontSize // Ensure current font size is applied
-      },
-    }));
-
-    // 5. Initialize Edges
-    const initialEdges: Edge[] = (workflow.edges || []).map((e: any, idx: number) => {
-      const sourceId = String(e.source);
-      const targetId = String(e.target);
-      
-      // Map handles correctly, handling legacy names or missing handles
-      let sHandle = e.source_handle || e.sourceHandle;
-      let tHandle = e.target_handle || e.targetHandle;
-      
-      // Fallback for boundary nodes which might have been saved with 'right-target' as source
-      if (sourceId === 'node-trigger' && sHandle === 'right-target') sHandle = 'right-source';
-      if (!sHandle) sHandle = 'right-source';
-      if (!tHandle) tHandle = 'left-target';
-
-      return {
-        ...e,
-        id: String(e.id || `e-${sourceId}-${targetId}-${idx}-${Date.now()}`),
-        source: sourceId,
-        target: targetId,
-        sourceHandle: sHandle,
-        targetHandle: tHandle,
-        type: 'custom',
+        type: t.interface_type === 'CONDITION' ? 'diamond' : 'matrix',
+        position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
         data: { 
-          label: e.label || '', 
-          edgeStyle: e.edge_style || e.data?.edgeStyle || 'bezier', 
-          color: e.color || e.data?.color || '#ffffff', 
-          style: e.style || e.data?.style || 'solid' 
+          ...t,
+          label: t.name || (t.interface === 'TRIGGER' ? 'TRIGGER' : (t.interface === 'OUTCOME' ? 'OUTCOME' : 'Untitled Task')), 
+          task_type: t.task_type || 'GENERAL',
+          manual_time: t.manual_time_minutes || 0,
+          automation_time: t.automation_time_minutes || 0,
+          occurrence: t.occurrence || 1,
+          systems: (t.target_systems || []).map((s: any) => s.name).join(', '),
+          owningTeam: t.owning_team,
+          ownerPositions: t.owner_positions,
+          sourceCount: (t.source_data_list || []).length,
+          outputCount: (t.output_data_list || []).length,
+          interface: t.interface,
+          validation_needed: t.validation_needed,
+          blockerCount: (t.blockers || []).length,
+          errorCount: (t.errors || []).length,
+          description: t.description || '',
+          id: String(t.node_id || t.id),
+          baseFontSize // Ensure current font size is applied
         },
-        markerEnd: { type: MarkerType.ArrowClosed, color: e.color || e.data?.color || '#ffffff' },
-      };
-    }).filter((e: Edge) => {
-      // Validate that source and target nodes exist in the initializedTasks
-      const sourceExists = initializedTasks.some((t: any) => String(t.node_id || t.id) === e.source);
-      const targetExists = initializedTasks.some((t: any) => String(t.node_id || t.id) === e.target);
-      return sourceExists && targetExists;
-    });
+      }));
 
-    setNodes(initialNodes);
-    setEdges(initialEdges);
-    
-    // Auto layout if new workflow or missing positions
-    if (initializedTasks.every((t: any) => !t.position_x && !t.position_y)) {
-       setTimeout(() => {
-         try {
-           handleLayout(initialNodes, initialEdges);
-         } catch (err) {
-           console.error("Layout failed:", err);
-         }
-       }, 200);
+      // 5. Initialize Edges
+      const initialEdges: Edge[] = (workflow?.edges || []).map((e: any, idx: number) => {
+        const sourceId = String(e.source || '');
+        const targetId = String(e.target || '');
+        
+        if (!sourceId || !targetId) return null;
+
+        // Map handles correctly, handling legacy names or missing handles
+        let sHandle = e.source_handle || e.sourceHandle;
+        let tHandle = e.target_handle || e.targetHandle;
+        
+        // Fallback for boundary nodes which might have been saved with 'right-target' as source
+        if (sourceId === 'node-trigger' && sHandle === 'right-target') sHandle = 'right-source';
+        if (!sHandle) sHandle = 'right-source';
+        if (!tHandle) tHandle = 'left-target';
+
+        return {
+          ...e,
+          id: String(e.id || `e-${sourceId}-${targetId}-${idx}-${Date.now()}`),
+          source: sourceId,
+          target: targetId,
+          sourceHandle: sHandle,
+          targetHandle: tHandle,
+          type: 'custom',
+          data: { 
+            label: e.label || e.data?.label || '', 
+            edgeStyle: e.edge_style || e.data?.edgeStyle || 'bezier', 
+            color: e.color || e.data?.color || '#ffffff', 
+            style: e.style || e.data?.style || 'solid' 
+          },
+          markerEnd: { type: MarkerType.ArrowClosed, color: e.color || e.data?.color || '#ffffff' },
+        };
+      }).filter((e: any) => {
+        if (!e) return false;
+        // Validate that source and target nodes exist in the initializedTasks
+        const sourceExists = initializedTasks.some((t: any) => String(t.node_id || t.id) === e.source);
+        const targetExists = initializedTasks.some((t: any) => String(t.node_id || t.id) === e.target);
+        return sourceExists && targetExists;
+      });
+
+      setNodes(initialNodes);
+      setEdges(initialEdges);
+      
+      // Auto layout if new workflow or missing positions
+      if (initializedTasks.every((t: any) => !t.position_x && !t.position_y)) {
+         setTimeout(() => {
+           try {
+             handleLayout(initialNodes, initialEdges);
+           } catch (err) {
+             console.error("Layout failed:", err);
+           }
+         }, 200);
+      }
+    } catch (err) {
+      console.error("CRITICAL: WorkflowBuilder initialization failed:", err);
+      // Fallback: don't crash the UI, but set empty state
+      setTasks([]);
+      setNodes([]);
+      setEdges([]);
     }
 
   }, [workflow]); // Re-run whenever workflow object changes (e.g. after save)
@@ -1213,30 +1221,36 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   };
 
   const handleSave = () => {
-    const finalData = {
-      ...metadata,
-      tasks: tasks.map(t => {
-        const node = nodes.find(n => String(n.id) === String(t.id));
-        return {
-          ...t,
-          id: undefined, // Let backend handle DB ID
-          node_id: String(t.node_id || t.id), // Ensure stable ID
-          position_x: node?.position.x,
-          position_y: node?.position.y
-        };
-      }),
-      edges: edges.map(e => ({
-        source: String(e.source),
-        target: String(e.target),
-        source_handle: e.sourceHandle,
-        target_handle: e.targetHandle,
-        label: e.data?.label,
-        edge_style: e.data?.edgeStyle,
-        color: e.data?.color,
-        style: e.data?.style || 'solid'
-      }))
-    };
-    onSave(finalData);
+    try {
+      const finalData = {
+        ...metadata,
+        tasks: tasks.map(t => {
+          const node = nodes.find(n => String(n.id) === String(t.id));
+          return {
+            ...t,
+            id: undefined, // Let backend handle DB ID
+            node_id: String(t.node_id || t.id), // Ensure stable ID
+            position_x: node?.position.x ?? t.position_x ?? 0,
+            position_y: node?.position.y ?? t.position_y ?? 0
+          };
+        }),
+        edges: edges.map(e => ({
+          source: String(e.source),
+          target: String(e.target),
+          source_handle: e.sourceHandle || 'right-source',
+          target_handle: e.targetHandle || 'left-target',
+          label: e.data?.label || '',
+          edge_style: e.data?.edgeStyle || 'bezier',
+          color: e.data?.color || '#ffffff',
+          style: e.data?.style || 'solid'
+        }))
+      };
+      onSave(finalData);
+    } catch (err) {
+      console.error("Critical error during save preparation:", err);
+      // Fallback: trigger save with basic data
+      onSave({ ...metadata, tasks: [], edges: [] });
+    }
   };
   const handleMouseDown = (e: React.MouseEvent) => {
     const startX = e.pageX;
