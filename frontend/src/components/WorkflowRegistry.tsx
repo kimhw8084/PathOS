@@ -324,6 +324,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     creator: 100,
     editor: 100,
     created: 110,
+    updated: 140,
     ver: 60
   });
 
@@ -414,26 +415,23 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     return (
       <Tooltip.Root>
         <Tooltip.Trigger asChild>
-          <div 
+          <button 
+            onClick={(e) => { e.stopPropagation(); setShowStatusHelp(true); }}
             className={cn(
-              "w-full h-full min-h-[24px] px-3 font-black uppercase tracking-widest border flex items-center justify-center gap-2 cursor-help transition-all hover:bg-white/5",
+              "px-3 py-1 font-black uppercase tracking-widest border rounded-full flex items-center justify-center gap-2 cursor-help transition-all hover:bg-white/10 active:scale-95",
               config.badgeColor
             )} 
             style={{ 
-              fontSize: `${fontSize - 2}px`,
-              paddingTop: `${density.rowPadding}px`,
-              paddingBottom: `${density.rowPadding}px`
+              fontSize: `${fontSize - 3}px`
             }}
           >
-            <div className={cn("w-1.5 h-1.5 rounded-full shrink-0 animate-pulse", 
-              config.dotColor
-            )} />
             <span className="whitespace-nowrap">{status}</span>
-          </div>
+          </button>
         </Tooltip.Trigger>
         <Tooltip.Portal>
           <Tooltip.Content className="bg-theme-sidebar border border-theme-border p-3 rounded-xl shadow-2xl z-[100] text-[10px] font-bold text-white max-w-[200px] backdrop-blur-xl animate-apple-in" sideOffset={5}>
             <p className="leading-relaxed opacity-90">{config.desc}</p>
+            <p className="mt-2 text-theme-accent text-[8px] font-black uppercase">Click to view status guide</p>
             <Tooltip.Arrow className="fill-theme-border" />
           </Tooltip.Content>
         </Tooltip.Portal>
@@ -694,6 +692,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                 <ResizableHeader label="Creator" widthKey="creator" sortKey="created_by" center />
                 <ResizableHeader label="Editor" widthKey="editor" sortKey="updated_by" center />
                 <ResizableHeader label="Created" widthKey="created" sortKey="created_at" center />
+                <ResizableHeader label="Updated" widthKey="updated" sortKey="updated_at" center />
                 <ResizableHeader label="Ver" widthKey="ver" sortKey="version" center sticky="right" />
 
                 <th className="p-0 w-[60px] bg-[#1e293b] sticky right-0 shadow-[-2px_0_5px_rgba(0,0,0,0.3)] z-30 border-b border-theme-border"></th>
@@ -795,8 +794,10 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                         </div>
                       </td>
 
-                      <td className="p-0 border-r border-theme-border text-center">
-                        <StatusBadge status={w.status} fontSize={density.fontSize} />
+                      <td className="p-0 border-r border-theme-border text-center" style={{ padding: `${density.rowPadding}px 8px` }}>
+                        <div className="flex items-center justify-center w-full h-full">
+                          <StatusBadge status={w.status} fontSize={density.fontSize} />
+                        </div>
                       </td>
 
                       <td className="p-0 border-r border-theme-border font-bold text-theme-secondary text-center" style={{ padding: `${density.rowPadding}px 8px`, fontSize: `${density.fontSize - 2}px` }}>
@@ -811,9 +812,13 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                         <span className="whitespace-nowrap">{new Date(w.created_at).toLocaleDateString()}</span>
                       </td>
 
+                      <td className="p-0 border-r border-theme-border text-theme-muted font-mono text-center" style={{ padding: `${density.rowPadding}px 8px`, fontSize: `${density.fontSize - 2}px` }}>
+                        <span className="whitespace-nowrap">{new Date(w.updated_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                      </td>
+
                       <td className="p-0 text-center border-r border-theme-border sticky right-[60px] bg-[#0a1120] group-hover:bg-[#151d2e] z-10 transition-colors" style={{ padding: `${density.rowPadding}px 4px` }}>
-                         <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[10px] font-black text-theme-secondary whitespace-nowrap">
-                           V{w.version}
+                         <span className="text-[11px] font-black text-white/40 whitespace-nowrap">
+                           {w.version}
                          </span>
                       </td>
 

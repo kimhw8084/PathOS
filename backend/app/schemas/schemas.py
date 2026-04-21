@@ -91,6 +91,7 @@ class TaskBase(BaseModel):
     tribal_knowledge_list: Optional[List[Any]] = []
     media: Optional[List[Any]] = None
     reference_links: Optional[List[Any]] = []
+    instructions: Optional[List[Any]] = []
     order_index: int = 0
 
 class TaskCreate(TaskBase):
@@ -136,6 +137,9 @@ class WorkflowRead(WorkflowBase):
     total_roi_saved_hours: float
     tasks: List[TaskRead] = []
     created_at: datetime
+    updated_at: datetime
+    created_by: str
+    updated_by: str
     model_config = ConfigDict(from_attributes=True)
 
 class SystemParameterBase(BaseModel):

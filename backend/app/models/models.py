@@ -10,6 +10,7 @@ class BaseMixin:
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
     is_deleted = Column(Boolean, default=False)
     created_by = Column(String, default="system_user")
+    updated_by = Column(String, default="system_user")
 
 class AutomationStatus(str, enum.Enum):
     CREATED = "Created"
@@ -118,6 +119,7 @@ class Task(Base, BaseMixin):
     tribal_knowledge_list = Column(JSON, nullable=True)
     media = Column(JSON, nullable=True) # List of image/file references
     reference_links = Column(JSON, nullable=True)
+    instructions = Column(JSON, nullable=True) # New Field: List of objects {step, description, image, links}
     
     order_index = Column(Integer, default=0)
     

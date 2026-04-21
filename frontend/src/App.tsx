@@ -378,7 +378,7 @@ const PathOSApp: React.FC = () => {
                 selectedWorkflow ? (
                   <div className="h-[calc(100vh-140px)]">
                     <WorkflowBuilder 
-                      key={selectedWorkflow.id}
+                      key={`${selectedWorkflow.id}-${selectedWorkflow.updated_at || Date.now()}`}
                       workflow={selectedWorkflow}
                       taxonomy={taxonomy}
                       onSave={(data) => workflowsApi.update(selectedWorkflow.id, data).then((updated) => {
