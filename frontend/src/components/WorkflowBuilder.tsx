@@ -253,29 +253,29 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
       data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
     )}>
       {data.validation_needed && (
-        <div className="absolute -top-3 right-4 px-2 py-0.5 rounded-sm text-[7px] font-black uppercase tracking-[0.2em] bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
+        <div className="absolute -top-3 right-4 px-2 py-0.5 rounded-sm text-[10px] font-black uppercase tracking-[0.2em] bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
           VALIDATION REQUIRED
         </div>
       )}
       <div className="flex flex-col gap-3 h-full">
         <div className="flex items-center justify-between">
-          <div className={cn("px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-widest border", typeColor)}>
+          <div className={cn("px-2.5 py-1 rounded-sm text-[11px] font-black uppercase tracking-widest border", typeColor)}>
             {data.task_type || 'GENERAL'}
           </div>
           <div className="flex items-center gap-2">
             {data.occurrence > 1 && (
-              <div className="flex items-center gap-1.5 bg-blue-500 text-white px-2 py-1 rounded-md text-[10px] font-black shadow-lg shadow-blue-500/20">
-                <RefreshCw size={11} /> x{data.occurrence}
+              <div className="flex items-center gap-1.5 bg-blue-500 text-white px-2 py-1 rounded-md text-[11px] font-black shadow-lg shadow-blue-500/20">
+                <RefreshCw size={12} /> x{data.occurrence}
               </div>
             )}
             {data.blockerCount > 0 && (
-              <div className="flex items-center gap-1.5 bg-amber-500 text-white px-2.5 py-1 rounded-md text-[11px] font-black shadow-lg shadow-amber-500/20">
-                <AlertCircle size={12} /> {data.blockerCount}
+              <div className="flex items-center gap-1.5 bg-amber-500 text-white px-2.5 py-1 rounded-md text-[12px] font-black shadow-lg shadow-amber-500/20">
+                <AlertCircle size={14} /> {data.blockerCount}
               </div>
             )}
             {data.errorCount > 0 && (
-              <div className="flex items-center gap-1.5 bg-status-error text-white px-2.5 py-1 rounded-md text-[11px] font-black shadow-lg shadow-status-error/20">
-                <X size={12} /> {data.errorCount}
+              <div className="flex items-center gap-1.5 bg-status-error text-white px-2.5 py-1 rounded-md text-[12px] font-black shadow-lg shadow-status-error/20">
+                <X size={14} /> {data.errorCount}
               </div>
             )}
           </div>
@@ -298,49 +298,49 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         <div className="flex flex-col gap-1.5 mt-auto">
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-black/40 rounded-lg p-2.5 border border-white/5 flex flex-col items-center justify-center">
-               <span className="text-[7px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-0.5">Manual</span>
-               <span className="text-[18px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
+               <span className="text-[10px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-0.5">Manual</span>
+               <span className="text-[22px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
             </div>
             <div className="bg-black/40 rounded-lg p-2.5 border border-white/5 flex flex-col items-center justify-center">
-               <span className="text-[7px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-0.5">Machine</span>
-               <span className="text-[18px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
+               <span className="text-[10px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-0.5">Machine</span>
+               <span className="text-[22px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
             </div>
           </div>
 
           <div className="flex items-center justify-between py-1.5 border-t border-white/5">
-             <div className="flex items-center gap-3">
+             <div className="flex items-center gap-4">
                <div className="flex flex-col">
-                 <span className="text-[7px] font-black text-white/20 uppercase tracking-widest">In</span>
-                 <span className="text-[11px] font-black text-white">{data.sourceCount || 0}</span>
+                 <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Input</span>
+                 <span className="text-[14px] font-black text-white">{data.sourceCount || 0}</span>
                </div>
                <div className="flex flex-col">
-                 <span className="text-[7px] font-black text-white/20 uppercase tracking-widest">Out</span>
-                 <span className="text-[11px] font-black text-white">{data.outputCount || 0}</span>
+                 <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Output</span>
+                 <span className="text-[14px] font-black text-white">{data.outputCount || 0}</span>
                </div>
              </div>
              
              <div className="text-right flex flex-col items-end">
                 <div className="flex items-center gap-1.5">
-                   <span className="text-[9px] font-black text-white/60 uppercase truncate max-w-[80px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
+                   <span className="text-[11px] font-black text-white/60 uppercase truncate max-w-[100px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
                    {(data.ownerPositions || []).length > 1 && (
-                     <span className="text-[8px] font-black text-theme-accent">+{(data.ownerPositions || []).length - 1}</span>
+                     <span className="text-[10px] font-black text-theme-accent">+{(data.ownerPositions || []).length - 1}</span>
                    )}
                 </div>
                 {data.owningTeam && (
-                  <span className="text-[8px] font-black text-theme-accent/60 uppercase tracking-widest leading-none mt-0.5">{data.owningTeam}</span>
+                  <span className="text-[10px] font-black text-theme-accent/60 uppercase tracking-widest leading-none mt-1">{data.owningTeam}</span>
                 )}
              </div>
           </div>
 
-          <div className="flex flex-wrap gap-1 items-center pt-1.5 border-t border-white/5 min-h-[16px]">
+          <div className="flex flex-wrap gap-1.5 items-center pt-1.5 border-t border-white/5 min-h-[20px]">
              {visibleSystemBadges.map((s: string, i: number) => (
-               <span key={i} className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[7px] font-bold text-white/40 uppercase">{s}</span>
+               <span key={i} className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] font-bold text-white/40 uppercase">{s}</span>
              ))}
              {hiddenSystemsCount > 0 && (
-               <span className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[7px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
+               <span className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
              )}
              {systemBadges.length === 0 && (
-               <span className="text-[7px] font-black text-white/10 uppercase tracking-widest">No Systems</span>
+               <span className="text-[10px] font-black text-white/10 uppercase tracking-widest">No Systems</span>
              )}
           </div>
         </div>
@@ -368,13 +368,18 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
     <div className={`relative w-[250px] h-[250px] flex items-center justify-center transition-all duration-300 group ${selected ? 'scale-105' : ''}`}>
       {/* Visual height 250px achieved by side length a = 250 / sqrt(2) = 176.77px */}
       <div className={`absolute w-[176.77px] h-[176.77px] rotate-45 border-2 transition-all duration-300 bg-[#1e293b]/90 ${selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20 group-hover:border-white/40'} ${data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : ''} rounded-sm`} />
-      <div className="relative z-10 flex flex-col items-center justify-center p-8 w-full h-full">
+      <div className="relative z-10 flex flex-col items-center justify-center p-8 w-full h-full group/title">
         <span 
-          className="font-bold text-white text-center leading-tight break-words max-w-[160px] line-clamp-3 overflow-hidden"
+          className="font-bold text-white text-center leading-tight break-words max-w-[160px] line-clamp-3 overflow-hidden cursor-help"
           style={{ fontSize: `${titleFontSize}px` }}
         >
           {data.label || "Condition"}
         </span>
+        {/* Tooltip for Title & Description */}
+        <div className="absolute top-[80%] left-1/2 -translate-x-1/2 w-80 bg-[#1e293b] border border-white/20 p-5 rounded-xl shadow-2xl opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all z-[100] backdrop-blur-2xl pointer-events-none translate-y-2 group-hover/title:translate-y-0">
+           <p className="font-black text-white uppercase mb-3 border-b border-white/10 pb-2 leading-tight" style={{ fontSize: `${titleFontSize - 4}px` }}>{data.label || 'Condition'}</p>
+           <p className="text-[12px] text-white/70 font-medium leading-relaxed italic">{data.description || 'No description provided.'}</p>
+        </div>
       </div>
     
     {data.validation_needed && (
@@ -843,14 +848,23 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedTaskId && !isProtected) {
           deleteTask(selectedTaskId);
+        } else if (selectedEdgeId) {
+          setEdges(eds => eds.filter(e => e.id !== selectedEdgeId));
+          setSelectedEdgeId(null);
+          setIsDirty?.(true);
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedTaskId, selectedTask, isProtected, clipboard, project]);
+  }, [selectedTaskId, selectedEdgeId, selectedTask, isProtected, clipboard, project, setEdges, setIsDirty]);
 
   const updateTask = (id: string, updates: Partial<TaskEntity>) => {
+    // Prevent empty names to avoid backend validation errors
+    if (updates.name !== undefined && updates.name.trim() === '') {
+      updates.name = 'Untitled';
+    }
+
     setTasks(prev => prev.map(t => {
       if (t.id === id) {
         const updated = { ...t, ...updates };
@@ -1012,8 +1026,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       const isDiamond = n.type === 'diamond';
       const isTemplate = n.data.interface === 'TRIGGER' || n.data.interface === 'OUTCOME';
       dagreGraph.setNode(n.id, { 
-        width: isDiamond ? 280 : 340, 
-        height: isTemplate ? 120 : 280 
+        width: isDiamond ? 250 : 320, 
+        height: isTemplate ? 120 : 260 
       });
     });
     
@@ -1026,11 +1040,16 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       if (!nodeWithPos) return n;
       const isDiamond = n.type === 'diamond';
       const isTemplate = n.data.interface === 'TRIGGER' || n.data.interface === 'OUTCOME';
+      
+      // Snap to 10px grid
+      const targetX = nodeWithPos.x - (isDiamond ? 125 : 160);
+      const targetY = nodeWithPos.y - (isDiamond ? 125 : (isTemplate ? 60 : 130));
+      
       return { 
         ...n, 
         position: { 
-          x: nodeWithPos.x - (isDiamond ? 140 : 170), 
-          y: nodeWithPos.y - (isTemplate ? 60 : 140) 
+          x: Math.round(targetX / 10) * 10, 
+          y: Math.round(targetY / 10) * 10 
         } 
       };
     });
@@ -1229,9 +1248,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); }}
             fitView
             snapToGrid
-            snapGrid={[15, 15]}
-            connectionMode={ConnectionMode.Loose}
-            connectionLineType={ConnectionLineType.SmoothStep}
+            snapGrid={[10, 10]}
+            connectionMode={ConnectionMode.Loose}            connectionLineType={ConnectionLineType.SmoothStep}
             connectionLineStyle={{ stroke: '#3b82f6', strokeWidth: 3 }}
             defaultEdgeOptions={{ type: 'custom', animated: false, data: { style: 'solid' } }}
             className="react-flow-industrial"
