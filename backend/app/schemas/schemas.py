@@ -33,6 +33,7 @@ class TaskErrorBase(BaseModel):
     description: str
     probability_percent: float = 0.0
     recovery_time_minutes: float = 0.0
+    correction_method: Optional[str] = None
 
 class TaskErrorCreate(TaskErrorBase):
     task_id: Optional[int] = None
@@ -45,8 +46,10 @@ class TaskErrorRead(TaskErrorBase):
 class TaskBase(BaseModel):
     name: str = Field(..., min_length=1)
     node_id: Optional[str] = None
+    task_type: Optional[str] = None
     description: str
     target_system: Optional[str] = None
+    target_systems: Optional[List[Any]] = []
     interface_type: Optional[str] = None
     interface: Optional[str] = None
     

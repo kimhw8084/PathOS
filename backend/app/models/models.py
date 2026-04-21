@@ -67,8 +67,10 @@ class Task(Base, BaseMixin):
     workflow_id = Column(Integer, ForeignKey("workflows.id", ondelete="CASCADE"))
     node_id = Column(String, index=True, nullable=True) # Stable ID from Frontend (e.g. node-123)
     name = Column(String)
+    task_type = Column(String, nullable=True) # e.g. Documentation, Inspection, Measurement
     description = Column(Text)
-    target_system = Column(String, nullable=True)
+    target_system = Column(String, nullable=True) # Legacy singular field
+    target_systems = Column(JSON, nullable=True) # New plural list of objects
     interface_type = Column(String, nullable=True) # GUI, API, DB, File, DECISION, TRIGGER, OUTCOME
     interface = Column(String, nullable=True) # TRIGGER, OUTCOME
     
@@ -130,6 +132,7 @@ class TaskError(Base, BaseMixin):
     description = Column(Text)
     probability_percent = Column(Float, default=0.0)
     recovery_time_minutes = Column(Float, default=0.0)
+    correction_method = Column(Text, nullable=True)
     
     task = relationship("Task", back_populates="errors")
 

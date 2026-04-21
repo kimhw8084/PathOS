@@ -45,8 +45,11 @@ async def test_update_workflow_roi():
     # T2 Contribution: (5 * 2) + (0.2 * 50) = 10 + 10 = 20 min/cycle
     # Total per cycle = 30 min/cycle
     # Monthly (count=1.0) = 30 * 1 = 30 min/month
-    # Total hours = 0.5 hours/month
+    # Scaled to Weekly (0.2307) = 30 * 0.2307 = 6.921 min/week
+    # Result in h/wk = 6.921 / 60 = 0.11535 h/wk
     
     hours = await update_workflow_roi(wf)
-    assert hours == 0.5
-    assert wf.total_roi_saved_hours == 0.5
+    # The current scale for month is 0.2307
+    # 30 * 0.2307 / 60 = 0.11535
+    assert 0.1153 <= hours <= 0.1154
+    assert 0.1153 <= wf.total_roi_saved_hours <= 0.1154

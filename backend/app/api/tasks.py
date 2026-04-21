@@ -27,21 +27,28 @@ async def create_task(task_data: TaskCreate, db: AsyncSession = Depends(get_db))
     task_dict = task_data.model_dump()
     blockers_data = task_dict.pop("blockers", [])
     errors_data = task_dict.pop("errors", [])
-    
+
+    # Remove potentially conflicting fields
+    task_dict.pop("id", None)
+
     new_task = Task(**task_dict)
     db.add(new_task)
     await db.flush()
-    
+
     # Add blockers
     for b_data in blockers_data:
+        # b_data is already a dict from model_dump above
+        b_data.pop("id", None)
+        b_data.pop("task_id", None)
         blocker = Blocker(**b_data, task_id=new_task.id)
         db.add(blocker)
-        
+
     # Add errors
     for e_data in errors_data:
+        e_data.pop("id", None)
+        e_data.pop("task_id", None)
         error = TaskError(**e_data, task_id=new_task.id)
         db.add(error)
-    
     await log_audit(
         db,
         action_type="CREATE",
@@ -105,21 +112,28 @@ async def sync_tasks(workflow_id: int, tasks_data: List[TaskCreate], db: AsyncSe
         t_dict = t_data.model_dump()
         blockers_data = t_dict.pop("blockers", [])
         errors_data = t_dict.pop("errors", [])
-        
+
+        # Remove potentially conflicting fields
+        t_dict.pop("id", None)
+        t_dict.pop("workflow_id", None)
+
         new_task = Task(**t_dict)
         new_task.workflow_id = workflow_id
         new_task.order_index = i
         db.add(new_task)
         await db.flush() # Get task ID
-        
+
         for b_data in blockers_data:
+            b_data.pop("id", None)
+            b_data.pop("task_id", None)
             blocker = Blocker(**b_data, task_id=new_task.id)
             db.add(blocker)
-            
+
         for e_data in errors_data:
+            e_data.pop("id", None)
+            e_data.pop("task_id", None)
             error = TaskError(**e_data, task_id=new_task.id)
             db.add(error)
-    
     await db.flush()
     
     await log_audit(

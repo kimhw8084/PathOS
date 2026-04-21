@@ -5,9 +5,14 @@ from sqlalchemy.orm import selectinload
 async def calculate_task_roi_contribution(task: Task) -> float:
     """
     Calculates the ROI contribution of a single task in minutes per cycle.
-    Formula: (Active Touch Time * Occurrences) + Σ(Error Probability * Recovery Time)
+    Formula: (Manual Time * Occurrences) + Σ(Error Probability * Recovery Time)
+    Note: We prioritize manual_time_minutes as it is the primary field in the UI.
     """
-    touch_time = task.active_touch_time_minutes or 0.0
+    manual_time = task.manual_time_minutes or 0.0
+    active_time = task.active_touch_time_minutes or 0.0
+    # Use the larger of the two to be safe, but usually manual_time is the one.
+    touch_time = max(manual_time, active_time)
+    
     occurrences = task.occurrence or 1
     base_touch_time = touch_time * occurrences
     
@@ -30,6 +35,7 @@ async def calculate_task_roi_contribution(task: Task) -> float:
 async def update_workflow_roi(workflow: Workflow):
     """
     Sum of ROI for all tasks in a workflow multiplied by weekly frequency.
+    Standardized to Weekly ($h/wk$) as per requirements.
     """
     total_task_minutes = 0.0
     from sqlalchemy import inspect
@@ -44,17 +50,18 @@ async def update_workflow_roi(workflow: Workflow):
     cadence_count = workflow.cadence_count or 0.0
     unit = workflow.cadence_unit or "week"
     
-    # Scale to weekly frequency
+    # Scale to weekly frequency (SME Standard)
     scale = 1.0
     if unit == "day":
         scale = 7.0
     elif unit == "week":
         scale = 1.0
     elif unit == "month":
-        scale = 1.0 / 4.34
+        scale = 0.2307 # 1 / 4.333
     elif unit == "year":
-        scale = 1.0 / 52.14
+        scale = 0.0192 # 1 / 52.14
     
     weekly_frequency = cadence_count * scale
+    # Result in Hours per Week
     workflow.total_roi_saved_hours = (total_task_minutes * weekly_frequency) / 60.0
     return workflow.total_roi_saved_hours
