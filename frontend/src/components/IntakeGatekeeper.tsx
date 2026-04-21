@@ -62,7 +62,7 @@ export const CreationProgressBar = ({ currentStep }: { currentStep: number }) =>
   );
 };
 
-const SearchableSelect = ({ 
+export const SearchableSelect = ({ 
   label, 
   options, 
   value, 

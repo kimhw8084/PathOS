@@ -1005,7 +1005,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       validation_needed: false,
       validation_procedure: '',
       media: [],
-      reference_links: []
+      reference_links: [],
+      instructions: []
     };
 
     setTasks(prev => [...prev, newTask]);
@@ -2122,7 +2123,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                              label=""
                              options={hardwareFamilies}
                              value={(metadata.tool_family || '').split(', ').filter(Boolean)}
-                             onChange={vals => { setMetadata({...metadata, tool_family: Array.isArray(vals) ? vals.join(', ') : vals}); setIsDirty?.(true); }}
+                             onChange={(vals: string | string[]) => { setMetadata({...metadata, tool_family: Array.isArray(vals) ? vals.join(', ') : vals}); setIsDirty?.(true); }}
                              isMulti
                            />
                          ) : (
@@ -2136,7 +2137,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                              label=""
                              options={toolIds}
                              value={(metadata.tool_id || '').split(', ').filter(Boolean)}
-                             onChange={vals => { setMetadata({...metadata, tool_id: Array.isArray(vals) ? vals.join(', ') : vals}); setIsDirty?.(true); }}
+                             onChange={(vals: string | string[]) => { setMetadata({...metadata, tool_id: Array.isArray(vals) ? vals.join(', ') : vals}); setIsDirty?.(true); }}
                              isMulti
                            />
                          ) : (
