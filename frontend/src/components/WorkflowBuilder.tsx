@@ -206,17 +206,31 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
   if (isTemplate) {
     return (
       <div className={cn(
-        "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center min-w-[200px]",
+        "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center min-w-[240px] min-h-[140px]",
         selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
       )}>
         <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-[0.2em] border z-20 shadow-lg", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
           {isTrigger ? "TRIGGER" : "OUTCOME"}
         </div>
         <h4 
-          className="font-black text-white tracking-tighter leading-tight uppercase text-center"
+          className="font-black text-white tracking-tighter leading-tight uppercase text-center cursor-help group/title relative"
           style={{ fontSize: `${titleFontSize}px` }}
         >
           {data.label || (isTrigger ? "TRIGGER" : "OUTCOME")}
+          {!dragging && (
+            <div className="absolute top-full left-1/2 -translate-x-1/2 w-[800px] bg-[#0f172a]/95 border-t-2 border-white/20 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden">
+               <div className={cn("absolute top-0 left-0 w-full h-1", isTrigger ? "bg-cyan-500" : "bg-rose-500")} />
+               <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 2}px` }}>
+                 {data.label || (isTrigger ? "TRIGGER" : "OUTCOME")}
+               </p>
+               <div className="flex items-center gap-3 mb-4">
+                  <span className={cn("px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest", isTrigger ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-rose-500/20 text-rose-400 border border-rose-500/30")}>
+                    {isTrigger ? "Input Origin" : "Process Termination"}
+                  </span>
+               </div>
+               <p className="text-white/80 font-medium leading-relaxed italic text-left" style={{ fontSize: `${descFontSize}px` }}>{data.description || (isTrigger ? 'Initial state that activates this workflow sequence.' : 'The final deliverable or state reached upon successful completion.')}</p>
+            </div>
+          )}
         </h4>
         
         <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl z-10" />
@@ -234,7 +248,7 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
 
   return (
     <div className={cn(
-      "apple-glass !bg-[#0f172a]/95 !rounded-lg px-8 py-7 w-[320px] shadow-2xl transition-all duration-300 relative border-2 h-[280px]",
+      "apple-glass !bg-[#0f172a]/95 !rounded-lg px-8 py-7 w-[360px] shadow-2xl transition-all duration-300 relative border-2 h-[320px]",
       selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : 'border-white/10 hover:border-white/20',
       data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
     )}>
@@ -269,12 +283,12 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
         
         <div className="space-y-1 relative">
           <h4 
-            className="font-bold text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-2 cursor-help overflow-hidden group/title"
+            className="font-bold text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-2 cursor-help overflow-visible group/title"
             style={{ fontSize: `${titleFontSize}px`, height: `${titleFontSize * 2.4}px` }}
           >
             {data.label || "Untitled Task"}
             {!dragging && (
-              <div className="absolute top-full left-0 w-[800px] bg-[#1e293b] border border-white/20 p-6 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-t-theme-accent/50 border-t-2">
+              <div className="absolute top-full left-0 w-[800px] bg-[#0f172a]/95 border-t-2 border-theme-accent/50 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10">
                  <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight" style={{ fontSize: `${titleFontSize + 2}px` }}>{data.label}</p>
                  <p className="text-white/80 font-medium leading-relaxed italic" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
               </div>
@@ -349,16 +363,27 @@ const DiamondNode = ({ data, selected, dragging }: { data: any, selected: boolea
   const titleFontSize = Math.max(24, baseFontSize + 10);
   const descFontSize = Math.max(12, titleFontSize - 3);
   return (
-    <div className={`relative w-[250px] h-[250px] flex items-center justify-center transition-all duration-300 ${selected ? 'scale-105' : ''}`}>
-      <div className={`absolute w-[176.77px] h-[176.77px] rotate-45 border-2 transition-all duration-300 bg-[#1e293b]/90 ${selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20'} ${data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : ''} rounded-sm`} />
-      <div className="relative z-10 flex flex-col items-center justify-center p-8 w-full h-full">
+    <div className={cn("relative w-[250px] h-[250px] flex items-center justify-center transition-all duration-300", selected ? 'scale-105 z-50' : 'z-10')}>
+      <div className={cn("absolute w-[176.77px] h-[176.77px] rotate-45 border-2 transition-all duration-300 bg-[#0f172a]/95", selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20', data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : '', "rounded-sm")} />
+      
+      {/* Handles at lower z-index than tooltip container */}
+      <Handle type="target" position={Position.Left} id="left-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !left-0 shadow-lg z-10" />
+      <Handle type="source" position={Position.Left} id="left-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !left-0 shadow-lg z-20 opacity-0" />
+      <Handle type="target" position={Position.Right} id="right-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !right-0 shadow-lg z-10" />
+      <Handle type="source" position={Position.Right} id="right-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !right-0 shadow-lg z-20 opacity-0" />
+      <Handle type="target" position={Position.Top} id="top-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !top-0 shadow-lg z-10" />
+      <Handle type="source" position={Position.Top} id="top-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !top-0 shadow-lg z-20 opacity-0" />
+      <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !bottom-0 shadow-lg z-10" />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !bottom-0 shadow-lg z-20 opacity-0" />
+
+      <div className="relative z-40 flex flex-col items-center justify-center p-8 w-full h-full pointer-events-none">
         <span 
-          className="font-bold text-white text-center leading-tight break-words max-w-[160px] line-clamp-3 overflow-hidden cursor-help hover:text-amber-400 transition-colors group/title"
+          className="font-bold text-white text-center leading-tight break-words max-w-[160px] line-clamp-3 overflow-visible cursor-help hover:text-amber-400 transition-colors group/title pointer-events-auto"
           style={{ fontSize: `${titleFontSize}px` }}
         >
           {data.label || "Condition"}
           {!dragging && (
-            <div className="absolute top-[85%] left-1/2 -translate-x-1/2 w-[800px] bg-[#1e293b] border border-white/20 p-6 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-t-amber-400/50 border-t-2">
+            <div className="absolute top-[85%] left-1/2 -translate-x-1/2 w-[800px] bg-[#0f172a]/95 border-t-2 border-amber-400/50 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 text-left">
                <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight" style={{ fontSize: `${titleFontSize - 4}px` }}>{data.label || 'Condition'}</p>
                <p className="text-white/80 font-medium leading-relaxed italic" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
             </div>
@@ -366,16 +391,8 @@ const DiamondNode = ({ data, selected, dragging }: { data: any, selected: boolea
         </span>
       </div>
     {data.validation_needed && (
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[100px] px-1.5 py-0.5 rounded-sm text-[6px] font-black uppercase bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">VALID</div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[100px] px-1.5 py-0.5 rounded-sm text-[6px] font-black uppercase bg-orange-500 border border-orange-400 text-white z-30 shadow-lg animate-pulse">VALID</div>
     )}
-    <Handle type="target" position={Position.Left} id="left-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !left-0 shadow-lg z-10" />
-    <Handle type="source" position={Position.Left} id="left-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !left-0 shadow-lg z-20 opacity-0" />
-    <Handle type="target" position={Position.Right} id="right-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !right-0 shadow-lg z-10" />
-    <Handle type="source" position={Position.Right} id="right-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !right-0 shadow-lg z-20 opacity-0" />
-    <Handle type="target" position={Position.Top} id="top-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !top-0 shadow-lg z-10" />
-    <Handle type="source" position={Position.Top} id="top-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !top-0 shadow-lg z-20 opacity-0" />
-    <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !bottom-0 shadow-lg z-10" />
-    <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0a1120] !bottom-0 shadow-lg z-20 opacity-0" />
   </div>
 );
 };
@@ -391,12 +408,23 @@ const CustomEdge = ({
   selected
 }: any) => {
   const [edgePath, labelX, labelY] = useMemo(() => {
+    // Safety check for NaN or undefined coordinates
+    if (![sourceX, sourceY, targetX, targetY].every(v => typeof v === 'number' && !isNaN(v))) {
+      return ['', 0, 0];
+    }
+
     if (data?.edgeStyle === 'smoothstep') {
       const radius = 20;
       let path = `M ${sourceX},${sourceY}`;
       const dx = targetX - sourceX;
       const dy = targetY - sourceY;
       const midX = sourceX + dx / 2;
+      
+      // Prevent crazy paths if too close
+      if (Math.abs(dx) < 40) {
+         return [`M ${sourceX},${sourceY} L ${targetX},${targetY}`, midX, sourceY + dy / 2];
+      }
+
       path += ` L ${midX - radius},${sourceY} Q ${midX},${sourceY} ${midX},${sourceY + (dy > 0 ? radius : -radius)} L ${midX},${targetY - (dy > 0 ? radius : -radius)} Q ${midX},${targetY} ${midX + radius},${targetY} L ${targetX},${targetY}`;
       return [path, midX, sourceY + dy / 2];
     } else if (data?.edgeStyle === 'straight') {
@@ -405,6 +433,8 @@ const CustomEdge = ({
     const cx = (sourceX + targetX) / 2;
     return [`M ${sourceX},${sourceY} C ${cx},${sourceY} ${cx},${targetY} ${targetX},${targetY}`, cx, (sourceY + targetY) / 2];
   }, [sourceX, sourceY, targetX, targetY, data?.edgeStyle]);
+
+  if (!edgePath) return null;
 
   return (
     <>
@@ -481,14 +511,24 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       sortedNodes.forEach((n) => {
         const isDiamond = n.type === 'diamond';
         const isTemplate = n.data?.interface === 'TRIGGER' || n.data?.interface === 'OUTCOME';
-        dagreGraph.setNode(n.id, { width: isDiamond ? 250 : 320, height: isTemplate ? 120 : (isDiamond ? 250 : 280) });
+        dagreGraph.setNode(n.id, { width: isDiamond ? 250 : (isTemplate ? 240 : 360), height: isTemplate ? 140 : (isDiamond ? 250 : 320) });
       });
 
+      // Add actual edges
       eds.forEach((e) => {
         if (dagreGraph.hasNode(e.source) && dagreGraph.hasNode(e.target)) {
           dagreGraph.setEdge(e.source, e.target);
         }
       });
+
+      // Force horizontal distribution for unconnected nodes by adding dummy sequential edges
+      // This ensures Trigger is left, Outcome is right, and others are in the middle
+      for (let i = 0; i < sortedNodes.length - 1; i++) {
+        const sourceId = sortedNodes[i].id;
+        const targetId = sortedNodes[i+1].id;
+        // Add dummy low-weight edge to encourage horizontal flow for unconnected components
+        dagreGraph.setEdge(sourceId, targetId, { weight: 0.001, minlen: 1 });
+      }
 
       dagre.layout(dagreGraph);
 
@@ -497,11 +537,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         if (!nodeWithPos) return n;
         const isDiamond = n.type === 'diamond';
         const isTemplate = n.data?.interface === 'TRIGGER' || n.data?.interface === 'OUTCOME';
+        
         return {
           ...n,
           position: {
-            x: Math.round((nodeWithPos.x - (isDiamond ? 125 : 160)) / 10) * 10,
-            y: Math.round((nodeWithPos.y - (isTemplate ? 60 : (isDiamond ? 125 : 140))) / 10) * 10
+            x: Math.round((nodeWithPos.x - (isDiamond ? 125 : (isTemplate ? 120 : 180))) / 10) * 10,
+            y: Math.round((nodeWithPos.y - (isTemplate ? 70 : (isDiamond ? 125 : 160))) / 10) * 10
           }
         };
       });
@@ -538,7 +579,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     } catch (error) {
       console.error("Dagre Layout Error:", error);
     }
-  }, [fitView, getNodes, getEdges, setNodes, setEdges, setIsDirty]);
+  }, [fitView, setNodes, setEdges, setIsDirty]);
 
   useEffect(() => {
     if (!workflow) return;
