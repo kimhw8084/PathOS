@@ -41,11 +41,22 @@ async def update_workflow_roi(workflow: Workflow):
     from sqlalchemy import inspect
     insp = inspect(workflow)
     
-    # Check if 'tasks' relationship is loaded
-    if 'tasks' not in insp.unloaded and workflow.tasks:
+    # Check if 'tasks' relationship is loaded. 
+    # In async SQLAlchemy, we should have used selectinload.
+    # If not loaded, we set it to 0 and log a warning.
+    if 'tasks' in insp.unloaded:
+        # This is a safety fallback. Ideally, the caller should have loaded it.
+        # But we don't want to crash or return stale data.
+        import logging
+        logging.warning(f"Workflow {workflow.id} tasks not loaded during ROI calculation. ROI may be zeroed.")
+        workflow.total_roi_saved_hours = 0.0
+    elif workflow.tasks:
         for task in workflow.tasks:
             if not getattr(task, 'is_deleted', False):
                 total_task_minutes += await calculate_task_roi_contribution(task)
+    else:
+        # No tasks found
+        workflow.total_roi_saved_hours = 0.0
     
     cadence_count = workflow.cadence_count or 0.0
     unit = workflow.cadence_unit or "week"

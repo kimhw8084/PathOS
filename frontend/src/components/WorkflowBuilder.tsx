@@ -601,6 +601,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           stableId = `node-${Math.random().toString(36).substr(2, 9)}`;
         }
         
+        // Ensure boundary nodes have hardcoded stable IDs
+        if (t.interface === 'TRIGGER') stableId = 'node-trigger';
+        if (t.interface === 'OUTCOME') stableId = 'node-outcome';
+
         // Prevent ID collisions which cause React Flow to crash
         if (seenNodeIds.has(stableId)) {
           stableId = `${stableId}-dup-${Math.random().toString(36).substr(2, 9)}`;
@@ -689,7 +693,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         const targetExists = initializedTasks.some((t: any) => String(t.node_id) === targetId);
 
         if (!sourceExists || !targetExists) {
-          console.warn(`[WorkflowBuilder] Dropping edge ${idx} - missing endpoint node`, { sourceId, targetId, sourceExists, targetExists });
+          console.warn(`[WorkflowBuilder] Dropping edge ${idx} - missing endpoint node. Source: ${sourceId} (${sourceExists}), Target: ${targetId} (${targetExists}). Available IDs:`, Array.from(seenNodeIds));
           return null;
         }
 
@@ -779,7 +783,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           return { 
             ...t, 
             id: undefined, // Let backend assign primary key
-            node_id: String(t.node_id), 
+            node_id: String(t.node_id || t.id), 
             position_x: node?.position.x ?? t.position_x ?? 0, 
             position_y: node?.position.y ?? t.position_y ?? 0 
           };

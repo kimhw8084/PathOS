@@ -106,6 +106,7 @@ async def sync_tasks(workflow_id: int, tasks_data: List[TaskCreate], db: AsyncSe
     # Delete existing tasks for this workflow (Cascades to blockers and errors)
     from sqlalchemy import delete
     await db.execute(delete(Task).where(Task.workflow_id == workflow_id))
+    await db.flush() # Ensure deletions are processed before insertions
     
     # Create new tasks, blockers, and errors
     for i, t_data in enumerate(tasks_data):
@@ -113,7 +114,7 @@ async def sync_tasks(workflow_id: int, tasks_data: List[TaskCreate], db: AsyncSe
         blockers_data = t_dict.pop("blockers", [])
         errors_data = t_dict.pop("errors", [])
 
-        # Remove potentially conflicting fields
+        # Remove primary key to let DB assign a new one, but PRESERVE node_id
         t_dict.pop("id", None)
         t_dict.pop("workflow_id", None)
 
@@ -121,7 +122,7 @@ async def sync_tasks(workflow_id: int, tasks_data: List[TaskCreate], db: AsyncSe
         new_task.workflow_id = workflow_id
         new_task.order_index = i
         db.add(new_task)
-        await db.flush() # Get task ID
+        await db.flush() # Get task ID for blockers/errors
 
         for b_data in blockers_data:
             b_data.pop("id", None)
@@ -134,6 +135,7 @@ async def sync_tasks(workflow_id: int, tasks_data: List[TaskCreate], db: AsyncSe
             e_data.pop("task_id", None)
             error = TaskError(**e_data, task_id=new_task.id)
             db.add(error)
+    
     await db.flush()
     
     await log_audit(
@@ -146,26 +148,14 @@ async def sync_tasks(workflow_id: int, tasks_data: List[TaskCreate], db: AsyncSe
         description=f"Synchronized task sequence with blockers and errors for workflow '{workflow.name}'"
     )
     
-    # Expire to force reload of tasks relationship
-    db.expire(workflow)
-    
-    # Reload workflow with new tasks to update ROI
-    result = await db.execute(
-        select(Workflow)
-        .where(Workflow.id == workflow_id)
-        .options(selectinload(Workflow.tasks).selectinload(Task.blockers),
-                 selectinload(Workflow.tasks).selectinload(Task.errors))
-    )
-    workflow = result.scalar_one()
-
-    await update_workflow_roi(workflow)
-    await db.commit()
-
+    # We do NOT commit here. We let the caller (update_workflow) decide when to commit.
+    # This prevents the workflow object from expiring prematurely.
     
     # Return newly created tasks with nested relationships
     result_tasks = await db.execute(
         select(Task)
         .where(Task.workflow_id == workflow_id)
         .options(selectinload(Task.blockers), selectinload(Task.errors))
+        .order_by(Task.order_index)
     )
     return result_tasks.scalars().all()

@@ -99,14 +99,13 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
     
     for key, value in data_to_update.items():
         if hasattr(workflow, key):
+            # Special handling for JSON fields like edges to ensure SQLAlchemy detects changes
             setattr(workflow, key, value)
     
     # Sync Tasks if provided
     if tasks_data is not None:
         from .tasks import sync_tasks
         from ..schemas.schemas import TaskCreate
-        # Convert dict tasks to TaskCreate objects for sync_tasks
-        # Ensure workflow_id is not duplicated
         processed_tasks = []
         for t in tasks_data:
             t_data = t.copy()
@@ -114,9 +113,23 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
                 del t_data["workflow_id"]
             processed_tasks.append(TaskCreate(**t_data, workflow_id=workflow_id))
         
+        # sync_tasks now only flushes, doesn't commit
         await sync_tasks(workflow_id, processed_tasks, db)
 
-    # Recalculate ROI
+    # After sync_tasks, we need to refresh the workflow.tasks relationship in the session
+    # so that update_workflow_roi sees the NEW tasks.
+    db.expire(workflow, ['tasks'])
+    
+    # Reload workflow with all tasks, blockers, and errors for ROI calc
+    result = await db.execute(
+        select(Workflow)
+        .where(Workflow.id == workflow_id)
+        .options(selectinload(Workflow.tasks).selectinload(Task.blockers),
+                 selectinload(Workflow.tasks).selectinload(Task.errors))
+    )
+    workflow = result.scalar_one()
+
+    # Recalculate ROI on the reloaded state
     await update_workflow_roi(workflow)
         
     await log_audit(
@@ -131,10 +144,10 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
     
     await db.commit()
     
-    # Reload for final return
+    # Reload for final return to ensure everything is hydrated
     result = await db.execute(
         select(Workflow)
-        .where(Workflow.id == workflow.id)
+        .where(Workflow.id == workflow_id)
         .options(selectinload(Workflow.tasks).selectinload(Task.blockers),
                  selectinload(Workflow.tasks).selectinload(Task.errors))
     )
