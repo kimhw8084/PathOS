@@ -426,7 +426,7 @@ const edgeTypes = { custom: CustomEdge };
 const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, onSave, onBack, onExit, setIsDirty }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const { project, fitView } = useReactFlow();
+  const { project, fitView, getNodes, getEdges } = useReactFlow();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [inspectorTab, setInspectorTab] = useState<'overview' | 'data' | 'exceptions' | 'validation' | 'appendix'>('overview');
@@ -460,8 +460,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   const handleLayout = useCallback((nodesToLayout?: Node[], edgesToLayout?: Edge[]) => {
     try {
-      const nds = nodesToLayout || nodes;
-      const eds = edgesToLayout || edges;
+      const nds = nodesToLayout || getNodes();
+      const eds = edgesToLayout || getEdges();
       if (!nds || nds.length === 0) return;
 
       const sortedNodes = [...nds].sort((a, b) => {
@@ -538,7 +538,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     } catch (error) {
       console.error("Dagre Layout Error:", error);
     }
-  }, [fitView, nodes, edges, setNodes, setEdges, setIsDirty]);
+  }, [fitView, getNodes, getEdges, setNodes, setEdges, setIsDirty]);
 
   useEffect(() => {
     if (!workflow) return;
