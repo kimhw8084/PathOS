@@ -442,7 +442,7 @@ const CustomEdge = ({
 
   return (
     <>
-      <path id="edge-path" className="react-flow__edge-path" d={edgePath} markerEnd={markerEnd} style={{ ...style, stroke: data?.color || '#ffffff', strokeWidth: selected ? 4 : 2, strokeDasharray: data?.style === 'dashed' ? '5,5' : undefined, transition: 'all 0.3s' }} />
+      <path id="edge-path" className="react-flow__edge-path" d={edgePath} markerEnd={markerEnd} style={{ ...(typeof style === 'object' ? style : {}), stroke: data?.color || '#ffffff', strokeWidth: selected ? 4 : 2, strokeDasharray: data?.lineStyle === 'dashed' ? '5,5' : undefined, transition: 'all 0.3s' }} />
       {data?.label && (
         <EdgeLabelRenderer>
           <div style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, zIndex: 100 }} className="bg-[#0f172a] px-2 py-0.5 rounded border border-white/20 shadow-xl pointer-events-none">
@@ -701,7 +701,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         let tHandle = e.target_handle || e.targetHandle || 'left-target';
         
         return {
-          ...e, 
           id: String(e.id || `e-${sourceId}-${targetId}-${idx}`), 
           source: sourceId, 
           target: targetId, 
@@ -712,7 +711,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             label: e.label || '', 
             edgeStyle: e.edge_style || e.edgeStyle || 'bezier', 
             color: e.color || '#ffffff', 
-            style: e.style || 'solid' 
+            lineStyle: e.line_style || e.style || 'solid' 
           }, 
           markerEnd: { type: MarkerType.ArrowClosed, color: e.color || '#ffffff' },
         };
@@ -796,7 +795,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           label: String(e.data?.label || ''), 
           edge_style: String(e.data?.edgeStyle || 'bezier'), 
           color: String(e.data?.color || '#ffffff'), 
-          style: String(e.data?.style || 'solid') 
+          line_style: String(e.data?.lineStyle || 'solid') 
         }))
       };
       onSave(finalData);
@@ -812,7 +811,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   const onConnect = (params: Connection) => {
     if (!params.source || !params.target) return;
-    const newEdge: Edge = { ...params, id: `e-${params.source}-${params.target}-${Date.now()}`, type: 'custom', data: { label: '', edgeStyle: 'bezier', color: '#ffffff', style: 'solid' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#ffffff' }, source: params.source, target: params.target };
+    const newEdge: Edge = { ...params, id: `e-${params.source}-${params.target}-${Date.now()}`, type: 'custom', data: { label: '', edgeStyle: 'bezier', color: '#ffffff', lineStyle: 'solid' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#ffffff' }, source: params.source, target: params.target };
     setEdges(eds => addEdge(newEdge, eds));
     setIsDirty?.(true);
   };
