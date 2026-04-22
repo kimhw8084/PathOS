@@ -206,32 +206,34 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
   if (isTemplate) {
     return (
       <div className={cn(
-        "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center min-w-[240px] min-h-[140px]",
+        "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center min-w-[260px] min-h-[160px] hover:z-[1000]",
         selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
       )}>
         <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-[0.2em] border z-20 shadow-lg", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
           {isTrigger ? "TRIGGER" : "OUTCOME"}
         </div>
-        <h4 
-          className="font-black text-white tracking-tighter leading-tight uppercase text-center cursor-help group/title relative"
-          style={{ fontSize: `${titleFontSize}px` }}
-        >
-          {data.label || (isTrigger ? "TRIGGER" : "OUTCOME")}
-          {!dragging && (
-            <div className="absolute top-full left-1/2 -translate-x-1/2 w-[800px] bg-[#0f172a]/95 border-t-2 border-white/20 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden">
-               <div className={cn("absolute top-0 left-0 w-full h-1", isTrigger ? "bg-cyan-500" : "bg-rose-500")} />
-               <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 2}px` }}>
-                 {data.label || (isTrigger ? "TRIGGER" : "OUTCOME")}
-               </p>
-               <div className="flex items-center gap-3 mb-4">
-                  <span className={cn("px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest", isTrigger ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-rose-500/20 text-rose-400 border border-rose-500/30")}>
-                    {isTrigger ? "Input Origin" : "Process Termination"}
-                  </span>
-               </div>
-               <p className="text-white/80 font-medium leading-relaxed italic text-left" style={{ fontSize: `${descFontSize}px` }}>{data.description || (isTrigger ? 'Initial state that activates this workflow sequence.' : 'The final deliverable or state reached upon successful completion.')}</p>
-            </div>
-          )}
-        </h4>
+        <div className="w-full relative flex justify-center">
+          <h4 
+            className="font-black text-white tracking-tighter leading-tight uppercase text-center cursor-help group/title relative"
+            style={{ fontSize: `${titleFontSize}px` }}
+          >
+            {data.label || (isTrigger ? "TRIGGER" : "OUTCOME")}
+            {!dragging && (
+              <div className="absolute top-full left-0 w-[800px] bg-[#0f172a]/95 border-t-2 border-white/20 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden text-left">
+                 <div className={cn("absolute top-0 left-0 w-full h-1", isTrigger ? "bg-cyan-500" : "bg-rose-500")} />
+                 <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 2}px` }}>
+                   {data.label || (isTrigger ? "TRIGGER" : "OUTCOME")}
+                 </p>
+                 <div className="flex items-center gap-3 mb-4">
+                    <span className={cn("px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest", isTrigger ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-rose-500/20 text-rose-400 border border-rose-500/30")}>
+                      {isTrigger ? "Input Origin" : "Process Termination"}
+                    </span>
+                 </div>
+                 <p className="text-white/80 font-medium leading-relaxed italic text-left" style={{ fontSize: `${descFontSize}px` }}>{data.description || (isTrigger ? 'Initial state that activates this workflow sequence.' : 'The final deliverable or state reached upon successful completion.')}</p>
+              </div>
+            )}
+          </h4>
+        </div>
         
         <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl z-10" />
         <Handle type="source" position={Position.Left} id="left-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl z-20 opacity-0" />
@@ -248,7 +250,7 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
 
   return (
     <div className={cn(
-      "apple-glass !bg-[#0f172a]/95 !rounded-lg px-8 py-7 w-[360px] shadow-2xl transition-all duration-300 relative border-2 h-[320px]",
+      "apple-glass !bg-[#0f172a]/95 !rounded-lg px-8 py-7 w-[460px] shadow-2xl transition-all duration-300 relative border-2 h-[440px] hover:z-[1000]",
       selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : 'border-white/10 hover:border-white/20',
       data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
     )}>
@@ -289,8 +291,8 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
             {data.label || "Untitled Task"}
             {!dragging && (
               <div className="absolute top-full left-0 w-[800px] bg-[#0f172a]/95 border-t-2 border-theme-accent/50 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10">
-                 <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight" style={{ fontSize: `${titleFontSize + 2}px` }}>{data.label}</p>
-                 <p className="text-white/80 font-medium leading-relaxed italic" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
+                 <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 2}px` }}>{data.label}</p>
+                 <p className="text-white/80 font-medium leading-relaxed italic text-left" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
               </div>
             )}
           </h4>
@@ -363,8 +365,8 @@ const DiamondNode = ({ data, selected, dragging }: { data: any, selected: boolea
   const titleFontSize = Math.max(24, baseFontSize + 10);
   const descFontSize = Math.max(12, titleFontSize - 3);
   return (
-    <div className={cn("relative w-[250px] h-[250px] flex items-center justify-center transition-all duration-300", selected ? 'scale-105 z-50' : 'z-10')}>
-      <div className={cn("absolute w-[176.77px] h-[176.77px] rotate-45 border-2 transition-all duration-300 bg-[#0f172a]/95", selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20', data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : '', "rounded-sm")} />
+    <div className={cn("relative w-[280px] h-[280px] flex items-center justify-center transition-all duration-300 hover:z-[1000]", selected ? 'scale-105 z-50' : 'z-10')}>
+      <div className={cn("absolute w-[197.99px] h-[197.99px] rotate-45 border-2 transition-all duration-300 bg-[#0f172a]/95", selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20', data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : '', "rounded-sm")} />
       
       {/* Handles at lower z-index than tooltip container */}
       <Handle type="target" position={Position.Left} id="left-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !left-0 shadow-lg z-10" />
@@ -378,12 +380,12 @@ const DiamondNode = ({ data, selected, dragging }: { data: any, selected: boolea
 
       <div className="relative z-40 flex flex-col items-center justify-center p-8 w-full h-full pointer-events-none">
         <span 
-          className="font-bold text-white text-center leading-tight break-words max-w-[160px] line-clamp-3 overflow-visible cursor-help hover:text-amber-400 transition-colors group/title pointer-events-auto"
+          className="font-bold text-white text-center leading-tight break-words max-w-[180px] line-clamp-3 overflow-visible cursor-help hover:text-amber-400 transition-colors group/title pointer-events-auto relative"
           style={{ fontSize: `${titleFontSize}px` }}
         >
           {data.label || "Condition"}
           {!dragging && (
-            <div className="absolute top-[85%] left-1/2 -translate-x-1/2 w-[800px] bg-[#0f172a]/95 border-t-2 border-amber-400/50 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 text-left">
+            <div className="absolute top-[85%] left-0 w-[800px] bg-[#0f172a]/95 border-t-2 border-amber-400/50 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 text-left">
                <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight" style={{ fontSize: `${titleFontSize - 4}px` }}>{data.label || 'Condition'}</p>
                <p className="text-white/80 font-medium leading-relaxed italic" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
             </div>
@@ -391,7 +393,7 @@ const DiamondNode = ({ data, selected, dragging }: { data: any, selected: boolea
         </span>
       </div>
     {data.validation_needed && (
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[100px] px-1.5 py-0.5 rounded-sm text-[6px] font-black uppercase bg-orange-500 border border-orange-400 text-white z-30 shadow-lg animate-pulse">VALID</div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[120px] px-1.5 py-0.5 rounded-sm text-[6px] font-black uppercase bg-orange-500 border border-orange-400 text-white z-30 shadow-lg animate-pulse">VALID</div>
     )}
   </div>
 );
@@ -410,6 +412,7 @@ const CustomEdge = ({
   const [edgePath, labelX, labelY] = useMemo(() => {
     // Safety check for NaN or undefined coordinates
     if (![sourceX, sourceY, targetX, targetY].every(v => typeof v === 'number' && !isNaN(v))) {
+      console.warn("[CustomEdge] Invalid coordinates detected:", { sourceX, sourceY, targetX, targetY });
       return ['', 0, 0];
     }
 
@@ -511,7 +514,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       sortedNodes.forEach((n) => {
         const isDiamond = n.type === 'diamond';
         const isTemplate = n.data?.interface === 'TRIGGER' || n.data?.interface === 'OUTCOME';
-        dagreGraph.setNode(n.id, { width: isDiamond ? 250 : (isTemplate ? 240 : 360), height: isTemplate ? 140 : (isDiamond ? 250 : 320) });
+        dagreGraph.setNode(n.id, { width: isDiamond ? 280 : (isTemplate ? 260 : 460), height: isTemplate ? 160 : (isDiamond ? 280 : 440) });
       });
 
       // Add actual edges
@@ -541,8 +544,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         return {
           ...n,
           position: {
-            x: Math.round((nodeWithPos.x - (isDiamond ? 125 : (isTemplate ? 120 : 180))) / 10) * 10,
-            y: Math.round((nodeWithPos.y - (isTemplate ? 70 : (isDiamond ? 125 : 160))) / 10) * 10
+            x: Math.round((nodeWithPos.x - (isDiamond ? 140 : (isTemplate ? 130 : 230))) / 10) * 10,
+            y: Math.round((nodeWithPos.y - (isTemplate ? 80 : (isDiamond ? 140 : 220))) / 10) * 10
           }
         };
       });
@@ -583,6 +586,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   useEffect(() => {
     if (!workflow) return;
+    console.log("[WorkflowBuilder] Initializing with workflow:", workflow.id, "Version:", workflow.version);
 
     try {
       const seenIds = new Set<string>();
@@ -651,6 +655,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         };
       }).filter((e: any) => e && initializedTasks.some((t: any) => String(t.node_id || t.id) === e.source) && initializedTasks.some((t: any) => String(t.node_id || t.id) === e.target));
 
+      console.log("[WorkflowBuilder] Initialized nodes:", initialNodes.length, "Edges:", initialEdges.length);
       setNodes(initialNodes);
       setEdges(initialEdges);
 
@@ -701,7 +706,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   };
 
   const handleSave = () => {
-    if (tasks.length === 0) return;
+    console.log("[WorkflowBuilder] handleSave triggered. Tasks:", tasks.length, "Edges:", edges.length);
+    if (tasks.length === 0) {
+      console.warn("[WorkflowBuilder] No tasks to save.");
+      return;
+    }
     try {
       const finalData = {
         ...metadata,
@@ -711,9 +720,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         }),
         edges: edges.map(e => ({ source: String(e.source), target: String(e.target), source_handle: String(e.sourceHandle || 'right-source'), target_handle: String(e.targetHandle || 'left-target'), label: String(e.data?.label || ''), edge_style: String(e.data?.edgeStyle || 'bezier'), color: String(e.data?.color || '#ffffff'), style: String(e.data?.style || 'solid') }))
       };
+      console.log("[WorkflowBuilder] finalData prepared for onSave:", finalData);
       onSave(finalData);
     } catch (err) {
-      console.error("Save failed:", err);
+      console.error("[WorkflowBuilder] Save failed in handleSave:", err);
     }
   };
 
