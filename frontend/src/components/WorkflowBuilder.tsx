@@ -200,7 +200,7 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
   const isOutcome = data.interface === 'OUTCOME';
   const isTemplate = isTrigger || isOutcome;
   const baseFontSize = data.baseFontSize || 14;
-  const titleFontSize = Math.max(20, baseFontSize + 6);
+  const titleFontSize = Math.max(24, baseFontSize + 10);
   const descFontSize = Math.max(12, titleFontSize - 6);
 
   if (isTemplate) {
@@ -217,12 +217,12 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
             className="font-black text-white tracking-tighter leading-tight uppercase text-center cursor-help group/title relative"
             style={{ fontSize: `${titleFontSize}px` }}
           >
-            {data.label || (isTrigger ? "START" : "END")}
+            {data.label}
             {!dragging && (
               <div className="absolute top-full left-0 w-[800px] bg-[#0f172a]/95 border-t-2 border-white/20 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden text-left">
                  <div className={cn("absolute top-0 left-0 w-full h-1", isTrigger ? "bg-cyan-500" : "bg-rose-500")} />
                  <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 2}px` }}>
-                   {data.label || (isTrigger ? "TRIGGER" : "OUTCOME")}
+                   {data.label}
                  </p>
                  <div className="flex items-center gap-3 mb-4">
                     <span className={cn("px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest", isTrigger ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-rose-500/20 text-rose-400 border border-rose-500/30")}>
@@ -285,12 +285,12 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
         
         <div className="space-y-1 relative">
           <h4 
-            className="font-black text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-2 cursor-help overflow-visible group/title min-h-[2.4em]"
+            className="font-black text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-2 cursor-help overflow-hidden group/title min-h-[2.4em]"
             style={{ fontSize: `${titleFontSize}px` }}
           >
             {data.label || "Untitled Task"}
             {!dragging && (
-              <div className="absolute top-full left-0 w-[800px] bg-[#0f172a]/95 border-t-2 border-theme-accent/50 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10">
+              <div className="absolute top-full left-0 w-[800px] bg-[#0f172a]/95 border-t-2 border-theme-accent/50 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden text-left">
                  <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 2}px` }}>{data.label}</p>
                  <p className="text-white/80 font-medium leading-relaxed italic text-left" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
               </div>
@@ -590,16 +590,22 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     console.log("[WorkflowBuilder] Syncing with workflow state:", workflow.id, "Tasks:", workflow.tasks?.length);
 
     try {
-      const seenIds = new Set<string>();
+      const seenNodeIds = new Set<string>();
       let initializedTasks = (workflow?.tasks || []).map((t: any) => {
-        // Ensure we use node_id as the primary identifier for React Flow stability
-        let stableId = String(t.node_id || t.id || `node-${Math.random().toString(36).substr(2, 9)}`);
+        // node_id is our stable anchor for React Flow edges.
+        // It MUST be a string and it MUST be preserved across save/load cycles.
+        let stableId = t.node_id ? String(t.node_id) : String(t.id);
+        
+        // If we still don't have a valid ID (shouldn't happen with DB tasks), generate one
+        if (!stableId || stableId === 'undefined' || stableId === 'null') {
+          stableId = `node-${Math.random().toString(36).substr(2, 9)}`;
+        }
         
         // Prevent ID collisions which cause React Flow to crash
-        if (seenIds.has(stableId)) {
+        if (seenNodeIds.has(stableId)) {
           stableId = `${stableId}-dup-${Math.random().toString(36).substr(2, 9)}`;
         }
-        seenIds.add(stableId);
+        seenNodeIds.add(stableId);
         
         return {
           ...t,
@@ -614,7 +620,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           source_data_list: Array.isArray(t.source_data_list) ? t.source_data_list : [],
           output_data_list: Array.isArray(t.output_data_list) ? t.output_data_list : [],
           verification_steps: Array.isArray(t.verification_steps) ? t.verification_steps : [],
-          tribal_knowledge: Array.isArray(t.tribal_knowledge) ? t.tribal_knowledge : [],
+          tribal_knowledge: Array.isArray(t.tribal_knowledge) ? t.tribal_knowledge : (Array.isArray(t.tribal_knowledge_list) ? t.tribal_knowledge_list : []),
           occurrence: t.occurrence || t.occurrences_per_cycle || 1,
           manual_time_minutes: t.manual_time_minutes || 0,
           automation_time_minutes: t.automation_time_minutes || 0,
@@ -622,22 +628,33 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         };
       });
 
-      // Ensure boundary nodes exist
-      if (!initializedTasks.find((t: any) => t.interface === 'TRIGGER')) {
+      // Ensure boundary nodes exist and are mapped correctly
+      const trigger = initializedTasks.find((t: any) => t.interface === 'TRIGGER');
+      if (!trigger) {
         initializedTasks.unshift({
-          id: 'node-trigger', node_id: 'node-trigger', name: 'START', description: '', task_type: 'TRIGGER', interface: 'TRIGGER', interface_type: 'TRIGGER', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: []
+          id: 'node-trigger', node_id: 'node-trigger', name: metadata.trigger_type || 'START', description: metadata.trigger_description || '', task_type: 'TRIGGER', interface: 'TRIGGER', interface_type: 'TRIGGER', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: []
         });
+      } else {
+        // Force ID to be stable node-trigger if it's the interface node
+        trigger.id = trigger.node_id = 'node-trigger';
+        trigger.name = metadata.trigger_type || trigger.name;
       }
-      if (!initializedTasks.find((t: any) => t.interface === 'OUTCOME')) {
+
+      const outcome = initializedTasks.find((t: any) => t.interface === 'OUTCOME');
+      if (!outcome) {
         initializedTasks.push({
-          id: 'node-outcome', node_id: 'node-outcome', name: 'END', description: '', task_type: 'OUTCOME', interface: 'OUTCOME', interface_type: 'OUTCOME', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: []
+          id: 'node-outcome', node_id: 'node-outcome', name: metadata.output_type || 'END', description: metadata.output_description || '', task_type: 'OUTCOME', interface: 'OUTCOME', interface_type: 'OUTCOME', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: []
         });
+      } else {
+        // Force ID to be stable node-outcome if it's the interface node
+        outcome.id = outcome.node_id = 'node-outcome';
+        outcome.name = metadata.output_type || outcome.name;
       }
 
       setTasks(initializedTasks);
       
       const initialNodes: Node[] = initializedTasks.map((t: any) => ({
-        id: String(t.node_id || t.id),
+        id: String(t.node_id),
         type: t.interface_type === 'CONDITION' ? 'diamond' : 'matrix',
         position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
         data: {
@@ -657,7 +674,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           blockerCount: (t.blockers || []).length, 
           errorCount: (t.errors || []).length, 
           description: t.description || '', 
-          id: String(t.node_id || t.id), 
+          id: String(t.node_id), 
           baseFontSize: 14
         },
       }));
@@ -667,10 +684,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         const targetId = String(e.target || '');
         if (!sourceId || !targetId) return null;
         
-        // Verify source and target nodes exist before creating edge
-        if (!initializedTasks.some((t: any) => String(t.node_id || t.id) === sourceId) || 
-            !initializedTasks.some((t: any) => String(t.node_id || t.id) === targetId)) {
-          console.warn(`[WorkflowBuilder] Dropping edge ${idx} - missing endpoint node`, { sourceId, targetId });
+        // Use node_id as the ONLY valid identifier for connections
+        const sourceExists = initializedTasks.some((t: any) => String(t.node_id) === sourceId);
+        const targetExists = initializedTasks.some((t: any) => String(t.node_id) === targetId);
+
+        if (!sourceExists || !targetExists) {
+          console.warn(`[WorkflowBuilder] Dropping edge ${idx} - missing endpoint node`, { sourceId, targetId, sourceExists, targetExists });
           return null;
         }
 
@@ -694,6 +713,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           markerEnd: { type: MarkerType.ArrowClosed, color: e.color || '#ffffff' },
         };
       }).filter(Boolean);
+
+
 
       setNodes(initialNodes);
       setEdges(initialEdges);
@@ -754,11 +775,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       const finalData = {
         ...metadata,
         tasks: tasks.map(t => {
-          const node = nodes.find(n => String(n.id) === String(t.id));
+          const node = nodes.find(n => String(n.id) === String(t.node_id));
           return { 
             ...t, 
             id: undefined, // Let backend assign primary key
-            node_id: String(t.node_id || t.id), 
+            node_id: String(t.node_id), 
             position_x: node?.position.x ?? t.position_x ?? 0, 
             position_y: node?.position.y ?? t.position_y ?? 0 
           };
