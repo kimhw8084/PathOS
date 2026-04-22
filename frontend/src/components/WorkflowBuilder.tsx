@@ -895,8 +895,57 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                   )}
                 </div>
               )}
-              {inspectorTab === 'data' && (
-                <div className="space-y-8">
+              {inspectorTab === 'config' && (
+                <div className="space-y-10 animate-apple-in">
+                  <div className="space-y-8">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Task Nomenclature</label>
+                      <input className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-4 text-[16px] font-bold text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedTask.name} onChange={e => updateTask(selectedTaskId, { name: e.target.value })} placeholder="ENTER TASK TITLE..." />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Process Status</label>
+                        <select className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-2.5 text-[12px] font-bold text-white uppercase outline-none focus:border-theme-accent" value={selectedTask.status} onChange={e => updateTask(selectedTaskId, { status: e.target.value })}>
+                          <option value="draft">DRAFT</option>
+                          <option value="active">ACTIVE</option>
+                          <option value="deprecated">DEPRECATED</option>
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">PRC Index</label>
+                        <input className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-2.5 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={selectedTask.prc_index || ''} onChange={e => updateTask(selectedTaskId, { prc_index: e.target.value })} placeholder="e.g., P.01" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Operational Narrative</label>
+                      <textarea className="w-full bg-white/5 border border-white/10 rounded-lg p-4 text-[13px] text-white/80 outline-none h-32 resize-none leading-relaxed" value={selectedTask.description} onChange={e => updateTask(selectedTaskId, { description: e.target.value })} placeholder="Describe the operational logic..." />
+                    </div>
+
+                    <div className="p-6 bg-white/[0.02] border border-white/5 rounded-xl space-y-6">
+                      <div className="flex items-center gap-2 mb-2"><TrendingUp size={14} className="text-theme-accent" /><span className="text-[11px] font-black text-white uppercase tracking-widest">ROI & Resource Impact</span></div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[8px] font-black text-white/30 uppercase text-center block">Duration (min)</label>
+                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[14px] font-black text-white text-center" value={selectedTask.duration_minutes} onChange={e => updateTask(selectedTaskId, { duration_minutes: parseFloat(e.target.value) || 0 })} />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[8px] font-black text-white/30 uppercase text-center block">Freq / Week</label>
+                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[14px] font-black text-white text-center" value={selectedTask.frequency_per_week} onChange={e => updateTask(selectedTaskId, { frequency_per_week: parseFloat(e.target.value) || 0 })} />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[8px] font-black text-white/30 uppercase text-center block">Manual %</label>
+                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[14px] font-black text-white text-center" value={selectedTask.manual_effort_percent} onChange={e => updateTask(selectedTaskId, { manual_effort_percent: parseFloat(e.target.value) || 0 })} />
+                        </div>
+                      </div>
+                      <div className="pt-4 border-t border-white/5 flex justify-between items-center">
+                        <span className="text-[10px] font-black text-white/20 uppercase">Calculated Weekly Load:</span>
+                        <span className="text-[14px] font-black text-theme-accent uppercase tracking-tighter">{((selectedTask.duration_minutes * selectedTask.frequency_per_week * (selectedTask.manual_effort_percent/100)) / 60).toFixed(2)} H/WK</span>
+                      </div>
+                    </div>
+                  </div>
+
                   <CollapsibleSection title="Input Data (Sources)" isOpen={expandedSections.inputs} toggle={() => toggleSection('inputs')} count={selectedTask.source_data_list.length}>
                     <div className="space-y-3 pt-4">
                       {selectedTask.source_data_list.map((sd) => (
@@ -1139,6 +1188,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                   <div className="flex bg-white/5 p-1 rounded-md border border-white/10">
                     {(['smoothstep', 'bezier', 'straight'] as const).map((s) => (
                       <button key={s} onClick={() => updateEdge(selectedEdgeId, { edgeStyle: s })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-md transition-all", (selectedEdge.data?.edgeStyle || 'bezier') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Line Style</label>
+                  <div className="flex bg-white/5 p-1 rounded-md border border-white/10">
+                    {(['solid', 'dashed'] as const).map((s) => (
+                      <button key={s} onClick={() => updateEdge(selectedEdgeId, { lineStyle: s })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-md transition-all", (selectedEdge.data?.lineStyle || 'solid') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
                     ))}
                   </div>
                 </div>
