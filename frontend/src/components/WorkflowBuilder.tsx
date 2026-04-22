@@ -36,7 +36,8 @@ import {
   Workflow as LucideWorkflow,
   Brain,
   Paperclip,
-  Copy
+  Copy,
+  TrendingUp
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -98,6 +99,11 @@ interface TaskEntity {
   position_y?: number;
   owning_team?: string;
   owner_positions?: string[];
+  status?: string;
+  prc_index?: string;
+  duration_minutes: number;
+  frequency_per_week: number;
+  manual_effort_percent: number;
 }
 
 interface WorkflowMetadata {
@@ -463,7 +469,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const { project, fitView, getNodes, getEdges } = useReactFlow();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [inspectorTab, setInspectorTab] = useState<'overview' | 'data' | 'exceptions' | 'validation' | 'appendix'>('overview');
+  const [inspectorTab, setInspectorTab] = useState<'overview' | 'config' | 'data' | 'exceptions' | 'validation' | 'appendix'>('overview');
   const [inspectorWidth, setInspectorWidth] = useState(450);
   const [baseFontSize] = useState(14);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -629,6 +635,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           manual_time_minutes: t.manual_time_minutes || 0,
           automation_time_minutes: t.automation_time_minutes || 0,
           machine_wait_time_minutes: t.machine_wait_time_minutes || 0,
+          status: t.status || 'draft',
+          prc_index: t.prc_index || '',
+          duration_minutes: t.duration_minutes || t.manual_time_minutes || 0,
+          frequency_per_week: t.frequency_per_week || 0,
+          manual_effort_percent: t.manual_effort_percent !== undefined ? t.manual_effort_percent : 100,
         };
       });
 
@@ -636,7 +647,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       const trigger = initializedTasks.find((t: any) => t.interface === 'TRIGGER');
       if (!trigger) {
         initializedTasks.unshift({
-          id: 'node-trigger', node_id: 'node-trigger', name: metadata.trigger_type || 'START', description: metadata.trigger_description || '', task_type: 'TRIGGER', interface: 'TRIGGER', interface_type: 'TRIGGER', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: []
+          id: 'node-trigger', node_id: 'node-trigger', name: metadata.trigger_type || 'START', description: metadata.trigger_description || '', task_type: 'TRIGGER', interface: 'TRIGGER', interface_type: 'TRIGGER', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, status: 'active', duration_minutes: 0, frequency_per_week: 0, manual_effort_percent: 0
         });
       } else {
         // Force ID to be stable node-trigger if it's the interface node
@@ -647,7 +658,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       const outcome = initializedTasks.find((t: any) => t.interface === 'OUTCOME');
       if (!outcome) {
         initializedTasks.push({
-          id: 'node-outcome', node_id: 'node-outcome', name: metadata.output_type || 'END', description: metadata.output_description || '', task_type: 'OUTCOME', interface: 'OUTCOME', interface_type: 'OUTCOME', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: []
+          id: 'node-outcome', node_id: 'node-outcome', name: metadata.output_type || 'END', description: metadata.output_description || '', task_type: 'OUTCOME', interface: 'OUTCOME', interface_type: 'OUTCOME', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, status: 'active', duration_minutes: 0, frequency_per_week: 0, manual_effort_percent: 0
         });
       } else {
         // Force ID to be stable node-outcome if it's the interface node
@@ -830,7 +841,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     const id = `node-${Date.now()}`;
     const center = project({ x: (window.innerWidth - inspectorWidth) / 2, y: window.innerHeight / 2 });
     const newNode: Node = { id, type: type === 'CONDITION' ? 'diamond' : 'matrix', position: { x: Math.round((center.x - 160) / 10) * 10, y: Math.round((center.y - 140) / 10) * 10 }, data: { label: type === 'TASK' ? 'New Task' : 'New Condition', task_type: type === 'TASK' ? 'Documentation' : 'LOOP', manual_time: 0, automation_time: 0, occurrence: 1, systems: '', validation_needed: false, blockerCount: 0, errorCount: 0, baseFontSize } };
-    const newTask: TaskEntity = { id, node_id: id, name: newNode.data.label, description: '', task_type: newNode.data.task_type, target_systems: [], interface_type: type === 'TASK' ? 'GUI' : 'CONDITION', manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, occurrence: 1, occurrence_explanation: '', source_data_list: [], output_data_list: [], verification_steps: [], blockers: [], errors: [], tribal_knowledge: [], validation_needed: false, validation_procedure: '', media: [], reference_links: [], instructions: [] };
+    const newTask: TaskEntity = { id, node_id: id, name: newNode.data.label, description: '', task_type: newNode.data.task_type, target_systems: [], interface_type: type === 'TASK' ? 'GUI' : 'CONDITION', manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, occurrence: 1, occurrence_explanation: '', source_data_list: [], output_data_list: [], verification_steps: [], blockers: [], errors: [], tribal_knowledge: [], validation_needed: false, validation_procedure: '', media: [], reference_links: [], instructions: [], status: 'draft', prc_index: '', duration_minutes: 0, frequency_per_week: 0, manual_effort_percent: 100 };
     setTasks(prev => [...prev, newTask]);
     setNodes(nds => [...nds, newNode]);
     setSelectedTaskId(id);
@@ -867,7 +878,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           </div>
         </div>
         <div className="flex-1 relative">
-          <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodeClick={(_, n) => { setSelectedTaskId(n.id); setSelectedEdgeId(null); }} onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); }} fitView snapToGrid snapGrid={[10, 10]} connectionMode={ConnectionMode.Loose} connectionLineType={ConnectionLineType.SmoothStep} className="react-flow-industrial"><Background color="#1e293b" gap={30} size={1} /><Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl overflow-hidden" /></ReactFlow>
+          <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodeClick={(_, n) => { setSelectedTaskId(n.id); setSelectedEdgeId(null); setInspectorTab('overview'); }} onEdgeClick={(_, e) => { setSelectedEdgeId(e.id); setSelectedTaskId(null); }} onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); }} fitView snapToGrid snapGrid={[10, 10]} connectionMode={ConnectionMode.Loose} connectionLineType={ConnectionLineType.SmoothStep} className="react-flow-industrial"><Background color="#1e293b" gap={30} size={1} /><Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl overflow-hidden" /></ReactFlow>
           <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex gap-1 p-1 bg-[#0a1120]/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl"><button onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2 bg-theme-accent text-white rounded-xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all"><Plus size={12} /> Add Task</button><button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all"><Plus size={12} /> Add Condition</button></div>
         </div>
       </div>
@@ -875,7 +886,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       <div className="relative border-l border-white/10 bg-[#0a1120] flex flex-col z-[70]" style={{ width: `${inspectorWidth}px` }}>
         <div onMouseDown={handleMouseDown} className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent z-50" />
         <div className="h-14 flex border-b border-white/10 bg-white/[0.02]">
-          {[ { id: 'overview', label: 'Overview', icon: <Activity size={12} /> }, { id: 'data', label: 'Data', icon: <Database size={12} />, hidden: isProtected }, { id: 'exceptions', label: 'Exceptions', icon: <AlertCircle size={12} />, hidden: isProtected }, { id: 'validation', label: 'Validation', icon: <Zap size={12} />, hidden: isProtected }, { id: 'appendix', label: 'Appendix', icon: <Paperclip size={12} />, hidden: isProtected } ].filter(t => !t.hidden && (selectedTaskId || t.id === 'overview')).map(t => (
+          {[ 
+            { id: 'overview', label: 'Overview', icon: <Activity size={12} /> }, 
+            { id: 'config', label: 'Config', icon: <LucideWorkflow size={12} />, hidden: isProtected },
+            { id: 'data', label: 'Data', icon: <Database size={12} />, hidden: isProtected }, 
+            { id: 'exceptions', label: 'Exceptions', icon: <AlertCircle size={12} />, hidden: isProtected }, 
+            { id: 'validation', label: 'Validation', icon: <Zap size={12} />, hidden: isProtected }, 
+            { id: 'appendix', label: 'Appendix', icon: <Paperclip size={12} />, hidden: isProtected } 
+          ].filter(t => !t.hidden && (selectedTaskId || t.id === 'overview')).map(t => (
             <button key={t.id} onClick={() => setInspectorTab(t.id as any)} className={cn("flex-1 flex flex-col items-center justify-center gap-0.5 border-b-2", inspectorTab === t.id ? 'border-theme-accent bg-theme-accent/10 text-white' : 'border-transparent text-white/20 hover:text-white')}>{t.icon}<span className="text-[8px] font-black uppercase">{t.label}</span></button>
           ))}
           {selectedEdgeId && (<div className="flex-1 flex flex-col items-center justify-center gap-0.5 border-b-2 border-theme-accent bg-theme-accent/10 text-white"><Link2 size={12} /><span className="text-[8px] font-black uppercase">Edge</span></div>)}
