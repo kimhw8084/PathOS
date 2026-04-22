@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, attributes
 from typing import List, Optional
 from ..database import get_db
 from ..models.models import Workflow, Task, TaxonomyEnum
@@ -97,10 +97,15 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
     # Update workflow fields
     data_to_update = {k: v for k, v in workflow_data.items() if k != "tasks"}
     
+    print(f"DEBUG: Updating workflow {workflow_id}. edges in data: {data_to_update.get('edges')}")
+    
     for key, value in data_to_update.items():
         if hasattr(workflow, key):
-            # Special handling for JSON fields like edges to ensure SQLAlchemy detects changes
             setattr(workflow, key, value)
+            if isinstance(value, (list, dict)):
+                attributes.flag_modified(workflow, key)
+    
+    await db.flush()
     
     # Sync Tasks if provided
     if tasks_data is not None:
@@ -128,6 +133,7 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
                  selectinload(Workflow.tasks).selectinload(Task.errors))
     )
     workflow = result.scalar_one()
+    print(f"DEBUG: Workflow reloaded. edges: {workflow.edges}")
 
     # Recalculate ROI on the reloaded state
     await update_workflow_roi(workflow)

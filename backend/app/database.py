@@ -44,6 +44,6 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
 
 async def init_db():
     async with engine.begin() as conn:
-        # Schema is managed by Alembic, but we can verify tables here if needed
-        # await conn.run_sync(Base.metadata.create_all)
-        pass
+        # For development, we ensure all tables exist. 
+        # In production, this would be handled strictly by Alembic.
+        await conn.run_sync(Base.metadata.create_all)
