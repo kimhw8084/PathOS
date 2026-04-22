@@ -200,13 +200,13 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
   const isOutcome = data.interface === 'OUTCOME';
   const isTemplate = isTrigger || isOutcome;
   const baseFontSize = data.baseFontSize || 14;
-  const titleFontSize = Math.max(24, baseFontSize + 10);
-  const descFontSize = Math.max(12, titleFontSize - 3);
+  const titleFontSize = Math.max(20, baseFontSize + 6);
+  const descFontSize = Math.max(12, titleFontSize - 6);
 
   if (isTemplate) {
     return (
       <div className={cn(
-        "apple-glass !bg-[#0f172a]/95 !rounded-lg px-6 py-5 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center min-w-[260px] min-h-[160px] hover:z-[1000]",
+        "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-8 py-6 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center min-w-[200px] h-auto hover:z-[1000]",
         selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
       )}>
         <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-[0.2em] border z-20 shadow-lg", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
@@ -217,7 +217,7 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
             className="font-black text-white tracking-tighter leading-tight uppercase text-center cursor-help group/title relative"
             style={{ fontSize: `${titleFontSize}px` }}
           >
-            {data.label || (isTrigger ? "TRIGGER" : "OUTCOME")}
+            {data.label || (isTrigger ? "START" : "END")}
             {!dragging && (
               <div className="absolute top-full left-0 w-[800px] bg-[#0f172a]/95 border-t-2 border-white/20 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden text-left">
                  <div className={cn("absolute top-0 left-0 w-full h-1", isTrigger ? "bg-cyan-500" : "bg-rose-500")} />
@@ -250,7 +250,7 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
 
   return (
     <div className={cn(
-      "apple-glass !bg-[#0f172a]/95 !rounded-lg px-8 py-7 w-[460px] shadow-2xl transition-all duration-300 relative border-2 h-[440px] hover:z-[1000]",
+      "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-7 py-6 w-[460px] shadow-2xl transition-all duration-300 relative border-2 h-auto min-h-[380px] hover:z-[1000]",
       selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : 'border-white/10 hover:border-white/20',
       data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
     )}>
@@ -259,25 +259,25 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
           VALIDATION REQUIRED
         </div>
       )}
-      <div className="flex flex-col gap-4 h-full">
+      <div className="flex flex-col gap-5 h-full">
         <div className="flex items-center justify-between">
-          <div className={cn("px-4 py-1.5 rounded-sm text-[16px] font-black uppercase tracking-widest border", typeColor)}>
+          <div className={cn("px-3 py-1 rounded-md text-[13px] font-black uppercase tracking-widest border", typeColor)}>
             {data.task_type || 'GENERAL'}
           </div>
           <div className="flex items-center gap-2">
             {data.occurrence > 1 && (
-              <div className="flex items-center gap-1.5 bg-blue-500 text-white px-3 py-1.5 rounded-md text-[16px] font-black shadow-lg shadow-blue-500/20 h-[32px]">
-                <RefreshCw size={16} /> {data.occurrence}
+              <div className="flex items-center gap-1.5 bg-blue-500 text-white px-3 py-1 rounded-lg text-[14px] font-black shadow-lg shadow-blue-500/20">
+                <RefreshCw size={14} /> {data.occurrence}
               </div>
             )}
             {data.blockerCount > 0 && (
-              <div className="flex items-center gap-1.5 bg-amber-500 text-white px-3 py-1.5 rounded-md text-[16px] font-black shadow-lg shadow-amber-500/20 h-[32px]">
-                <AlertCircle size={18} /> {data.blockerCount}
+              <div className="flex items-center gap-1.5 bg-amber-500 text-white px-3 py-1 rounded-lg text-[14px] font-black shadow-lg shadow-amber-500/20">
+                <AlertCircle size={14} /> {data.blockerCount}
               </div>
             )}
             {data.errorCount > 0 && (
-              <div className="flex items-center gap-1.5 bg-status-error text-white px-3 py-1.5 rounded-md text-[16px] font-black shadow-lg shadow-status-error/20 h-[32px]">
-                <X size={18} /> {data.errorCount}
+              <div className="flex items-center gap-1.5 bg-status-error text-white px-3 py-1 rounded-lg text-[14px] font-black shadow-lg shadow-status-error/20">
+                <X size={14} /> {data.errorCount}
               </div>
             )}
           </div>
@@ -285,8 +285,8 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
         
         <div className="space-y-1 relative">
           <h4 
-            className="font-bold text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-2 cursor-help overflow-visible group/title"
-            style={{ fontSize: `${titleFontSize}px`, height: `${titleFontSize * 2.4}px` }}
+            className="font-black text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-2 cursor-help overflow-visible group/title min-h-[2.4em]"
+            style={{ fontSize: `${titleFontSize}px` }}
           >
             {data.label || "Untitled Task"}
             {!dragging && (
@@ -298,55 +298,56 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
           </h4>
         </div>
 
-        <div className="flex flex-col gap-2 mt-auto">
+        <div className="flex flex-col gap-4 mt-2">
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-black/40 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center">
-               <span className="text-[14px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-0.5">Manual</span>
-               <span className="text-[34px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
+            <div className="bg-black/40 rounded-xl p-4 border border-white/5 flex flex-col items-center justify-center">
+               <span className="text-[11px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-1">Manual</span>
+               <span className="text-[32px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
             </div>
-            <div className="bg-black/40 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center">
-               <span className="text-[14px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-0.5">Machine</span>
-               <span className="text-[34px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
+            <div className="bg-black/40 rounded-xl p-4 border border-white/5 flex flex-col items-center justify-center">
+               <span className="text-[11px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-1">Machine</span>
+               <span className="text-[32px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
             </div>
           </div>
 
-          <div className="flex items-center justify-between py-2 border-t border-white/5">
+          <div className="flex items-center justify-between py-3 border-t border-white/5">
              <div className="flex items-center gap-6 flex-1 justify-center">
                <div className="flex flex-col items-center">
-                 <span className="text-[14px] font-black text-white/20 uppercase tracking-widest">Input</span>
-                 <span className="text-[22px] font-black text-white leading-none">{data.sourceCount || 0}</span>
+                 <span className="text-[11px] font-black text-white/20 uppercase tracking-widest">Input</span>
+                 <span className="text-[20px] font-black text-white leading-none">{data.sourceCount || 0}</span>
                </div>
                <div className="w-px h-8 bg-white/5" />
                <div className="flex flex-col items-center">
-                 <span className="text-[14px] font-black text-white/20 uppercase tracking-widest">Output</span>
-                 <span className="text-[22px] font-black text-white leading-none">{data.outputCount || 0}</span>
+                 <span className="text-[11px] font-black text-white/20 uppercase tracking-widest">Output</span>
+                 <span className="text-[20px] font-black text-white leading-none">{data.outputCount || 0}</span>
                </div>
              </div>
              <div className="text-right flex flex-col items-end">
                 <div className="flex items-center gap-2">
-                   <span className="text-[16px] font-black text-white/60 uppercase truncate max-w-[120px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
+                   <span className="text-[13px] font-black text-white/60 uppercase truncate max-w-[120px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
                    {(data.ownerPositions || []).length > 1 && (
-                     <span className="text-[14px] font-black text-theme-accent">+{(data.ownerPositions || []).length - 1}</span>
+                     <span className="text-[11px] font-black text-theme-accent">+{(data.ownerPositions || []).length - 1}</span>
                    )}
                 </div>
                 {data.owningTeam && (
-                  <span className="text-[14px] font-black text-theme-accent/60 uppercase tracking-widest leading-none mt-1">{data.owningTeam}</span>
+                  <span className="text-[11px] font-black text-theme-accent/60 uppercase tracking-widest leading-none mt-1">{data.owningTeam}</span>
                 )}
              </div>
           </div>
-          <div className="flex flex-wrap gap-2 items-center pt-2 border-t border-white/5 min-h-[42px]">
+          <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-white/5 min-h-[42px]">
              {visibleSystemBadges.map((s: string, i: number) => (
-               <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded text-[14px] font-bold text-white/40 uppercase">{s}</span>
+               <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-[12px] font-bold text-white/40 uppercase">{s}</span>
              ))}
              {hiddenSystemsCount > 0 && (
-               <span className="px-3 py-1 bg-white/5 border border-white/10 rounded text-[14px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
+               <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-[12px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
              )}
              {systemBadges.length === 0 && (
-               <span className="text-[14px] font-black text-white/10 uppercase tracking-widest">No Systems</span>
+               <span className="text-[11px] font-black text-white/10 uppercase tracking-widest">No Systems</span>
              )}
           </div>
         </div>
       </div>
+
       
       <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-all z-10" />
       <Handle type="source" position={Position.Left} id="left-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-all opacity-0 z-20" />
@@ -475,7 +476,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   const [isAppendixFocused, setIsAppendixFocused] = useState(false);
 
-  const [metadata, setMetadata] = useState<WorkflowMetadata>({
+  const [metadata] = useState<WorkflowMetadata>({
     name: workflow?.name || '', version: workflow?.version || 1, prc: workflow?.prc || '', workflow_type: workflow?.workflow_type || '', tool_family: workflow?.tool_family || '', tool_family_count: workflow?.tool_family_count || 1, tool_id: workflow?.tool_id || '', trigger_type: workflow?.trigger_type || '', trigger_description: workflow?.trigger_description || '', output_type: workflow?.output_type || '', output_description: workflow?.output_description || '', cadence_count: workflow?.cadence_count || 1, cadence_unit: workflow?.cadence_unit || 'month', total_roi_saved_hours: workflow?.total_roi_saved_hours || 0, org: workflow?.org || '', team: workflow?.team || '', poc: workflow?.poc || '', flow_summary: workflow?.flow_summary || '', description: workflow?.description || workflow?.forensic_description || ''
   });
 
@@ -586,12 +587,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   useEffect(() => {
     if (!workflow) return;
-    console.log("[WorkflowBuilder] Initializing with workflow:", workflow.id, "Version:", workflow.version);
+    console.log("[WorkflowBuilder] Syncing with workflow state:", workflow.id, "Tasks:", workflow.tasks?.length);
 
     try {
       const seenIds = new Set<string>();
       let initializedTasks = (workflow?.tasks || []).map((t: any) => {
+        // Ensure we use node_id as the primary identifier for React Flow stability
         let stableId = String(t.node_id || t.id || `node-${Math.random().toString(36).substr(2, 9)}`);
+        
+        // Prevent ID collisions which cause React Flow to crash
         if (seenIds.has(stableId)) {
           stableId = `${stableId}-dup-${Math.random().toString(36).substr(2, 9)}`;
         }
@@ -601,16 +605,16 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           ...t,
           id: stableId,
           node_id: stableId,
-          target_systems: t.target_systems || [],
-          blockers: t.blockers || [],
-          errors: t.errors || [],
-          media: t.media || [],
-          reference_links: t.reference_links || [],
-          instructions: t.instructions || [],
-          source_data_list: t.source_data_list || [],
-          output_data_list: t.output_data_list || [],
-          verification_steps: t.verification_steps || [],
-          tribal_knowledge: t.tribal_knowledge || [],
+          target_systems: Array.isArray(t.target_systems) ? t.target_systems : [],
+          blockers: Array.isArray(t.blockers) ? t.blockers : [],
+          errors: Array.isArray(t.errors) ? t.errors : [],
+          media: Array.isArray(t.media) ? t.media : [],
+          reference_links: Array.isArray(t.reference_links) ? t.reference_links : [],
+          instructions: Array.isArray(t.instructions) ? t.instructions : [],
+          source_data_list: Array.isArray(t.source_data_list) ? t.source_data_list : [],
+          output_data_list: Array.isArray(t.output_data_list) ? t.output_data_list : [],
+          verification_steps: Array.isArray(t.verification_steps) ? t.verification_steps : [],
+          tribal_knowledge: Array.isArray(t.tribal_knowledge) ? t.tribal_knowledge : [],
           occurrence: t.occurrence || t.occurrences_per_cycle || 1,
           manual_time_minutes: t.manual_time_minutes || 0,
           automation_time_minutes: t.automation_time_minutes || 0,
@@ -618,29 +622,43 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         };
       });
 
-      // Ensure boundary nodes
+      // Ensure boundary nodes exist
       if (!initializedTasks.find((t: any) => t.interface === 'TRIGGER')) {
         initializedTasks.unshift({
-          id: 'node-trigger', node_id: 'node-trigger', name: 'TRIGGER', description: '', task_type: 'TRIGGER', interface: 'TRIGGER', interface_type: 'TRIGGER', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: []
+          id: 'node-trigger', node_id: 'node-trigger', name: 'START', description: '', task_type: 'TRIGGER', interface: 'TRIGGER', interface_type: 'TRIGGER', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: []
         });
       }
       if (!initializedTasks.find((t: any) => t.interface === 'OUTCOME')) {
         initializedTasks.push({
-          id: 'node-outcome', node_id: 'node-outcome', name: 'OUTCOME', description: '', task_type: 'OUTCOME', interface: 'OUTCOME', interface_type: 'OUTCOME', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: []
+          id: 'node-outcome', node_id: 'node-outcome', name: 'END', description: '', task_type: 'OUTCOME', interface: 'OUTCOME', interface_type: 'OUTCOME', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: []
         });
       }
 
       setTasks(initializedTasks);
-      setMetadata({
-        name: workflow?.name || 'Untitled', version: workflow?.version || 1, prc: workflow?.prc || '', workflow_type: workflow?.workflow_type || '', tool_family: workflow?.tool_family || '', tool_family_count: workflow?.tool_family_count || 1, tool_id: workflow?.tool_id || '', trigger_type: workflow?.trigger_type || 'Manual', trigger_description: workflow?.trigger_description || '', output_type: workflow?.output_type || 'Report', output_description: workflow?.output_description || '', cadence_count: workflow?.cadence_count || 1, cadence_unit: workflow?.cadence_unit || 'month', total_roi_saved_hours: workflow?.total_roi_saved_hours || 0, org: workflow?.org || '', team: workflow?.team || '', poc: workflow?.poc || '', flow_summary: workflow?.flow_summary || '', description: workflow?.description || workflow?.forensic_description || ''
-      });
       
       const initialNodes: Node[] = initializedTasks.map((t: any) => ({
         id: String(t.node_id || t.id),
         type: t.interface_type === 'CONDITION' ? 'diamond' : 'matrix',
         position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
         data: {
-          ...t, label: t.name, task_type: t.task_type || 'GENERAL', manual_time: t.manual_time_minutes || 0, automation_time: t.automation_time_minutes || 0, occurrence: t.occurrence || 1, systems: (t.target_systems || []).map((s: any) => s.name).join(', '), owningTeam: t.owning_team, ownerPositions: t.owner_positions, sourceCount: (t.source_data_list || []).length, outputCount: (t.output_data_list || []).length, interface: t.interface, validation_needed: t.validation_needed, blockerCount: (t.blockers || []).length, errorCount: (t.errors || []).length, description: t.description || '', id: String(t.node_id || t.id), baseFontSize: 14
+          ...t, 
+          label: t.name, 
+          task_type: t.task_type || 'GENERAL', 
+          manual_time: t.manual_time_minutes || 0, 
+          automation_time: t.automation_time_minutes || 0, 
+          occurrence: t.occurrence || 1, 
+          systems: (t.target_systems || []).map((s: any) => s.name || s).join(', '), 
+          owningTeam: t.owning_team, 
+          ownerPositions: t.owner_positions, 
+          sourceCount: (t.source_data_list || []).length, 
+          outputCount: (t.output_data_list || []).length, 
+          interface: t.interface, 
+          validation_needed: t.validation_needed, 
+          blockerCount: (t.blockers || []).length, 
+          errorCount: (t.errors || []).length, 
+          description: t.description || '', 
+          id: String(t.node_id || t.id), 
+          baseFontSize: 14
         },
       }));
 
@@ -648,22 +666,44 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         const sourceId = String(e.source || '');
         const targetId = String(e.target || '');
         if (!sourceId || !targetId) return null;
+        
+        // Verify source and target nodes exist before creating edge
+        if (!initializedTasks.some((t: any) => String(t.node_id || t.id) === sourceId) || 
+            !initializedTasks.some((t: any) => String(t.node_id || t.id) === targetId)) {
+          console.warn(`[WorkflowBuilder] Dropping edge ${idx} - missing endpoint node`, { sourceId, targetId });
+          return null;
+        }
+
         let sHandle = e.source_handle || e.sourceHandle || 'right-source';
         let tHandle = e.target_handle || e.targetHandle || 'left-target';
+        
         return {
-          ...e, id: String(e.id || `e-${sourceId}-${targetId}-${idx}`), source: sourceId, target: targetId, sourceHandle: sHandle, targetHandle: tHandle, type: 'custom', data: { label: e.label || '', edgeStyle: e.edge_style || 'bezier', color: e.color || '#ffffff', style: e.style || 'solid' }, markerEnd: { type: MarkerType.ArrowClosed, color: e.color || '#ffffff' },
+          ...e, 
+          id: String(e.id || `e-${sourceId}-${targetId}-${idx}`), 
+          source: sourceId, 
+          target: targetId, 
+          sourceHandle: sHandle, 
+          targetHandle: tHandle, 
+          type: 'custom', 
+          data: { 
+            label: e.label || '', 
+            edgeStyle: e.edge_style || e.edgeStyle || 'bezier', 
+            color: e.color || '#ffffff', 
+            style: e.style || 'solid' 
+          }, 
+          markerEnd: { type: MarkerType.ArrowClosed, color: e.color || '#ffffff' },
         };
-      }).filter((e: any) => e && initializedTasks.some((t: any) => String(t.node_id || t.id) === e.source) && initializedTasks.some((t: any) => String(t.node_id || t.id) === e.target));
+      }).filter(Boolean);
 
-      console.log("[WorkflowBuilder] Initialized nodes:", initialNodes.length, "Edges:", initialEdges.length);
       setNodes(initialNodes);
       setEdges(initialEdges);
 
+      // Only auto-layout if no positions are saved
       if (initializedTasks.every((t: any) => !t.position_x && !t.position_y)) {
-        setTimeout(() => handleLayout(initialNodes, initialEdges), 200);
+        setTimeout(() => handleLayout(initialNodes, initialEdges), 100);
       }
     } catch (err) {
-      console.error("Initialization failed:", err);
+      console.error("[WorkflowBuilder] Critical Initialization Failure:", err);
     }
   }, [workflow, handleLayout, setNodes, setEdges]);
 
@@ -697,7 +737,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     setTasks(prev => prev.map(t => {
       if (t.id === id) {
         const updated = { ...t, ...updates };
-        setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { ...n.data, label: updated.name, task_type: updated.task_type, manual_time: updated.manual_time_minutes, automation_time: updated.automation_time_minutes, occurrence: updated.occurrence, systems: (updated.target_systems || []).map((s:any) => s.name).join(', '), owningTeam: updated.owning_team, ownerPositions: updated.owner_positions, sourceCount: (updated.source_data_list || []).length, outputCount: (updated.output_data_list || []).length, validation_needed: updated.validation_needed, blockerCount: (updated.blockers || []).length, errorCount: (updated.errors || []).length, description: updated.description } } : n));
+        setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { ...n.data, label: updated.name, task_type: updated.task_type, manual_time: updated.manual_time_minutes, automation_time: updated.automation_time_minutes, occurrence: updated.occurrence, systems: (updated.target_systems || []).map((s:any) => s.name || s).join(', '), owningTeam: updated.owning_team, ownerPositions: updated.owner_positions, sourceCount: (updated.source_data_list || []).length, outputCount: (updated.output_data_list || []).length, validation_needed: updated.validation_needed, blockerCount: (updated.blockers || []).length, errorCount: (updated.errors || []).length, description: updated.description } } : n));
         return updated;
       }
       return t;
@@ -706,24 +746,37 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   };
 
   const handleSave = () => {
-    console.log("[WorkflowBuilder] handleSave triggered. Tasks:", tasks.length, "Edges:", edges.length);
-    if (tasks.length === 0) {
-      console.warn("[WorkflowBuilder] No tasks to save.");
-      return;
-    }
+    console.log("[WorkflowBuilder] handleSave initiated. Tasks:", tasks.length, "Edges:", edges.length);
+    if (tasks.length === 0) return;
+    
     try {
+      // Validate IDs before sending to backend to prevent sync corruption
       const finalData = {
         ...metadata,
         tasks: tasks.map(t => {
           const node = nodes.find(n => String(n.id) === String(t.id));
-          return { ...t, id: undefined, node_id: String(t.node_id || t.id), position_x: node?.position.x ?? t.position_x ?? 0, position_y: node?.position.y ?? t.position_y ?? 0 };
+          return { 
+            ...t, 
+            id: undefined, // Let backend assign primary key
+            node_id: String(t.node_id || t.id), 
+            position_x: node?.position.x ?? t.position_x ?? 0, 
+            position_y: node?.position.y ?? t.position_y ?? 0 
+          };
         }),
-        edges: edges.map(e => ({ source: String(e.source), target: String(e.target), source_handle: String(e.sourceHandle || 'right-source'), target_handle: String(e.targetHandle || 'left-target'), label: String(e.data?.label || ''), edge_style: String(e.data?.edgeStyle || 'bezier'), color: String(e.data?.color || '#ffffff'), style: String(e.data?.style || 'solid') }))
+        edges: edges.map(e => ({ 
+          source: String(e.source), 
+          target: String(e.target), 
+          source_handle: String(e.sourceHandle || 'right-source'), 
+          target_handle: String(e.targetHandle || 'left-target'), 
+          label: String(e.data?.label || ''), 
+          edge_style: String(e.data?.edgeStyle || 'bezier'), 
+          color: String(e.data?.color || '#ffffff'), 
+          style: String(e.data?.style || 'solid') 
+        }))
       };
-      console.log("[WorkflowBuilder] finalData prepared for onSave:", finalData);
       onSave(finalData);
     } catch (err) {
-      console.error("[WorkflowBuilder] Save failed in handleSave:", err);
+      console.error("[WorkflowBuilder] Failed to prepare save data:", err);
     }
   };
 
@@ -780,20 +833,21 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       <div className="flex-1 flex flex-col min-w-0 relative">
         <div className="h-16 border-b border-white/10 bg-[#0a1120]/80 backdrop-blur-xl flex items-center justify-between px-6 z-20">
           <div className="flex items-center gap-4">
-            <button onClick={() => onBack(metadata)} className="p-2 hover:bg-white/5 rounded-md transition-colors text-white/40 hover:text-white"><ChevronLeft size={20} /></button>
+            <button onClick={() => onBack(metadata)} className="p-2.5 hover:bg-white/5 rounded-xl transition-colors text-white/40 hover:text-white"><ChevronLeft size={20} /></button>
             <div className="flex flex-col"><span className="text-[10px] font-black text-theme-accent uppercase tracking-widest mb-1">Workflow Builder</span><h1 className="text-[14px] font-black text-white uppercase truncate max-w-[300px]">{workflow?.name}</h1></div>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={() => handleLayout()} className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-md text-[10px] font-black text-white uppercase"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
-            <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2 bg-theme-accent text-white rounded-md text-[10px] font-black uppercase shadow-xl shadow-theme-accent/20"><Save size={14} /> Commit Changes</button>
+            <button onClick={() => handleLayout()} className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 transition-all"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
+            <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2 bg-theme-accent text-white rounded-xl text-[10px] font-black uppercase shadow-xl shadow-theme-accent/20 hover:scale-[1.02] transition-all"><Save size={14} /> Commit Changes</button>
             <button onClick={onExit} className="p-2 text-white/20 hover:text-status-error"><X size={20} /></button>
           </div>
         </div>
         <div className="flex-1 relative">
-          <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodeClick={(_, n) => { setSelectedTaskId(n.id); setSelectedEdgeId(null); }} onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); }} fitView snapToGrid snapGrid={[10, 10]} connectionMode={ConnectionMode.Loose} connectionLineType={ConnectionLineType.SmoothStep} className="react-flow-industrial"><Background color="#1e293b" gap={30} size={1} /><Controls className="!bg-[#0a1120] !border-white/10" /></ReactFlow>
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex gap-1 p-1 bg-[#0a1120]/90 backdrop-blur-2xl border border-white/10 rounded-md"><button onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-3 py-1.5 bg-theme-accent text-white rounded-md text-[9px] font-black uppercase"><Plus size={12} /> Add Task</button><button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-md text-[9px] font-black uppercase"><Plus size={12} /> Add Condition</button></div>
+          <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodeClick={(_, n) => { setSelectedTaskId(n.id); setSelectedEdgeId(null); }} onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); }} fitView snapToGrid snapGrid={[10, 10]} connectionMode={ConnectionMode.Loose} connectionLineType={ConnectionLineType.SmoothStep} className="react-flow-industrial"><Background color="#1e293b" gap={30} size={1} /><Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl overflow-hidden" /></ReactFlow>
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex gap-1 p-1 bg-[#0a1120]/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl"><button onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2 bg-theme-accent text-white rounded-xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all"><Plus size={12} /> Add Task</button><button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all"><Plus size={12} /> Add Condition</button></div>
         </div>
       </div>
+
       <div className="relative border-l border-white/10 bg-[#0a1120] flex flex-col z-[70]" style={{ width: `${inspectorWidth}px` }}>
         <div onMouseDown={handleMouseDown} className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent z-50" />
         <div className="h-14 flex border-b border-white/10 bg-white/[0.02]">
@@ -820,23 +874,49 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
               {inspectorTab === 'data' && (
                 <div className="space-y-8">
                   <CollapsibleSection title="Input Data (Sources)" isOpen={expandedSections.inputs} toggle={() => toggleSection('inputs')} count={selectedTask.source_data_list.length}>
-                    <div className="space-y-1 pt-4">
-                      <button onClick={() => updateTask(selectedTaskId, { source_data_list: [...selectedTask.source_data_list, { id: Date.now().toString(), name: '', description: '', is_manual: true }] })} className="w-full py-2 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white mb-4">+ Add Source</button>
+                    <div className="space-y-3 pt-4">
                       {selectedTask.source_data_list.map((sd) => (
                         <NestedCollapsible key={sd.id} title={sd.name || "New Source"} isOpen={openItems[sd.id]} toggle={() => toggleItem(sd.id)} onDelete={() => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.filter(x => x.id !== sd.id) })}>
-                          <input className="w-full bg-black/40 border border-white/10 rounded p-2 text-[12px] text-white" value={sd.name} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, name: e.target.value } : x) })} placeholder="Name" />
+                          <div className="space-y-4">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Source Name *</label>
+                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={sd.name} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, name: e.target.value } : x) })} placeholder="e.g., FDC Log, SPC Chart" />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Retrieval Method</label>
+                              <select className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[11px] font-bold text-white outline-none" value={sd.is_manual ? 'Manual' : 'Automated'} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, is_manual: e.target.value === 'Manual' } : x) })}>
+                                <option value="Manual">MANUAL DOWNLOAD/EXTRACT</option>
+                                <option value="Automated">SYSTEM AUTOMATED</option>
+                              </select>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Field Requirements / Details</label>
+                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none" value={sd.description} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, description: e.target.value } : x) })} placeholder="What specific columns or values are needed?" />
+                            </div>
+                          </div>
                         </NestedCollapsible>
                       ))}
+                      <button onClick={() => updateTask(selectedTaskId, { source_data_list: [...selectedTask.source_data_list, { id: Date.now().toString(), name: '', description: '', is_manual: true }] })} className="w-full py-3 bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Source Entity</button>
                     </div>
                   </CollapsibleSection>
+
                   <CollapsibleSection title="Output Artifacts" isOpen={expandedSections.outputs} toggle={() => toggleSection('outputs')} count={selectedTask.output_data_list.length}>
-                    <div className="space-y-1 pt-4">
-                      <button onClick={() => updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '' }] })} className="w-full py-2 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white mb-4">+ Add Artifact</button>
+                    <div className="space-y-3 pt-4">
                       {selectedTask.output_data_list.map((od) => (
                         <NestedCollapsible key={od.id} title={od.name || "New Artifact"} isOpen={openItems[od.id]} toggle={() => toggleItem(od.id)} onDelete={() => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.filter(x => x.id !== od.id) })}>
-                          <input className="w-full bg-black/40 border border-white/10 rounded p-2 text-[12px] text-white" value={od.name} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, name: e.target.value } : x) })} placeholder="Name" />
+                          <div className="space-y-4">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Artifact Name *</label>
+                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={od.name} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, name: e.target.value } : x) })} placeholder="e.g., Final Report, Updated DB Entry" />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Output Fields / format</label>
+                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none" value={od.description} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, description: e.target.value } : x) })} placeholder="Define the output structure..." />
+                            </div>
+                          </div>
                         </NestedCollapsible>
                       ))}
+                      <button onClick={() => updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '' }] })} className="w-full py-3 bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Output Artifact</button>
                     </div>
                   </CollapsibleSection>
                 </div>
@@ -844,37 +924,87 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
               {inspectorTab === 'exceptions' && (
                 <div className="space-y-8">
                   <CollapsibleSection title="Process Blockers" isOpen={expandedSections.blockers} toggle={() => toggleSection('blockers')} count={selectedTask.blockers.length}>
-                    <div className="space-y-1 pt-4">
-                      <button onClick={() => updateTask(selectedTaskId, { blockers: [...selectedTask.blockers, { id: Date.now().toString(), blocking_entity: '', reason: '' }] })} className="w-full py-2 bg-amber-500/10 border border-dashed border-amber-500/30 text-[9px] font-black uppercase text-amber-500/60 hover:text-amber-500 mb-4">+ Add Blocker</button>
+                    <div className="space-y-3 pt-4">
                       {selectedTask.blockers.map((b) => (
                         <NestedCollapsible key={b.id} title={b.blocking_entity || "New Blocker"} isOpen={openItems[b.id]} toggle={() => toggleItem(b.id)} onDelete={() => updateTask(selectedTaskId, { blockers: selectedTask.blockers.filter(x => x.id !== b.id) })}>
-                          <input className="w-full bg-black/40 border border-white/10 rounded p-2 text-[12px] text-amber-500" value={b.blocking_entity} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, blocking_entity: e.target.value } : x) })} placeholder="Blocker Name" />
+                          <div className="space-y-4">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Blocking Entity / System *</label>
+                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-amber-500 outline-none focus:border-amber-500" value={b.blocking_entity} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, blocking_entity: e.target.value } : x) })} placeholder="Who or what stops the process?" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Avg Delay (min)</label>
+                                <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[12px] text-white" value={b.average_delay_minutes || 0} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, average_delay_minutes: parseFloat(e.target.value) || 0 } : x) })} />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Probability (%)</label>
+                                <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[12px] text-white" value={b.probability_percent || 0} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, probability_percent: parseFloat(e.target.value) || 0 } : x) })} />
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Reason / Mitigation</label>
+                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none" value={b.reason} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, reason: e.target.value } : x) })} placeholder="Why does this happen and how is it resolved?" />
+                            </div>
+                          </div>
                         </NestedCollapsible>
                       ))}
+                      <button onClick={() => updateTask(selectedTaskId, { blockers: [...selectedTask.blockers, { id: Date.now().toString(), blocking_entity: '', reason: '', average_delay_minutes: 0, probability_percent: 0, standard_mitigation: '' }] })} className="w-full py-3 bg-amber-500/10 border border-amber-500/20 text-[10px] font-black uppercase text-amber-500 hover:bg-amber-500/20 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Process Blocker</button>
                     </div>
                   </CollapsibleSection>
+
                   <CollapsibleSection title="Expected Errors" isOpen={expandedSections.errors} toggle={() => toggleSection('errors')} count={selectedTask.errors.length}>
-                    <div className="space-y-1 pt-4">
-                      <button onClick={() => updateTask(selectedTaskId, { errors: [...selectedTask.errors, { id: Date.now().toString(), error_type: '', description: '' }] })} className="w-full py-2 bg-status-error/10 border border-dashed border-status-error/30 text-[9px] font-black uppercase text-status-error/60 hover:text-status-error mb-4">+ Add Error</button>
+                    <div className="space-y-3 pt-4">
                       {selectedTask.errors.map((er) => (
                         <NestedCollapsible key={er.id} title={er.error_type || "New Error"} isOpen={openItems[er.id]} toggle={() => toggleItem(er.id)} onDelete={() => updateTask(selectedTaskId, { errors: selectedTask.errors.filter(x => x.id !== er.id) })}>
-                          <input className="w-full bg-black/40 border border-white/10 rounded p-2 text-[12px] text-status-error" value={er.error_type} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, error_type: e.target.value } : x) })} placeholder="Error Type" />
+                          <div className="space-y-4">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Error Type / Code *</label>
+                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-status-error outline-none focus:border-status-error" value={er.error_type} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, error_type: e.target.value } : x) })} placeholder="e.g., Database Timeout, Invalid Format" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Recovery (min)</label>
+                                <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[12px] text-white" value={er.recovery_time_minutes || 0} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, recovery_time_minutes: parseFloat(e.target.value) || 0 } : x) })} />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Probability (%)</label>
+                                <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[12px] text-white" value={er.probability_percent || 0} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, probability_percent: parseFloat(e.target.value) || 0 } : x) })} />
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Correction Method</label>
+                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none" value={er.description} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, description: e.target.value } : x) })} placeholder="How is this error corrected?" />
+                            </div>
+                          </div>
                         </NestedCollapsible>
                       ))}
+                      <button onClick={() => updateTask(selectedTaskId, { errors: [...selectedTask.errors, { id: Date.now().toString(), error_type: '', description: '', recovery_time_minutes: 0, probability_percent: 0 }] })} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-[10px] font-black uppercase text-status-error hover:bg-status-error/20 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Failure Mode</button>
                     </div>
                   </CollapsibleSection>
+
                   <CollapsibleSection title="Tribal Knowledge" isOpen={expandedSections.tribal} toggle={() => toggleSection('tribal')} count={selectedTask.tribal_knowledge.length} icon={<Brain size={12} className="text-purple-400" />}>
-                    <div className="space-y-1 pt-4">
-                      <button onClick={() => updateTask(selectedTaskId, { tribal_knowledge: [...selectedTask.tribal_knowledge, { id: Date.now().toString(), knowledge: '', captured_from: '' }] })} className="w-full py-2 bg-purple-500/10 border border-dashed border-purple-500/30 text-[9px] font-black uppercase text-purple-500/60 hover:text-purple-500 mb-4">+ Add Insight</button>
+                    <div className="space-y-3 pt-4">
                       {selectedTask.tribal_knowledge.map((tk) => (
                         <NestedCollapsible key={tk.id} title={tk.knowledge || "New Insight"} isOpen={openItems[tk.id]} toggle={() => toggleItem(tk.id)} onDelete={() => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.filter(x => x.id !== tk.id) })}>
-                          <textarea className="w-full bg-black/40 border border-white/10 rounded p-2 text-[12px] text-white h-20 resize-none" value={tk.knowledge} onChange={e => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, knowledge: e.target.value } : x) })} placeholder="Knowledge Details" />
+                          <div className="space-y-4">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Insight / Secret Sauce *</label>
+                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white h-24 resize-none outline-none focus:border-purple-500" value={tk.knowledge} onChange={e => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, knowledge: e.target.value } : x) })} placeholder="What do experienced people know that others don't?" />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Captured From</label>
+                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[11px] text-white/60" value={tk.captured_from} onChange={e => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.map(x => x.id === tk.id ? { ...x, captured_from: e.target.value } : x) })} placeholder="Source person or role" />
+                            </div>
+                          </div>
                         </NestedCollapsible>
                       ))}
+                      <button onClick={() => updateTask(selectedTaskId, { tribal_knowledge: [...selectedTask.tribal_knowledge, { id: Date.now().toString(), knowledge: '', captured_from: '' }] })} className="w-full py-3 bg-purple-500/10 border border-purple-500/20 text-[10px] font-black uppercase text-purple-500 hover:bg-purple-500/20 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Tribal Insight</button>
                     </div>
                   </CollapsibleSection>
                 </div>
               )}
+
               {inspectorTab === 'validation' && (
                 <div className="space-y-8 animate-apple-in">
                   <div className="p-6 bg-white/[0.02] border border-white/5 rounded-md space-y-6">
@@ -926,19 +1056,38 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                             <span className="text-[10px] font-black text-theme-accent uppercase tracking-widest">Step {idx + 1}</span>
                             <button onClick={() => updateTask(selectedTaskId, { instructions: selectedTask.instructions.filter(x => x.id !== step.id) })} className="text-white/10 hover:text-status-error opacity-0 group-hover:opacity-100"><Trash size={12} /></button>
                           </div>
-                          <textarea 
-                            className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white/80 h-24 resize-none outline-none focus:border-theme-accent" 
-                            value={step.description} 
-                            onPaste={(e) => handleImagePaste(e, step.id)}
-                            onChange={e => updateTask(selectedTaskId, { instructions: selectedTask.instructions.map(x => x.id === step.id ? { ...x, description: e.target.value } : x) })} 
-                            placeholder="Describe the specific action..."
-                          />
-                          {step.image && (
-                            <div className="mt-3 aspect-video rounded border border-white/10 overflow-hidden relative group">
-                              <img src={step.image} className="w-full h-full object-cover" alt="Step" />
-                              <button onClick={() => updateTask(selectedTaskId, { instructions: selectedTask.instructions.map(x => x.id === step.id ? { ...x, image: undefined } : x) })} className="absolute top-2 right-2 p-1.5 bg-status-error text-white rounded shadow-lg opacity-0 group-hover:opacity-100 transition-all"><Trash size={12} /></button>
-                            </div>
-                          )}
+                          <div className="space-y-3">
+                            <textarea 
+                              className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-[12px] text-white/80 h-28 resize-none outline-none focus:border-theme-accent transition-all" 
+                              value={step.description} 
+                              onPaste={(e) => handleImagePaste(e, step.id)}
+                              onChange={e => updateTask(selectedTaskId, { instructions: selectedTask.instructions.map(x => x.id === step.id ? { ...x, description: e.target.value } : x) })} 
+                              placeholder="Describe the action... (Tip: Paste image here)"
+                            />
+                            
+                            {!step.image ? (
+                              <div 
+                                onClick={() => {
+                                  // Focus the textarea to allow pasting
+                                  const el = document.activeElement as HTMLElement;
+                                  if (el) el.blur();
+                                }}
+                                onPaste={(e) => handleImagePaste(e, step.id)}
+                                tabIndex={0}
+                                className="w-full aspect-video border-2 border-dashed border-white/5 rounded-xl bg-white/[0.02] flex flex-col items-center justify-center group hover:border-theme-accent hover:bg-theme-accent/5 transition-all cursor-pointer outline-none focus:border-theme-accent"
+                              >
+                                <Paperclip size={20} className="text-white/10 group-hover:text-theme-accent mb-2 transition-all" />
+                                <span className="text-[9px] font-black text-white/20 uppercase tracking-widest group-hover:text-theme-accent transition-all">Click & Paste Step Image</span>
+                              </div>
+                            ) : (
+                              <div className="aspect-video rounded-xl border border-white/10 overflow-hidden relative group shadow-2xl">
+                                <img src={step.image} className="w-full h-full object-cover" alt="Step Instruction" />
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center gap-4">
+                                   <button onClick={() => updateTask(selectedTaskId, { instructions: selectedTask.instructions.map(x => x.id === step.id ? { ...x, image: undefined } : x) })} className="p-2 bg-status-error text-white rounded-lg shadow-xl hover:scale-110 transition-all"><Trash size={16} /></button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ))}
                       <button onClick={() => updateTask(selectedTaskId, { instructions: [...selectedTask.instructions, { id: Date.now().toString(), description: '', links: [] }] })} className="w-full py-3 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-theme-accent transition-all">+ Add Instruction Step</button>
