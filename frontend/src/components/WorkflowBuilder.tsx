@@ -35,10 +35,16 @@ import {
   Link2,
   Workflow as LucideWorkflow,
   Paperclip,
-  Search
+  Search,
+  ShieldAlert,
+  Cpu,
+  Layers,
+  Settings,
+  Edit3
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { SearchableSelect } from './IntakeGatekeeper';
 
 /**
  * Utility for tailwind class merging
@@ -108,10 +114,12 @@ interface TaskEntity {
   occurrence_explanation: string;
   source_data_list: DataItem[];
   output_data_list: DataItem[];
+  manual_inputs: string[];
+  manual_outputs: string[];
   verification_steps: any[];
   blockers: any[];
   errors: any[];
-  tribal_knowledge: string;
+  tribal_knowledge: string[];
   validation_needed: boolean;
   validation_procedure_steps: ValidationStep[];
   media: TaskMedia[];
@@ -122,6 +130,117 @@ interface TaskEntity {
   owning_team?: string;
   owner_positions?: string[];
 }
+
+const ManagedListSection: React.FC<{
+  title: string;
+  items: string[];
+  onUpdate: (items: string[]) => void;
+  placeholder?: string;
+  icon?: React.ReactNode;
+  isOpen: boolean;
+  toggle: () => void;
+}> = ({ title, items, onUpdate, placeholder, icon, isOpen, toggle }) => {
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [editVal, setEditVal] = useState('');
+
+  return (
+    <CollapsibleSection title={title} count={items.length} isOpen={isOpen} toggle={toggle} icon={icon}>
+      <div className="space-y-3 pt-4">
+        {items.map((item, idx) => (
+          <div key={idx} className="bg-white/[0.02] border border-white/5 rounded-xl p-3 group relative">
+            {editingIdx === idx ? (
+              <div className="space-y-2 animate-apple-in">
+                <textarea 
+                  autoFocus
+                  className="w-full bg-black/40 border border-theme-accent rounded-lg p-3 text-[12px] text-white outline-none min-h-[80px]"
+                  value={editVal}
+                  onChange={e => setEditVal(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      if (editVal.trim()) {
+                        const newItems = [...items];
+                        newItems[idx] = editVal.trim();
+                        onUpdate(newItems);
+                        setEditingIdx(null);
+                      }
+                    }}
+                    className="flex-1 py-1.5 bg-theme-accent text-white text-[9px] font-black uppercase rounded-lg"
+                  >
+                    Save Changes
+                  </button>
+                  <button 
+                    onClick={() => setEditingIdx(null)}
+                    className="px-4 py-1.5 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start justify-between gap-4">
+                <p className="text-[12px] text-white/80 font-medium leading-relaxed flex-1">{item}</p>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                  <button 
+                    onClick={() => { setEditingIdx(idx); setEditVal(item); }}
+                    className="p-1.5 hover:bg-theme-accent/20 text-white/40 hover:text-theme-accent rounded-md transition-all"
+                  >
+                    <Edit3 size={12} />
+                  </button>
+                  <button 
+                    onClick={() => onUpdate(items.filter((_, i) => i !== idx))}
+                    className="p-1.5 hover:bg-status-error/20 text-white/40 hover:text-status-error rounded-md transition-all"
+                  >
+                    <Trash size={12} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        {editingIdx === -1 ? (
+          <div className="bg-white/[0.02] border border-theme-accent rounded-xl p-3 space-y-2 animate-apple-in">
+            <textarea 
+              autoFocus
+              className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none min-h-[80px] focus:border-theme-accent"
+              value={editVal}
+              onChange={e => setEditVal(e.target.value)}
+              placeholder={placeholder || "Enter details..."}
+            />
+            <div className="flex gap-2">
+              <button 
+                onClick={() => {
+                  if (editVal.trim()) {
+                    onUpdate([...items, editVal.trim()]);
+                    setEditingIdx(null);
+                    setEditVal('');
+                  }
+                }}
+                className="flex-1 py-1.5 bg-theme-accent text-white text-[9px] font-black uppercase rounded-lg"
+              >
+                Add Entry
+              </button>
+              <button 
+                onClick={() => { setEditingIdx(null); setEditVal(''); }}
+                className="px-4 py-1.5 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-lg"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button 
+            onClick={() => { setEditingIdx(-1); setEditVal(''); }}
+            className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-theme-accent transition-all rounded-xl"
+          >
+            + Add {title.replace(/s$/, '')}
+          </button>
+        )}
+      </div>
+    </CollapsibleSection>
+  );
+};
 
 interface WorkflowMetadata {
   name: string;
@@ -137,6 +256,7 @@ interface WorkflowMetadata {
   output_description: string;
   cadence_count: number;
   cadence_unit: string;
+  repeatability_check?: boolean;
 }
 
 interface WorkflowBuilderProps {
@@ -517,15 +637,30 @@ const CustomEdge = ({
   selected
 }: any) => {
   const [edgePath, labelX, labelY] = useMemo(() => {
-    // Safety check for NaN or undefined coordinates
     if (![sourceX, sourceY, targetX, targetY].every(v => typeof v === 'number' && !isNaN(v))) {
-      console.warn("[CustomEdge] Invalid coordinates detected:", { sourceX, sourceY, targetX, targetY });
       return ['', 0, 0];
     }
 
     if (data?.edgeStyle === 'straight') {
       return [`M ${sourceX},${sourceY} L ${targetX},${targetY}`, (sourceX + targetX) / 2, (sourceY + targetY) / 2];
     }
+    
+    if (data?.edgeStyle === 'smoothstep') {
+      const cornerSize = 20;
+      const midX = (sourceX + targetX) / 2;
+      const midY = (sourceY + targetY) / 2;
+      
+      // Basic smoothstep logic
+      const path = `M ${sourceX},${sourceY} 
+                    L ${midX - cornerSize},${sourceY} 
+                    Q ${midX},${sourceY} ${midX},${sourceY + (targetY > sourceY ? cornerSize : -cornerSize)}
+                    L ${midX},${targetY - (targetY > sourceY ? cornerSize : -cornerSize)}
+                    Q ${midX},${targetY} ${midX + cornerSize},${targetY}
+                    L ${targetX},${targetY}`;
+      return [path, midX, midY];
+    }
+
+    // Default Bezier
     const cx = (sourceX + targetX) / 2;
     return [`M ${sourceX},${sourceY} C ${cx},${sourceY} ${cx},${targetY} ${targetX},${targetY}`, cx, (sourceY + targetY) / 2];
   }, [sourceX, sourceY, targetX, targetY, data?.edgeStyle]);
@@ -534,11 +669,30 @@ const CustomEdge = ({
 
   return (
     <>
-      <path id="edge-path" className="react-flow__edge-path" d={edgePath} markerEnd={markerEnd} style={{ ...(typeof style === 'object' ? style : {}), stroke: data?.color || '#ffffff', strokeWidth: selected ? 16 : 8, strokeDasharray: data?.lineStyle === 'dashed' ? '5,5' : undefined, transition: 'all 0.3s' }} />
+      <path 
+        id="edge-path-interaction" 
+        className="react-flow__edge-path" 
+        d={edgePath} 
+        style={{ ...style, stroke: 'transparent', strokeWidth: 40, fill: 'none', pointerEvents: 'stroke' }} 
+      />
+      <path 
+        id="edge-path" 
+        className="react-flow__edge-path" 
+        d={edgePath} 
+        markerEnd={markerEnd} 
+        style={{ 
+          ...style, 
+          stroke: data?.color || '#ffffff', 
+          strokeWidth: selected ? '20px' : '10px', 
+          strokeDasharray: data?.lineStyle === 'dashed' ? '15,15' : undefined, 
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+          fill: 'none'
+        }} 
+      />
       {data?.label && (
         <EdgeLabelRenderer>
-          <div style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, zIndex: 100 }} className="bg-[#0f172a] px-2 py-0.5 rounded border border-white/20 shadow-xl pointer-events-none">
-            <span className="text-[9px] font-black text-white uppercase tracking-widest">{data.label}</span>
+          <div style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, zIndex: 100 }} className="bg-[#0f172a] px-3 py-1 rounded-lg border border-white/20 shadow-2xl pointer-events-none">
+            <span className="text-[10px] font-black text-white uppercase tracking-widest">{data.label}</span>
           </div>
         </EdgeLabelRenderer>
       )}
@@ -556,8 +710,8 @@ const ConfirmDeleteOverlay: React.FC<{ onConfirm: () => void, onCancel: () => vo
       <span className="text-[10px] font-black text-white uppercase tracking-tight">{label}</span>
     </div>
     <div className="flex gap-2">
-      <button onClick={onConfirm} className="flex-1 py-2 bg-status-error text-white text-[9px] font-black uppercase rounded-lg shadow-lg shadow-status-error/20">Confirm Delete</button>
-      <button onClick={onCancel} className="flex-1 py-2 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-lg">Cancel</button>
+      <button onClick={(e) => { e.stopPropagation(); onConfirm(); }} className="flex-1 py-2 bg-status-error text-white text-[9px] font-black uppercase rounded-lg shadow-lg shadow-status-error/20 hover:bg-status-error/80 transition-colors">Confirm Delete</button>
+      <button onClick={(e) => { e.stopPropagation(); onCancel(); }} className="flex-1 py-2 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-lg hover:bg-white/10 transition-colors">Cancel</button>
     </div>
   </div>
 );
@@ -571,8 +725,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const [inspectorTab, setInspectorTab] = useState<'overview' | 'data' | 'exceptions' | 'validation' | 'appendix'>('overview');
   const [inspectorWidth, setInspectorWidth] = useState(450);
   const [baseFontSize] = useState(14);
+  const [defaultEdgeStyle, setDefaultEdgeStyle] = useState<'bezier' | 'smoothstep' | 'straight'>('smoothstep');
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    inputs: false, outputs: false, blockers: false, errors: false, tribal: false, references: false, assets: false, instructions: false
+    inputs: false, outputs: false, manual_inputs: false, manual_outputs: false, blockers: false, errors: false, tribal: false, references: false, assets: false, instructions: false
   });
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
   const [isOutputPickerOpen, setIsOutputPickerOpen] = useState(false);
@@ -595,7 +750,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     output_type: workflow?.output_type || '',
     output_description: workflow?.output_description || '',
     cadence_count: workflow?.cadence_count || 1,
-    cadence_unit: workflow?.cadence_unit || 'week'
+    cadence_unit: workflow?.cadence_unit || 'week',
+    repeatability_check: workflow?.repeatability_check ?? true
   });
 
   const [tasks, setTasks] = useState<TaskEntity[]>([]);
@@ -605,15 +761,20 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
 
   const saveToHistory = useCallback(() => {
-    const currentState = { nodes, edges, tasks, metadata };
-    setHistory(prev => [...prev.slice(-19), currentState]);
+    // Optimization: Only save if state actually changed
+    const currentState = JSON.stringify({ nodes, edges, tasks, metadata });
+    const lastHistory = history.length > 0 ? JSON.stringify(history[history.length - 1]) : null;
+    if (currentState === lastHistory) return;
+
+    setHistory(prev => [...prev.slice(-49), { nodes: JSON.parse(JSON.stringify(nodes)), edges: JSON.parse(JSON.stringify(edges)), tasks: JSON.parse(JSON.stringify(tasks)), metadata: JSON.parse(JSON.stringify(metadata)) }]);
     setRedoStack([]);
-  }, [nodes, edges, tasks, metadata]);
+  }, [nodes, edges, tasks, metadata, history]);
 
   const undo = useCallback(() => {
     if (history.length === 0) return;
     const lastState = history[history.length - 1];
-    setRedoStack(prev => [...prev, { nodes, edges, tasks, metadata }]);
+    setRedoStack(prev => [...prev, { nodes: JSON.parse(JSON.stringify(nodes)), edges: JSON.parse(JSON.stringify(edges)), tasks: JSON.parse(JSON.stringify(tasks)), metadata: JSON.parse(JSON.stringify(metadata)) }]);
+    
     setNodes(lastState.nodes);
     setEdges(lastState.edges);
     setTasks(lastState.tasks);
@@ -624,7 +785,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const redo = useCallback(() => {
     if (redoStack.length === 0) return;
     const nextState = redoStack[redoStack.length - 1];
-    setHistory(prev => [...prev, { nodes, edges, tasks, metadata }]);
+    setHistory(prev => [...prev, { nodes: JSON.parse(JSON.stringify(nodes)), edges: JSON.parse(JSON.stringify(edges)), tasks: JSON.parse(JSON.stringify(tasks)), metadata: JSON.parse(JSON.stringify(metadata)) }]);
+    
     setNodes(nextState.nodes);
     setEdges(nextState.edges);
     setTasks(nextState.tasks);
@@ -634,6 +796,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if typing in an input/textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
         e.preventDefault();
         undo();
@@ -645,14 +810,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedTaskId) {
         const task = tasks.find(t => t.id === selectedTaskId);
         if (task && !task.interface) {
-          setClipboard({ task, node: nodes.find(n => n.id === selectedTaskId) });
+          setClipboard({ task: JSON.parse(JSON.stringify(task)), node: JSON.parse(JSON.stringify(nodes.find(n => n.id === selectedTaskId))) });
         }
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'v' && clipboard) {
+        saveToHistory();
         const id = `node-${Date.now()}`;
         const newNode = { ...clipboard.node, id, position: { x: (clipboard.node.position?.x || 0) + 40, y: (clipboard.node.position?.y || 0) + 40 }, selected: true };
         const newTask = { ...clipboard.task, id, node_id: id };
-        saveToHistory();
         setTasks(prev => [...prev, newTask]);
         setNodes(nds => nds.map(n => ({ ...n, selected: false })).concat(newNode));
         setSelectedTaskId(id);
@@ -749,7 +914,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           type: 'custom',
           data: {
             ...e.data,
-            edgeStyle: Math.abs(targetNode.position.y - sourceNode.position.y) < 5 ? 'straight' : 'smoothstep'
+            edgeStyle: e.data?.edgeStyle || defaultEdgeStyle
           }
         };
       });
@@ -761,7 +926,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     } catch (error) {
       console.error("Dagre Layout Error:", error);
     }
-  }, [fitView, setNodes, setEdges, setIsDirty]);
+  }, [fitView, setNodes, setEdges, setIsDirty, defaultEdgeStyle, getNodes, getEdges]);
 
   useEffect(() => {
     if (!workflow) return;
@@ -800,6 +965,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             ...od,
             figures: Array.isArray(od.figures) ? od.figures : (od.figure ? [od.figure] : [])
           })),
+          manual_inputs: Array.isArray(t.manual_inputs) ? t.manual_inputs : [],
+          manual_outputs: Array.isArray(t.manual_outputs) ? t.manual_outputs : [],
+          tribal_knowledge: Array.isArray(t.tribal_knowledge) ? t.tribal_knowledge : (t.tribal_knowledge ? [t.tribal_knowledge] : []),
           validation_procedure_steps: Array.isArray(t.validation_procedure_steps) ? t.validation_procedure_steps : (t.validation_procedure ? [{ id: 'v1', description: t.validation_procedure, figures: [] }] : []),
           occurrence: t.occurrence || t.occurrences_per_cycle || 1,
           manual_time_minutes: t.manual_time_minutes || 0,
@@ -845,7 +1013,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         const targetExists = initializedTasks.some((t: any) => String(t.node_id) === targetId);
         if (!sourceExists || !targetExists) return null;
         return {
-          id: String(e.id || `e-${sourceId}-${targetId}-${idx}`), source: sourceId, target: targetId, sourceHandle: e.source_handle || e.sourceHandle || 'right-source', targetHandle: e.target_handle || e.targetHandle || 'left-target', type: 'custom', data: { label: e.label || '', edgeStyle: e.edge_style || e.edgeStyle || 'bezier', color: e.color || '#ffffff', lineStyle: e.line_style || e.style || 'solid' }, markerEnd: { type: MarkerType.ArrowClosed, color: e.color || '#ffffff' },
+          id: String(e.id || `e-${sourceId}-${targetId}-${idx}`), source: sourceId, target: targetId, sourceHandle: e.source_handle || e.sourceHandle || 'right-source', targetHandle: e.target_handle || e.targetHandle || 'left-target', type: 'custom', data: { label: e.label || '', edgeStyle: e.edge_style || e.edgeStyle || defaultEdgeStyle, color: e.color || '#ffffff', lineStyle: e.line_style || e.style || 'solid' }, markerEnd: { type: MarkerType.ArrowClosed, color: e.color || '#ffffff' },
         };
       }).filter(Boolean);
       setNodes(initialNodes);
@@ -856,9 +1024,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     } catch (err) {
       console.error("[WorkflowBuilder] Critical Initialization Failure:", err);
     }
-  }, [workflow, handleLayout, setNodes, setEdges]);
+  }, [workflow, handleLayout, setNodes, setEdges, defaultEdgeStyle, metadata.output_description, metadata.output_type, metadata.trigger_description, metadata.trigger_type]);
 
   const updateTask = (id: string, updates: Partial<TaskEntity>) => {
+    saveToHistory();
     setTasks(prev => prev.map(t => {
       if (t.id === id) {
         const updated = { ...t, ...updates };
@@ -873,13 +1042,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   };
 
   const updateEdge = (id: string, updates: any) => {
+    saveToHistory();
     setEdges(eds => eds.map(e => e.id === id ? { ...e, data: { ...e.data, ...updates }, markerEnd: { type: MarkerType.ArrowClosed, color: updates.color || e.data?.color || '#ffffff' } } : e));
     setIsDirty?.(true);
   };
 
   const onConnect = (params: Connection) => {
     if (!params.source || !params.target) return;
-    const newEdge: Edge = { ...params, id: `e-${params.source}-${params.target}-${Date.now()}`, type: 'custom', data: { label: '', edgeStyle: 'bezier', color: '#ffffff', lineStyle: 'solid' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#ffffff' }, source: params.source, target: params.target };
+    saveToHistory();
+    const newEdge: Edge = { ...params, id: `e-${params.source}-${params.target}-${Date.now()}`, type: 'custom', data: { label: '', edgeStyle: defaultEdgeStyle, color: '#ffffff', lineStyle: 'solid' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#ffffff' }, source: params.source, target: params.target };
     setEdges(eds => addEdge(newEdge, eds));
     setIsDirty?.(true);
   };
@@ -896,11 +1067,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     setIsDirty?.(true);
   }, [tasks, setNodes, setEdges, setIsDirty, saveToHistory]);
 
-  const onAddNode = (type: 'TASK' | 'CONDITION') => {
+const onAddNode = (type: 'TASK' | 'CONDITION') => {
+    saveToHistory();
     const id = `node-${Date.now()}`;
     const center = project({ x: (window.innerWidth - inspectorWidth) / 2, y: window.innerHeight / 2 });
     const newNode: Node = { id, type: type === 'CONDITION' ? 'diamond' : 'matrix', position: { x: Math.round((center.x - 160) / 10) * 10, y: Math.round((center.y - 140) / 10) * 10 }, data: { label: type === 'TASK' ? 'New Task' : 'New Condition', task_type: type === 'TASK' ? 'Documentation' : 'LOOP', manual_time: 0, automation_time: 0, occurrence: 1, involved_systems: [], validation_needed: false, blockerCount: 0, errorCount: 0, baseFontSize } };
-    const newTask: TaskEntity = { id, node_id: id, name: newNode.data.label, description: '', task_type: newNode.data.task_type, involved_systems: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, occurrence: 1, occurrence_explanation: '', source_data_list: [], output_data_list: [], verification_steps: [], blockers: [], errors: [], tribal_knowledge: '', validation_needed: false, validation_procedure_steps: [], media: [], reference_links: [], instructions: [] };
+    const newTask: TaskEntity = { id, node_id: id, name: newNode.data.label, description: '', task_type: newNode.data.task_type, involved_systems: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, occurrence: 1, occurrence_explanation: '', source_data_list: [], output_data_list: [], manual_inputs: [], manual_outputs: [], verification_steps: [], blockers: [], errors: [], tribal_knowledge: [], validation_needed: false, validation_procedure_steps: [], media: [], reference_links: [], instructions: [] };
     setTasks(prev => [...prev, newTask]);
     setNodes(nds => [...nds, newNode]);
     setSelectedTaskId(id);
@@ -936,6 +1108,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   };
 
   const swapEdgeDirection = (id: string) => {
+    saveToHistory();
     setEdges(eds => eds.map(e => {
       if (e.id === id) { const newSourceHandle = e.targetHandle?.replace('-target', '-source'); const newTargetHandle = e.sourceHandle?.replace('-source', '-target'); return { ...e, source: e.target, target: e.source, sourceHandle: newSourceHandle, targetHandle: newTargetHandle }; }
       return e;
@@ -1017,6 +1190,17 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
               <button onClick={undo} disabled={history.length === 0} className="p-2 text-white/40 hover:text-white disabled:opacity-20 transition-all"><RefreshCw size={14} className="-scale-x-100" /></button>
               <button onClick={redo} disabled={redoStack.length === 0} className="p-2 text-white/40 hover:text-white disabled:opacity-20 transition-all"><RefreshCw size={14} /></button>
             </div>
+            <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 mr-2">
+              {(['bezier', 'smoothstep', 'straight'] as const).map(s => (
+                <button 
+                  key={s} 
+                  onClick={() => setDefaultEdgeStyle(s)} 
+                  className={cn("px-2.5 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all", defaultEdgeStyle === s ? "bg-theme-accent text-white" : "text-white/20 hover:text-white/40")}
+                >
+                  {s === 'smoothstep' ? 'Angled' : s === 'bezier' ? 'Smooth' : 'Straight'}
+                </button>
+              ))}
+            </div>
             <button onClick={() => handleLayout()} className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 transition-all"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
             <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2 bg-theme-accent text-white rounded-xl text-[10px] font-black uppercase shadow-xl shadow-theme-accent/20 hover:scale-[1.02] transition-all"><Save size={14} /> Commit Changes</button>
             <button onClick={onExit} className="p-2 text-white/20 hover:text-status-error"><X size={20} /></button>
@@ -1094,52 +1278,74 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owner Positions</label>
-                          <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden h-11 flex items-center">
-                            <button 
-                              onClick={() => setOwnerPositionsCollapsed(!ownerPositionsCollapsed)}
-                              className="w-full px-4 h-full flex items-center justify-between hover:bg-white/10 transition-colors"
-                            >
-                              <span className="text-[12px] font-bold text-white truncate">
-                                {selectedTask.owner_positions?.length || 0} Positions
-                              </span>
-                              {ownerPositionsCollapsed ? <ChevronDown size={14} className="text-white/20" /> : <ChevronUp size={14} className="text-white/20" />}
-                            </button>
-                          </div>
+                          <button 
+                            onClick={() => setOwnerPositionsCollapsed(!ownerPositionsCollapsed)}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-11 flex items-center justify-between hover:bg-white/10 transition-colors"
+                          >
+                            <span className="text-[12px] font-bold text-white truncate">
+                              {selectedTask.owner_positions?.length || 0} Positions
+                            </span>
+                            {ownerPositionsCollapsed ? <ChevronDown size={14} className="text-white/20" /> : <ChevronUp size={14} className="text-white/20" />}
+                          </button>
                         </div>
                       </div>
                       {!ownerPositionsCollapsed && (
-                        <div className="p-4 space-y-2 border border-white/10 bg-black/40 rounded-xl animate-apple-in -mt-2">
+                        <div className="p-4 space-y-3 border border-white/10 bg-black/40 rounded-xl animate-apple-in -mt-2">
                           {(selectedTask.owner_positions || []).map((pos, idx) => (
-                            <div key={idx} className="flex gap-2">
-                              <input className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[11px] font-bold text-white outline-none focus:border-theme-accent" value={pos} onChange={e => updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.map((p, i) => i === idx ? e.target.value : p) })} />
-                              <button 
-                                onClick={() => {
-                                  updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.filter((_, i) => i !== idx) });
-                                }} 
-                                className="p-2 text-white/20 hover:text-status-error transition-colors bg-white/5 rounded-lg border border-white/10"
-                              >
-                                <Trash size={12} />
-                              </button>
+                            <div key={idx} className="flex gap-2 group/pos">
+                              <div className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[11px] font-bold text-white flex items-center justify-between">
+                                <span className="truncate">{pos || 'Untitled Position'}</span>
+                                <div className="flex items-center gap-1 opacity-0 group-hover/pos:opacity-100 transition-opacity">
+                                  <button onClick={() => {
+                                    const newTitle = prompt('Edit Position Title:', pos);
+                                    if (newTitle !== null) {
+                                      updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.map((p, i) => i === idx ? newTitle : p) });
+                                    }
+                                  }} className="p-1.5 hover:bg-theme-accent/20 text-white/40 hover:text-theme-accent rounded-md transition-all"><Edit3 size={12} /></button>
+                                  <button onClick={() => {
+                                    if (confirm('Delete this position?')) {
+                                      updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.filter((_, i) => i !== idx) });
+                                    }
+                                  }} className="p-1.5 hover:bg-status-error/20 text-white/40 hover:text-status-error rounded-md transition-all"><Trash size={12} /></button>
+                                </div>
+                              </div>
                             </div>
                           ))}
-                          <button onClick={() => updateTask(selectedTaskId, { owner_positions: [...(selectedTask.owner_positions || []), ''] })} className="w-full py-2 bg-theme-accent/20 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all">+ Add Position</button>
+                          <button onClick={() => {
+                            const newTitle = prompt('New Position Title:');
+                            if (newTitle) {
+                              updateTask(selectedTaskId, { owner_positions: [...(selectedTask.owner_positions || []), newTitle] });
+                            }
+                          }} className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all">+ Add Position</button>
                         </div>
                       )}
 
                       <div className="space-y-4">
-                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Involved Systems</label>
+                        <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Involved IT Systems</label>
                         <div className="space-y-3">
                           {(selectedTask.involved_systems || []).map(sys => (
-                            <NestedCollapsible key={sys.id} title={sys.name || "New System"} isOpen={openItems[sys.id]} toggle={() => toggleItem(sys.id)} onDelete={() => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.filter(x => x.id !== sys.id) })}>
+                            <NestedCollapsible key={sys.id} title={sys.name || "New System Entry"} isOpen={openItems[sys.id]} toggle={() => toggleItem(sys.id)} onDelete={() => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.filter(x => x.id !== sys.id) })}>
                               <div className="space-y-4">
-                                <input className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={sys.name} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, name: e.target.value } : x) })} placeholder="System Name" />
-                                <textarea className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-theme-accent" value={sys.usage} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, usage: e.target.value } : x) })} placeholder="System Usage / Role" />
-                                <ImagePasteField figures={sys.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, figures: figs } : x) })} label="Figures (Ctrl+V)" />
-                                <input className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[11px] text-theme-accent outline-none" value={sys.link} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, link: e.target.value } : x) })} placeholder="Documentation Link (URL)" />
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">System Name</label>
+                                  <input className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={sys.name} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, name: e.target.value } : x) })} placeholder="e.g., SAP, Salesforce, Internal Tool" />
+                                </div>
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Usage Context</label>
+                                  <textarea className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-theme-accent" value={sys.usage} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, usage: e.target.value } : x) })} placeholder="Describe how the system is used in this task..." />
+                                </div>
+                                <ImagePasteField figures={sys.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, figures: figs } : x) })} label="System Screenshots (Ctrl+V)" />
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Documentation Link</label>
+                                  <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl px-3 py-2">
+                                    <Link2 size={12} className="text-theme-accent" />
+                                    <input className="flex-1 bg-transparent border-none p-0 text-[11px] text-theme-accent underline outline-none" value={sys.link} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, link: e.target.value } : x) })} placeholder="URL to SOP or Wiki" />
+                                  </div>
+                                </div>
                               </div>
                             </NestedCollapsible>
                           ))}
-                          <button onClick={() => updateTask(selectedTaskId, { involved_systems: [...(selectedTask.involved_systems || []), { id: Date.now().toString(), name: '', usage: '', figures: [], link: '' }] })} className="w-full py-2.5 bg-white/5 border border-white/10 rounded-xl text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all">+ Add System</button>
+                          <button onClick={() => updateTask(selectedTaskId, { involved_systems: [...(selectedTask.involved_systems || []), { id: Date.now().toString(), name: '', usage: '', figures: [], link: '' }] })} className="w-full py-2.5 bg-white/5 border border-dashed border-white/10 rounded-xl text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all">+ Add System Dependency</button>
                         </div>
                       </div>
                     </>
@@ -1158,7 +1364,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                           onClick={() => setConfirmingDelete(selectedTaskId)} 
                           className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-xl text-[10px] font-black uppercase hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2"
                         >
-                          <Trash size={12} /> Delete Entity
+                          <Trash size={12} /> Permanent Deletion
                         </button>
                       )}
                     </div>
@@ -1167,7 +1373,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
               )}
               {inspectorTab === 'data' && (
                 <div className="space-y-8 animate-apple-in">
-                  <CollapsibleSection title="Input Data (Sources)" isOpen={expandedSections.inputs} toggle={() => toggleSection('inputs')} count={selectedTask.source_data_list.length}>
+                  <CollapsibleSection title="Referenced Data Sources" isOpen={expandedSections.inputs} toggle={() => toggleSection('inputs')} count={selectedTask.source_data_list.length}>
                     <div className="space-y-3 pt-4">
                       {selectedTask.source_data_list.map((sd) => (
                         <NestedCollapsible key={sd.id} title={sd.name || "New Source"} isOpen={openItems[sd.id]} toggle={() => toggleItem(sd.id)} onDelete={() => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.filter(x => x.id !== sd.id) })} isLocked={!!sd.from_task_id}>
@@ -1197,14 +1403,22 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                           </div>
                         </NestedCollapsible>
                       ))}
-                      <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => setIsOutputPickerOpen(true)} className="w-full py-3 bg-white/5 border border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl flex items-center justify-center gap-2"><Search size={12} /> Add Existing</button>
-                        <button onClick={() => updateTask(selectedTaskId, { source_data_list: [...selectedTask.source_data_list, { id: Date.now().toString(), name: '', description: '', figures: [], link: '', data_example: '' }] })} className="w-full py-3 bg-white/5 border border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add New</button>
+                      <div className="grid grid-cols-1 gap-2">
+                        <button onClick={() => setIsOutputPickerOpen(true)} className="w-full py-3 bg-white/5 border border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl flex items-center justify-center gap-2"><Search size={12} /> Search Output Registry</button>
                       </div>
                     </div>
                   </CollapsibleSection>
 
-                  <CollapsibleSection title="Output Artifacts" isOpen={expandedSections.outputs} toggle={() => toggleSection('outputs')} count={selectedTask.output_data_list.length}>
+                  <ManagedListSection 
+                    title="Manual Inputs" 
+                    items={selectedTask.manual_inputs || []} 
+                    onUpdate={(items) => updateTask(selectedTaskId, { manual_inputs: items })}
+                    isOpen={expandedSections.manual_inputs}
+                    toggle={() => toggleSection('manual_inputs')}
+                    placeholder="Enter manual input details..."
+                  />
+
+                  <CollapsibleSection title="Referenced Output Artifacts" isOpen={expandedSections.outputs} toggle={() => toggleSection('outputs')} count={selectedTask.output_data_list.length}>
                     <div className="space-y-3 pt-4">
                       {selectedTask.output_data_list.map((od) => (
                         <NestedCollapsible key={od.id} title={od.name || "New Artifact"} isOpen={openItems[od.id]} toggle={() => toggleItem(od.id)} onDelete={() => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.filter(x => x.id !== od.id) })}>
@@ -1232,11 +1446,20 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                       <button onClick={() => updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '', figures: [], link: '', data_example: '' }] })} className="w-full py-3 bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Output Artifact</button>
                     </div>
                   </CollapsibleSection>
+
+                  <ManagedListSection 
+                    title="Manual Outputs" 
+                    items={selectedTask.manual_outputs || []} 
+                    onUpdate={(items) => updateTask(selectedTaskId, { manual_outputs: items })}
+                    isOpen={expandedSections.manual_outputs}
+                    toggle={() => toggleSection('manual_outputs')}
+                    placeholder="Enter manual output details..."
+                  />
                 </div>
               )}
               {inspectorTab === 'exceptions' && (
                 <div className="space-y-8">
-                  <CollapsibleSection title="Roadblocks" isOpen={expandedSections.blockers} toggle={() => toggleSection('blockers')} count={selectedTask.blockers.length}>
+                  <CollapsibleSection title="Operational Roadblocks" isOpen={expandedSections.blockers} toggle={() => toggleSection('blockers')} count={selectedTask.blockers.length}>
                     <div className="space-y-3 pt-4">
                       {selectedTask.blockers.map((b) => (
                         <NestedCollapsible key={b.id} title={b.blocking_entity || "New Roadblock"} isOpen={openItems[b.id]} toggle={() => toggleItem(b.id)} onDelete={() => updateTask(selectedTaskId, { blockers: selectedTask.blockers.filter(x => x.id !== b.id) })}>
@@ -1266,7 +1489,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                     </div>
                   </CollapsibleSection>
 
-                  <CollapsibleSection title="Human Errors" isOpen={expandedSections.errors} toggle={() => toggleSection('errors')} count={selectedTask.errors.length}>
+                  <CollapsibleSection title="Human Errors & Recoveries" isOpen={expandedSections.errors} toggle={() => toggleSection('errors')} count={selectedTask.errors.length}>
                     <div className="space-y-3 pt-4">
                       {selectedTask.errors.map((er) => (
                         <NestedCollapsible key={er.id} title={er.error_type || "New Error"} isOpen={openItems[er.id]} toggle={() => toggleItem(er.id)} onDelete={() => updateTask(selectedTaskId, { errors: selectedTask.errors.filter(x => x.id !== er.id) })}>
@@ -1311,24 +1534,33 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                     </div>
                   </CollapsibleSection>
 
-                  <CollapsibleSection title="Tribal Knowledge" isOpen={expandedSections.tribal} toggle={() => toggleSection('tribal')} count={selectedTask.tribal_knowledge ? 1 : 0}>
-                    <div className="space-y-3 pt-4">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black text-white/20 uppercase tracking-widest px-1">Description</label>
-                        <textarea className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-3 text-[13px] font-medium text-white/60 outline-none focus:border-theme-accent h-32 resize-none" value={selectedTask.tribal_knowledge} onChange={e => updateTask(selectedTaskId, { tribal_knowledge: e.target.value })} placeholder="Capture unwritten knowledge or tips..." />
-                      </div>
-                    </div>
-                  </CollapsibleSection>
+                  <ManagedListSection 
+                    title="Tribal Knowledge Entries" 
+                    items={selectedTask.tribal_knowledge || []} 
+                    onUpdate={(items) => updateTask(selectedTaskId, { tribal_knowledge: items })}
+                    isOpen={expandedSections.tribal}
+                    toggle={() => toggleSection('tribal')}
+                    placeholder="Capture unwritten knowledge or tips..."
+                  />
                 </div>
               )}
 
               {inspectorTab === 'validation' && (
                 <div className="space-y-8 animate-apple-in">
-                  <div className="p-6 bg-white/[0.02] border border-white/5 rounded-md space-y-6">
+                  <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-6">
                     <div className="flex items-center justify-between">
-                      <div className="space-y-1"><h3 className="text-[14px] font-black text-white uppercase tracking-tight">Validation</h3><p className="text-[10px] text-white/40 font-bold">Verification required?</p></div>
-                      <button onClick={() => updateTask(selectedTaskId, { validation_needed: !selectedTask.validation_needed })} className={cn("relative w-12 h-6 rounded-full transition-all duration-300", selectedTask.validation_needed ? "bg-orange-500" : "bg-white/10")}><div className={cn("absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300", selectedTask.validation_needed ? "left-7 shadow-[0_0_10px_rgba(255,255,255,0.5)]" : "left-1")} /></button>
+                      <div className="space-y-1">
+                        <h3 className="text-[14px] font-black text-white uppercase tracking-tight">Post-Task Validation</h3>
+                        <p className="text-[10px] text-white/40 font-bold uppercase">Manual verification required?</p>
+                      </div>
+                      <button 
+                        onClick={() => updateTask(selectedTaskId, { validation_needed: !selectedTask.validation_needed })} 
+                        className={cn("relative w-12 h-6 rounded-full transition-all duration-300", selectedTask.validation_needed ? "bg-orange-500" : "bg-white/10")}
+                      >
+                        <div className={cn("absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300", selectedTask.validation_needed ? "left-7 shadow-[0_0_10px_rgba(255,255,255,0.5)]" : "left-1")} />
+                      </button>
                     </div>
+
                     {selectedTask.validation_needed && (
                       <div className="space-y-6 animate-apple-in pt-6 border-t border-white/5">
                         <div className="space-y-4">
@@ -1357,8 +1589,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                 </div>
               )}
               {inspectorTab === 'appendix' && (
-                <div className="space-y-12">
-                  <CollapsibleSection title="Internal Reference Links" isOpen={expandedSections.references} toggle={() => toggleSection('references')} count={selectedTask.reference_links.length}>
+                <div className="space-y-12 pb-20">
+                  <CollapsibleSection title="Operational References" isOpen={expandedSections.references} toggle={() => toggleSection('references')} count={selectedTask.reference_links.length}>
                     <div className="space-y-3 pt-4">
                       {selectedTask.reference_links.map(l => (
                         <div key={l.id} className="flex items-center gap-3 bg-white/[0.02] border border-white/5 rounded-xl p-3 group">
@@ -1369,72 +1601,26 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                               <input className="flex-1 bg-transparent border-none p-0 text-[10px] text-theme-accent underline truncate outline-none" value={l.url} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(x => x.id === l.id ? { ...x, url: e.target.value } : x) })} placeholder="URL" />
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {confirmingDelete === l.id ? (
-                              <div className="flex items-center gap-1 animate-apple-in">
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); setConfirmingDelete(null); updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.filter(x => x.id !== l.id) }); }}
-                                  className="px-2 py-1 bg-status-error text-white text-[8px] font-black uppercase rounded-md shadow-lg shadow-status-error/20"
-                                >
-                                  Confirm
-                                </button>
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); setConfirmingDelete(null); }}
-                                  className="p-1 text-white/20 hover:text-white"
-                                >
-                                  <X size={12} />
-                                </button>
-                              </div>
-                            ) : (
-                              <button 
-                                onClick={() => setConfirmingDelete(l.id)} 
-                                className="opacity-0 group-hover:opacity-100 p-2 hover:bg-status-error/20 text-white/20 hover:text-status-error transition-all rounded-lg"
-                              >
-                                <Trash size={12} />
-                              </button>
-                            )}
-                          </div>
+                          <button onClick={() => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.filter(x => x.id !== l.id) })} className="opacity-0 group-hover:opacity-100 p-2 hover:bg-status-error/20 text-white/20 hover:text-status-error transition-all rounded-lg"><Trash size={12} /></button>
                         </div>
                       ))}
-                      <button onClick={() => updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, { id: Date.now().toString(), label: '', url: '' }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl mt-2">+ Add Link</button>
+                      <button onClick={() => updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, { id: Date.now().toString(), label: '', url: '' }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white transition-all rounded-xl mt-2">+ Add Reference Link</button>
                     </div>
                   </CollapsibleSection>
-                  <CollapsibleSection title="Global Visual Assets" isOpen={expandedSections.assets} toggle={() => toggleSection('assets')} count={selectedTask.media.length}>
+
+                  <CollapsibleSection title="Task Visual Assets" isOpen={expandedSections.assets} toggle={() => toggleSection('assets')} count={selectedTask.media.length}>
                     <div className="pt-4">
                       <ImagePasteField figures={selectedTask.media.map(m => m.url)} onPaste={(figs) => updateTask(selectedTaskId, { media: figs.map(f => ({ id: Date.now().toString(), type: 'image', url: f, label: 'Pasted Asset' })) })} label="Visual Assets (Ctrl+V)" />
                     </div>
                   </CollapsibleSection>
+
                   <CollapsibleSection title="Step-by-Step Instructions" isOpen={expandedSections.instructions} toggle={() => toggleSection('instructions')} count={selectedTask.instructions.length}>
                     <div className="space-y-4 pt-4">
                       {selectedTask.instructions.map((step, idx) => (
                         <div key={step.id} className="p-4 bg-white/[0.02] border border-white/5 rounded-xl group relative">
                           <div className="flex items-center justify-between mb-3">
                             <span className="text-[10px] font-black text-theme-accent uppercase tracking-widest">Instruction Step {idx + 1}</span>
-                            <div className="flex items-center gap-2">
-                              {confirmingDelete === step.id ? (
-                                <div className="flex items-center gap-1 animate-apple-in">
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); setConfirmingDelete(null); updateTask(selectedTaskId, { instructions: selectedTask.instructions.filter(x => x.id !== step.id) }); }}
-                                    className="px-2 py-1 bg-status-error text-white text-[8px] font-black uppercase rounded-md shadow-lg shadow-status-error/20"
-                                  >
-                                    Confirm
-                                  </button>
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); setConfirmingDelete(null); }}
-                                    className="p-1 text-white/20 hover:text-white"
-                                  >
-                                    <X size={12} />
-                                  </button>
-                                </div>
-                              ) : (
-                                <button 
-                                  onClick={() => setConfirmingDelete(step.id)} 
-                                  className="text-white/10 hover:text-status-error opacity-0 group-hover:opacity-100 transition-all p-1.5"
-                                >
-                                  <Trash size={12} />
-                                </button>
-                              )}
-                            </div>
+                            <button onClick={() => updateTask(selectedTaskId, { instructions: selectedTask.instructions.filter(x => x.id !== step.id) })} className="text-white/10 hover:text-status-error opacity-0 group-hover:opacity-100 transition-all p-1.5"><Trash size={12} /></button>
                           </div>
                           <div className="space-y-3">
                             <textarea 
@@ -1447,7 +1633,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                           </div>
                         </div>
                       ))}
-                      <button onClick={() => updateTask(selectedTaskId, { instructions: [...selectedTask.instructions, { id: Date.now().toString(), description: '', figures: [], links: [] }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl">+ Add Instruction Step</button>
+                      <button onClick={() => updateTask(selectedTaskId, { instructions: [...selectedTask.instructions, { id: Date.now().toString(), description: '', figures: [], links: [] }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white transition-all rounded-xl">+ Add Instruction Step</button>
                     </div>
                   </CollapsibleSection>
                 </div>
@@ -1494,149 +1680,194 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
               </div>
             </div>
           ) : (
-            <div className="space-y-8 animate-apple-in">
+            <div className="space-y-8 animate-apple-in pb-20">
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
                 <div className="flex items-center gap-3">
                   <LucideWorkflow className="text-theme-accent" size={18} />
                   <h2 className="text-[14px] font-black text-white uppercase tracking-widest">Workflow Definition</h2>
                 </div>
-                <button 
-                  onClick={() => setIsMetadataEditMode(!isMetadataEditMode)}
-                  className={cn("px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all", isMetadataEditMode ? "bg-theme-accent text-white" : "bg-white/5 text-white/40 hover:text-white")}
-                >
-                  {isMetadataEditMode ? "Finish Editing" : "Edit Definition"}
-                </button>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] text-white/20 font-black uppercase tracking-widest">v{metadata.version}</span>
+                  <button 
+                    onClick={() => setIsMetadataEditMode(!isMetadataEditMode)}
+                    className={cn("px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all", isMetadataEditMode ? "bg-theme-accent text-white" : "bg-white/5 text-white/40 hover:text-white")}
+                  >
+                    {isMetadataEditMode ? "Finish Editing" : "Edit Definition"}
+                  </button>
+                </div>
               </div>
+
+              {/* Validation Questionnaire Sync */}
+              <section className={cn("apple-card !bg-theme-accent/5 border-theme-accent/20 p-6 flex flex-col items-center text-center gap-4 transition-all", !isMetadataEditMode && "opacity-50 grayscale pointer-events-none")}>
+                <div className="space-y-1">
+                  <h3 className="text-[9px] font-black text-theme-accent uppercase tracking-[0.3em]">Validation Questionnaire</h3>
+                  <p className="text-[14px] font-black text-white uppercase tracking-tight">Is this workflow executed regularly?</p>
+                </div>
+                <div className="flex bg-black/40 p-1 rounded-xl border border-white/10 w-full max-w-[200px]">
+                  <button 
+                    disabled={!isMetadataEditMode}
+                    onClick={() => { saveToHistory(); setMetadata({...metadata, repeatability_check: true}); }}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all",
+                      metadata.repeatability_check ? "bg-theme-accent text-white shadow-lg" : "text-white/20 hover:text-white/40"
+                    )}
+                  >
+                    Yes
+                  </button>
+                  <button 
+                    disabled={!isMetadataEditMode}
+                    onClick={() => { saveToHistory(); setMetadata({...metadata, repeatability_check: false}); }}
+                    className={cn(
+                      "flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all",
+                      !metadata.repeatability_check ? "bg-status-error text-white shadow-lg" : "text-white/20 hover:text-white/40"
+                    )}
+                  >
+                    No
+                  </button>
+                </div>
+                {!metadata.repeatability_check && (
+                  <div className="flex items-center gap-2 text-status-error animate-pulse">
+                    <ShieldAlert size={12} />
+                    <span className="text-[9px] font-black uppercase">Standardization Required</span>
+                  </div>
+                )}
+              </section>
               
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Workflow Name</label>
-                  {isMetadataEditMode ? (
-                    <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[16px] font-bold text-white uppercase outline-none focus:border-theme-accent" value={metadata.name} onChange={e => { saveToHistory(); setMetadata({...metadata, name: e.target.value}); }} />
-                  ) : (
-                    <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[16px] font-bold text-white uppercase">{metadata.name || 'Untitled'}</div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Description</label>
-                  {isMetadataEditMode ? (
-                    <textarea className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-[13px] text-white outline-none focus:border-theme-accent h-32 resize-none font-medium" value={metadata.description} onChange={e => { saveToHistory(); setMetadata({...metadata, description: e.target.value}); }} />
-                  ) : (
-                    <p className="bg-white/[0.02] border border-white/5 rounded-xl p-4 text-[13px] text-white/60 font-medium leading-relaxed italic">{metadata.description || 'No description provided.'}</p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">PRC</label>
-                    {isMetadataEditMode ? (
-                      <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-10 text-[12px] font-bold text-white outline-none focus:border-theme-accent appearance-none" value={metadata.prc} onChange={e => { saveToHistory(); setMetadata({...metadata, prc: e.target.value}); }}>
-                        <option value="">Select PRC...</option>
-                        {(taxonomy.find(t => t.category === 'PRC') as any)?.cached_values?.map((v: string) => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                    ) : (
-                      <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] font-bold text-white uppercase">{metadata.prc || 'N/A'}</div>
-                    )}
+              <div className={cn("space-y-8 transition-all", !isMetadataEditMode && "opacity-80 pointer-events-none")}>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 text-theme-accent font-black px-1">
+                    <Cpu size={14} />
+                    <span className="text-[10px] tracking-[0.2em] uppercase">Overview</span>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Type</label>
-                    {isMetadataEditMode ? (
-                      <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-10 text-[12px] font-bold text-white outline-none focus:border-theme-accent appearance-none" value={metadata.workflow_type} onChange={e => { saveToHistory(); setMetadata({...metadata, workflow_type: e.target.value}); }}>
-                        <option value="">Select Type...</option>
-                        {(taxonomy.find(t => t.category === 'WORKFLOW_TYPE') as any)?.cached_values?.map((v: string) => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                    ) : (
-                      <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] font-bold text-white uppercase">{metadata.workflow_type || 'N/A'}</div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Occurrence</label>
-                  {isMetadataEditMode ? (
-                    <div className="flex gap-2">
-                      <input type="number" step="0.1" className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={metadata.cadence_count} onChange={e => { saveToHistory(); setMetadata({...metadata, cadence_count: parseFloat(e.target.value) || 1}); }} />
-                      <select className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[12px] font-bold text-white outline-none appearance-none" value={metadata.cadence_unit} onChange={e => { saveToHistory(); setMetadata({...metadata, cadence_unit: e.target.value}); }}>
-                        <option value="day">DAILY</option>
-                        <option value="week">WEEKLY</option>
-                        <option value="month">MONTHLY</option>
-                        <option value="year">YEARLY</option>
-                      </select>
+                  <div className="apple-card space-y-6 !bg-white/[0.02] border-white/5 p-6 rounded-2xl">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center px-1">
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Workflow Name</label>
+                        <span className="text-[8px] text-white/10 font-mono">{metadata.name.length} / 60</span>
+                      </div>
+                      <input 
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[14px] font-black text-white uppercase focus:border-theme-accent outline-none" 
+                        value={metadata.name} 
+                        onChange={e => { saveToHistory(); setMetadata({...metadata, name: e.target.value}); }} 
+                      />
                     </div>
-                  ) : (
-                    <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] font-bold text-white uppercase">{metadata.cadence_count} PER {metadata.cadence_unit}</div>
-                  )}
-                </div>
 
-                <div className="space-y-4 p-4 bg-white/[0.02] border border-white/5 rounded-xl">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Tool Family</label>
-                    {isMetadataEditMode ? (
-                      <div className="flex flex-wrap gap-2">
-                        {(taxonomy.find(t => t.category === 'ToolType') as any)?.cached_values?.map((v: string) => (
-                          <button key={v} onClick={() => { saveToHistory(); setMetadata({...metadata, tool_family: metadata.tool_family.includes(v) ? metadata.tool_family.filter(x => x !== v) : [...metadata.tool_family, v]}); }} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all", metadata.tool_family.includes(v) ? "bg-theme-accent text-white" : "bg-white/5 text-white/20 hover:text-white")}>{v}</button>
-                        ))}
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center px-1">
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Description</label>
+                        <span className="text-[8px] text-white/10 font-mono">{metadata.description.length} / 500</span>
                       </div>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">{metadata.tool_family.map(v => <span key={v} className="px-2 py-1 bg-theme-accent/20 text-theme-accent text-[10px] font-black uppercase rounded border border-theme-accent/30">{v}</span>)}</div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Applicable Tools</label>
-                    {isMetadataEditMode ? (
-                      <div className="flex flex-wrap gap-2">
-                        {(taxonomy.find(t => t.category === 'TOOL_ID') as any)?.cached_values?.map((v: string) => (
-                          <button key={v} onClick={() => { saveToHistory(); setMetadata({...metadata, applicable_tools: metadata.applicable_tools.includes(v) ? metadata.applicable_tools.filter(x => x !== v) : [...metadata.applicable_tools, v]}); }} className={cn("px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all", metadata.applicable_tools.includes(v) ? "bg-theme-accent text-white" : "bg-white/5 text-white/20 hover:text-white")}>{v}</button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">{metadata.applicable_tools.map(v => <span key={v} className="px-2 py-1 bg-white/5 text-white/40 text-[10px] font-black uppercase rounded border border-white/10">{v}</span>)}</div>
-                    )}
-                  </div>
-                </div>
+                      <textarea 
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 h-32 resize-none focus:border-theme-accent outline-none leading-relaxed" 
+                        value={metadata.description} 
+                        onChange={e => { saveToHistory(); setMetadata({...metadata, description: e.target.value}); }} 
+                      />
+                    </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Trigger Type</label>
-                    {isMetadataEditMode ? (
-                      <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-10 text-[12px] font-bold text-white outline-none focus:border-theme-accent appearance-none" value={metadata.trigger_type} onChange={e => { saveToHistory(); setMetadata({...metadata, trigger_type: e.target.value}); }}>
-                        <option value="">Select Trigger...</option>
-                        {(taxonomy.find(t => t.category === 'TriggerType') as any)?.cached_values?.map((v: string) => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                    ) : (
-                      <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] font-bold text-white uppercase">{metadata.trigger_type || 'N/A'}</div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Output Type</label>
-                    {isMetadataEditMode ? (
-                      <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-10 text-[12px] font-bold text-white outline-none focus:border-theme-accent appearance-none" value={metadata.output_type} onChange={e => { saveToHistory(); setMetadata({...metadata, output_type: e.target.value}); }}>
-                        <option value="">Select Output...</option>
-                        {(taxonomy.find(t => t.category === 'OutputType') as any)?.cached_values?.map((v: string) => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                    ) : (
-                      <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] font-bold text-white uppercase">{metadata.output_type || 'N/A'}</div>
-                    )}
+                    <div className="grid grid-cols-3 gap-4">
+                      <SearchableSelect 
+                        label="PRC"
+                        options={(taxonomy.find(t => t.category === 'PRC') as any)?.cached_values || []}
+                        value={metadata.prc}
+                        onChange={val => { saveToHistory(); setMetadata({...metadata, prc: val}); }}
+                        placeholder="SELECT PRC..."
+                        icon={Settings}
+                      />
+                      <SearchableSelect 
+                        label="Type"
+                        options={(taxonomy.find(t => t.category === 'WORKFLOW_TYPE') as any)?.cached_values || []}
+                        value={metadata.workflow_type}
+                        onChange={val => { saveToHistory(); setMetadata({...metadata, workflow_type: val}); }}
+                        placeholder="SELECT TYPE..."
+                        icon={Cpu}
+                      />
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Occurrence</label>
+                        <div className="flex items-center gap-1 bg-black/40 border border-white/10 rounded-xl p-1 h-[48px]">
+                          <input 
+                            type="number" 
+                            step="0.1"
+                            className="w-12 bg-black/40 font-black text-[11px] text-white text-center py-2 rounded-lg outline-none" 
+                            value={metadata.cadence_count} 
+                            onChange={e => { saveToHistory(); setMetadata({...metadata, cadence_count: parseFloat(e.target.value) || 1}); }} 
+                          />
+                          <select 
+                            className="flex-1 bg-transparent text-white font-black text-[9px] uppercase outline-none cursor-pointer"
+                            value={metadata.cadence_unit}
+                            onChange={e => { saveToHistory(); setMetadata({...metadata, cadence_unit: e.target.value}); }}
+                          >
+                            <option value="day">DAILY</option>
+                            <option value="week">WEEKLY</option>
+                            <option value="month">MONTHLY</option>
+                            <option value="year">YEARLY</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <SearchableSelect 
+                        label="Tool Family"
+                        options={(taxonomy.find(t => t.category === 'ToolType') as any)?.cached_values || []}
+                        value={metadata.tool_family}
+                        onChange={vals => { saveToHistory(); setMetadata({...metadata, tool_family: vals}); }}
+                        placeholder="SELECT FAMILIES..."
+                        isMulti
+                      />
+                      <SearchableSelect 
+                        label="Applicable Tools"
+                        options={(taxonomy.find(t => t.category === 'TOOL_ID') as any)?.cached_values || []}
+                        value={metadata.applicable_tools}
+                        onChange={vals => { saveToHistory(); setMetadata({...metadata, applicable_tools: vals}); }}
+                        placeholder="SELECT TOOLS..."
+                        isMulti
+                      />
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Trigger Description</label>
-                    {isMetadataEditMode ? (
-                      <textarea className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-[11px] text-white outline-none focus:border-theme-accent h-24 resize-none font-medium" value={metadata.trigger_description} onChange={e => { saveToHistory(); setMetadata({...metadata, trigger_description: e.target.value}); }} />
-                    ) : (
-                      <p className="bg-white/[0.02] border border-white/5 rounded-xl p-3 text-[11px] text-white/60 font-medium leading-relaxed italic">{metadata.trigger_description || 'N/A'}</p>
-                    )}
+                  <div className="flex items-center gap-2 text-theme-accent font-black px-1">
+                    <Zap size={14} />
+                    <span className="text-[10px] tracking-[0.2em] uppercase">Trigger & Output</span>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Output Description</label>
-                    {isMetadataEditMode ? (
-                      <textarea className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-[11px] text-white outline-none focus:border-theme-accent h-24 resize-none font-medium" value={metadata.output_description} onChange={e => { saveToHistory(); setMetadata({...metadata, output_description: e.target.value}); }} />
-                    ) : (
-                      <p className="bg-white/[0.02] border border-white/5 rounded-xl p-3 text-[11px] text-white/60 font-medium leading-relaxed italic">{metadata.output_description || 'N/A'}</p>
-                    )}
+                  <div className="apple-card space-y-6 !bg-white/[0.02] border-white/5 p-6 rounded-2xl">
+                    <div className="grid grid-cols-2 gap-4">
+                      <SearchableSelect 
+                        label="Trigger Type"
+                        options={(taxonomy.find(t => t.category === 'TriggerType') as any)?.cached_values || []}
+                        value={metadata.trigger_type}
+                        onChange={val => { saveToHistory(); setMetadata({...metadata, trigger_type: val}); }}
+                        placeholder="SELECT TRIGGER..."
+                        icon={Zap}
+                      />
+                      <SearchableSelect 
+                        label="Output Type"
+                        options={(taxonomy.find(t => t.category === 'OutputType') as any)?.cached_values || []}
+                        value={metadata.output_type}
+                        onChange={val => { saveToHistory(); setMetadata({...metadata, output_type: val}); }}
+                        placeholder="SELECT OUTPUT..."
+                        icon={Layers}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 gap-6 border-t border-white/5 pt-6">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Trigger Description</label>
+                        <textarea 
+                          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[11px] font-bold text-white/80 h-24 resize-none focus:border-theme-accent outline-none leading-relaxed" 
+                          value={metadata.trigger_description} 
+                          onChange={e => { saveToHistory(); setMetadata({...metadata, trigger_description: e.target.value}); }} 
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Output Description</label>
+                        <textarea 
+                          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[11px] font-bold text-white/80 h-24 resize-none focus:border-theme-accent outline-none leading-relaxed" 
+                          value={metadata.output_description} 
+                          onChange={e => { saveToHistory(); setMetadata({...metadata, output_description: e.target.value}); }} 
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
