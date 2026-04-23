@@ -483,7 +483,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
             <div className="apple-card space-y-6 !bg-[#111827]/40 border-white/10 p-6">
               <div className="grid grid-cols-2 gap-6">
                 <SearchableSelect 
-                  label="Trigger Mechanism"
+                  label="Trigger Type"
                   options={triggerTypes}
                   value={formData.trigger_type}
                   onChange={val => setFormData({...formData, trigger_type: val})}
@@ -492,7 +492,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                   error={showErrors && !formData.trigger_type}
                 />
                 <SearchableSelect 
-                  label="Output Classification"
+                  label="Output Type"
                   options={outputTypes}
                   value={formData.output_type}
                   onChange={val => setFormData({...formData, output_type: val})}
@@ -522,7 +522,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
 
                 <div className="space-y-3">
                   <div className="flex items-center justify-between px-1">
-                    <label className={cn("text-[10px] font-black uppercase tracking-[0.2em]", showErrors && !formData.output_description ? "text-status-error" : "text-white/40")}>Output Deliverable</label>
+                    <label className={cn("text-[10px] font-black uppercase tracking-[0.2em]", showErrors && !formData.output_description ? "text-status-error" : "text-white/40")}>Output Description</label>
                     <span className="text-[9px] text-white/20 font-mono">{formData.output_description.length} / 500</span>
                   </div>
                   <textarea 
