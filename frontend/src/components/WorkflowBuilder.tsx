@@ -36,8 +36,7 @@ import {
   Workflow as LucideWorkflow,
   Brain,
   Paperclip,
-  Copy,
-  TrendingUp
+  Copy
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -99,11 +98,6 @@ interface TaskEntity {
   position_y?: number;
   owning_team?: string;
   owner_positions?: string[];
-  status?: string;
-  prc_index?: string;
-  duration_minutes: number;
-  frequency_per_week: number;
-  manual_effort_percent: number;
 }
 
 interface WorkflowMetadata {
@@ -469,7 +463,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const { project, fitView, getNodes, getEdges } = useReactFlow();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const [inspectorTab, setInspectorTab] = useState<'overview' | 'config' | 'data' | 'exceptions' | 'validation' | 'appendix'>('overview');
+  const [inspectorTab, setInspectorTab] = useState<'overview' | 'data' | 'exceptions' | 'validation' | 'appendix'>('overview');
   const [inspectorWidth, setInspectorWidth] = useState(450);
   const [baseFontSize] = useState(14);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -635,11 +629,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           manual_time_minutes: t.manual_time_minutes || 0,
           automation_time_minutes: t.automation_time_minutes || 0,
           machine_wait_time_minutes: t.machine_wait_time_minutes || 0,
-          status: t.status || 'draft',
-          prc_index: t.prc_index || '',
-          duration_minutes: t.duration_minutes || t.manual_time_minutes || 0,
-          frequency_per_week: t.frequency_per_week || 0,
-          manual_effort_percent: t.manual_effort_percent !== undefined ? t.manual_effort_percent : 100,
         };
       });
 
@@ -647,10 +636,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       const trigger = initializedTasks.find((t: any) => t.interface === 'TRIGGER');
       if (!trigger) {
         initializedTasks.unshift({
-          id: 'node-trigger', node_id: 'node-trigger', name: metadata.trigger_type || 'START', description: metadata.trigger_description || '', task_type: 'TRIGGER', interface: 'TRIGGER', interface_type: 'TRIGGER', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, status: 'active', duration_minutes: 0, frequency_per_week: 0, manual_effort_percent: 0
+          id: 'node-trigger', node_id: 'node-trigger', name: metadata.trigger_type || 'START', description: metadata.trigger_description || '', task_type: 'TRIGGER', interface: 'TRIGGER', interface_type: 'TRIGGER', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0
         });
       } else {
-        // Force ID to be stable node-trigger if it's the interface node
         trigger.id = trigger.node_id = 'node-trigger';
         trigger.name = metadata.trigger_type || trigger.name;
       }
@@ -658,10 +646,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       const outcome = initializedTasks.find((t: any) => t.interface === 'OUTCOME');
       if (!outcome) {
         initializedTasks.push({
-          id: 'node-outcome', node_id: 'node-outcome', name: metadata.output_type || 'END', description: metadata.output_description || '', task_type: 'OUTCOME', interface: 'OUTCOME', interface_type: 'OUTCOME', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, status: 'active', duration_minutes: 0, frequency_per_week: 0, manual_effort_percent: 0
+          id: 'node-outcome', node_id: 'node-outcome', name: metadata.output_type || 'END', description: metadata.output_description || '', task_type: 'OUTCOME', interface: 'OUTCOME', interface_type: 'OUTCOME', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0
         });
       } else {
-        // Force ID to be stable node-outcome if it's the interface node
         outcome.id = outcome.node_id = 'node-outcome';
         outcome.name = metadata.output_type || outcome.name;
       }
@@ -841,7 +828,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     const id = `node-${Date.now()}`;
     const center = project({ x: (window.innerWidth - inspectorWidth) / 2, y: window.innerHeight / 2 });
     const newNode: Node = { id, type: type === 'CONDITION' ? 'diamond' : 'matrix', position: { x: Math.round((center.x - 160) / 10) * 10, y: Math.round((center.y - 140) / 10) * 10 }, data: { label: type === 'TASK' ? 'New Task' : 'New Condition', task_type: type === 'TASK' ? 'Documentation' : 'LOOP', manual_time: 0, automation_time: 0, occurrence: 1, systems: '', validation_needed: false, blockerCount: 0, errorCount: 0, baseFontSize } };
-    const newTask: TaskEntity = { id, node_id: id, name: newNode.data.label, description: '', task_type: newNode.data.task_type, target_systems: [], interface_type: type === 'TASK' ? 'GUI' : 'CONDITION', manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, occurrence: 1, occurrence_explanation: '', source_data_list: [], output_data_list: [], verification_steps: [], blockers: [], errors: [], tribal_knowledge: [], validation_needed: false, validation_procedure: '', media: [], reference_links: [], instructions: [], status: 'draft', prc_index: '', duration_minutes: 0, frequency_per_week: 0, manual_effort_percent: 100 };
+    const newTask: TaskEntity = { id, node_id: id, name: newNode.data.label, description: '', task_type: newNode.data.task_type, target_systems: [], interface_type: type === 'TASK' ? 'GUI' : 'CONDITION', manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, occurrence: 1, occurrence_explanation: '', source_data_list: [], output_data_list: [], verification_steps: [], blockers: [], errors: [], tribal_knowledge: [], validation_needed: false, validation_procedure: '', media: [], reference_links: [], instructions: [] };
     setTasks(prev => [...prev, newTask]);
     setNodes(nds => [...nds, newNode]);
     setSelectedTaskId(id);
@@ -888,7 +875,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         <div className="h-14 flex border-b border-white/10 bg-white/[0.02]">
           {[ 
             { id: 'overview', label: 'Overview', icon: <Activity size={12} /> }, 
-            { id: 'config', label: 'Config', icon: <LucideWorkflow size={12} />, hidden: isProtected },
             { id: 'data', label: 'Data', icon: <Database size={12} />, hidden: isProtected }, 
             { id: 'exceptions', label: 'Exceptions', icon: <AlertCircle size={12} />, hidden: isProtected }, 
             { id: 'validation', label: 'Validation', icon: <Zap size={12} />, hidden: isProtected }, 
@@ -905,65 +891,39 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                 <div className="space-y-6">
                   <div className="space-y-2"><label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Task Nomenclature</label><input className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-3 text-[14px] font-bold text-white outline-none focus:border-theme-accent" value={selectedTask.name} onChange={e => updateTask(selectedTaskId, { name: e.target.value })} /></div>
                   {!isProtected && (
-                    <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task Logic Type</label><select className="w-full bg-white/5 border border-white/10 rounded-md px-3 h-11 text-[11px] font-black text-white outline-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>{taskTypes.map((t:any) => <option key={t} value={t}>{t}</option>)}</select></div><div className="space-y-2"><label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Interface Mode</label><select className="w-full bg-white/5 border border-white/10 rounded-md px-3 h-11 text-[11px] font-black text-white outline-none" value={selectedTask.interface_type} onChange={e => updateTask(selectedTaskId, { interface_type: e.target.value })}><option value="GUI">GUI INTERACTION</option><option value="CLI">CLI / TERMINAL</option><option value="API">API CALL</option></select></div></div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task Logic Type</label>
+                        <select className="w-full bg-white/5 border border-white/10 rounded-md px-3 h-11 text-[11px] font-black text-white outline-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>{taskTypes.map((t:any) => <option key={t} value={t}>{t}</option>)}</select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Interface Mode</label>
+                        <select className="w-full bg-white/5 border border-white/10 rounded-md px-3 h-11 text-[11px] font-black text-white outline-none" value={selectedTask.interface_type} onChange={e => updateTask(selectedTaskId, { interface_type: e.target.value })}><option value="GUI">GUI INTERACTION</option><option value="CLI">CLI / TERMINAL</option><option value="API">API CALL</option></select>
+                      </div>
+                    </div>
                   )}
-                  <div className="space-y-2"><label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Contextual Description</label><textarea className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-3 text-[13px] font-medium text-white/60 outline-none focus:border-theme-accent h-32 resize-none" value={selectedTask.description} onChange={e => updateTask(selectedTaskId, { description: e.target.value })} /></div>
+
+                  <div className="grid grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-xl">
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest px-1 text-center block">TAT Manual (m)</label>
+                      <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[14px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black text-purple-400 uppercase tracking-widest px-1 text-center block">TAT Machine (m)</label>
+                      <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[14px] font-black text-white outline-none focus:border-purple-400 text-center" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Contextual Description</label>
+                    <textarea className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-3 text-[13px] font-medium text-white/60 outline-none focus:border-theme-accent h-32 resize-none" value={selectedTask.description} onChange={e => updateTask(selectedTaskId, { description: e.target.value })} />
+                  </div>
                   {!isProtected && (
                     <div className="pt-6 border-t border-white/5"><button onClick={() => deleteTask(selectedTaskId)} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-md text-[10px] font-black uppercase hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2"><Trash size={12} /> Delete Entity</button></div>
                   )}
                 </div>
               )}
-              {inspectorTab === 'config' && (
-                <div className="space-y-10 animate-apple-in">
-                  <div className="space-y-8">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Task Nomenclature</label>
-                      <input className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-4 text-[16px] font-bold text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedTask.name} onChange={e => updateTask(selectedTaskId, { name: e.target.value })} placeholder="ENTER TASK TITLE..." />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Process Status</label>
-                        <select className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-2.5 text-[12px] font-bold text-white uppercase outline-none focus:border-theme-accent" value={selectedTask.status} onChange={e => updateTask(selectedTaskId, { status: e.target.value })}>
-                          <option value="draft">DRAFT</option>
-                          <option value="active">ACTIVE</option>
-                          <option value="deprecated">DEPRECATED</option>
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">PRC Index</label>
-                        <input className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-2.5 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={selectedTask.prc_index || ''} onChange={e => updateTask(selectedTaskId, { prc_index: e.target.value })} placeholder="e.g., P.01" />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Operational Narrative</label>
-                      <textarea className="w-full bg-white/5 border border-white/10 rounded-lg p-4 text-[13px] text-white/80 outline-none h-32 resize-none leading-relaxed" value={selectedTask.description} onChange={e => updateTask(selectedTaskId, { description: e.target.value })} placeholder="Describe the operational logic..." />
-                    </div>
-
-                    <div className="p-6 bg-white/[0.02] border border-white/5 rounded-xl space-y-6">
-                      <div className="flex items-center gap-2 mb-2"><TrendingUp size={14} className="text-theme-accent" /><span className="text-[11px] font-black text-white uppercase tracking-widest">ROI & Resource Impact</span></div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-[8px] font-black text-white/30 uppercase text-center block">Duration (min)</label>
-                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[14px] font-black text-white text-center" value={selectedTask.duration_minutes} onChange={e => updateTask(selectedTaskId, { duration_minutes: parseFloat(e.target.value) || 0 })} />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-[8px] font-black text-white/30 uppercase text-center block">Freq / Week</label>
-                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[14px] font-black text-white text-center" value={selectedTask.frequency_per_week} onChange={e => updateTask(selectedTaskId, { frequency_per_week: parseFloat(e.target.value) || 0 })} />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-[8px] font-black text-white/30 uppercase text-center block">Manual %</label>
-                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[14px] font-black text-white text-center" value={selectedTask.manual_effort_percent} onChange={e => updateTask(selectedTaskId, { manual_effort_percent: parseFloat(e.target.value) || 0 })} />
-                        </div>
-                      </div>
-                      <div className="pt-4 border-t border-white/5 flex justify-between items-center">
-                        <span className="text-[10px] font-black text-white/20 uppercase">Calculated Weekly Load:</span>
-                        <span className="text-[14px] font-black text-theme-accent uppercase tracking-tighter">{((selectedTask.duration_minutes * selectedTask.frequency_per_week * (selectedTask.manual_effort_percent/100)) / 60).toFixed(2)} H/WK</span>
-                      </div>
-                    </div>
-                  </div>
-
+              {inspectorTab === 'data' && (
+                <div className="space-y-8 animate-apple-in">
                   <CollapsibleSection title="Input Data (Sources)" isOpen={expandedSections.inputs} toggle={() => toggleSection('inputs')} count={selectedTask.source_data_list.length}>
                     <div className="space-y-3 pt-4">
                       {selectedTask.source_data_list.map((sd) => (
