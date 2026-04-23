@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   ShieldAlert, Zap, ArrowRight, ChevronLeft, 
   Layers,
-  Cpu, Settings, Search, Check, X, ChevronDown
+  Cpu, Search, Check, X, ChevronDown
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -414,7 +414,6 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                   value={formData.prc}
                   onChange={val => setFormData({...formData, prc: val})}
                   placeholder="SELECT PRC..."
-                  icon={Settings}
                   error={showErrors && !formData.prc}
                 />
                 <SearchableSelect 
@@ -423,7 +422,6 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                   value={formData.workflow_type}
                   onChange={val => setFormData({...formData, workflow_type: val})}
                   placeholder="SELECT TYPE..."
-                  icon={Cpu}
                   error={showErrors && !formData.workflow_type}
                 />
                 <div className="space-y-2">
@@ -488,7 +486,6 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                   value={formData.trigger_type}
                   onChange={val => setFormData({...formData, trigger_type: val})}
                   placeholder="SELECT TRIGGER..."
-                  icon={Zap}
                   error={showErrors && !formData.trigger_type}
                 />
                 <SearchableSelect 
@@ -497,7 +494,6 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                   value={formData.output_type}
                   onChange={val => setFormData({...formData, output_type: val})}
                   placeholder="SELECT OUTPUT..."
-                  icon={Layers}
                   error={showErrors && !formData.output_type}
                 />
               </div>

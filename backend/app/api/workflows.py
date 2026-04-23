@@ -26,7 +26,19 @@ async def create_workflow(workflow_data: WorkflowCreate, db: AsyncSession = Depe
             detail="A workflow must produce a measurable outcome."
         )
 
-    new_workflow = Workflow(**workflow_data.model_dump())
+    workflow_dict = workflow_data.model_dump()
+    if "tool_family" in workflow_dict and isinstance(workflow_dict["tool_family"], list):
+        workflow_dict["tool_family"] = ", ".join(workflow_dict["tool_family"])
+    
+    # applicable_tools is the field name in frontend/schema, tool_id in model
+    if "applicable_tools" in workflow_dict:
+        val = workflow_dict.pop("applicable_tools")
+        if isinstance(val, list):
+            workflow_dict["tool_id"] = ", ".join(val)
+        else:
+            workflow_dict["tool_id"] = val
+
+    new_workflow = Workflow(**workflow_dict)
     db.add(new_workflow)
     await db.flush()
     
@@ -97,6 +109,17 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
     # Update workflow fields
     data_to_update = {k: v for k, v in workflow_data.items() if k != "tasks"}
     
+    # Handle list to string conversion for tool_family and tool_id
+    if "tool_family" in data_to_update and isinstance(data_to_update["tool_family"], list):
+        data_to_update["tool_family"] = ", ".join(data_to_update["tool_family"])
+    
+    if "applicable_tools" in data_to_update:
+        val = data_to_update.pop("applicable_tools")
+        if isinstance(val, list):
+            data_to_update["tool_id"] = ", ".join(val)
+        else:
+            data_to_update["tool_id"] = val
+
     print(f"DEBUG: Updating workflow {workflow_id}. edges in data: {data_to_update.get('edges')}")
     
     for key, value in data_to_update.items():

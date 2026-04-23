@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import ReactFlow, { 
   Handle, 
   Position, 
@@ -13,6 +13,8 @@ import ReactFlow, {
   ReactFlowProvider,
   EdgeLabelRenderer,
   ConnectionLineType,
+  getSmoothStepPath,
+  getStraightPath,
   type Connection,
   type Edge,
   type Node
@@ -34,12 +36,9 @@ import {
   RefreshCw,
   Link2,
   Workflow as LucideWorkflow,
-  Paperclip,
   Search,
-  ShieldAlert,
+  Paperclip,
   Cpu,
-  Layers,
-  Settings,
   Edit3
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -631,6 +630,8 @@ const CustomEdge = ({
   sourceY,
   targetX,
   targetY,
+  sourcePosition,
+  targetPosition,
   style = {},
   markerEnd,
   data,
@@ -642,28 +643,25 @@ const CustomEdge = ({
     }
 
     if (data?.edgeStyle === 'straight') {
-      return [`M ${sourceX},${sourceY} L ${targetX},${targetY}`, (sourceX + targetX) / 2, (sourceY + targetY) / 2];
+      return getStraightPath({ sourceX, sourceY, targetX, targetY });
     }
     
     if (data?.edgeStyle === 'smoothstep') {
-      const cornerSize = 20;
-      const midX = (sourceX + targetX) / 2;
-      const midY = (sourceY + targetY) / 2;
-      
-      // Basic smoothstep logic
-      const path = `M ${sourceX},${sourceY} 
-                    L ${midX - cornerSize},${sourceY} 
-                    Q ${midX},${sourceY} ${midX},${sourceY + (targetY > sourceY ? cornerSize : -cornerSize)}
-                    L ${midX},${targetY - (targetY > sourceY ? cornerSize : -cornerSize)}
-                    Q ${midX},${targetY} ${midX + cornerSize},${targetY}
-                    L ${targetX},${targetY}`;
-      return [path, midX, midY];
+      return getSmoothStepPath({
+        sourceX,
+        sourceY,
+        sourcePosition,
+        targetX,
+        targetY,
+        targetPosition,
+        borderRadius: 20
+      });
     }
 
     // Default Bezier
     const cx = (sourceX + targetX) / 2;
     return [`M ${sourceX},${sourceY} C ${cx},${sourceY} ${cx},${targetY} ${targetX},${targetY}`, cx, (sourceY + targetY) / 2];
-  }, [sourceX, sourceY, targetX, targetY, data?.edgeStyle]);
+  }, [sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data?.edgeStyle]);
 
   if (!edgePath) return null;
 
@@ -719,7 +717,7 @@ const ConfirmDeleteOverlay: React.FC<{ onConfirm: () => void, onCancel: () => vo
 const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, onSave, onBack, onExit, setIsDirty }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const { project, fitView, getNodes, getEdges } = useReactFlow();
+  const { project, fitView } = useReactFlow();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [inspectorTab, setInspectorTab] = useState<'overview' | 'data' | 'exceptions' | 'validation' | 'appendix'>('overview');
@@ -827,6 +825,19 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo, selectedTaskId, tasks, nodes, clipboard, saveToHistory]);
 
+  useEffect(() => {
+    setTasks(prev => prev.map(t => {
+      if (t.interface === 'TRIGGER') return { ...t, name: metadata.trigger_type || t.name, description: metadata.trigger_description || t.description };
+      if (t.interface === 'OUTCOME') return { ...t, name: metadata.output_type || t.name, description: metadata.output_description || t.description };
+      return t;
+    }));
+    setNodes(nds => nds.map(n => {
+      if (n.data?.interface === 'TRIGGER') return { ...n, data: { ...n.data, label: metadata.trigger_type || n.data.label, description: metadata.trigger_description || n.data.description } };
+      if (n.data?.interface === 'OUTCOME') return { ...n, data: { ...n.data, label: metadata.output_type || n.data.label, description: metadata.output_description || n.data.description } };
+      return n;
+    }));
+  }, [metadata.trigger_type, metadata.trigger_description, metadata.output_type, metadata.output_description]);
+
   const selectedTask = useMemo(() => tasks.find(t => String(t.id) === String(selectedTaskId)), [tasks, selectedTaskId]);
   const selectedEdge = useMemo(() => edges.find(e => String(e.id) === String(selectedEdgeId)), [edges, selectedEdgeId]);
   const isProtected = selectedTask?.interface === 'TRIGGER' || selectedTask?.interface === 'OUTCOME';
@@ -839,47 +850,29 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   const handleLayout = useCallback((nodesToLayout?: Node[], edgesToLayout?: Edge[]) => {
     try {
-      const nds = nodesToLayout || getNodes();
-      const eds = edgesToLayout || getEdges();
+      const nds = nodesToLayout || nodes; // Use state if not provided
+      const eds = edgesToLayout || edges; // Use state if not provided
       if (!nds || nds.length === 0) return;
-
-      const sortedNodes = [...nds].sort((a, b) => {
-        const aInterface = a.data?.interface;
-        const bInterface = b.data?.interface;
-        if (aInterface === 'TRIGGER') return -1;
-        if (bInterface === 'TRIGGER') return 1;
-        if (aInterface === 'OUTCOME') return 1;
-        if (bInterface === 'OUTCOME') return -1;
-        return 0;
-      });
 
       const dagreGraph = new dagre.graphlib.Graph();
       dagreGraph.setDefaultEdgeLabel(() => ({}));
       dagreGraph.setGraph({ rankdir: 'LR', ranker: 'network-simplex', ranksep: 200, nodesep: 100, edgesep: 50 });
 
-      sortedNodes.forEach((n) => {
+      nds.forEach((n) => {
         const isDiamond = n.type === 'diamond';
         const isTemplate = n.data?.interface === 'TRIGGER' || n.data?.interface === 'OUTCOME';
         dagreGraph.setNode(n.id, { width: isDiamond ? 280 : (isTemplate ? 260 : 460), height: isTemplate ? 160 : (isDiamond ? 280 : 440) });
       });
 
-      // Add actual edges
       eds.forEach((e) => {
         if (dagreGraph.hasNode(e.source) && dagreGraph.hasNode(e.target)) {
           dagreGraph.setEdge(e.source, e.target);
         }
       });
 
-      // Force horizontal distribution for unconnected nodes by adding dummy sequential edges
-      for (let i = 0; i < sortedNodes.length - 1; i++) {
-        const sourceId = sortedNodes[i].id;
-        const targetId = sortedNodes[i+1].id;
-        dagreGraph.setEdge(sourceId, targetId, { weight: 0.001, minlen: 1 });
-      }
-
       dagre.layout(dagreGraph);
 
-      const layoutedNodes = sortedNodes.map(n => {
+      const layoutedNodes = nds.map(n => {
         const nodeWithPos = dagreGraph.node(n.id);
         if (!nodeWithPos) return n;
         const isDiamond = n.type === 'diamond';
@@ -926,7 +919,19 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     } catch (error) {
       console.error("Dagre Layout Error:", error);
     }
-  }, [fitView, setNodes, setEdges, setIsDirty, defaultEdgeStyle, getNodes, getEdges]);
+  }, [nodes, edges, fitView, setNodes, setEdges, setIsDirty, defaultEdgeStyle]);
+
+  // Ensure fitView on initial load
+  const initialFitPerformed = useRef(false);
+  useEffect(() => {
+    if (nodes.length > 0 && !initialFitPerformed.current) {
+      const timer = setTimeout(() => {
+        fitView({ padding: 0.1, duration: 400 });
+        initialFitPerformed.current = true;
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [nodes.length, fitView]);
 
   useEffect(() => {
     if (!workflow) return;
@@ -1116,6 +1121,28 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
     setIsDirty?.(true);
   };
 
+  const onNodesDelete = useCallback((deleted: Node[]) => {
+    const protectedNodes = deleted.filter(n => n.data?.interface === 'TRIGGER' || n.data?.interface === 'OUTCOME');
+    if (protectedNodes.length > 0) {
+      const allowedToDelete = deleted.filter(n => n.data?.interface !== 'TRIGGER' && n.data?.interface !== 'OUTCOME');
+      if (allowedToDelete.length === 0) return;
+      
+      saveToHistory();
+      const ids = allowedToDelete.map(n => n.id);
+      setTasks(prev => prev.filter(t => !ids.includes(t.id)));
+      setNodes(nds => nds.filter(n => !ids.includes(n.id)));
+      setEdges(eds => eds.filter(e => !ids.includes(e.source) && !ids.includes(e.target)));
+      setIsDirty?.(true);
+    } else {
+      saveToHistory();
+      const ids = deleted.map(n => n.id);
+      setTasks(prev => prev.filter(t => !ids.includes(t.id)));
+      setNodes(nds => nds.filter(n => !ids.includes(n.id)));
+      setEdges(eds => eds.filter(e => !ids.includes(e.source) && !ids.includes(e.target)));
+      setIsDirty?.(true);
+    }
+  }, [saveToHistory, setTasks, setNodes, setEdges, setIsDirty]);
+
   return (
     <div className="flex h-full w-full bg-[#050914] overflow-hidden">
       {/* Existing Output Picker Modal */}
@@ -1185,29 +1212,54 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             <button onClick={() => onBack(metadata)} className="p-2.5 hover:bg-white/5 rounded-xl transition-colors text-white/40 hover:text-white"><ChevronLeft size={20} /></button>
             <div className="flex flex-col"><span className="text-[10px] font-black text-theme-accent uppercase tracking-widest mb-1">Workflow Builder</span><h1 className="text-[14px] font-black text-white uppercase truncate max-w-[300px]">{workflow?.name}</h1></div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 mr-2">
-              <button onClick={undo} disabled={history.length === 0} className="p-2 text-white/40 hover:text-white disabled:opacity-20 transition-all"><RefreshCw size={14} className="-scale-x-100" /></button>
-              <button onClick={redo} disabled={redoStack.length === 0} className="p-2 text-white/40 hover:text-white disabled:opacity-20 transition-all"><RefreshCw size={14} /></button>
-            </div>
-            <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 mr-2">
-              {(['bezier', 'smoothstep', 'straight'] as const).map(s => (
-                <button 
-                  key={s} 
-                  onClick={() => setDefaultEdgeStyle(s)} 
-                  className={cn("px-2.5 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all", defaultEdgeStyle === s ? "bg-theme-accent text-white" : "text-white/20 hover:text-white/40")}
-                >
-                  {s === 'smoothstep' ? 'Angled' : s === 'bezier' ? 'Smooth' : 'Straight'}
-                </button>
-              ))}
-            </div>
-            <button onClick={() => handleLayout()} className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 transition-all"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
-            <button onClick={handleSave} className="flex items-center gap-2 px-6 py-2 bg-theme-accent text-white rounded-xl text-[10px] font-black uppercase shadow-xl shadow-theme-accent/20 hover:scale-[1.02] transition-all"><Save size={14} /> Commit Changes</button>
-            <button onClick={onExit} className="p-2 text-white/20 hover:text-status-error"><X size={20} /></button>
+        <div className="flex items-center gap-3">
+          <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 mr-2 h-[38px] items-center">
+            <button onClick={undo} disabled={history.length === 0} className="px-3 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all border-r border-white/5"><RefreshCw size={14} className="-scale-x-100" /></button>
+            <button onClick={redo} disabled={redoStack.length === 0} className="px-3 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all"><RefreshCw size={14} /></button>
           </div>
+          <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 mr-2 h-[38px] items-center">
+            {(['bezier', 'smoothstep', 'straight'] as const).map(s => (
+              <button 
+                key={s} 
+                onClick={() => {
+                  setDefaultEdgeStyle(s);
+                  setEdges(eds => eds.map(e => ({ ...e, data: { ...e.data, edgeStyle: s } })));
+                }} 
+                className={cn("px-3 h-full text-[9px] font-black uppercase rounded-lg transition-all", defaultEdgeStyle === s ? "bg-theme-accent text-white" : "text-white/20 hover:text-white/40")}
+              >
+                {s === 'smoothstep' ? 'Angled' : s === 'bezier' ? 'Smooth' : 'Straight'}
+              </button>
+            ))}
+          </div>
+          <button onClick={() => handleLayout()} className="flex items-center gap-2 px-4 h-[38px] bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 transition-all"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
+          <button onClick={handleSave} className="flex items-center gap-2 px-6 h-[38px] bg-theme-accent text-white rounded-xl text-[10px] font-black uppercase shadow-xl shadow-theme-accent/20 hover:scale-[1.02] transition-all"><Save size={14} /> Commit Changes</button>
+          <button onClick={onExit} className="p-2 text-white/20 hover:text-status-error"><X size={20} /></button>
         </div>
+        </div>
+
         <div className="flex-1 relative">
-          <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} nodeTypes={nodeTypes} edgeTypes={edgeTypes} onNodeClick={(_, n) => { setSelectedTaskId(n.id); setSelectedEdgeId(null); setInspectorTab('overview'); }} onEdgeClick={(_, e) => { setSelectedEdgeId(e.id); setSelectedTaskId(null); }} onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); }} fitView snapToGrid snapGrid={[10, 10]} connectionMode={ConnectionMode.Loose} connectionLineType={ConnectionLineType.Bezier} className="react-flow-industrial"><Background color="#1e293b" gap={30} size={1} /><Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl overflow-hidden" /></ReactFlow>
+          <ReactFlow 
+            nodes={nodes} 
+            edges={edges} 
+            onNodesChange={onNodesChange} 
+            onEdgesChange={onEdgesChange} 
+            onConnect={onConnect} 
+            onNodesDelete={onNodesDelete}
+            nodeTypes={nodeTypes} 
+            edgeTypes={edgeTypes} 
+            onNodeClick={(_, n) => { setSelectedTaskId(n.id); setSelectedEdgeId(null); setInspectorTab('overview'); }} 
+            onEdgeClick={(_, e) => { setSelectedEdgeId(e.id); setSelectedTaskId(null); }} 
+            onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); }} 
+            fitView 
+            snapToGrid 
+            snapGrid={[10, 10]} 
+            connectionMode={ConnectionMode.Loose} 
+            connectionLineType={ConnectionLineType.Bezier} 
+            className="react-flow-industrial"
+          >
+            <Background color="#1e293b" gap={30} size={1} />
+            <Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl overflow-hidden" />
+          </ReactFlow>
           <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex gap-1 p-1 bg-[#0a1120]/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl"><button onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2 bg-theme-accent text-white rounded-xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all"><Plus size={12} /> Add Task</button><button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all"><Plus size={12} /> Add Condition</button></div>
         </div>
       </div>
@@ -1292,18 +1344,18 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       {!ownerPositionsCollapsed && (
                         <div className="p-4 space-y-3 border border-white/10 bg-black/40 rounded-xl animate-apple-in -mt-2">
                           {(selectedTask.owner_positions || []).map((pos, idx) => (
-                            <div key={idx} className="flex gap-2 group/pos">
+                            <div key={idx} className="flex gap-2 group/pos animate-apple-in">
                               <div className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[11px] font-bold text-white flex items-center justify-between">
                                 <span className="truncate">{pos || 'Untitled Position'}</span>
                                 <div className="flex items-center gap-1 opacity-0 group-hover/pos:opacity-100 transition-opacity">
                                   <button onClick={() => {
                                     const newTitle = prompt('Edit Position Title:', pos);
-                                    if (newTitle !== null) {
-                                      updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.map((p, i) => i === idx ? newTitle : p) });
+                                    if (newTitle !== null && newTitle.trim()) {
+                                      updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.map((p, i) => i === idx ? newTitle.trim() : p) });
                                     }
                                   }} className="p-1.5 hover:bg-theme-accent/20 text-white/40 hover:text-theme-accent rounded-md transition-all"><Edit3 size={12} /></button>
                                   <button onClick={() => {
-                                    if (confirm('Delete this position?')) {
+                                    if (confirm('Permanently remove this owner position?')) {
                                       updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.filter((_, i) => i !== idx) });
                                     }
                                   }} className="p-1.5 hover:bg-status-error/20 text-white/40 hover:text-status-error rounded-md transition-all"><Trash size={12} /></button>
@@ -1313,8 +1365,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           ))}
                           <button onClick={() => {
                             const newTitle = prompt('New Position Title:');
-                            if (newTitle) {
-                              updateTask(selectedTaskId, { owner_positions: [...(selectedTask.owner_positions || []), newTitle] });
+                            if (newTitle && newTitle.trim()) {
+                              updateTask(selectedTaskId, { owner_positions: [...(selectedTask.owner_positions || []), newTitle.trim()] });
                             }
                           }} className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all">+ Add Position</button>
                         </div>
@@ -1373,10 +1425,10 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               )}
               {inspectorTab === 'data' && (
                 <div className="space-y-8 animate-apple-in">
-                  <CollapsibleSection title="Referenced Data Sources" isOpen={expandedSections.inputs} toggle={() => toggleSection('inputs')} count={selectedTask.source_data_list.length}>
+                  <CollapsibleSection title="Task Inputs" isOpen={expandedSections.inputs} toggle={() => toggleSection('inputs')} count={selectedTask.source_data_list.length}>
                     <div className="space-y-3 pt-4">
                       {selectedTask.source_data_list.map((sd) => (
-                        <NestedCollapsible key={sd.id} title={sd.name || "New Source"} isOpen={openItems[sd.id]} toggle={() => toggleItem(sd.id)} onDelete={() => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.filter(x => x.id !== sd.id) })} isLocked={!!sd.from_task_id}>
+                        <NestedCollapsible key={sd.id} title={sd.name || "New Input"} isOpen={openItems[sd.id]} toggle={() => toggleItem(sd.id)} onDelete={() => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.filter(x => x.id !== sd.id) })} isLocked={!!sd.from_task_id}>
                           <div className="space-y-4">
                             {sd.from_task_name && (
                               <div className="px-3 py-1 bg-theme-accent/20 border border-theme-accent/30 rounded text-[9px] font-black text-theme-accent uppercase flex items-center gap-2">
@@ -1384,18 +1436,18 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               </div>
                             )}
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Source Name *</label>
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Input Name *</label>
                               <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-theme-accent disabled:opacity-50" value={sd.name} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, name: e.target.value } : x) })} placeholder="e.g., FDC Log, SPC Chart" disabled={!!sd.from_task_id} />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Retrieval Description</label>
-                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-theme-accent disabled:opacity-50" value={sd.description} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, description: e.target.value } : x) })} placeholder="How is this data retrieved?" disabled={!!sd.from_task_id} />
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Description</label>
+                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-theme-accent disabled:opacity-50" value={sd.description} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, description: e.target.value } : x) })} placeholder="Define the input..." disabled={!!sd.from_task_id} />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Data Example</label>
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Format / Example</label>
                               <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 outline-none focus:border-theme-accent disabled:opacity-50" value={sd.data_example} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, data_example: e.target.value } : x) })} placeholder="Example value or format" disabled={!!sd.from_task_id} />
                             </div>
-                            <ImagePasteField figures={sd.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, figures: figs } : x) })} label="Figures (Ctrl+V)" isLocked={!!sd.from_task_id} />
+                            <ImagePasteField figures={sd.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, figures: figs } : x) })} label="Evidence Figures (Ctrl+V)" isLocked={!!sd.from_task_id} />
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Links</label>
                               <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-theme-accent outline-none disabled:opacity-50" value={sd.link} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, link: e.target.value } : x) })} placeholder="Relevant URL" disabled={!!sd.from_task_id} />
@@ -1403,28 +1455,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
-                      <div className="grid grid-cols-1 gap-2">
-                        <button onClick={() => setIsOutputPickerOpen(true)} className="w-full py-3 bg-white/5 border border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl flex items-center justify-center gap-2"><Search size={12} /> Search Output Registry</button>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button onClick={() => updateTask(selectedTaskId, { source_data_list: [...selectedTask.source_data_list, { id: Date.now().toString(), name: '', description: '', figures: [], link: '', data_example: '' }] })} className="py-3 bg-white/5 border border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Manual Input</button>
+                        <button onClick={() => setIsOutputPickerOpen(true)} className="py-3 bg-theme-accent/10 border border-theme-accent/20 text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all rounded-xl flex items-center justify-center gap-2"><Search size={12} /> Registry Search</button>
                       </div>
                     </div>
                   </CollapsibleSection>
 
-                  <ManagedListSection 
-                    title="Manual Inputs" 
-                    items={selectedTask.manual_inputs || []} 
-                    onUpdate={(items) => updateTask(selectedTaskId, { manual_inputs: items })}
-                    isOpen={expandedSections.manual_inputs}
-                    toggle={() => toggleSection('manual_inputs')}
-                    placeholder="Enter manual input details..."
-                  />
-
-                  <CollapsibleSection title="Referenced Output Artifacts" isOpen={expandedSections.outputs} toggle={() => toggleSection('outputs')} count={selectedTask.output_data_list.length}>
+                  <CollapsibleSection title="Task Outputs" isOpen={expandedSections.outputs} toggle={() => toggleSection('outputs')} count={selectedTask.output_data_list.length}>
                     <div className="space-y-3 pt-4">
                       {selectedTask.output_data_list.map((od) => (
-                        <NestedCollapsible key={od.id} title={od.name || "New Artifact"} isOpen={openItems[od.id]} toggle={() => toggleItem(od.id)} onDelete={() => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.filter(x => x.id !== od.id) })}>
+                        <NestedCollapsible key={od.id} title={od.name || "New Output"} isOpen={openItems[od.id]} toggle={() => toggleItem(od.id)} onDelete={() => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.filter(x => x.id !== od.id) })}>
                           <div className="space-y-4">
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Artifact Name *</label>
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Output Name *</label>
                               <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={od.name} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, name: e.target.value } : x) })} placeholder="e.g., Final Report, Updated DB Entry" />
                             </div>
                             <div className="space-y-1">
@@ -1432,10 +1476,10 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-theme-accent" value={od.description} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, description: e.target.value } : x) })} placeholder="Define the output artifact..." />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Data Example</label>
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Format / Example</label>
                               <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 outline-none focus:border-theme-accent" value={od.data_example} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, data_example: e.target.value } : x) })} placeholder="Example value or format" />
                             </div>
-                            <ImagePasteField figures={od.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, figures: figs } : x) })} label="Figures (Ctrl+V)" />
+                            <ImagePasteField figures={od.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, figures: figs } : x) })} label="Evidence Figures (Ctrl+V)" />
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Links</label>
                               <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-theme-accent outline-none" value={od.link} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, link: e.target.value } : x) })} placeholder="Relevant URL" />
@@ -1446,15 +1490,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       <button onClick={() => updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '', figures: [], link: '', data_example: '' }] })} className="w-full py-3 bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Output Artifact</button>
                     </div>
                   </CollapsibleSection>
-
-                  <ManagedListSection 
-                    title="Manual Outputs" 
-                    items={selectedTask.manual_outputs || []} 
-                    onUpdate={(items) => updateTask(selectedTaskId, { manual_outputs: items })}
-                    isOpen={expandedSections.manual_outputs}
-                    toggle={() => toggleSection('manual_outputs')}
-                    placeholder="Enter manual output details..."
-                  />
                 </div>
               )}
               {inspectorTab === 'exceptions' && (
@@ -1565,27 +1600,25 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       <div className="space-y-6 animate-apple-in pt-6 border-t border-white/5">
                         <div className="space-y-4">
                           {(selectedTask.validation_procedure_steps || []).map((step, idx) => (
-                            <div key={step.id} className="p-4 bg-white/[0.02] border border-white/5 rounded-xl group relative">
-                              <div className="flex items-center justify-between mb-3">
-                                <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Verification Step {idx + 1}</span>
-                                <button onClick={() => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.filter(x => x.id !== step.id) })} className="text-white/10 hover:text-status-error opacity-0 group-hover:opacity-100 transition-all"><Trash size={12} /></button>
-                              </div>
-                              <div className="space-y-3">
-                                <textarea 
-                                  className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[12px] text-white/80 h-24 resize-none outline-none focus:border-orange-500" 
-                                  value={step.description} 
-                                  onChange={e => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.map(x => x.id === step.id ? { ...x, description: e.target.value } : x) })} 
-                                  placeholder="Describe the verification action..."
-                                />
+                            <NestedCollapsible key={step.id} title={`Verification Step ${idx + 1}`} isOpen={openItems[step.id]} toggle={() => toggleItem(step.id)} onDelete={() => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.filter(x => x.id !== step.id) })}>
+                              <div className="space-y-4">
+                                <div className="space-y-1">
+                                  <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Description *</label>
+                                  <textarea 
+                                    className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[12px] text-white/80 h-24 resize-none outline-none focus:border-orange-500" 
+                                    value={step.description} 
+                                    onChange={e => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.map(x => x.id === step.id ? { ...x, description: e.target.value } : x) })} 
+                                    placeholder="Describe the verification action..."
+                                  />
+                                </div>
                                 <ImagePasteField figures={step.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.map(x => x.id === step.id ? { ...x, figures: figs } : x) })} label="Evidence Figures (Ctrl+V)" />
                               </div>
-                            </div>
+                            </NestedCollapsible>
                           ))}
                           <button onClick={() => updateTask(selectedTaskId, { validation_procedure_steps: [...(selectedTask.validation_procedure_steps || []), { id: Date.now().toString(), description: '', figures: [] }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-orange-500 transition-all rounded-xl">+ Add Verification Step</button>
                         </div>
                       </div>
-                    )}
-                  </div>
+                    )}                  </div>
                 </div>
               )}
               {inspectorTab === 'appendix' && (
@@ -1593,16 +1626,21 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   <CollapsibleSection title="Operational References" isOpen={expandedSections.references} toggle={() => toggleSection('references')} count={selectedTask.reference_links.length}>
                     <div className="space-y-3 pt-4">
                       {selectedTask.reference_links.map(l => (
-                        <div key={l.id} className="flex items-center gap-3 bg-white/[0.02] border border-white/5 rounded-xl p-3 group">
-                          <div className="flex-1 min-w-0">
-                            <input className="w-full bg-transparent border-none p-0 text-[11px] font-black text-white uppercase tracking-widest outline-none" value={l.label} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(x => x.id === l.id ? { ...x, label: e.target.value } : x) })} placeholder="Link Name" />
-                            <div className="flex items-center gap-1.5 mt-1 overflow-hidden">
-                              <Link2 size={10} className="text-theme-accent flex-shrink-0" />
-                              <input className="flex-1 bg-transparent border-none p-0 text-[10px] text-theme-accent underline truncate outline-none" value={l.url} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(x => x.id === l.id ? { ...x, url: e.target.value } : x) })} placeholder="URL" />
+                        <NestedCollapsible key={l.id} title={l.label || "New Reference"} isOpen={openItems[l.id]} toggle={() => toggleItem(l.id)} onDelete={() => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.filter(x => x.id !== l.id) })}>
+                          <div className="space-y-4">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Reference Label *</label>
+                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={l.label} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(x => x.id === l.id ? { ...x, label: e.target.value } : x) })} placeholder="e.g., SOP v1.2" />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Target URL / Path</label>
+                              <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl px-3 py-2">
+                                <Link2 size={12} className="text-theme-accent" />
+                                <input className="flex-1 bg-transparent border-none p-0 text-[11px] text-theme-accent underline outline-none" value={l.url} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(x => x.id === l.id ? { ...x, url: e.target.value } : x) })} placeholder="https://..." />
+                              </div>
                             </div>
                           </div>
-                          <button onClick={() => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.filter(x => x.id !== l.id) })} className="opacity-0 group-hover:opacity-100 p-2 hover:bg-status-error/20 text-white/20 hover:text-status-error transition-all rounded-lg"><Trash size={12} /></button>
-                        </div>
+                        </NestedCollapsible>
                       ))}
                       <button onClick={() => updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, { id: Date.now().toString(), label: '', url: '' }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white transition-all rounded-xl mt-2">+ Add Reference Link</button>
                     </div>
@@ -1617,21 +1655,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   <CollapsibleSection title="Step-by-Step Instructions" isOpen={expandedSections.instructions} toggle={() => toggleSection('instructions')} count={selectedTask.instructions.length}>
                     <div className="space-y-4 pt-4">
                       {selectedTask.instructions.map((step, idx) => (
-                        <div key={step.id} className="p-4 bg-white/[0.02] border border-white/5 rounded-xl group relative">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-[10px] font-black text-theme-accent uppercase tracking-widest">Instruction Step {idx + 1}</span>
-                            <button onClick={() => updateTask(selectedTaskId, { instructions: selectedTask.instructions.filter(x => x.id !== step.id) })} className="text-white/10 hover:text-status-error opacity-0 group-hover:opacity-100 transition-all p-1.5"><Trash size={12} /></button>
-                          </div>
-                          <div className="space-y-3">
-                            <textarea 
-                              className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-[12px] text-white/80 h-28 resize-none outline-none focus:border-theme-accent transition-all" 
-                              value={step.description} 
-                              onChange={e => updateTask(selectedTaskId, { instructions: selectedTask.instructions.map(x => x.id === step.id ? { ...x, description: e.target.value } : x) })} 
-                              placeholder="Describe the action..."
-                            />
+                        <NestedCollapsible key={step.id} title={`Instruction Step ${idx + 1}`} isOpen={openItems[step.id]} toggle={() => toggleItem(step.id)} onDelete={() => updateTask(selectedTaskId, { instructions: selectedTask.instructions.filter(x => x.id !== step.id) })}>
+                          <div className="space-y-4">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Description *</label>
+                              <textarea 
+                                className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-[12px] text-white/80 h-32 resize-none outline-none focus:border-theme-accent transition-all" 
+                                value={step.description} 
+                                onChange={e => updateTask(selectedTaskId, { instructions: selectedTask.instructions.map(x => x.id === step.id ? { ...x, description: e.target.value } : x) })} 
+                                placeholder="Describe the action..."
+                              />
+                            </div>
                             <ImagePasteField figures={step.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { instructions: selectedTask.instructions.map(x => x.id === step.id ? { ...x, figures: figs } : x) })} label="Step Figures (Ctrl+V)" />
                           </div>
-                        </div>
+                        </NestedCollapsible>
                       ))}
                       <button onClick={() => updateTask(selectedTaskId, { instructions: [...selectedTask.instructions, { id: Date.now().toString(), description: '', figures: [], links: [] }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white transition-all rounded-xl">+ Add Instruction Step</button>
                     </div>
@@ -1696,42 +1733,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </button>
                 </div>
               </div>
-
-              {/* Validation Questionnaire Sync */}
-              <section className={cn("apple-card !bg-theme-accent/5 border-theme-accent/20 p-6 flex flex-col items-center text-center gap-4 transition-all", !isMetadataEditMode && "opacity-50 grayscale pointer-events-none")}>
-                <div className="space-y-1">
-                  <h3 className="text-[9px] font-black text-theme-accent uppercase tracking-[0.3em]">Validation Questionnaire</h3>
-                  <p className="text-[14px] font-black text-white uppercase tracking-tight">Is this workflow executed regularly?</p>
-                </div>
-                <div className="flex bg-black/40 p-1 rounded-xl border border-white/10 w-full max-w-[200px]">
-                  <button 
-                    disabled={!isMetadataEditMode}
-                    onClick={() => { saveToHistory(); setMetadata({...metadata, repeatability_check: true}); }}
-                    className={cn(
-                      "flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all",
-                      metadata.repeatability_check ? "bg-theme-accent text-white shadow-lg" : "text-white/20 hover:text-white/40"
-                    )}
-                  >
-                    Yes
-                  </button>
-                  <button 
-                    disabled={!isMetadataEditMode}
-                    onClick={() => { saveToHistory(); setMetadata({...metadata, repeatability_check: false}); }}
-                    className={cn(
-                      "flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all",
-                      !metadata.repeatability_check ? "bg-status-error text-white shadow-lg" : "text-white/20 hover:text-white/40"
-                    )}
-                  >
-                    No
-                  </button>
-                </div>
-                {!metadata.repeatability_check && (
-                  <div className="flex items-center gap-2 text-status-error animate-pulse">
-                    <ShieldAlert size={12} />
-                    <span className="text-[9px] font-black uppercase">Standardization Required</span>
-                  </div>
-                )}
-              </section>
               
               <div className={cn("space-y-8 transition-all", !isMetadataEditMode && "opacity-80 pointer-events-none")}>
                 <div className="space-y-4">
@@ -1771,7 +1772,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         value={metadata.prc}
                         onChange={val => { saveToHistory(); setMetadata({...metadata, prc: val}); }}
                         placeholder="SELECT PRC..."
-                        icon={Settings}
                       />
                       <SearchableSelect 
                         label="Type"
@@ -1779,7 +1779,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         value={metadata.workflow_type}
                         onChange={val => { saveToHistory(); setMetadata({...metadata, workflow_type: val}); }}
                         placeholder="SELECT TYPE..."
-                        icon={Cpu}
                       />
                       <div className="space-y-2">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Occurrence</label>
@@ -1839,7 +1838,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         value={metadata.trigger_type}
                         onChange={val => { saveToHistory(); setMetadata({...metadata, trigger_type: val}); }}
                         placeholder="SELECT TRIGGER..."
-                        icon={Zap}
                       />
                       <SearchableSelect 
                         label="Output Type"
@@ -1847,7 +1845,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         value={metadata.output_type}
                         onChange={val => { saveToHistory(); setMetadata({...metadata, output_type: val}); }}
                         placeholder="SELECT OUTPUT..."
-                        icon={Layers}
                       />
                     </div>
                     <div className="grid grid-cols-1 gap-6 border-t border-white/5 pt-6">
