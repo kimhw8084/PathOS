@@ -850,8 +850,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   const handleLayout = useCallback((nodesToLayout?: Node[], edgesToLayout?: Edge[]) => {
     try {
-      const nds = nodesToLayout || nodes; // Use state if not provided
-      const eds = edgesToLayout || edges; // Use state if not provided
+      const nds = nodesToLayout || nodes;
+      const eds = edgesToLayout || edges;
       if (!nds || nds.length === 0) return;
 
       const dagreGraph = new dagre.graphlib.Graph();
@@ -919,7 +919,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     } catch (error) {
       console.error("Dagre Layout Error:", error);
     }
-  }, [nodes, edges, fitView, setNodes, setEdges, setIsDirty, defaultEdgeStyle]);
+  }, [fitView, setNodes, setEdges, setIsDirty, defaultEdgeStyle]);
 
   // Ensure fitView on initial load
   const initialFitPerformed = useRef(false);
@@ -937,6 +937,26 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     if (!workflow) return;
     try {
       const seenNodeIds = new Set<string>();
+      
+      // Update metadata state when workflow changes
+      const initialMetadata = {
+        name: workflow?.name || '',
+        version: workflow?.version || 1,
+        description: workflow?.description || workflow?.forensic_description || '',
+        prc: workflow?.prc || '',
+        workflow_type: workflow?.workflow_type || '',
+        tool_family: Array.isArray(workflow?.tool_family) ? workflow.tool_family : (workflow?.tool_family ? workflow.tool_family.split(', ') : []),
+        applicable_tools: Array.isArray(workflow?.applicable_tools) ? workflow.applicable_tools : (workflow?.tool_id ? (typeof workflow.tool_id === 'string' ? workflow.tool_id.split(', ') : [workflow.tool_id]) : []),
+        trigger_type: workflow?.trigger_type || '',
+        trigger_description: workflow?.trigger_description || '',
+        output_type: workflow?.output_type || '',
+        output_description: workflow?.output_description || '',
+        cadence_count: workflow?.cadence_count || 1,
+        cadence_unit: workflow?.cadence_unit || 'week',
+        repeatability_check: workflow?.repeatability_check ?? true
+      };
+      setMetadata(initialMetadata);
+
       let initializedTasks = (workflow?.tasks || []).map((t: any) => {
         let stableId = t.node_id ? String(t.node_id) : String(t.id);
         if (!stableId || stableId === 'undefined' || stableId === 'null') {
@@ -984,21 +1004,21 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       const trigger = initializedTasks.find((t: any) => t.interface === 'TRIGGER');
       if (!trigger) {
         initializedTasks.unshift({
-          id: 'node-trigger', node_id: 'node-trigger', name: metadata.trigger_type || 'START', description: metadata.trigger_description || '', task_type: 'TRIGGER', interface: 'TRIGGER', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, validation_procedure_steps: []
+          id: 'node-trigger', node_id: 'node-trigger', name: initialMetadata.trigger_type || 'START', description: initialMetadata.trigger_description || '', task_type: 'TRIGGER', interface: 'TRIGGER', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, validation_procedure_steps: []
         });
       } else {
         trigger.id = trigger.node_id = 'node-trigger';
-        trigger.name = metadata.trigger_type || trigger.name;
+        trigger.name = initialMetadata.trigger_type || trigger.name;
       }
 
       const outcome = initializedTasks.find((t: any) => t.interface === 'OUTCOME');
       if (!outcome) {
         initializedTasks.push({
-          id: 'node-outcome', node_id: 'node-outcome', name: metadata.output_type || 'END', description: metadata.output_description || '', task_type: 'OUTCOME', interface: 'OUTCOME', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, validation_procedure_steps: []
+          id: 'node-outcome', node_id: 'node-outcome', name: initialMetadata.output_type || 'END', description: initialMetadata.output_description || '', task_type: 'OUTCOME', interface: 'OUTCOME', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, validation_procedure_steps: []
         });
       } else {
         outcome.id = outcome.node_id = 'node-outcome';
-        outcome.name = metadata.output_type || outcome.name;
+        outcome.name = initialMetadata.output_type || outcome.name;
       }
 
       setTasks(initializedTasks);
@@ -1029,7 +1049,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     } catch (err) {
       console.error("[WorkflowBuilder] Critical Initialization Failure:", err);
     }
-  }, [workflow, handleLayout, setNodes, setEdges, defaultEdgeStyle, metadata.output_description, metadata.output_type, metadata.trigger_description, metadata.trigger_type]);
+  }, [workflow]);
 
   const updateTask = (id: string, updates: Partial<TaskEntity>) => {
     saveToHistory();
@@ -1231,7 +1251,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               </button>
             ))}
           </div>
-          <button onClick={() => handleLayout()} className="flex items-center gap-2 px-4 h-[38px] bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 transition-all"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
+          <button onClick={() => handleLayout(nodes, edges)} className="flex items-center gap-2 px-4 h-[38px] bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 transition-all"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
           <button onClick={handleSave} className="flex items-center gap-2 px-6 h-[38px] bg-theme-accent text-white rounded-xl text-[10px] font-black uppercase shadow-xl shadow-theme-accent/20 hover:scale-[1.02] transition-all"><Save size={14} /> Commit Changes</button>
           <button onClick={onExit} className="p-2 text-white/20 hover:text-status-error"><X size={20} /></button>
         </div>
