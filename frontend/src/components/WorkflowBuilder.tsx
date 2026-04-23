@@ -47,6 +47,7 @@ import {
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { SearchableSelect } from './IntakeGatekeeper';
+import { settingsApi } from '../api/client';
 
 /**
  * Utility for tailwind class merging
@@ -54,6 +55,25 @@ import { SearchableSelect } from './IntakeGatekeeper';
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+const ValidationMessage: React.FC<{ message: string; onClear: () => void }> = ({ message, onClear }) => (
+  <div className="fixed top-20 right-8 z-[2000] w-96 apple-glass border-status-error/30 bg-status-error/5 p-4 rounded-2xl shadow-2xl animate-apple-in">
+    <div className="flex items-start gap-4">
+      <div className="w-10 h-10 rounded-full bg-status-error/20 flex items-center justify-center flex-shrink-0 border border-status-error/40">
+        <ShieldAlert size={20} className="text-status-error" />
+      </div>
+      <div className="flex-1 space-y-1">
+        <h4 className="text-[11px] font-black text-white uppercase tracking-widest">Configuration Warning</h4>
+        <p className="text-[12px] font-bold text-white/60 leading-relaxed uppercase">{message}</p>
+      </div>
+      <button onClick={onClear} className="p-1 hover:bg-white/5 rounded-full text-white/20 hover:text-white transition-colors">
+        <X size={16} />
+      </button>
+    </div>
+  </div>
+);
+
+import { ShieldAlert } from 'lucide-react';
 
 interface TaskMedia {
   id: string;
@@ -749,6 +769,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const [isOutputPickerOpen, setIsOutputPickerOpen] = useState(false);
   const [isMetadataEditMode, setIsMetadataEditMode] = useState(false);
   const [ownerPositionsCollapsed, setOwnerPositionsCollapsed] = useState(true);
+  
+  const [systemParams, setSystemParams] = useState<any[]>([]);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [showErrors, setShowErrors] = useState(false);
+
+  useEffect(() => {
+    settingsApi.listParameters().then(setSystemParams).catch(() => {});
+  }, []);
 
   const toggleSection = (section: string) => { setExpandedSections(prev => ({ ...prev, [section]: !prev[section] })); };
   const toggleItem = (itemId: string) => { setOpenItems(prev => ({ ...prev, [itemId]: !prev[itemId] })); };
@@ -861,10 +889,35 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const isProtected = selectedTask?.interface === 'TRIGGER' || selectedTask?.interface === 'OUTCOME';
 
   const taskTypes = useMemo(() => {
-    const fromTaxonomy = taxonomy.find(t => t.category === 'TASK_TYPE');
-    if (fromTaxonomy && (fromTaxonomy as any).cached_values) return (fromTaxonomy as any).cached_values;
-    return ['Documentation', 'Hands-on', 'System Interaction', 'Shadow IT', 'Verification', 'Communication'];
-  }, [taxonomy]);
+    const param = systemParams.find(p => p.key === 'TASK_TYPE');
+    return (param?.is_dynamic ? param.cached_values : param?.manual_values) || ['Documentation', 'Hands-on', 'System Interaction', 'Shadow IT', 'Verification', 'Communication'];
+  }, [systemParams]);
+
+  const hardwareFamilies = useMemo(() => {
+    const param = systemParams.find(p => p.key === 'HARDWARE_FAMILY');
+    if (param) {
+      return ((param.is_dynamic ? param.cached_values : param.manual_values) || []).map((f: any) => typeof f === 'string' ? f : f.label);
+    }
+    return taxonomy.filter(t => t.category === 'ToolType').map(t => t.label);
+  }, [systemParams, taxonomy]);
+
+  const toolIds = useMemo(() => {
+    const param = systemParams.find(p => p.key === 'TOOL_ID');
+    return (param?.is_dynamic ? param.cached_values : param?.manual_values) || [];
+  }, [systemParams]);
+
+  const prcValues = useMemo(() => {
+    const param = systemParams.find(p => p.key === 'PRC');
+    return (param?.is_dynamic ? param.cached_values : param?.manual_values) || [];
+  }, [systemParams]);
+
+  const workflowTypes = useMemo(() => {
+    const param = systemParams.find(p => p.key === 'WORKFLOW_TYPE');
+    return (param?.is_dynamic ? param.cached_values : param?.manual_values) || [];
+  }, [systemParams]);
+
+  const triggerTypes = taxonomy.filter(t => t.category === 'TriggerType');
+  const outputTypes = taxonomy.filter(t => t.category === 'OutputType');
 
   const handleLayout = useCallback((nodesToLayout?: Node[], edgesToLayout?: Edge[]) => {
     try {
@@ -1114,8 +1167,33 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
     saveToHistory();
     const id = `node-${Date.now()}`;
     const center = project({ x: (window.innerWidth - inspectorWidth) / 2, y: window.innerHeight / 2 });
-    const newNode: Node = { id, type: type === 'CONDITION' ? 'diamond' : 'matrix', position: { x: Math.round((center.x - 160) / 10) * 10, y: Math.round((center.y - 140) / 10) * 10 }, data: { label: type === 'TASK' ? 'New Task' : 'New Condition', task_type: type === 'TASK' ? 'Documentation' : 'LOOP', manual_time: 0, automation_time: 0, occurrence: 1, involved_systems: [], validation_needed: false, blockerCount: 0, errorCount: 0, baseFontSize } };
-    const newTask: TaskEntity = { id, node_id: id, name: newNode.data.label, description: '', task_type: newNode.data.task_type, involved_systems: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, occurrence: 1, occurrence_explanation: '', source_data_list: [], output_data_list: [], manual_inputs: [], manual_outputs: [], verification_steps: [], blockers: [], errors: [], tribal_knowledge: [], validation_needed: false, validation_procedure_steps: [], media: [], reference_links: [], instructions: [] };
+    const newNode: Node = { id, type: type === 'CONDITION' ? 'diamond' : 'matrix', position: { x: Math.round((center.x - 160) / 10) * 10, y: Math.round((center.y - 140) / 10) * 10 }, data: { label: type === 'TASK' ? 'New Operational Task' : 'New Process Condition', task_type: type === 'TASK' ? 'System Interaction' : 'LOOP', manual_time: 0, automation_time: 0, occurrence: 1, involved_systems: [], validation_needed: false, blockerCount: 0, errorCount: 0, baseFontSize } };
+    const newTask: TaskEntity = { 
+      id, 
+      node_id: id, 
+      name: newNode.data.label, 
+      description: type === 'TASK' ? 'Describe the operational steps and purpose of this task.' : 'Define the condition being evaluated (e.g., Is value > limit?).', 
+      task_type: newNode.data.task_type, 
+      involved_systems: [], 
+      manual_time_minutes: 0, 
+      automation_time_minutes: 0, 
+      machine_wait_time_minutes: 0, 
+      occurrence: 1, 
+      occurrence_explanation: 'Standard process execution frequency.', 
+      source_data_list: [], 
+      output_data_list: [], 
+      manual_inputs: [], 
+      manual_outputs: [], 
+      verification_steps: [], 
+      blockers: [], 
+      errors: [], 
+      tribal_knowledge: [], 
+      validation_needed: false, 
+      validation_procedure_steps: [], 
+      media: [], 
+      reference_links: [], 
+      instructions: [] 
+    };
     setTasks(prev => [...prev, newTask]);
     setNodes(nds => [...nds, newNode]);
     setSelectedTaskId(id);
@@ -1125,6 +1203,26 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
   const handleSave = () => {
     if (tasks.length === 0) return;
     
+    // Check Workflow Definition first
+    const isWorkflowInvalid = 
+      !metadata.name || metadata.name.length < 2 || 
+      !metadata.description || 
+      !metadata.prc || 
+      !metadata.workflow_type || 
+      !metadata.trigger_type || 
+      !metadata.trigger_description || 
+      !metadata.output_type || 
+      !metadata.output_description || 
+      metadata.tool_family.length === 0 || 
+      metadata.applicable_tools.length === 0;
+
+    if (isWorkflowInvalid) {
+      setValidationError("Workflow Definition is incomplete. Please ensure all mandatory fields (*) are filled.");
+      setShowErrors(true);
+      setSelectedTaskId(null); // Show metadata panel
+      return;
+    }
+
     // Validation
     const invalidTasks = tasks.filter(t => {
       // Basic task validation - Name and Description are REQUIRED by Pydantic
@@ -1146,17 +1244,29 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
       );
       if (hasInvalidErrors) return true;
       
+      // Validation steps - description is REQUIRED if validation is enabled
+      if (t.validation_needed && t.validation_procedure_steps.length > 0) {
+        const hasInvalidSteps = t.validation_procedure_steps.some(s => !s.description || s.description.trim().length === 0);
+        if (hasInvalidSteps) return true;
+      }
+      
       return false;
     });
 
     if (invalidTasks.length > 0) {
-      alert("Please ensure all tasks have a name and description, and all roadblocks/errors have their required fields (*) filled.");
+      setValidationError(`Validation Failed: ${invalidTasks.length} task(s) have missing required fields. Highlighted in red.`);
+      setShowErrors(true);
+      // Select the first invalid task to help the user
+      setSelectedTaskId(invalidTasks[0].id);
       return;
     }
 
     try {
+      const { applicable_tools, ...metaRest } = metadata;
       const finalData = {
-        ...metadata,
+        ...metaRest,
+        tool_family: Array.isArray(metadata.tool_family) ? metadata.tool_family.join(', ') : metadata.tool_family,
+        tool_id: Array.isArray(applicable_tools) ? applicable_tools.join(', ') : applicable_tools,
         tasks: tasks.map(t => {
           const node = nodes.find(n => String(n.id) === String(t.node_id));
           return { 
@@ -1172,6 +1282,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         }))
       };
       onSave(finalData);
+      setValidationError(null);
+      setShowErrors(false);
     } catch (err) {
       console.error("[WorkflowBuilder] Failed to prepare save data:", err);
     }
@@ -1217,6 +1329,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
 
   return (
     <div className="flex h-full w-full bg-[#050914] overflow-hidden">
+      {validationError && (
+        <ValidationMessage 
+          message={validationError} 
+          onClear={() => setValidationError(null)} 
+        />
+      )}
       {/* Existing Output Picker Modal */}
       {isOutputPickerOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-8 bg-black/80 backdrop-blur-sm animate-apple-in">
@@ -1356,11 +1474,14 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               {inspectorTab === 'overview' && (
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">
-                      {selectedTask.interface ? (selectedTask.interface === 'TRIGGER' ? 'Trigger Origin' : 'Outcome Result') : (selectedTask.task_type === 'LOOP' ? 'Condition Nomenclature' : 'Task Nomenclature')}
+                    <label className={cn("text-[9px] font-black uppercase tracking-widest px-1", (showErrors && !selectedTask.name) ? "text-status-error" : "text-white/40")}>
+                      {selectedTask.interface ? (selectedTask.interface === 'TRIGGER' ? 'Trigger Origin *' : 'Outcome Result *') : (selectedTask.task_type === 'LOOP' ? 'Condition Nomenclature *' : 'Operational Title *')}
                     </label>
                     <input 
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[14px] font-bold text-white outline-none focus:border-theme-accent disabled:opacity-50 disabled:cursor-not-allowed" 
+                      className={cn(
+                        "w-full bg-black/40 border rounded-xl px-4 py-3 text-[14px] font-black text-white uppercase focus:border-theme-accent outline-none transition-all",
+                        (showErrors && !selectedTask.name) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10"
+                      )} 
                       value={selectedTask.name} 
                       onChange={e => updateTask(selectedTaskId, { name: e.target.value })} 
                       disabled={isProtected}
@@ -1368,9 +1489,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </div>
                   
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Contextual Description</label>
+                    <label className={cn("text-[9px] font-black uppercase tracking-widest px-1", (showErrors && !selectedTask.description) ? "text-status-error" : "text-white/40")}>Contextual Description *</label>
                     <textarea 
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-medium text-white/60 outline-none focus:border-theme-accent h-32 resize-none disabled:opacity-50" 
+                      className={cn(
+                        "w-full bg-black/40 border rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 h-32 resize-none focus:border-theme-accent outline-none leading-relaxed transition-all",
+                        (showErrors && !selectedTask.description) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10"
+                      )} 
                       value={selectedTask.description} 
                       onChange={e => updateTask(selectedTaskId, { description: e.target.value })} 
                       disabled={isProtected}
@@ -1380,8 +1504,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   {!isProtected && selectedTask.task_type !== 'LOOP' && (
                     <>
                       <div className="space-y-2">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task Logic Type</label>
-                        <select className="w-full bg-white/5 border border-white/10 rounded-xl px-3 h-11 text-[11px] font-black text-white outline-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>{taskTypes.map((t:any) => <option key={t} value={t}>{t}</option>)}</select>
+                        <SearchableSelect 
+                          label="Task Logic Type"
+                          options={taskTypes}
+                          value={selectedTask.task_type}
+                          onChange={val => updateTask(selectedTaskId, { task_type: val })}
+                          placeholder="SELECT TYPE..."
+                        />
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-xl">
@@ -1572,12 +1701,28 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         <NestedCollapsible key={b.id} title={b.blocking_entity || "New Roadblock"} isOpen={openItems[b.id]} toggle={() => toggleItem(b.id)} onDelete={() => updateTask(selectedTaskId, { blockers: selectedTask.blockers.filter(x => x.id !== b.id) })}>
                           <div className="space-y-4">
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Roadblock Entity *</label>
-                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-amber-500" value={b.blocking_entity} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, blocking_entity: e.target.value } : x) })} placeholder="What stops the process?" />
+                              <label className={cn("text-[9px] font-black uppercase tracking-widest px-1", (showErrors && !b.blocking_entity) ? "text-status-error" : "text-white/20")}>Roadblock Entity *</label>
+                              <input 
+                                className={cn(
+                                  "w-full bg-black/40 border rounded-lg p-3 text-[12px] text-white outline-none transition-all",
+                                  (showErrors && !b.blocking_entity) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10 focus:border-amber-500"
+                                )} 
+                                value={b.blocking_entity} 
+                                onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, blocking_entity: e.target.value } : x) })} 
+                                placeholder="What stops the process?" 
+                              />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Root Cause / Reason *</label>
-                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-amber-500" value={b.reason || ''} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, reason: e.target.value } : x) })} placeholder="Why does this happen?" />
+                              <label className={cn("text-[9px] font-black uppercase tracking-widest px-1", (showErrors && !b.reason) ? "text-status-error" : "text-white/20")}>Root Cause / Reason *</label>
+                              <textarea 
+                                className={cn(
+                                  "w-full bg-black/40 border rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none transition-all",
+                                  (showErrors && !b.reason) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10 focus:border-amber-500"
+                                )} 
+                                value={b.reason || ''} 
+                                onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, reason: e.target.value } : x) })} 
+                                placeholder="Why does this happen?" 
+                              />
                             </div>
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Average Delay (Minutes)</label>
@@ -1590,8 +1735,16 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               <input type="range" min="0" max="100" step="5" className="w-full accent-amber-500" value={b.probability_percent || 0} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, probability_percent: parseInt(e.target.value) } : x) })} />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Standard Mitigation *</label>
-                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-amber-500" value={b.standard_mitigation || ''} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, standard_mitigation: e.target.value } : x) })} placeholder="Action to reduce delay..." />
+                              <label className={cn("text-[9px] font-black uppercase tracking-widest px-1", (showErrors && !b.standard_mitigation) ? "text-status-error" : "text-white/20")}>Standard Mitigation *</label>
+                              <textarea 
+                                className={cn(
+                                  "w-full bg-black/40 border rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none transition-all",
+                                  (showErrors && !b.standard_mitigation) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10 focus:border-amber-500"
+                                )} 
+                                value={b.standard_mitigation || ''} 
+                                onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, standard_mitigation: e.target.value } : x) })} 
+                                placeholder="Action to reduce delay..." 
+                              />
                             </div>
                           </div>
                         </NestedCollapsible>
@@ -1606,12 +1759,28 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         <NestedCollapsible key={er.id} title={er.error_type || "New Error"} isOpen={openItems[er.id]} toggle={() => toggleItem(er.id)} onDelete={() => updateTask(selectedTaskId, { errors: selectedTask.errors.filter(x => x.id !== er.id) })}>
                           <div className="space-y-4">
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Error Type *</label>
-                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-status-error" value={er.error_type} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, error_type: e.target.value } : x) })} placeholder="e.g. Data Entry Mistake" />
+                              <label className={cn("text-[9px] font-black uppercase tracking-widest px-1", (showErrors && !er.error_type) ? "text-status-error" : "text-white/20")}>Error Type *</label>
+                              <input 
+                                className={cn(
+                                  "w-full bg-black/40 border rounded-lg p-3 text-[12px] text-white outline-none transition-all",
+                                  (showErrors && !er.error_type) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10 focus:border-status-error"
+                                )} 
+                                value={er.error_type} 
+                                onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, error_type: e.target.value } : x) })} 
+                                placeholder="e.g. Data Entry Mistake" 
+                              />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Error Description *</label>
-                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-status-error" value={er.description || ''} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, description: e.target.value } : x) })} placeholder="What exactly goes wrong?" />
+                              <label className={cn("text-[9px] font-black uppercase tracking-widest px-1", (showErrors && !er.description) ? "text-status-error" : "text-white/20")}>Error Description *</label>
+                              <textarea 
+                                className={cn(
+                                  "w-full bg-black/40 border rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none transition-all",
+                                  (showErrors && !er.description) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10 focus:border-status-error"
+                                )} 
+                                value={er.description || ''} 
+                                onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, description: e.target.value } : x) })} 
+                                placeholder="What exactly goes wrong?" 
+                              />
                             </div>
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Recovery Time (Minutes)</label>
@@ -1673,9 +1842,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             <NestedCollapsible key={step.id} title={`Verification Step ${idx + 1}`} isOpen={openItems[step.id]} toggle={() => toggleItem(step.id)} onDelete={() => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.filter(x => x.id !== step.id) })}>
                               <div className="space-y-4">
                                 <div className="space-y-1">
-                                  <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Description *</label>
+                                  <label className={cn("text-[9px] font-black uppercase tracking-widest px-1", (showErrors && !step.description) ? "text-status-error" : "text-white/20")}>Description *</label>
                                   <textarea 
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[12px] text-white/80 h-24 resize-none outline-none focus:border-orange-500" 
+                                    className={cn(
+                                      "w-full bg-black/40 border rounded-xl p-3 text-[12px] text-white/80 h-24 resize-none outline-none transition-all",
+                                      (showErrors && !step.description) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10 focus:border-orange-500"
+                                    )} 
                                     value={step.description} 
                                     onChange={e => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.map(x => x.id === step.id ? { ...x, description: e.target.value } : x) })} 
                                     placeholder="Describe the verification action..."
@@ -1813,11 +1985,14 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   <div className="apple-card space-y-6 !bg-white/[0.02] border-white/5 p-6 rounded-2xl">
                     <div className="space-y-2">
                       <div className="flex justify-between items-center px-1">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Workflow Name</label>
+                        <label className={cn("text-[9px] font-black uppercase tracking-widest", (showErrors && metadata.name.length < 2) ? "text-status-error" : "text-white/40")}>Workflow Name *</label>
                         <span className="text-[8px] text-white/10 font-mono">{metadata.name.length} / 60</span>
                       </div>
                       <input 
-                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[14px] font-black text-white uppercase focus:border-theme-accent outline-none" 
+                        className={cn(
+                          "w-full bg-black/40 border rounded-xl px-4 py-3 text-[14px] font-black text-white uppercase focus:border-theme-accent outline-none transition-all",
+                          (showErrors && metadata.name.length < 2) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10"
+                        )} 
                         value={metadata.name} 
                         onChange={e => { saveToHistory(); setMetadata({...metadata, name: e.target.value}); }} 
                       />
@@ -1825,11 +2000,14 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
 
                     <div className="space-y-2">
                       <div className="flex justify-between items-center px-1">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Description</label>
+                        <label className={cn("text-[9px] font-black uppercase tracking-widest", (showErrors && !metadata.description) ? "text-status-error" : "text-white/40")}>Description *</label>
                         <span className="text-[8px] text-white/10 font-mono">{metadata.description.length} / 500</span>
                       </div>
                       <textarea 
-                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 h-32 resize-none focus:border-theme-accent outline-none leading-relaxed" 
+                        className={cn(
+                          "w-full bg-black/40 border rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 h-32 resize-none focus:border-theme-accent outline-none leading-relaxed transition-all",
+                          (showErrors && !metadata.description) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10"
+                        )} 
                         value={metadata.description} 
                         onChange={e => { saveToHistory(); setMetadata({...metadata, description: e.target.value}); }} 
                       />
@@ -1837,18 +2015,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
 
                     <div className="grid grid-cols-3 gap-4">
                       <SearchableSelect 
-                        label="PRC"
-                        options={(taxonomy.find(t => t.category === 'PRC') as any)?.cached_values || []}
+                        label="PRC *"
+                        options={prcValues}
                         value={metadata.prc}
                         onChange={val => { saveToHistory(); setMetadata({...metadata, prc: val}); }}
                         placeholder="SELECT PRC..."
+                        error={showErrors && !metadata.prc}
                       />
                       <SearchableSelect 
-                        label="Type"
-                        options={(taxonomy.find(t => t.category === 'WORKFLOW_TYPE') as any)?.cached_values || []}
+                        label="Type *"
+                        options={workflowTypes}
                         value={metadata.workflow_type}
                         onChange={val => { saveToHistory(); setMetadata({...metadata, workflow_type: val}); }}
                         placeholder="SELECT TYPE..."
+                        error={showErrors && !metadata.workflow_type}
                       />
                       <div className="space-y-2">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Occurrence</label>
@@ -1876,20 +2056,22 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
 
                     <div className="grid grid-cols-2 gap-4">
                       <SearchableSelect 
-                        label="Tool Family"
-                        options={(taxonomy.find(t => t.category === 'ToolType') as any)?.cached_values || []}
+                        label="Tool Family *"
+                        options={hardwareFamilies}
                         value={metadata.tool_family}
                         onChange={vals => { saveToHistory(); setMetadata({...metadata, tool_family: vals}); }}
                         placeholder="SELECT FAMILIES..."
                         isMulti
+                        error={showErrors && metadata.tool_family.length === 0}
                       />
                       <SearchableSelect 
-                        label="Applicable Tools"
-                        options={(taxonomy.find(t => t.category === 'TOOL_ID') as any)?.cached_values || []}
+                        label="Applicable Tools *"
+                        options={toolIds}
                         value={metadata.applicable_tools}
                         onChange={vals => { saveToHistory(); setMetadata({...metadata, applicable_tools: vals}); }}
                         placeholder="SELECT TOOLS..."
                         isMulti
+                        error={showErrors && metadata.applicable_tools.length === 0}
                       />
                     </div>
                   </div>
@@ -1903,33 +2085,41 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   <div className="apple-card space-y-6 !bg-white/[0.02] border-white/5 p-6 rounded-2xl">
                     <div className="grid grid-cols-2 gap-4">
                       <SearchableSelect 
-                        label="Trigger Type"
-                        options={(taxonomy.find(t => t.category === 'TriggerType') as any)?.cached_values || []}
+                        label="Trigger Type *"
+                        options={triggerTypes}
                         value={metadata.trigger_type}
                         onChange={val => { saveToHistory(); setMetadata({...metadata, trigger_type: val}); }}
                         placeholder="SELECT TRIGGER..."
+                        error={showErrors && !metadata.trigger_type}
                       />
                       <SearchableSelect 
-                        label="Output Type"
-                        options={(taxonomy.find(t => t.category === 'OutputType') as any)?.cached_values || []}
+                        label="Output Type *"
+                        options={outputTypes}
                         value={metadata.output_type}
                         onChange={val => { saveToHistory(); setMetadata({...metadata, output_type: val}); }}
                         placeholder="SELECT OUTPUT..."
+                        error={showErrors && !metadata.output_type}
                       />
                     </div>
                     <div className="grid grid-cols-1 gap-6 border-t border-white/5 pt-6">
                       <div className="space-y-2">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Trigger Description</label>
+                        <label className={cn("text-[9px] font-black uppercase tracking-widest px-1", (showErrors && !metadata.trigger_description) ? "text-status-error" : "text-white/40")}>Trigger Description *</label>
                         <textarea 
-                          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[11px] font-bold text-white/80 h-24 resize-none focus:border-theme-accent outline-none leading-relaxed" 
+                          className={cn(
+                            "w-full bg-black/40 border rounded-xl px-4 py-3 text-[11px] font-bold text-white/80 h-24 resize-none focus:border-theme-accent outline-none leading-relaxed transition-all",
+                            (showErrors && !metadata.trigger_description) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10"
+                          )} 
                           value={metadata.trigger_description} 
                           onChange={e => { saveToHistory(); setMetadata({...metadata, trigger_description: e.target.value}); }} 
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Output Description</label>
+                        <label className={cn("text-[9px] font-black uppercase tracking-widest px-1", (showErrors && !metadata.output_description) ? "text-status-error" : "text-white/40")}>Output Description *</label>
                         <textarea 
-                          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[11px] font-bold text-white/80 h-24 resize-none focus:border-theme-accent outline-none leading-relaxed" 
+                          className={cn(
+                            "w-full bg-black/40 border rounded-xl px-4 py-3 text-[11px] font-bold text-white/80 h-24 resize-none focus:border-theme-accent outline-none leading-relaxed transition-all",
+                            (showErrors && !metadata.output_description) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10"
+                          )} 
                           value={metadata.output_description} 
                           onChange={e => { saveToHistory(); setMetadata({...metadata, output_description: e.target.value}); }} 
                         />
