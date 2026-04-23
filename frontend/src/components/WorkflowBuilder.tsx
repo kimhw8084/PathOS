@@ -186,7 +186,7 @@ const NestedCollapsible: React.FC<{
   badge?: React.ReactNode;
   isLocked?: boolean;
 }> = ({ title, isOpen, toggle, children, onDelete, badge, isLocked }) => (
-  <div className="bg-white/[0.02] border border-white/5 rounded-md overflow-hidden group/item animate-apple-in mt-2">
+  <div className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden group/item animate-apple-in mt-2">
     <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/5 transition-colors" onClick={toggle}>
       <div className="flex items-center gap-3 min-w-0 flex-1">
         {isOpen ? <ChevronUp size={12} className="text-white/20" /> : <ChevronDown size={12} className="text-white/20" />}
@@ -198,8 +198,13 @@ const NestedCollapsible: React.FC<{
       </div>
       {onDelete && !isLocked && (
         <button 
-          onClick={(e) => { e.stopPropagation(); onDelete(); }} 
-          className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-status-error/20 text-white/20 hover:text-status-error transition-all rounded"
+          onClick={(e) => { 
+            e.stopPropagation(); 
+            if (window.confirm('Are you sure you want to delete this item?')) {
+              onDelete(); 
+            }
+          }} 
+          className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-status-error/20 text-white/20 hover:text-status-error transition-all rounded-lg"
         >
           <Trash size={12} />
         </button>
@@ -239,11 +244,15 @@ const ImagePasteField: React.FC<{
       {label && <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">{label}</label>}
       <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 h-20">
         {figures.map((fig, idx) => (
-          <div key={idx} className="flex-shrink-0 w-24 h-full rounded border border-white/10 overflow-hidden relative group bg-black/40">
+          <div key={idx} className="flex-shrink-0 w-24 h-full rounded-xl border border-white/10 overflow-hidden relative group bg-black/40">
             <img src={fig} className="w-full h-full object-cover" />
             {!isLocked && (
               <button 
-                onClick={() => onPaste(figures.filter((_, i) => i !== idx))}
+                onClick={() => {
+                  if (window.confirm('Delete this figure?')) {
+                    onPaste(figures.filter((_, i) => i !== idx));
+                  }
+                }}
                 className="absolute inset-0 bg-status-error/80 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all"
               >
                 <Trash size={12} className="text-white" />
@@ -255,14 +264,14 @@ const ImagePasteField: React.FC<{
           <div 
             onPaste={handlePaste}
             tabIndex={0}
-            className="flex-shrink-0 w-24 h-full border border-dashed border-white/10 rounded flex flex-col items-center justify-center text-white/20 hover:text-white hover:border-theme-accent transition-all cursor-pointer outline-none focus:border-theme-accent bg-black/20"
+            className="flex-shrink-0 w-24 h-full border border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center text-white/20 hover:text-white hover:border-theme-accent transition-all cursor-pointer outline-none focus:border-theme-accent bg-black/20"
           >
             <Plus size={14} />
             <span className="text-[7px] font-black uppercase mt-1">Paste</span>
           </div>
         )}
         {isLocked && figures.length === 0 && (
-          <div className="flex-shrink-0 w-full h-full border border-white/5 rounded flex items-center justify-center text-white/5 italic text-[10px]">No Figures</div>
+          <div className="flex-shrink-0 w-full h-full border border-white/5 rounded-xl flex items-center justify-center text-white/5 italic text-[10px]">No Figures</div>
         )}
       </div>
     </div>
@@ -779,11 +788,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const deleteTask = useCallback((id: string) => {
     const task = tasks.find(t => t.id === id);
     if (task?.interface) return;
-    setTasks(prev => prev.filter(t => t.id !== id));
-    setNodes(nds => nds.filter(n => n.id !== id));
-    setEdges(eds => eds.filter(e => e.source !== id && e.target !== id));
-    setSelectedTaskId(null);
-    setIsDirty?.(true);
+    if (window.confirm(`Are you sure you want to delete "${task?.name || 'this entity'}"? This cannot be undone.`)) {
+      setTasks(prev => prev.filter(t => t.id !== id));
+      setNodes(nds => nds.filter(n => n.id !== id));
+      setEdges(eds => eds.filter(e => e.source !== id && e.target !== id));
+      setSelectedTaskId(null);
+      setIsDirty?.(true);
+    }
   }, [tasks, setNodes, setEdges, setIsDirty]);
 
   const onAddNode = (type: 'TASK' | 'CONDITION') => {
@@ -919,12 +930,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         <div className="h-14 flex border-b border-white/10 bg-white/[0.02]">
           {[ 
             { id: 'overview', label: 'Overview', icon: <Activity size={12} /> }, 
-            { id: 'data', label: 'Data', icon: <Database size={12} />, hidden: isProtected }, 
-            { id: 'exceptions', label: 'Exceptions', icon: <AlertCircle size={12} />, hidden: isProtected }, 
-            { id: 'validation', label: 'Validation', icon: <Zap size={12} />, hidden: isProtected }, 
-            { id: 'appendix', label: 'Appendix', icon: <Paperclip size={12} />, hidden: isProtected } 
+            { id: 'data', label: 'Data', icon: <Database size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' }, 
+            { id: 'exceptions', label: 'Exceptions', icon: <AlertCircle size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' }, 
+            { id: 'validation', label: 'Validation', icon: <Zap size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' }, 
+            { id: 'appendix', label: 'Appendix', icon: <Paperclip size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' } 
           ].filter(t => !t.hidden && (selectedTaskId || t.id === 'overview')).map(t => (
-            <button key={t.id} onClick={() => setInspectorTab(t.id as any)} className={cn("flex-1 flex flex-col items-center justify-center gap-0.5 border-b-2", inspectorTab === t.id ? 'border-theme-accent bg-theme-accent/10 text-white' : 'border-transparent text-white/20 hover:text-white')}>{t.icon}<span className="text-[8px] font-black uppercase">{t.label}</span></button>
+            <button key={t.id} onClick={() => setInspectorTab(t.id as any)} className={cn("flex-1 flex flex-col items-center justify-center gap-0.5 border-b-2", inspectorTab === t.id ? 'border-theme-accent bg-theme-accent/10 text-white' : 'border-transparent text-white/20 hover:text-white transition-all')}>{t.icon}<span className="text-[8px] font-black uppercase">{t.label}</span></button>
           ))}
           {selectedEdgeId && (<div className="flex-1 flex flex-col items-center justify-center gap-0.5 border-b-2 border-theme-accent bg-theme-accent/10 text-white"><Link2 size={12} /><span className="text-[8px] font-black uppercase">Edge</span></div>)}
         </div>
@@ -938,7 +949,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                       {selectedTask.interface ? (selectedTask.interface === 'TRIGGER' ? 'Trigger Origin' : 'Outcome Result') : (selectedTask.task_type === 'LOOP' ? 'Condition Nomenclature' : 'Task Nomenclature')}
                     </label>
                     <input 
-                      className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-3 text-[14px] font-bold text-white outline-none focus:border-theme-accent disabled:opacity-50 disabled:cursor-not-allowed" 
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[14px] font-bold text-white outline-none focus:border-theme-accent disabled:opacity-50 disabled:cursor-not-allowed" 
                       value={selectedTask.name} 
                       onChange={e => updateTask(selectedTaskId, { name: e.target.value })} 
                       disabled={isProtected}
@@ -948,7 +959,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Contextual Description</label>
                     <textarea 
-                      className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-3 text-[13px] font-medium text-white/60 outline-none focus:border-theme-accent h-32 resize-none disabled:opacity-50" 
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-medium text-white/60 outline-none focus:border-theme-accent h-32 resize-none disabled:opacity-50" 
                       value={selectedTask.description} 
                       onChange={e => updateTask(selectedTaskId, { description: e.target.value })} 
                       disabled={isProtected}
@@ -959,50 +970,57 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                     <>
                       <div className="space-y-2">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task Logic Type</label>
-                        <select className="w-full bg-white/5 border border-white/10 rounded-md px-3 h-11 text-[11px] font-black text-white outline-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>{taskTypes.map((t:any) => <option key={t} value={t}>{t}</option>)}</select>
+                        <select className="w-full bg-white/5 border border-white/10 rounded-xl px-3 h-11 text-[11px] font-black text-white outline-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>{taskTypes.map((t:any) => <option key={t} value={t}>{t}</option>)}</select>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-xl">
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest px-1 text-center block">TAT Manual (m)</label>
-                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[14px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
+                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[14px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-purple-400 uppercase tracking-widest px-1 text-center block">TAT Machine (m)</label>
-                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[14px] font-black text-white outline-none focus:border-purple-400 text-center" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
+                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[14px] font-black text-white outline-none focus:border-purple-400 text-center" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owner Team</label>
-                          <input className="w-full bg-white/5 border border-white/10 rounded-md px-4 h-11 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={selectedTask.owning_team} onChange={e => updateTask(selectedTaskId, { owning_team: e.target.value })} placeholder="Single Team" />
+                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-11 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={selectedTask.owning_team} onChange={e => updateTask(selectedTaskId, { owning_team: e.target.value })} placeholder="Single Team" />
                         </div>
-                        <div className="space-y-2 flex flex-col">
-                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1 mb-2">Owner Positions</label>
-                          <div className="flex-1 space-y-2">
-                             <div className="bg-white/5 border border-white/10 rounded-md overflow-hidden">
-                               <button 
-                                 onClick={() => setOwnerPositionsCollapsed(!ownerPositionsCollapsed)}
-                                 className="w-full px-3 h-11 flex items-center justify-between hover:bg-white/5 transition-colors"
-                               >
-                                 <span className="text-[11px] font-black text-white uppercase tracking-widest">
-                                   {selectedTask.owner_positions?.length || 0} Positions
-                                 </span>
-                                 {ownerPositionsCollapsed ? <ChevronDown size={14} className="text-white/20" /> : <ChevronUp size={14} className="text-white/20" />}
-                               </button>
-                               {!ownerPositionsCollapsed && (
-                                 <div className="p-2 space-y-2 border-t border-white/10 bg-black/20 animate-apple-in">
-                                   {(selectedTask.owner_positions || []).map((pos, idx) => (
-                                     <div key={idx} className="flex gap-2">
-                                       <input className="flex-1 bg-black/40 border border-white/10 rounded px-2 py-1.5 text-[11px] font-bold text-white outline-none" value={pos} onChange={e => updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.map((p, i) => i === idx ? e.target.value : p) })} />
-                                       <button onClick={() => updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.filter((_, i) => i !== idx) })} className="p-1 text-white/20 hover:text-status-error transition-colors"><Trash size={12} /></button>
-                                     </div>
-                                   ))}
-                                   <button onClick={() => updateTask(selectedTaskId, { owner_positions: [...(selectedTask.owner_positions || []), ''] })} className="w-full py-1.5 bg-white/5 border border-white/10 rounded text-[8px] font-black uppercase text-white/40 hover:text-white transition-all">+ Add</button>
-                                 </div>
-                               )}
-                             </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owner Positions</label>
+                          <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                            <button 
+                              onClick={() => setOwnerPositionsCollapsed(!ownerPositionsCollapsed)}
+                              className="w-full px-3 h-11 flex items-center justify-between hover:bg-white/5 transition-colors"
+                            >
+                              <span className="text-[11px] font-black text-white uppercase tracking-widest truncate">
+                                {selectedTask.owner_positions?.length || 0} Positions
+                              </span>
+                              {ownerPositionsCollapsed ? <ChevronDown size={14} className="text-white/20" /> : <ChevronUp size={14} className="text-white/20" />}
+                            </button>
+                            {!ownerPositionsCollapsed && (
+                              <div className="p-2 space-y-2 border-t border-white/10 bg-black/20 animate-apple-in">
+                                {(selectedTask.owner_positions || []).map((pos, idx) => (
+                                  <div key={idx} className="flex gap-2">
+                                    <input className="flex-1 bg-black/40 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] font-bold text-white outline-none" value={pos} onChange={e => updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.map((p, i) => i === idx ? e.target.value : p) })} />
+                                    <button 
+                                      onClick={() => {
+                                        if (window.confirm('Remove this position?')) {
+                                          updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.filter((_, i) => i !== idx) });
+                                        }
+                                      }} 
+                                      className="p-1 text-white/20 hover:text-status-error transition-colors"
+                                    >
+                                      <Trash size={12} />
+                                    </button>
+                                  </div>
+                                ))}
+                                <button onClick={() => updateTask(selectedTaskId, { owner_positions: [...(selectedTask.owner_positions || []), ''] })} className="w-full py-1.5 bg-white/5 border border-white/10 rounded-lg text-[8px] font-black uppercase text-white/40 hover:text-white transition-all">+ Add</button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1013,21 +1031,21 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                           {(selectedTask.involved_systems || []).map(sys => (
                             <NestedCollapsible key={sys.id} title={sys.name || "New System"} isOpen={openItems[sys.id]} toggle={() => toggleItem(sys.id)} onDelete={() => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.filter(x => x.id !== sys.id) })}>
                               <div className="space-y-4">
-                                <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={sys.name} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, name: e.target.value } : x) })} placeholder="System Name" />
-                                <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-theme-accent" value={sys.usage} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, usage: e.target.value } : x) })} placeholder="System Usage / Role" />
+                                <input className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={sys.name} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, name: e.target.value } : x) })} placeholder="System Name" />
+                                <textarea className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-theme-accent" value={sys.usage} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, usage: e.target.value } : x) })} placeholder="System Usage / Role" />
                                 <ImagePasteField figures={sys.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, figures: figs } : x) })} label="Figures (Ctrl+V)" />
-                                <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-theme-accent outline-none" value={sys.link} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, link: e.target.value } : x) })} placeholder="Documentation Link (URL)" />
+                                <input className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[11px] text-theme-accent outline-none" value={sys.link} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, link: e.target.value } : x) })} placeholder="Documentation Link (URL)" />
                               </div>
                             </NestedCollapsible>
                           ))}
-                          <button onClick={() => updateTask(selectedTaskId, { involved_systems: [...(selectedTask.involved_systems || []), { id: Date.now().toString(), name: '', usage: '', figures: [], link: '' }] })} className="w-full py-2.5 bg-white/5 border border-white/10 rounded-lg text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all">+ Add System</button>
+                          <button onClick={() => updateTask(selectedTaskId, { involved_systems: [...(selectedTask.involved_systems || []), { id: Date.now().toString(), name: '', usage: '', figures: [], link: '' }] })} className="w-full py-2.5 bg-white/5 border border-white/10 rounded-xl text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all">+ Add System</button>
                         </div>
                       </div>
                     </>
                   )}
 
                   {!isProtected && (
-                    <div className="pt-6 border-t border-white/5"><button onClick={() => deleteTask(selectedTaskId)} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-md text-[10px] font-black uppercase hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2"><Trash size={12} /> Delete Entity</button></div>
+                    <div className="pt-6 border-t border-white/5"><button onClick={() => deleteTask(selectedTaskId)} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-xl text-[10px] font-black uppercase hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2"><Trash size={12} /> Delete Entity</button></div>
                   )}
                 </div>
               )}
@@ -1225,16 +1243,29 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
               {inspectorTab === 'appendix' && (
                 <div className="space-y-12">
                   <CollapsibleSection title="Internal Reference Links" isOpen={expandedSections.references} toggle={() => toggleSection('references')} count={selectedTask.reference_links.length}>
-                    <div className="space-y-1 pt-4">
+                    <div className="space-y-3 pt-4">
                       {selectedTask.reference_links.map(l => (
-                        <NestedCollapsible key={l.id} title={l.label || "New Link"} isOpen={openItems[l.id]} toggle={() => toggleItem(l.id)} onDelete={() => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.filter(x => x.id !== l.id) })}>
-                          <div className="space-y-3">
-                            <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white outline-none focus:border-theme-accent" value={l.label} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(x => x.id === l.id ? { ...x, label: e.target.value } : x) })} placeholder="Label" />
-                            <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[10px] text-theme-accent outline-none focus:border-theme-accent" value={l.url} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(x => x.id === l.id ? { ...x, url: e.target.value } : x) })} placeholder="URL" />
+                        <div key={l.id} className="flex items-center gap-3 bg-white/[0.02] border border-white/5 rounded-xl p-3 group">
+                          <div className="flex-1 min-w-0">
+                            <input className="w-full bg-transparent border-none p-0 text-[11px] font-black text-white uppercase tracking-widest outline-none" value={l.label} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(x => x.id === l.id ? { ...x, label: e.target.value } : x) })} placeholder="Link Name" />
+                            <div className="flex items-center gap-1.5 mt-1 overflow-hidden">
+                              <Link2 size={10} className="text-theme-accent flex-shrink-0" />
+                              <input className="flex-1 bg-transparent border-none p-0 text-[10px] text-theme-accent underline truncate outline-none" value={l.url} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(x => x.id === l.id ? { ...x, url: e.target.value } : x) })} placeholder="URL" />
+                            </div>
                           </div>
-                        </NestedCollapsible>
+                          <button 
+                            onClick={() => {
+                              if (window.confirm('Delete this reference link?')) {
+                                updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.filter(x => x.id !== l.id) });
+                              }
+                            }} 
+                            className="opacity-0 group-hover:opacity-100 p-2 hover:bg-status-error/20 text-white/20 hover:text-status-error transition-all rounded-lg"
+                          >
+                            <Trash size={12} />
+                          </button>
+                        </div>
                       ))}
-                      <button onClick={() => updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, { id: Date.now().toString(), label: '', url: '' }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl mt-4">+ Add Link</button>
+                      <button onClick={() => updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, { id: Date.now().toString(), label: '', url: '' }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl mt-2">+ Add Link</button>
                     </div>
                   </CollapsibleSection>
                   <CollapsibleSection title="Global Visual Assets" isOpen={expandedSections.assets} toggle={() => toggleSection('assets')} count={selectedTask.media.length}>
@@ -1248,7 +1279,16 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                         <div key={step.id} className="p-4 bg-white/[0.02] border border-white/5 rounded-xl group relative">
                           <div className="flex items-center justify-between mb-3">
                             <span className="text-[10px] font-black text-theme-accent uppercase tracking-widest">Instruction Step {idx + 1}</span>
-                            <button onClick={() => updateTask(selectedTaskId, { instructions: selectedTask.instructions.filter(x => x.id !== step.id) })} className="text-white/10 hover:text-status-error opacity-0 group-hover:opacity-100 transition-all"><Trash size={12} /></button>
+                            <button 
+                              onClick={() => {
+                                if (window.confirm('Delete this instruction step?')) {
+                                  updateTask(selectedTaskId, { instructions: selectedTask.instructions.filter(x => x.id !== step.id) });
+                                }
+                              }} 
+                              className="text-white/10 hover:text-status-error opacity-0 group-hover:opacity-100 transition-all"
+                            >
+                              <Trash size={12} />
+                            </button>
                           </div>
                           <div className="space-y-3">
                             <textarea 
@@ -1326,9 +1366,18 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Workflow Nomenclature</label>
                   {isMetadataEditMode ? (
-                    <input className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-[16px] font-bold text-white uppercase outline-none focus:border-theme-accent" value={metadata.name} onChange={e => setMetadata({...metadata, name: e.target.value})} />
+                    <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[16px] font-bold text-white uppercase outline-none focus:border-theme-accent" value={metadata.name} onChange={e => setMetadata({...metadata, name: e.target.value})} />
                   ) : (
-                    <div className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-[16px] font-bold text-white uppercase">{metadata.name || 'Untitled'}</div>
+                    <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[16px] font-bold text-white uppercase">{metadata.name || 'Untitled'}</div>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Workflow Description</label>
+                  {isMetadataEditMode ? (
+                    <textarea className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-[13px] text-white outline-none focus:border-theme-accent h-32 resize-none" value={metadata.description} onChange={e => setMetadata({...metadata, description: e.target.value})} />
+                  ) : (
+                    <p className="bg-white/[0.02] border border-white/5 rounded-xl p-4 text-[13px] text-white/60 font-medium leading-relaxed italic">{metadata.description || 'No description provided.'}</p>
                   )}
                 </div>
 
@@ -1336,77 +1385,93 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
                   <div className="space-y-2">
                     <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">PRC</label>
                     {isMetadataEditMode ? (
-                      <input className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-2 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={metadata.prc} onChange={e => setMetadata({...metadata, prc: e.target.value})} />
+                      <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={metadata.prc} onChange={e => setMetadata({...metadata, prc: e.target.value})} />
                     ) : (
-                      <div className="bg-white/5 border border-white/10 rounded-md px-4 py-2.5 text-[12px] font-bold text-white uppercase">{metadata.prc || 'N/A'}</div>
+                      <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] font-bold text-white uppercase">{metadata.prc || 'N/A'}</div>
                     )}
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Version</label>
-                    <div className="bg-white/5 border border-white/10 rounded-md px-4 py-2.5 text-[12px] font-bold text-white uppercase">V{metadata.version}</div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Organization</label>
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Type</label>
                     {isMetadataEditMode ? (
-                      <input className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-2 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={metadata.org} onChange={e => setMetadata({...metadata, org: e.target.value})} />
+                      <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={metadata.workflow_type} onChange={e => setMetadata({...metadata, workflow_type: e.target.value})} />
                     ) : (
-                      <div className="bg-white/5 border border-white/10 rounded-md px-4 py-2.5 text-[12px] font-bold text-white uppercase">{metadata.org}</div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Team</label>
-                    {isMetadataEditMode ? (
-                      <input className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-2 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={metadata.team} onChange={e => setMetadata({...metadata, team: e.target.value})} />
-                    ) : (
-                      <div className="bg-white/5 border border-white/10 rounded-md px-4 py-2.5 text-[12px] font-bold text-white uppercase">{metadata.team}</div>
+                      <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] font-bold text-white uppercase">{metadata.workflow_type || 'N/A'}</div>
                     )}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Trigger Type</label>
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Tool Family</label>
                     {isMetadataEditMode ? (
-                      <input className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-2 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={metadata.trigger_type} onChange={e => setMetadata({...metadata, trigger_type: e.target.value})} />
+                      <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={metadata.tool_family} onChange={e => setMetadata({...metadata, tool_family: e.target.value})} />
                     ) : (
-                      <div className="bg-white/5 border border-white/10 rounded-md px-4 py-2.5 text-[12px] font-bold text-cyan-400 uppercase">{metadata.trigger_type}</div>
+                      <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] font-bold text-white uppercase">{metadata.tool_family}</div>
                     )}
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Output Type</label>
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Applicable Tools</label>
                     {isMetadataEditMode ? (
-                      <input className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-2 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={metadata.output_type} onChange={e => setMetadata({...metadata, output_type: e.target.value})} />
+                      <input type="number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={metadata.tool_family_count} onChange={e => setMetadata({...metadata, tool_family_count: parseInt(e.target.value) || 1})} />
                     ) : (
-                      <div className="bg-white/5 border border-white/10 rounded-md px-4 py-2.5 text-[12px] font-bold text-rose-400 uppercase">{metadata.output_type}</div>
+                      <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] font-bold text-white uppercase">{metadata.tool_family_count}</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Trigger</label>
+                    {isMetadataEditMode ? (
+                      <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={metadata.trigger_type} onChange={e => setMetadata({...metadata, trigger_type: e.target.value})} />
+                    ) : (
+                      <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] font-bold text-cyan-400 uppercase">{metadata.trigger_type}</div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Output</label>
+                    {isMetadataEditMode ? (
+                      <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={metadata.output_type} onChange={e => setMetadata({...metadata, output_type: e.target.value})} />
+                    ) : (
+                      <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] font-bold text-rose-400 uppercase">{metadata.output_type}</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Trigger Description</label>
+                    {isMetadataEditMode ? (
+                      <textarea className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-[11px] text-white outline-none focus:border-theme-accent h-20 resize-none" value={metadata.trigger_description} onChange={e => setMetadata({...metadata, trigger_description: e.target.value})} />
+                    ) : (
+                      <p className="bg-white/[0.02] border border-white/5 rounded-xl p-3 text-[11px] text-white/60 font-medium leading-relaxed italic">{metadata.trigger_description || 'N/A'}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Output Description</label>
+                    {isMetadataEditMode ? (
+                      <textarea className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-[11px] text-white outline-none focus:border-theme-accent h-20 resize-none" value={metadata.output_description} onChange={e => setMetadata({...metadata, output_description: e.target.value})} />
+                    ) : (
+                      <p className="bg-white/[0.02] border border-white/5 rounded-xl p-3 text-[11px] text-white/60 font-medium leading-relaxed italic">{metadata.output_description || 'N/A'}</p>
                     )}
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Forensic Description</label>
+                  <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Occurrence (Cadence)</label>
                   {isMetadataEditMode ? (
-                    <textarea className="w-full bg-white/5 border border-white/10 rounded-lg p-4 text-[13px] text-white outline-none focus:border-theme-accent h-32 resize-none" value={metadata.description} onChange={e => setMetadata({...metadata, description: e.target.value})} />
+                    <div className="flex gap-2">
+                      <input type="number" className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[12px] font-bold text-white outline-none focus:border-theme-accent" value={metadata.cadence_count} onChange={e => setMetadata({...metadata, cadence_count: parseInt(e.target.value) || 1})} />
+                      <select className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-[12px] font-bold text-white outline-none" value={metadata.cadence_unit} onChange={e => setMetadata({...metadata, cadence_unit: e.target.value})}>
+                        <option value="day">Day</option>
+                        <option value="week">Week</option>
+                        <option value="month">Month</option>
+                        <option value="year">Year</option>
+                      </select>
+                    </div>
                   ) : (
-                    <p className="bg-white/[0.02] border border-white/5 rounded-lg p-4 text-[13px] text-white/60 font-medium leading-relaxed italic">{metadata.description || 'No description provided.'}</p>
+                    <div className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-[12px] font-bold text-white uppercase">{metadata.cadence_count} PER {metadata.cadence_unit}</div>
                   )}
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 border-t border-white/10 pt-6">
-                  <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-black text-white/20 uppercase">Family</span>
-                    <span className="text-[14px] font-black text-white uppercase">{metadata.tool_family}</span>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-black text-white/20 uppercase">Tools</span>
-                    <span className="text-[14px] font-black text-white uppercase">{metadata.tool_family_count}</span>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-black text-white/20 uppercase">Cadence</span>
-                    <span className="text-[14px] font-black text-white uppercase">{metadata.cadence_count}/{metadata.cadence_unit}</span>
-                  </div>
                 </div>
               </div>
             </div>
