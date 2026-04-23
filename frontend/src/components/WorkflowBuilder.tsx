@@ -4,8 +4,8 @@ import ReactFlow, {
   Position, 
   Background, 
   Controls, 
-  addEdge, 
-  useNodesState, 
+  addEdge,
+  useNodesState,
   useEdgesState,
   MarkerType,
   ConnectionMode,
@@ -15,10 +15,13 @@ import ReactFlow, {
   ConnectionLineType,
   getSmoothStepPath,
   getStraightPath,
+  applyNodeChanges,
   type Connection,
   type Edge,
-  type Node
-} from 'reactflow';
+  type Node,
+  type NodeChange
+  } from 'reactflow';
+
 import dagre from 'dagre';
 import 'reactflow/dist/style.css';
 import { 
@@ -715,7 +718,22 @@ const ConfirmDeleteOverlay: React.FC<{ onConfirm: () => void, onCancel: () => vo
 );
 
 const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, onSave, onBack, onExit, setIsDirty }) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [nodes, setNodes] = useNodesState([]);
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      const filteredChanges = changes.filter(c => {
+        if (c.type === 'remove') {
+          const node = nodes.find(n => n.id === c.id);
+          if (node?.data?.interface === 'TRIGGER' || node?.data?.interface === 'OUTCOME') {
+            return false;
+          }
+        }
+        return true;
+      });
+      setNodes((nds) => applyNodeChanges(filteredChanges, nds));
+    },
+    [setNodes, nodes]
+  );
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const { project, fitView } = useReactFlow();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -1106,13 +1124,47 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
 
   const handleSave = () => {
     if (tasks.length === 0) return;
+    
+    // Validation
+    const invalidTasks = tasks.filter(t => {
+      // Basic task validation - Name and Description are REQUIRED by Pydantic
+      if (!t.name || t.name.trim().length === 0) return true;
+      if (!t.description || t.description.trim().length === 0) return true;
+      
+      // Blocker validation - entity, reason, and mitigation are REQUIRED
+      const hasInvalidBlockers = t.blockers.some(b => 
+        !b.blocking_entity || b.blocking_entity.trim().length === 0 || 
+        !b.reason || b.reason.trim().length === 0 || 
+        !b.standard_mitigation || b.standard_mitigation.trim().length === 0
+      );
+      if (hasInvalidBlockers) return true;
+      
+      // Error validation - type and description are REQUIRED
+      const hasInvalidErrors = t.errors.some(e => 
+        !e.error_type || e.error_type.trim().length === 0 || 
+        !e.description || e.description.trim().length === 0
+      );
+      if (hasInvalidErrors) return true;
+      
+      return false;
+    });
+
+    if (invalidTasks.length > 0) {
+      alert("Please ensure all tasks have a name and description, and all roadblocks/errors have their required fields (*) filled.");
+      return;
+    }
+
     try {
       const finalData = {
         ...metadata,
         tasks: tasks.map(t => {
           const node = nodes.find(n => String(n.id) === String(t.node_id));
           return { 
-            ...t, id: undefined, node_id: String(t.node_id || t.id), position_x: node?.position.x ?? t.position_x ?? 0, position_y: node?.position.y ?? t.position_y ?? 0 
+            ...t, 
+            id: undefined, 
+            node_id: String(t.node_id || t.id), 
+            position_x: node?.position.x ?? t.position_x ?? 0, 
+            position_y: node?.position.y ?? t.position_y ?? 0 
           };
         }),
         edges: edges.map(e => ({ 
@@ -1520,8 +1572,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         <NestedCollapsible key={b.id} title={b.blocking_entity || "New Roadblock"} isOpen={openItems[b.id]} toggle={() => toggleItem(b.id)} onDelete={() => updateTask(selectedTaskId, { blockers: selectedTask.blockers.filter(x => x.id !== b.id) })}>
                           <div className="space-y-4">
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Roadblock Description *</label>
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Roadblock Entity *</label>
                               <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-amber-500" value={b.blocking_entity} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, blocking_entity: e.target.value } : x) })} placeholder="What stops the process?" />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Root Cause / Reason *</label>
+                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-amber-500" value={b.reason || ''} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, reason: e.target.value } : x) })} placeholder="Why does this happen?" />
                             </div>
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Average Delay (Minutes)</label>
@@ -1529,18 +1585,18 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             </div>
                             <div className="space-y-3">
                               <div className="flex justify-between items-center">
-                                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Frequency ({b.frequency || 1} / 10)</label>
+                                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Probability ({b.probability_percent || 0}%)</label>
                               </div>
-                              <input type="range" min="1" max="10" step="1" className="w-full accent-amber-500" value={b.frequency || 1} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, frequency: parseInt(e.target.value) } : x) })} />
+                              <input type="range" min="0" max="100" step="5" className="w-full accent-amber-500" value={b.probability_percent || 0} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, probability_percent: parseInt(e.target.value) } : x) })} />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Mitigation Description</label>
-                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-amber-500" value={b.reason} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, reason: e.target.value } : x) })} placeholder="Action to reduce delay..." />
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Standard Mitigation *</label>
+                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-amber-500" value={b.standard_mitigation || ''} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, standard_mitigation: e.target.value } : x) })} placeholder="Action to reduce delay..." />
                             </div>
                           </div>
                         </NestedCollapsible>
                       ))}
-                      <button onClick={() => updateTask(selectedTaskId, { blockers: [...selectedTask.blockers, { id: Date.now().toString(), blocking_entity: '', reason: '', average_delay_minutes: 0, frequency: 1 }] })} className="w-full py-3 bg-amber-500/10 border border-amber-500/20 text-[10px] font-black uppercase text-amber-500 hover:bg-amber-500/20 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Roadblock</button>
+                      <button onClick={() => updateTask(selectedTaskId, { blockers: [...selectedTask.blockers, { id: Date.now().toString(), blocking_entity: '', reason: '', standard_mitigation: '', average_delay_minutes: 0, probability_percent: 10 }] })} className="w-full py-3 bg-amber-500/10 border border-amber-500/20 text-[10px] font-black uppercase text-amber-500 hover:bg-amber-500/20 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Roadblock</button>
                     </div>
                   </CollapsibleSection>
 
@@ -1550,42 +1606,36 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         <NestedCollapsible key={er.id} title={er.error_type || "New Error"} isOpen={openItems[er.id]} toggle={() => toggleItem(er.id)} onDelete={() => updateTask(selectedTaskId, { errors: selectedTask.errors.filter(x => x.id !== er.id) })}>
                           <div className="space-y-4">
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Error Description *</label>
-                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-status-error" value={er.error_type} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, error_type: e.target.value } : x) })} placeholder="Describe the common human error" />
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Error Type *</label>
+                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-status-error" value={er.error_type} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, error_type: e.target.value } : x) })} placeholder="e.g. Data Entry Mistake" />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Recovery (Minutes)</label>
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Error Description *</label>
+                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-status-error" value={er.description || ''} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, description: e.target.value } : x) })} placeholder="What exactly goes wrong?" />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Recovery Time (Minutes)</label>
                               <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[12px] text-white" value={er.recovery_time_minutes || 0} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, recovery_time_minutes: parseFloat(e.target.value) || 0 } : x) })} />
                             </div>
                             <div className="space-y-3">
                               <div className="flex justify-between items-center">
-                                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Frequency ({er.frequency || 1} / 10)</label>
+                                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Probability ({er.probability_percent || 0}%)</label>
                               </div>
-                              <input type="range" min="1" max="10" step="1" className="w-full accent-status-error" value={er.frequency || 1} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, frequency: parseInt(e.target.value) } : x) })} />
+                              <input type="range" min="0" max="100" step="5" className="w-full accent-status-error" value={er.probability_percent || 0} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, probability_percent: parseInt(e.target.value) } : x) })} />
                             </div>
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Correction Method</label>
                               <textarea 
                                 className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-32 resize-none outline-none focus:border-status-error" 
-                                value={er.description} 
-                                onBlur={(e) => {
-                                  const lines = e.target.value.split('\n').filter(l => l.trim());
-                                  if (lines.length > 1) {
-                                    const numbered = lines.map((l, i) => {
-                                      const clean = l.replace(/^\d+\.\s*/, '');
-                                      return `${i + 1}. ${clean}`;
-                                    }).join('\n');
-                                    updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, description: numbered } : x) });
-                                  }
-                                }}
-                                onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, description: e.target.value } : x) })}
-                                placeholder="Steps to correct this error (auto-numbered if multiple lines)..." 
+                                value={er.correction_method || ''} 
+                                onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, correction_method: e.target.value } : x) })}
+                                placeholder="Steps to correct this error..." 
                               />
                             </div>
                           </div>
                         </NestedCollapsible>
                       ))}
-                      <button onClick={() => updateTask(selectedTaskId, { errors: [...selectedTask.errors, { id: Date.now().toString(), error_type: '', description: '', recovery_time_minutes: 0, frequency: 1 }] })} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-[10px] font-black uppercase text-status-error hover:bg-status-error/20 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Human Error</button>
+                      <button onClick={() => updateTask(selectedTaskId, { errors: [...selectedTask.errors, { id: Date.now().toString(), error_type: '', description: '', recovery_time_minutes: 0, probability_percent: 5, correction_method: '' }] })} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-[10px] font-black uppercase text-status-error hover:bg-status-error/20 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Human Error</button>
                     </div>
                   </CollapsibleSection>
 
