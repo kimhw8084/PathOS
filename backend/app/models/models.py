@@ -29,6 +29,11 @@ class Workflow(Base, BaseMixin):
     __tablename__ = "workflows"
     name = Column(String, index=True)
     version = Column(Integer, default=1)
+    workspace = Column(String, default="Submitted Requests")
+    parent_workflow_id = Column(Integer, ForeignKey("workflows.id"), nullable=True)
+    version_group = Column(String, nullable=True)
+    version_notes = Column(Text, nullable=True)
+    version_base_snapshot = Column(JSON, nullable=True)
     prc = Column(String, nullable=True) # New Field
     workflow_type = Column(String, nullable=True) # New Field (e.g. SPC, FDC, OOC)
     tool_family = Column(String, nullable=True) # e.g. [CD-SEM], [Overlay]
@@ -52,11 +57,18 @@ class Workflow(Base, BaseMixin):
     output_type = Column(String) 
     output_description = Column(Text)
     repeatability_check = Column(Boolean, default=True)
+    equipment_required = Column(Boolean, default=False)
+    equipment_state = Column(String, nullable=True)
+    cleanroom_required = Column(Boolean, default=False)
     
     # Metadata & Health
     status = Column(String, default=AutomationStatus.CREATED.value)
     flow_summary = Column(Text, nullable=True) # Trigger -> Output preview
     edges = Column(JSON, nullable=True) # Graph edges
+    access_control = Column(JSON, nullable=True)
+    comments = Column(JSON, nullable=True)
+    analysis = Column(JSON, nullable=True)
+    simulation = Column(JSON, nullable=True)
     
     # ROI Metrics (Cached/Calculated)
     total_roi_saved_hours = Column(Float, default=0.0)
@@ -120,6 +132,7 @@ class Task(Base, BaseMixin):
     media = Column(JSON, nullable=True) # List of image/file references
     reference_links = Column(JSON, nullable=True)
     instructions = Column(JSON, nullable=True) # New Field: List of objects {step, description, image, links}
+    diagnostics = Column(JSON, nullable=True)
     
     order_index = Column(Integer, default=0)
     

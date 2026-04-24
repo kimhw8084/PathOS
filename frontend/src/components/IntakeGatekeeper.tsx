@@ -199,21 +199,38 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
   const [systemParams, setSystemParams] = useState<any[]>([]);
   const [isRegular, setIsRegular] = useState<boolean | null>(initialData ? true : null);
   const [showErrors, setShowErrors] = useState(false);
+  const workspaceOptions = ['Personal Drafts', 'Submitted Requests', 'Collaborative Workflows', 'Standard Operations'];
+  const collaboratorDirectory = ['Haewon Kim', 'Automation Team', 'Metrology SME', 'Yield Engineering'];
   
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
     description: initialData?.description || initialData?.forensic_description || '',
+    workspace: initialData?.workspace || 'Personal Drafts',
+    version_notes: initialData?.version_notes || '',
+    parent_workflow_id: initialData?.parent_workflow_id || null,
+    version_base_snapshot: initialData?.version_base_snapshot || null,
     prc: initialData?.prc || '',
     workflow_type: initialData?.workflow_type || '',
     trigger_type: initialData?.trigger_type || '',
     trigger_description: initialData?.trigger_description || '',
     output_type: initialData?.output_type || '',
     output_description: initialData?.output_description || '',
+    equipment_required: initialData?.equipment_required || false,
+    equipment_state: initialData?.equipment_state || '',
+    cleanroom_required: initialData?.cleanroom_required || false,
     cadence_count: initialData?.cadence_count || 1.0,
     cadence_unit: initialData?.cadence_unit || 'week',
     tool_family: initialData?.tool_family ? (typeof initialData.tool_family === 'string' ? initialData.tool_family.split(', ') : initialData.tool_family) : [] as string[],
     applicable_tools: initialData?.tool_id ? (typeof initialData.tool_id === 'string' ? initialData.tool_id.split(', ') : initialData.tool_id) : [] as string[],
-    repeatability_check: true
+    repeatability_check: true,
+    access_control: initialData?.access_control || {
+      visibility: initialData?.workspace === 'Collaborative Workflows' ? 'workspace' : initialData?.workspace === 'Standard Operations' ? 'org' : 'private',
+      viewers: [],
+      editors: [],
+      mention_groups: [],
+      owner: 'Haewon Kim'
+    },
+    comments: initialData?.comments || []
   });
 
   useEffect(() => {
@@ -292,11 +309,26 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
       trigger_description: '',
       output_type: '',
       output_description: '',
+      workspace: 'Personal Drafts',
+      version_notes: '',
+      parent_workflow_id: null,
+      version_base_snapshot: null,
+      equipment_required: false,
+      equipment_state: '',
+      cleanroom_required: false,
       cadence_count: 1.0,
       cadence_unit: 'week',
       tool_family: [],
       applicable_tools: [],
-      repeatability_check: true
+      repeatability_check: true,
+      access_control: {
+        visibility: 'private',
+        viewers: [],
+        editors: [],
+        mention_groups: [],
+        owner: 'Haewon Kim'
+      },
+      comments: []
     });
     if (onRestart) onRestart();
   };
@@ -328,6 +360,15 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
       </div>
 
       <div className="space-y-8">
+        {formData.parent_workflow_id && (
+          <section className="apple-card !bg-amber-500/5 border-amber-500/20 p-5 flex items-center justify-between gap-4">
+            <div className="space-y-1">
+              <p className="text-[9px] font-black uppercase tracking-[0.25em] text-amber-400">Version Draft</p>
+              <p className="text-[12px] font-bold text-white/80">This intake was seeded from workflow #{formData.parent_workflow_id}. Changes will be tracked as a new editable draft.</p>
+            </div>
+          </section>
+        )}
+
         {/* Validation Questionnaire Inline */}
         <section className="apple-card !bg-theme-accent/5 border-theme-accent/20 p-8 flex flex-col items-center text-center gap-6">
            <div className="space-y-2">
@@ -409,6 +450,13 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
 
               <div className="grid grid-cols-3 gap-6">
                 <SearchableSelect 
+                  label="Workspace"
+                  options={workspaceOptions}
+                  value={formData.workspace}
+                  onChange={val => setFormData({...formData, workspace: val})}
+                  placeholder="SELECT WORKSPACE..."
+                />
+                <SearchableSelect 
                   label="PRC"
                   options={prcValues}
                   value={formData.prc}
@@ -449,6 +497,38 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
               </div>
 
               <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[9px] text-white/40 font-black uppercase tracking-[0.2em] px-1">Version Notes</label>
+                  <textarea
+                    className="w-full bg-[#1e293b]/50 border border-white/10 rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 outline-none h-24 resize-none focus:border-theme-accent transition-all"
+                    value={formData.version_notes}
+                    onChange={e => setFormData({...formData, version_notes: e.target.value})}
+                    placeholder="Describe why this draft or version is being created..."
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <button onClick={() => setFormData({...formData, equipment_required: !formData.equipment_required})} className={cn("border rounded-xl px-4 py-3 text-left transition-all", formData.equipment_required ? "border-theme-accent bg-theme-accent/10 text-white" : "border-white/10 bg-[#1e293b]/40 text-white/50")}>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em]">Equipment Involved</p>
+                    <p className="text-[12px] font-bold mt-2">{formData.equipment_required ? 'Enabled' : 'Not Required'}</p>
+                  </button>
+                  <button onClick={() => setFormData({...formData, cleanroom_required: !formData.cleanroom_required})} className={cn("border rounded-xl px-4 py-3 text-left transition-all", formData.cleanroom_required ? "border-theme-accent bg-theme-accent/10 text-white" : "border-white/10 bg-[#1e293b]/40 text-white/50")}>
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em]">Cleanroom</p>
+                    <p className="text-[12px] font-bold mt-2">{formData.cleanroom_required ? 'Required' : 'No'}</p>
+                  </button>
+                  <div className="col-span-2">
+                    <SearchableSelect
+                      label="Equipment State"
+                      options={['Idle', 'Local', 'Run', 'Down']}
+                      value={formData.equipment_state}
+                      onChange={val => setFormData({...formData, equipment_state: val})}
+                      placeholder="SELECT STATE..."
+                      disabled={!formData.equipment_required}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
                 <SearchableSelect 
                   label="Tool Family"
                   options={hardwareFamilies}
@@ -472,7 +552,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
           </section>
 
           {/* Section 2: Trigger & Output */}
-          <section className="space-y-4 relative z-[1]">
+	          <section className="space-y-4 relative z-[1]">
             <div className="flex items-center gap-3 text-theme-accent font-black px-1">
               <Zap size={16} />
               <span className="text-[11px] tracking-[0.2em] uppercase">Trigger & Output</span>
@@ -533,10 +613,43 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                   />
                 </div>
               </div>
-            </div>
-          </section>
+	            </div>
+	          </section>
 
-          <div className="pt-8 border-t border-white/10 flex flex-col items-center gap-4">
+            <section className="space-y-4">
+              <div className="flex items-center gap-3 text-theme-accent font-black px-1">
+                <ShieldAlert size={16} />
+                <span className="text-[11px] tracking-[0.2em] uppercase">Collaboration Controls</span>
+              </div>
+              <div className="apple-card space-y-6 !bg-[#111827]/40 border-white/10 p-6">
+                <div className="grid grid-cols-3 gap-6">
+                  <SearchableSelect
+                    label="Visibility"
+                    options={['private', 'workspace', 'org']}
+                    value={formData.access_control.visibility}
+                    onChange={val => setFormData({...formData, access_control: { ...formData.access_control, visibility: val }})}
+                  />
+                  <SearchableSelect
+                    label="Editors"
+                    options={collaboratorDirectory}
+                    value={formData.access_control.editors}
+                    onChange={vals => setFormData({...formData, access_control: { ...formData.access_control, editors: vals }})}
+                    isMulti
+                    placeholder="SELECT EDITORS..."
+                  />
+                  <SearchableSelect
+                    label="Mention Groups"
+                    options={['Automation Team', 'Metrology SME', 'Yield Engineering']}
+                    value={formData.access_control.mention_groups}
+                    onChange={vals => setFormData({...formData, access_control: { ...formData.access_control, mention_groups: vals }})}
+                    isMulti
+                    placeholder="SELECT GROUPS..."
+                  />
+                </div>
+              </div>
+            </section>
+
+	          <div className="pt-8 border-t border-white/10 flex flex-col items-center gap-4">
             <button 
               onClick={handleFinalize}
               className="bg-theme-accent hover:bg-blue-500 text-white !px-16 !py-4 !rounded-xl shadow-xl disabled:opacity-20 group flex items-center gap-4 text-base font-black uppercase tracking-widest transition-all active:scale-[0.98]"

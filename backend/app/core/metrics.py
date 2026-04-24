@@ -1,6 +1,7 @@
 from ..models.models import Task, Workflow
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
+from .workflow_analysis import analyze_workflow
 
 async def calculate_task_roi_contribution(task: Task) -> float:
     """
@@ -73,6 +74,14 @@ async def update_workflow_roi(workflow: Workflow):
         scale = 0.0192 # 1 / 52.14
     
     weekly_frequency = cadence_count * scale
+    analysis = analyze_workflow(workflow)
+    critical_path_minutes = analysis.get("critical_path_minutes", 0.0) or 0.0
+    has_routable_graph = bool(getattr(workflow, "edges", None))
+    if has_routable_graph and critical_path_minutes > 0:
+        total_task_minutes = critical_path_minutes
+
+    workflow.analysis = analysis
+    workflow.simulation = analysis.get("simulation", {})
     # Result in Hours per Week
     workflow.total_roi_saved_hours = (total_task_minutes * weekly_frequency) / 60.0
     return workflow.total_roi_saved_hours

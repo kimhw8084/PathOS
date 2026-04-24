@@ -3,6 +3,7 @@ import asyncio
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 import logging
 import traceback
 from contextlib import asynccontextmanager
@@ -16,6 +17,8 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()]
 )
 logger = logging.getLogger("PathOS")
+UPLOAD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "uploads"))
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 async def hourly_parameter_task():
     while True:
@@ -114,12 +117,14 @@ async def api_root():
 async def health_check():
     return {"status": "healthy", "service": "PathOS", "version": "1.0.0"}
 
-from .api import workflows, taxonomy, tasks, settings
+from .api import workflows, taxonomy, tasks, settings, media
 
 app.include_router(workflows.router, prefix="/api/workflows", tags=["Workflows"])
 app.include_router(taxonomy.router, prefix="/api/taxonomy", tags=["Taxonomy"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks"])
 app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
+app.include_router(media.router, prefix="/api/media", tags=["Media"])
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 if __name__ == "__main__":
     import uvicorn

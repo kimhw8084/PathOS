@@ -42,7 +42,9 @@ interface WorkflowRegistryProps {
   onSelect: (wf: any) => void;
   onDelete: (id: number) => void;
   onRestore: (id: number) => void;
-  onCreateNew?: () => void;
+  onCreateNew?: (workspace?: string) => void;
+  onClone?: (wf: any) => void;
+  onCreateVersion?: (wf: any) => void;
 }
 
 // Automation Status Enum from Backend with Explanations
@@ -346,7 +348,7 @@ const EquipmentTooltip = ({ label, equipment, fontSize }: { label: string, equip
   );
 };
 
-const ActionMenu = ({ data, onSelect, onDelete, onRestore }: { data: any, onSelect: (wf: any) => void, onDelete: (id: number) => void, onRestore: (id: number) => void }) => (
+const ActionMenu = ({ data, onSelect, onDelete, onRestore, onClone, onCreateVersion }: { data: any, onSelect: (wf: any) => void, onDelete: (id: number) => void, onRestore: (id: number) => void, onClone?: (wf: any) => void, onCreateVersion?: (wf: any) => void }) => (
   <Popover.Root>
     <Popover.Trigger asChild>
       <button className="p-2 hover:bg-white/10 rounded-lg transition-all text-theme-muted hover:text-white">
@@ -359,10 +361,10 @@ const ActionMenu = ({ data, onSelect, onDelete, onRestore }: { data: any, onSele
           <button onClick={() => onSelect(data)} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg text-theme-secondary hover:text-white transition-all text-[11px] font-bold group text-left">
             <Eye size={14} className="group-hover:text-theme-accent" /> View Logic
           </button>
-          <button className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg text-theme-secondary hover:text-white transition-all text-[11px] font-bold group text-left">
+          <button onClick={() => onClone?.(data)} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg text-theme-secondary hover:text-white transition-all text-[11px] font-bold group text-left">
             <Copy size={14} className="group-hover:text-theme-accent" /> Clone Logic
           </button>
-          <button className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg text-theme-secondary hover:text-white transition-all text-[11px] font-bold group text-left">
+          <button onClick={() => onCreateVersion?.(data)} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg text-theme-secondary hover:text-white transition-all text-[11px] font-bold group text-left">
             <GitBranch size={14} className="group-hover:text-theme-accent" /> Fork Version
           </button>
           <div className="h-[1px] bg-white/5 my-1 mx-2" />
@@ -381,7 +383,7 @@ const ActionMenu = ({ data, onSelect, onDelete, onRestore }: { data: any, onSele
   </Popover.Root>
 );
 
-const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect, onDelete, onRestore, onCreateNew }) => {
+const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect, onDelete, onRestore, onCreateNew, onClone, onCreateVersion }) => {
   const [searchText, setSearchText] = useState('');
   const [filters, setFilters] = useState<any>({
     prc: [],
@@ -441,6 +443,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
       const isDeleted = w.is_deleted;
       if (viewTab === 'active' && isDeleted) return false;
       if (viewTab === 'deleted' && !isDeleted) return false;
+      if ((w.workspace || 'Submitted Requests') !== activeRibbon) return false;
       
       const matchSearch = w.name?.toLowerCase().includes(searchText.toLowerCase()) || 
                          (w.prc && w.prc.toLowerCase().includes(searchText.toLowerCase())) ||
@@ -465,7 +468,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     }
 
     return result;
-  }, [workflows, searchText, filters, sortConfig, viewTab]);
+  }, [workflows, searchText, filters, sortConfig, viewTab, activeRibbon]);
 
   const handleSort = (key: string) => {
     setSortConfig(prev => ({
@@ -569,7 +572,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
           </button>
           <div className="w-[1px] h-6 bg-theme-border mx-1" />
           <button 
-            onClick={onCreateNew}
+            onClick={() => onCreateNew?.(activeRibbon)}
             className="btn-apple-primary h-10 !px-6 flex items-center gap-2"
           >
             <Plus size={16} strokeWidth={3} />
@@ -832,7 +835,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
 
                       <td className="p-0 text-right sticky right-0 bg-[#0a1120] group-hover:bg-[#151d2e] shadow-[-2px_0_5px_rgba(0,0,0,0.3)] z-10 transition-colors" style={{ padding: `${density.rowPadding}px 0` }}>
                         <div className="flex justify-center items-center w-full h-full">
-                          <ActionMenu data={w} onSelect={onSelect} onDelete={onDelete} onRestore={onRestore} />
+                          <ActionMenu data={w} onSelect={onSelect} onDelete={onDelete} onRestore={onRestore} onClone={onClone} onCreateVersion={onCreateVersion} />
                         </div>
                       </td>
                     </tr>

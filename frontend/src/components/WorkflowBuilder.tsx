@@ -16,6 +16,7 @@ import ReactFlow, {
   getSmoothStepPath,
   getStraightPath,
   applyNodeChanges,
+  applyEdgeChanges,
   type Connection,
   type Edge,
   type Node,
@@ -53,7 +54,7 @@ import {
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { SearchableSelect } from './IntakeGatekeeper';
-import { settingsApi } from '../api/client';
+import { mediaApi, settingsApi } from '../api/client';
 
 /**
  * Utility for tailwind class merging
@@ -117,6 +118,7 @@ interface DataItem {
   data_example: string;
   from_task_id?: string;
   from_task_name?: string;
+  orphaned_input?: boolean;
 }
 
 interface ValidationStep {
@@ -155,7 +157,312 @@ interface TaskEntity {
   position_y?: number;
   owning_team?: string;
   owner_positions?: string[];
+  diagnostics?: Record<string, any>;
 }
+
+interface WorkflowComment {
+  id: string;
+  scope: 'workflow' | 'task' | 'section';
+  scope_id?: string;
+  author: string;
+  message: string;
+  mentions: string[];
+  created_at: string;
+  resolved: boolean;
+}
+
+interface AccessControlConfig {
+  visibility: string;
+  viewers: string[];
+  editors: string[];
+  mention_groups: string[];
+  owner: string;
+}
+
+interface WorkflowSimulation {
+  best_case_minutes: number;
+  worst_case_minutes: number;
+  critical_path_minutes: number;
+  critical_path_nodes: string[];
+  path_count: number;
+}
+
+interface WorkflowAnalysis {
+  has_cycle: boolean;
+  cycle_nodes: string[];
+  disconnected_nodes: string[];
+  unreachable_nodes: string[];
+  malformed_logic_nodes: string[];
+  orphaned_inputs: string[];
+  critical_path_minutes: number;
+  critical_path_hours: number;
+  critical_path_nodes: string[];
+  shift_handoff_risk: boolean;
+  diff_summary: {
+    added_nodes: string[];
+    removed_nodes: string[];
+    modified_nodes: string[];
+    has_changes: boolean;
+  };
+  diagnostics: Record<string, any>;
+}
+
+interface WorkflowMetadata {
+  name: string;
+  version: number;
+  workspace: string;
+  parent_workflow_id: number | null;
+  version_group?: string;
+  version_notes: string;
+  version_base_snapshot?: any;
+  description: string;
+  prc: string;
+  workflow_type: string;
+  tool_family: string[];
+  applicable_tools: string[];
+  trigger_type: string;
+  trigger_description: string;
+  output_type: string;
+  output_description: string;
+  cadence_count: number;
+  cadence_unit: string;
+  repeatability_check: boolean;
+  equipment_required: boolean;
+  equipment_state: string;
+  cleanroom_required: boolean;
+  access_control: AccessControlConfig;
+  comments: WorkflowComment[];
+  analysis?: WorkflowAnalysis;
+  simulation?: WorkflowSimulation;
+}
+
+interface WorkflowBuilderProps {
+  workflow: any;
+  taxonomy: any[];
+  onSave: (data: any) => void | Promise<void>;
+  onBack: (currentData?: any) => void;
+  onExit: () => void;
+  setIsDirty: (value: boolean) => void;
+}
+
+const createLocalId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+const WORKSPACE_OPTIONS = ['Personal Drafts', 'Submitted Requests', 'Collaborative Workflows', 'Standard Operations'];
+const MENTION_OPTIONS = ['Haewon Kim', 'Automation Team', 'Metrology SME', 'Yield Engineering'];
+
+const cloneTaskEntity = (task: TaskEntity, nodeId: string): TaskEntity => ({
+  ...task,
+  id: nodeId,
+  node_id: nodeId,
+  blockers: (task.blockers || []).map((blocker: any) => ({ ...blocker, id: createLocalId('blocker') })),
+  errors: (task.errors || []).map((error: any) => ({ ...error, id: createLocalId('error') })),
+  involved_systems: (task.involved_systems || []).map((system) => ({ ...system, id: createLocalId('system') })),
+  source_data_list: (task.source_data_list || []).map((item) => ({ ...item, id: createLocalId('input') })),
+  output_data_list: (task.output_data_list || []).map((item) => ({ ...item, id: createLocalId('output') })),
+  media: (task.media || []).map((media) => ({ ...media, id: createLocalId('media') })),
+  reference_links: (task.reference_links || []).map((link) => ({ ...link, id: createLocalId('ref') })),
+  instructions: (task.instructions || []).map((instruction) => ({ ...instruction, id: createLocalId('instruction') })),
+  validation_procedure_steps: (task.validation_procedure_steps || []).map((step) => ({ ...step, id: createLocalId('validation') })),
+});
+
+const buildLocalAnalysis = (tasks: TaskEntity[], edges: Edge[], metadata: WorkflowMetadata): { analysis: WorkflowAnalysis, simulation: WorkflowSimulation } => {
+  const taskMap = new Map(tasks.map(task => [String(task.node_id || task.id), task]));
+  const validEdges = edges.filter(edge => taskMap.has(String(edge.source)) && taskMap.has(String(edge.target)));
+  const adjacency = new Map<string, string[]>();
+  const reverseAdjacency = new Map<string, string[]>();
+  const indegree = new Map<string, number>();
+  const edgeLabelMap = new Map<string, string>();
+
+  for (const nodeId of taskMap.keys()) {
+    adjacency.set(nodeId, []);
+    reverseAdjacency.set(nodeId, []);
+    indegree.set(nodeId, 0);
+  }
+
+  for (const edge of validEdges) {
+    const source = String(edge.source);
+    const target = String(edge.target);
+    adjacency.get(source)?.push(target);
+    reverseAdjacency.get(target)?.push(source);
+    indegree.set(target, (indegree.get(target) || 0) + 1);
+    edgeLabelMap.set(edge.id, String(edge.data?.label || '').trim().toLowerCase());
+  }
+
+  const visited = new Set<string>();
+  const stack = new Set<string>();
+  const cycleNodes = new Set<string>();
+  const dfsCycle = (nodeId: string) => {
+    if (stack.has(nodeId)) {
+      cycleNodes.add(nodeId);
+      return;
+    }
+    if (visited.has(nodeId)) return;
+    visited.add(nodeId);
+    stack.add(nodeId);
+    for (const neighbor of adjacency.get(nodeId) || []) {
+      if (stack.has(neighbor)) {
+        cycleNodes.add(nodeId);
+        cycleNodes.add(neighbor);
+      } else {
+        dfsCycle(neighbor);
+      }
+    }
+    stack.delete(nodeId);
+  };
+  for (const nodeId of taskMap.keys()) dfsCycle(nodeId);
+
+  const triggerNodes = [...taskMap.entries()].filter(([, task]) => task.interface === 'TRIGGER').map(([id]) => id);
+  const outcomeNodes = [...taskMap.entries()].filter(([, task]) => task.interface === 'OUTCOME').map(([id]) => id);
+  const roots = triggerNodes.length > 0 ? triggerNodes : [...indegree.entries()].filter(([, degree]) => degree === 0).map(([id]) => id);
+  const reachable = new Set<string>();
+  const queue = [...roots];
+  while (queue.length > 0) {
+    const nodeId = queue.shift()!;
+    if (reachable.has(nodeId)) continue;
+    reachable.add(nodeId);
+    queue.push(...(adjacency.get(nodeId) || []));
+  }
+  const sinks = outcomeNodes.length > 0 ? outcomeNodes : [...taskMap.keys()].filter(nodeId => (adjacency.get(nodeId) || []).length === 0);
+  const backReachable = new Set<string>();
+  const reverseQueue = [...sinks];
+  while (reverseQueue.length > 0) {
+    const nodeId = reverseQueue.shift()!;
+    if (backReachable.has(nodeId)) continue;
+    backReachable.add(nodeId);
+    reverseQueue.push(...(reverseAdjacency.get(nodeId) || []));
+  }
+
+  const disconnectedNodes = [...taskMap.keys()].filter(nodeId => !reachable.has(nodeId) || !backReachable.has(nodeId));
+  const unreachableNodes = [...taskMap.keys()].filter(nodeId => !reachable.has(nodeId));
+
+  const malformedLogicNodes = [...taskMap.entries()].filter(([, task]) => task.task_type === 'LOOP').map(([nodeId]) => {
+    const outgoing = validEdges.filter(edge => String(edge.source) === nodeId);
+    const labels = outgoing.map(edge => edgeLabelMap.get(edge.id) || '');
+    return outgoing.length === 2 && labels.includes('true') && labels.includes('false') ? null : nodeId;
+  }).filter(Boolean) as string[];
+
+  const outputIds = new Set(tasks.flatMap(task => (task.output_data_list || []).map(output => String(output.id))));
+  const orphanedInputs = tasks.filter(task => (task.source_data_list || []).some(input => input.from_task_id && !outputIds.has(String(input.from_task_id)))).map(task => String(task.id));
+
+  const topo = [...indegree.entries()].filter(([, degree]) => degree === 0).map(([id]) => id);
+  const order: string[] = [];
+  const indegreeClone = new Map(indegree);
+  while (topo.length > 0) {
+    const nodeId = topo.shift()!;
+    order.push(nodeId);
+    for (const neighbor of adjacency.get(nodeId) || []) {
+      indegreeClone.set(neighbor, (indegreeClone.get(neighbor) || 1) - 1);
+      if ((indegreeClone.get(neighbor) || 0) === 0) topo.push(neighbor);
+    }
+  }
+
+  const taskWeight = (task: TaskEntity, includeRisk = false) => {
+    const base = ((task.manual_time_minutes || 0) + Math.max(task.machine_wait_time_minutes || 0, task.automation_time_minutes || 0)) * (task.occurrence || 1);
+    if (!includeRisk) return base;
+    const errorPenalty = (task.errors || []).reduce((sum: number, error: any) => sum + ((error.probability_percent || 0) / 100) * (error.recovery_time_minutes || 0), 0);
+    const blockerPenalty = (task.blockers || []).reduce((sum: number, blocker: any) => sum + ((blocker.probability_percent || 0) / 100) * (blocker.average_delay_minutes || 0), 0);
+    return base + errorPenalty + blockerPenalty;
+  };
+
+  const computePathMetric = (includeRisk = false, mode: 'max' | 'min' = 'max') => {
+    const initial = mode === 'max' ? Number.NEGATIVE_INFINITY : Number.POSITIVE_INFINITY;
+    const distance = new Map<string, number>([...taskMap.keys()].map(nodeId => [nodeId, initial]));
+    const prev = new Map<string, string | null>([...taskMap.keys()].map(nodeId => [nodeId, null]));
+    for (const root of roots) {
+      distance.set(root, taskWeight(taskMap.get(root)!, includeRisk));
+    }
+    for (const nodeId of order) {
+      for (const neighbor of adjacency.get(nodeId) || []) {
+        const candidate = (distance.get(nodeId) ?? 0) + taskWeight(taskMap.get(neighbor)!, includeRisk);
+        const current = distance.get(neighbor) ?? initial;
+        const isBetter = mode === 'max' ? candidate > current : candidate < current;
+        if (isBetter) {
+          distance.set(neighbor, candidate);
+          prev.set(neighbor, nodeId);
+        }
+      }
+    }
+    const evaluatedSinks = sinks.length > 0 ? sinks : [...taskMap.keys()];
+    const chosenSink = evaluatedSinks.reduce((best, nodeId) => {
+      const bestVal = distance.get(best) ?? initial;
+      const nextVal = distance.get(nodeId) ?? initial;
+      return mode === 'max' ? (nextVal > bestVal ? nodeId : best) : (nextVal < bestVal ? nodeId : best);
+    }, evaluatedSinks[0] || [...taskMap.keys()][0] || '');
+    const path: string[] = [];
+    let cursor: string | null = chosenSink || null;
+    while (cursor) {
+      path.unshift(cursor);
+      cursor = prev.get(cursor) || null;
+    }
+    return { minutes: Math.max(distance.get(chosenSink) || 0, 0), path };
+  };
+
+  const critical = computePathMetric(false, 'max');
+  const best = computePathMetric(false, 'min');
+  const worst = computePathMetric(true, 'max');
+  const baseSnapshot = metadata.version_base_snapshot || {};
+  const baseTasks = new Map(((baseSnapshot.tasks || []) as any[]).map(task => [String(task.node_id || task.id), task]));
+  const diffSummary = {
+    added_nodes: [...taskMap.keys()].filter(nodeId => !baseTasks.has(nodeId)),
+    removed_nodes: [...baseTasks.keys()].filter(nodeId => !taskMap.has(nodeId)),
+    modified_nodes: [...taskMap.keys()].filter(nodeId => {
+      if (!baseTasks.has(nodeId)) return false;
+      const baseTask = baseTasks.get(nodeId);
+      const currentTask = taskMap.get(nodeId);
+      return JSON.stringify({
+        name: baseTask?.name,
+        description: baseTask?.description,
+        task_type: baseTask?.task_type,
+        occurrence: baseTask?.occurrence,
+        outputs: baseTask?.output_data_list,
+        inputs: baseTask?.source_data_list,
+      }) !== JSON.stringify({
+        name: currentTask?.name,
+        description: currentTask?.description,
+        task_type: currentTask?.task_type,
+        occurrence: currentTask?.occurrence,
+        outputs: currentTask?.output_data_list,
+        inputs: currentTask?.source_data_list,
+      });
+    }),
+    has_changes: false,
+  };
+  diffSummary.has_changes = diffSummary.added_nodes.length > 0 || diffSummary.removed_nodes.length > 0 || diffSummary.modified_nodes.length > 0;
+
+  const diagnostics = Object.fromEntries([...taskMap.entries()].map(([nodeId, task]) => [nodeId, {
+    is_decision: task.task_type === 'LOOP',
+    blocker_count: task.blockers.length,
+    error_count: task.errors.length,
+    orphaned_input: orphanedInputs.includes(nodeId),
+    unreachable: unreachableNodes.includes(nodeId),
+    disconnected: disconnectedNodes.includes(nodeId),
+    logic_warning: malformedLogicNodes.includes(nodeId),
+    diff: diffSummary.added_nodes.includes(nodeId) ? 'added' : diffSummary.modified_nodes.includes(nodeId) ? 'modified' : 'unchanged',
+  }]));
+
+  return {
+    analysis: {
+      has_cycle: cycleNodes.size > 0,
+      cycle_nodes: [...cycleNodes],
+      disconnected_nodes: disconnectedNodes,
+      unreachable_nodes: unreachableNodes,
+      malformed_logic_nodes: malformedLogicNodes,
+      orphaned_inputs: orphanedInputs,
+      critical_path_minutes: critical.minutes,
+      critical_path_hours: Number((critical.minutes / 60).toFixed(2)),
+      critical_path_nodes: critical.path,
+      shift_handoff_risk: critical.minutes >= 600 || worst.minutes >= 600,
+      diff_summary: diffSummary,
+      diagnostics,
+    },
+    simulation: {
+      best_case_minutes: best.minutes,
+      worst_case_minutes: worst.minutes,
+      critical_path_minutes: critical.minutes,
+      critical_path_nodes: critical.path,
+      path_count: Math.max(sinks.length, 1),
+    }
+  };
+};
 
 interface BugReport {
   id: string;
@@ -348,7 +655,6 @@ const ManagedListSection: React.FC<{
                   autoFocus
                   className="w-full bg-black/40 border border-theme-accent rounded-xl p-4 text-[13px] text-white outline-none min-h-[100px] leading-relaxed transition-all shadow-[0_0_20px_rgba(59,130,246,0.1)]"
                   value={editVal}
-                  onFocus={saveToHistory}
                   onChange={e => setEditVal(e.target.value)}
                 />
                 <div className="flex gap-2">
@@ -383,7 +689,7 @@ const ManagedListSection: React.FC<{
         ))}
         {editingIdx === -1 ? (
           <div className="bg-white/[0.02] border border-theme-accent rounded-2xl p-4 space-y-3 animate-apple-in shadow-2xl shadow-theme-accent/5 border-dashed">
-            <textarea autoFocus className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-[13px] text-white outline-none min-h-[100px] focus:border-theme-accent transition-all placeholder:text-white/10" value={editVal} onFocus={saveToHistory} onChange={e => setEditVal(e.target.value)} placeholder={placeholder || "Enter entry details..."} />
+            <textarea autoFocus className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-[13px] text-white outline-none min-h-[100px] focus:border-theme-accent transition-all placeholder:text-white/10" value={editVal} onChange={e => setEditVal(e.target.value)} placeholder={placeholder || "Enter entry details..."} />
             <div className="flex gap-2">
               <button onClick={() => { if (editVal.trim()) { onUpdate([...items, editVal.trim()]); setEditingIdx(null); setEditVal(''); } }} className="flex-1 py-2.5 bg-theme-accent text-white text-[10px] font-black uppercase rounded-xl shadow-xl shadow-theme-accent/20 hover:scale-[1.02] transition-all">Save Entry</button>
               <button onClick={() => { setEditingIdx(null); setEditVal(''); }} className="px-6 py-2.5 bg-white/5 text-white/40 text-[10px] font-black uppercase rounded-xl hover:bg-white/10 transition-all">Cancel</button>
@@ -403,8 +709,10 @@ const CollapsibleSection: React.FC<{
   isOpen: boolean; 
   toggle: () => void; 
   icon?: React.ReactNode;
+  onEdit?: () => void;
+  isEditing?: boolean;
   children: React.ReactNode;
-}> = ({ title, count, isOpen, toggle, icon, children }) => (
+}> = ({ title, count, isOpen, toggle, icon, onEdit, isEditing = false, children }) => (
   <div className="border-b border-white/5 pb-4">
     <div className="w-full flex items-center justify-between py-2 group">
       <button onClick={toggle} className="flex items-center gap-3 min-w-0 flex-1 text-left">
@@ -418,9 +726,24 @@ const CollapsibleSection: React.FC<{
           )}
         </div>
       </button>
-      <button onClick={toggle} className="w-10 h-10 rounded-xl hover:bg-white/5 flex items-center justify-center text-white/20 hover:text-white transition-all border border-transparent hover:border-white/10">
-        {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-      </button>
+      <div className="flex items-center gap-2">
+        {onEdit && (
+          <button
+            onClick={onEdit}
+            className={cn(
+              "px-3 h-10 rounded-xl flex items-center justify-center text-[9px] font-black uppercase tracking-widest transition-all border",
+              isEditing
+                ? "bg-theme-accent/15 text-theme-accent border-theme-accent/30"
+                : "hover:bg-white/5 text-white/30 hover:text-white border-transparent hover:border-white/10"
+            )}
+          >
+            <Edit3 size={12} />
+          </button>
+        )}
+        <button onClick={toggle} className="w-10 h-10 rounded-xl hover:bg-white/5 flex items-center justify-center text-white/20 hover:text-white transition-all border border-transparent hover:border-white/10">
+          {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </button>
+      </div>
     </div>
     {isOpen && <div className="animate-apple-in pl-1">{children}</div>}
   </div>
@@ -500,21 +823,29 @@ const ImagePasteField: React.FC<{
   isLocked?: boolean;
 }> = ({ figures, onPaste, label, isLocked }) => {
   const [confirmingIdx, setConfirmingIdx] = useState<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const uploadFigure = async (file: File) => {
+    try {
+      const uploaded = await mediaApi.upload(file);
+      onPaste([...figures, uploaded.url]);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        onPaste([...figures, evt.target?.result as string]);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handlePaste = (e: React.ClipboardEvent) => {
     if (isLocked) return;
     const items = e.clipboardData.items;
-    const newFigures = [...figures];
     for (let i = 0; i < items.length; i++) {
       if (items[i].type.indexOf('image') !== -1) {
         const file = items[i].getAsFile();
         if (file) {
-          const reader = new FileReader();
-          reader.onload = (evt) => {
-            newFigures.push(evt.target?.result as string);
-            onPaste(newFigures);
-          };
-          reader.readAsDataURL(file);
+          void uploadFigure(file);
         }
       }
     }
@@ -559,11 +890,13 @@ const ImagePasteField: React.FC<{
         {!isLocked && (
           <div 
             onPaste={handlePaste}
+            onClick={() => fileInputRef.current?.click()}
             tabIndex={0}
             className="flex-shrink-0 w-24 h-full border border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center text-white/20 hover:text-white hover:border-theme-accent transition-all cursor-pointer outline-none focus:border-theme-accent bg-black/20"
           >
             <Plus size={14} />
             <span className="text-[7px] font-black uppercase mt-1">Paste</span>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) { void uploadFigure(file); e.currentTarget.value = ''; } }} />
           </div>
         )}
         {isLocked && figures.length === 0 && (
@@ -643,11 +976,25 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
     <div className={cn(
       "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-7 py-6 w-[460px] shadow-2xl transition-all duration-300 relative border-2 h-auto min-h-[380px] hover:z-[1000]",
       selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : 'border-white/10 hover:border-white/20',
-      data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
+      data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]",
+      data.diffState === 'added' && "border-emerald-500/60 shadow-[0_0_20px_rgba(16,185,129,0.2)]",
+      data.diffState === 'modified' && "border-amber-500/60 shadow-[0_0_20px_rgba(245,158,11,0.2)]",
+      data.diagnostics?.logic_warning && "border-fuchsia-500/60 shadow-[0_0_20px_rgba(217,70,239,0.2)]",
+      data.diagnostics?.orphaned_input && "border-red-500/60 shadow-[0_0_20px_rgba(239,68,68,0.2)]"
     )}>
       {data.validation_needed && (
         <div className="absolute -top-3 right-4 px-2 py-0.5 rounded-sm text-[10px] font-black uppercase tracking-[0.2em] bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
           VALIDATION REQUIRED
+        </div>
+      )}
+      {data.diffState === 'added' && (
+        <div className="absolute -top-3 left-4 px-2 py-0.5 rounded-sm text-[9px] font-black uppercase tracking-[0.2em] bg-emerald-500 border border-emerald-400 text-white z-20 shadow-lg">
+          ADDED
+        </div>
+      )}
+      {data.diffState === 'modified' && (
+        <div className="absolute -top-3 left-4 px-2 py-0.5 rounded-sm text-[9px] font-black uppercase tracking-[0.2em] bg-amber-500 border border-amber-400 text-white z-20 shadow-lg">
+          MODIFIED
         </div>
       )}
       <div className="flex flex-col gap-5 h-full">
@@ -669,6 +1016,16 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
             {data.errorCount > 0 && (
               <div className="flex items-center gap-1.5 bg-status-error text-white px-3 py-1 rounded-lg text-[14px] font-black shadow-lg shadow-status-error/20">
                 <X size={14} /> {data.errorCount}
+              </div>
+            )}
+            {data.diagnostics?.logic_warning && (
+              <div className="flex items-center gap-1.5 bg-fuchsia-500 text-white px-3 py-1 rounded-lg text-[12px] font-black shadow-lg shadow-fuchsia-500/20">
+                TF
+              </div>
+            )}
+            {data.diagnostics?.orphaned_input && (
+              <div className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-1 rounded-lg text-[12px] font-black shadow-lg shadow-red-500/20">
+                ORPHAN
               </div>
             )}
           </div>
@@ -867,41 +1224,9 @@ const CustomEdge = ({
 const nodeTypes = { matrix: MatrixNode, diamond: DiamondNode };
 const edgeTypes = { custom: CustomEdge };
 
-const ConfirmDeleteOverlay: React.FC<{ onConfirm: () => void, onCancel: () => void, label: string }> = ({ onConfirm, onCancel, label }) => (
-  <div className="bg-status-error/10 border border-status-error/30 rounded-xl p-4 flex flex-col gap-3 animate-apple-in">
-    <div className="flex items-center gap-3">
-      <AlertCircle size={14} className="text-status-error" />
-      <span className="text-[10px] font-black text-white uppercase tracking-tight">{label}</span>
-    </div>
-    <div className="flex gap-2">
-      <button onClick={(e) => { e.stopPropagation(); onConfirm(); }} className="flex-1 py-2 bg-status-error text-white text-[9px] font-black uppercase rounded-lg shadow-lg shadow-status-error/20 hover:bg-status-error/80 transition-colors">Confirm Delete</button>
-      <button onClick={(e) => { e.stopPropagation(); onCancel(); }} className="flex-1 py-2 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-lg hover:bg-white/10 transition-colors">Cancel</button>
-    </div>
-  </div>
-);
-
 const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, onSave, onBack, onExit, setIsDirty }) => {
   const [nodes, setNodes] = useNodesState([]);
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) => {
-      const filteredChanges = changes.filter(c => {
-        if (c.type === 'remove') {
-          const node = nodes.find(n => n.id === c.id);
-          if (node?.data?.interface === 'TRIGGER' || node?.data?.interface === 'OUTCOME') {
-            setValidationError("Trigger and Outcome entities are structural constants and cannot be deleted.");
-            return false;
-          }
-          if (checkTaskDependencies(c.id)) {
-            return false;
-          }
-        }
-        return true;
-      });
-      setNodes((nds) => applyNodeChanges(filteredChanges, nds));
-    },
-    [setNodes, nodes, checkTaskDependencies]
-  );
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [edges, setEdges] = useEdgesState([]);
   const { project, fitView } = useReactFlow();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
@@ -924,6 +1249,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const [itemEditModes, setItemEditModes] = useState<Record<string, boolean>>({});
   const [bugReports, setBugReports] = useState<BugReport[]>([]);
   const [isBuganizerOpen, setIsBuganizerOpen] = useState(false);
+  const [tasks, setTasks] = useState<TaskEntity[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
+  const [redoStack, setRedoStack] = useState<any[]>([]);
+  const [clipboard, setClipboard] = useState<any>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  const [isSimulationOpen, setIsSimulationOpen] = useState(false);
+  const [commentDraft, setCommentDraft] = useState('');
 
   const toggleSectionEdit = (sectionId: string) => {
     setSectionEditModes(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
@@ -996,6 +1328,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const [metadata, setMetadata] = useState<WorkflowMetadata>({
     name: workflow?.name || '',
     version: workflow?.version || 1,
+    workspace: workflow?.workspace || 'Submitted Requests',
+    parent_workflow_id: workflow?.parent_workflow_id || null,
+    version_group: workflow?.version_group || undefined,
+    version_notes: workflow?.version_notes || '',
+    version_base_snapshot: workflow?.version_base_snapshot || undefined,
     description: workflow?.description || workflow?.forensic_description || '',
     prc: workflow?.prc || '',
     workflow_type: workflow?.workflow_type || '',
@@ -1007,14 +1344,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     output_description: workflow?.output_description || '',
     cadence_count: workflow?.cadence_count || 1,
     cadence_unit: workflow?.cadence_unit || 'week',
-    repeatability_check: workflow?.repeatability_check ?? true
+    repeatability_check: workflow?.repeatability_check ?? true,
+    equipment_required: workflow?.equipment_required || false,
+    equipment_state: workflow?.equipment_state || '',
+    cleanroom_required: workflow?.cleanroom_required || false,
+    access_control: workflow?.access_control || { visibility: 'private', viewers: [], editors: [], mention_groups: [], owner: 'Haewon Kim' },
+    comments: workflow?.comments || [],
+    analysis: workflow?.analysis,
+    simulation: workflow?.simulation,
   });
-
-  const [tasks, setTasks] = useState<TaskEntity[]>([]);
-  const [history, setHistory] = useState<any[]>([]);
-  const [redoStack, setRedoStack] = useState<any[]>([]);
-  const [clipboard, setClipboard] = useState<any>(null);
-  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
 
   const saveToHistory = useCallback(() => {
     const currentState = { 
@@ -1032,6 +1370,60 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     });
     setRedoStack([]);
   }, [nodes, edges, tasks, metadata]);
+
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      const mutatingChanges = changes.filter(c => c.type !== 'select');
+      if (mutatingChanges.length > 0) {
+        saveToHistory();
+      }
+
+      const filteredChanges = changes.filter(c => {
+        if (c.type === 'remove') {
+          const node = nodes.find(n => n.id === c.id);
+          if (node?.data?.interface === 'TRIGGER' || node?.data?.interface === 'OUTCOME') {
+            setValidationError("Trigger and Outcome entities are structural constants and cannot be deleted.");
+            return false;
+          }
+          if (checkTaskDependencies(c.id)) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      const removedIds = filteredChanges.filter(c => c.type === 'remove').map(c => c.id);
+      if (removedIds.length > 0 && selectedTaskId && removedIds.includes(selectedTaskId)) {
+        setSelectedTaskId(null);
+      }
+
+      setNodes((nds) => applyNodeChanges(filteredChanges, nds));
+      if (mutatingChanges.length > 0) {
+        setIsDirty?.(true);
+      }
+    },
+    [setNodes, nodes, checkTaskDependencies, saveToHistory, selectedTaskId, setIsDirty]
+  );
+
+  const onEdgesChange = useCallback(
+    (changes: any[]) => {
+      const mutatingChanges = changes.filter(c => c.type !== 'select');
+      if (mutatingChanges.length > 0) {
+        saveToHistory();
+      }
+
+      const removedIds = changes.filter(c => c.type === 'remove').map(c => c.id);
+      if (removedIds.length > 0 && selectedEdgeId && removedIds.includes(selectedEdgeId)) {
+        setSelectedEdgeId(null);
+      }
+
+      setEdges((eds) => applyEdgeChanges(changes, eds));
+      if (mutatingChanges.length > 0) {
+        setIsDirty?.(true);
+      }
+    },
+    [saveToHistory, selectedEdgeId, setEdges, setIsDirty]
+  );
 
   const undo = useCallback(() => {
     if (history.length === 0) return;
@@ -1091,15 +1483,16 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           selected: true,
           data: { ...clipboard.node.data, id, node_id: id }
         };
-        const newTask = { ...clipboard.task, id, node_id: id };
+        const newTask = cloneTaskEntity(clipboard.task, id);
         setTasks(prev => [...prev, newTask]);
         setNodes(nds => nds.map(n => ({ ...n, selected: false })).concat(newNode));
         setSelectedTaskId(id);
+        setIsDirty?.(true);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, selectedTaskId, tasks, nodes, clipboard, saveToHistory]);
+  }, [undo, redo, selectedTaskId, tasks, nodes, clipboard, saveToHistory, setIsDirty]);
 
   useEffect(() => {
     setTasks(prev => prev.map(t => {
@@ -1117,6 +1510,17 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const selectedTask = useMemo(() => tasks.find(t => String(t.id) === String(selectedTaskId)), [tasks, selectedTaskId]);
   const selectedEdge = useMemo(() => edges.find(e => String(e.id) === String(selectedEdgeId)), [edges, selectedEdgeId]);
   const isProtected = selectedTask?.interface === 'TRIGGER' || selectedTask?.interface === 'OUTCOME';
+  const localWorkflowState = useMemo(() => buildLocalAnalysis(tasks, edges, metadata), [tasks, edges, metadata]);
+  const workflowAnalysis = localWorkflowState.analysis;
+  const workflowSimulation = localWorkflowState.simulation;
+  const scopedComments = useMemo(
+    () => metadata.comments.filter(comment => (selectedTaskId ? comment.scope === 'task' && comment.scope_id === selectedTaskId : comment.scope === 'workflow')),
+    [metadata.comments, selectedTaskId]
+  );
+  const decisionEdges = useMemo(
+    () => selectedTaskId ? edges.filter(edge => String(edge.source) === String(selectedTaskId)) : [],
+    [edges, selectedTaskId]
+  );
 
   const taskTypes = useMemo(() => {
     const param = systemParams.find(p => p.key === 'TASK_TYPE');
@@ -1128,7 +1532,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     if (param) {
       return ((param.is_dynamic ? param.cached_values : param.manual_values) || []).map((f: any) => typeof f === 'string' ? f : f.label);
     }
-    return taxonomy.filter(t => t.category === 'ToolType').map(t => t.label);
+    return taxonomy.filter((t: any) => t.category === 'ToolType').map((t: any) => t.label);
   }, [systemParams, taxonomy]);
 
   const toolIds = useMemo(() => {
@@ -1146,8 +1550,27 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     return (param?.is_dynamic ? param.cached_values : param?.manual_values) || [];
   }, [systemParams]);
 
-  const triggerTypes = taxonomy.filter(t => t.category === 'TriggerType');
-  const outputTypes = taxonomy.filter(t => t.category === 'OutputType');
+  const triggerTypes = taxonomy.filter((t: any) => t.category === 'TriggerType');
+  const outputTypes = taxonomy.filter((t: any) => t.category === 'OutputType');
+
+  useEffect(() => {
+    setNodes(nds => nds.map(node => {
+      const diagnostics = workflowAnalysis.diagnostics?.[node.id] || {};
+      const diffState =
+        workflowAnalysis.diff_summary.added_nodes.includes(node.id) ? 'added' :
+        workflowAnalysis.diff_summary.modified_nodes.includes(node.id) ? 'modified' :
+        workflowAnalysis.diff_summary.removed_nodes.includes(node.id) ? 'removed' :
+        'unchanged';
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          diagnostics,
+          diffState,
+        }
+      };
+    }));
+  }, [workflowAnalysis, setNodes]);
 
   const handleLayout = useCallback((nodesToLayout?: Node[], edgesToLayout?: Edge[]) => {
     try {
@@ -1246,6 +1669,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       const initialMetadata = {
         name: workflow?.name || '',
         version: workflow?.version || 1,
+        workspace: workflow?.workspace || 'Submitted Requests',
+        parent_workflow_id: workflow?.parent_workflow_id || null,
+        version_group: workflow?.version_group || undefined,
+        version_notes: workflow?.version_notes || '',
+        version_base_snapshot: workflow?.version_base_snapshot || undefined,
         description: workflow?.description || workflow?.forensic_description || '',
         prc: workflow?.prc || '',
         workflow_type: workflow?.workflow_type || '',
@@ -1257,7 +1685,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         output_description: workflow?.output_description || '',
         cadence_count: workflow?.cadence_count || 1,
         cadence_unit: workflow?.cadence_unit || 'week',
-        repeatability_check: workflow?.repeatability_check ?? true
+        repeatability_check: workflow?.repeatability_check ?? true,
+        equipment_required: workflow?.equipment_required || false,
+        equipment_state: workflow?.equipment_state || '',
+        cleanroom_required: workflow?.cleanroom_required || false,
+        access_control: workflow?.access_control || { visibility: 'private', viewers: [], editors: [], mention_groups: [], owner: 'Haewon Kim' },
+        comments: workflow?.comments || [],
+        analysis: workflow?.analysis,
+        simulation: workflow?.simulation,
       };
       setMetadata(initialMetadata);
 
@@ -1391,6 +1826,16 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   const onConnect = (params: Connection) => {
     if (!params.source || !params.target) return;
+    const isDuplicate = edges.some(edge =>
+      edge.source === params.source &&
+      edge.target === params.target &&
+      (edge.sourceHandle || null) === (params.sourceHandle || null) &&
+      (edge.targetHandle || null) === (params.targetHandle || null)
+    );
+    if (isDuplicate) {
+      setValidationError("That connection already exists.");
+      return;
+    }
     saveToHistory();
     const newEdge: Edge = { ...params, id: `e-${params.source}-${params.target}-${Date.now()}`, type: 'custom', data: { label: '', edgeStyle: defaultEdgeStyle, color: '#ffffff', lineStyle: 'solid' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#ffffff' }, source: params.source, target: params.target };
     setEdges(eds => addEdge(newEdge, eds));
@@ -1401,9 +1846,36 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     const task = tasks.find(t => t.id === id);
     if (task?.interface) return;
     saveToHistory();
-    setTasks(prev => prev.filter(t => t.id !== id));
+    const outputIds = new Set((task?.output_data_list || []).map(output => output.id));
+    setTasks(prev => prev
+      .filter(t => t.id !== id)
+      .map(t => ({
+        ...t,
+        source_data_list: (t.source_data_list || []).map(source =>
+          source.from_task_id && outputIds.has(source.from_task_id)
+            ? { ...source, orphaned_input: true, from_task_name: `${source.from_task_name || 'Source'} (Removed)` }
+            : source
+        )
+      })));
     setNodes(nds => nds.filter(n => n.id !== id));
-    setEdges(eds => eds.filter(e => e.source !== id && e.target !== id));
+    setEdges(eds => {
+      const incoming = eds.filter(e => e.target === id);
+      const outgoing = eds.filter(e => e.source === id);
+      const survivors = eds.filter(e => e.source !== id && e.target !== id);
+      const healed = incoming.flatMap(inEdge => outgoing.map(outEdge => ({
+        ...outEdge,
+        id: `e-${inEdge.source}-${outEdge.target}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+        source: inEdge.source,
+        sourceHandle: inEdge.sourceHandle || 'right-source',
+        target: outEdge.target,
+        targetHandle: outEdge.targetHandle || 'left-target',
+        data: {
+          ...outEdge.data,
+          label: outEdge.data?.label || inEdge.data?.label || '',
+        }
+      })));
+      return [...survivors, ...healed.filter(edge => edge.source !== edge.target)];
+    });
     setSelectedTaskId(null);
     setConfirmingDelete(null);
     setIsDirty?.(true);
@@ -1507,10 +1979,27 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
       return;
     }
 
+    if (workflowAnalysis.has_cycle) {
+      setValidationError("Validation Failed: The workflow contains a routing cycle. Remove the infinite loop before saving.");
+      return;
+    }
+    if (workflowAnalysis.malformed_logic_nodes.length > 0) {
+      setValidationError("Validation Failed: Decision nodes must expose exactly two outgoing routes labeled True and False.");
+      setSelectedTaskId(workflowAnalysis.malformed_logic_nodes[0]);
+      return;
+    }
+    if (workflowAnalysis.unreachable_nodes.length > 0 || workflowAnalysis.disconnected_nodes.length > 0) {
+      setValidationError("Validation Failed: All nodes must remain connected from Trigger to Outcome. Review disconnected or unreachable tasks.");
+      setSelectedTaskId((workflowAnalysis.unreachable_nodes[0] || workflowAnalysis.disconnected_nodes[0]) || null);
+      return;
+    }
+
     try {
       const { applicable_tools, ...metaRest } = metadata;
       const finalData = {
         ...metaRest,
+        analysis: workflowAnalysis,
+        simulation: workflowSimulation,
         tool_family: Array.isArray(metadata.tool_family) ? metadata.tool_family.join(', ') : metadata.tool_family,
         tool_id: Array.isArray(applicable_tools) ? applicable_tools.join(', ') : applicable_tools,
         tasks: tasks.map(t => {
@@ -1519,6 +2008,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             ...t, 
             id: undefined, 
             node_id: String(t.node_id || t.id), 
+            diagnostics: workflowAnalysis.diagnostics?.[String(t.node_id || t.id)] || {},
             position_x: node?.position.x ?? t.position_x ?? 0, 
             position_y: node?.position.y ?? t.position_y ?? 0 
           };
@@ -1552,27 +2042,41 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
   };
 
   const onNodesDelete = useCallback((deleted: Node[]) => {
-    const protectedNodes = deleted.filter(n => n.data?.interface === 'TRIGGER' || n.data?.interface === 'OUTCOME');
-    if (protectedNodes.length > 0) {
-      setValidationError("Trigger and Outcome entities are structural constants and cannot be deleted.");
-      const allowedToDelete = deleted.filter(n => n.data?.interface !== 'TRIGGER' && n.data?.interface !== 'OUTCOME');
-      if (allowedToDelete.length === 0) return;
-      
-      saveToHistory();
-      const ids = allowedToDelete.map(n => n.id);
-      setTasks(prev => prev.filter(t => !ids.includes(t.id)));
-      setNodes(nds => nds.filter(n => !ids.includes(n.id)));
-      setEdges(eds => eds.filter(e => !ids.includes(e.source) && !ids.includes(e.target)));
-      setIsDirty?.(true);
-    } else {
-      saveToHistory();
-      const ids = deleted.map(n => n.id);
-      setTasks(prev => prev.filter(t => !ids.includes(t.id)));
-      setNodes(nds => nds.filter(n => !ids.includes(n.id)));
-      setEdges(eds => eds.filter(e => !ids.includes(e.source) && !ids.includes(e.target)));
-      setIsDirty?.(true);
+    const ids = deleted
+      .filter(n => n.data?.interface !== 'TRIGGER' && n.data?.interface !== 'OUTCOME')
+      .map(n => n.id);
+
+    if (ids.length === 0) {
+      return;
     }
-  }, [saveToHistory, setTasks, setNodes, setEdges, setIsDirty]);
+
+    setTasks(prev => prev.filter(t => !ids.includes(t.id)));
+    setEdges(eds => {
+      let nextEdges = [...eds];
+      for (const id of ids) {
+        const incoming = nextEdges.filter(edge => edge.target === id);
+        const outgoing = nextEdges.filter(edge => edge.source === id);
+        nextEdges = nextEdges.filter(edge => edge.source !== id && edge.target !== id);
+        nextEdges.push(...incoming.flatMap(inEdge => outgoing.map(outEdge => ({
+          ...outEdge,
+          id: `e-${inEdge.source}-${outEdge.target}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+          source: inEdge.source,
+          sourceHandle: inEdge.sourceHandle || 'right-source',
+          target: outEdge.target,
+          targetHandle: outEdge.targetHandle || 'left-target',
+          data: {
+            ...outEdge.data,
+            label: outEdge.data?.label || inEdge.data?.label || '',
+          }
+        }))));
+      }
+      return nextEdges.filter(edge => edge.source !== edge.target);
+    });
+    if (selectedTaskId && ids.includes(selectedTaskId)) {
+      setSelectedTaskId(null);
+    }
+    setIsDirty?.(true);
+  }, [selectedTaskId, setTasks, setEdges, setIsDirty]);
 
   return (
     <div className="flex h-full w-full bg-[#050914] overflow-hidden">
@@ -1590,6 +2094,42 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
           onClear={() => setBugReports([])}
           onClose={() => setIsBuganizerOpen(false)}
         />
+      )}
+      {isSimulationOpen && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/70 backdrop-blur-md p-8 animate-apple-in">
+          <div className="w-full max-w-3xl apple-glass !bg-[#0f172a]/95 border border-white/10 rounded-3xl shadow-2xl p-8 space-y-8">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-theme-accent">Dry Run Simulator</p>
+                <h3 className="text-[22px] font-black text-white uppercase tracking-tight">Execution Envelope</h3>
+              </div>
+              <button onClick={() => setIsSimulationOpen(false)} className="p-3 text-white/30 hover:text-white hover:bg-white/5 rounded-xl transition-all"><X size={18} /></button>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="apple-card !bg-white/[0.03] border-white/10 p-5">
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Best Case</p>
+                <p className="text-[28px] font-black text-emerald-400 mt-2">{workflowSimulation.best_case_minutes.toFixed(1)}m</p>
+              </div>
+              <div className="apple-card !bg-white/[0.03] border-white/10 p-5">
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Critical Path</p>
+                <p className="text-[28px] font-black text-theme-accent mt-2">{workflowSimulation.critical_path_minutes.toFixed(1)}m</p>
+              </div>
+              <div className="apple-card !bg-white/[0.03] border-white/10 p-5">
+                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Worst Case</p>
+                <p className="text-[28px] font-black text-amber-400 mt-2">{workflowSimulation.worst_case_minutes.toFixed(1)}m</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Critical Path Nodes</p>
+              <div className="flex flex-wrap gap-2">
+                {workflowSimulation.critical_path_nodes.map(nodeId => {
+                  const task = tasks.find(item => String(item.node_id || item.id) === nodeId);
+                  return <span key={nodeId} className="px-3 py-2 rounded-xl bg-theme-accent/10 border border-theme-accent/20 text-[10px] font-black uppercase tracking-widest text-theme-accent">{task?.name || nodeId}</span>;
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
       {/* Existing Output Picker Modal */}
       {isOutputPickerOpen && (
@@ -1653,32 +2193,42 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
       )}
 
       <div className="flex-1 flex flex-col min-w-0 relative">
-        <div className="h-16 border-b border-white/10 bg-[#0a1120]/80 backdrop-blur-xl flex items-center justify-between px-6 z-20">
-          <div className="flex items-center gap-4">
-            <button onClick={() => onBack(metadata)} className="p-2.5 hover:bg-white/5 rounded-xl transition-colors text-white/40 hover:text-white"><ChevronLeft size={20} /></button>
-            <div className="flex flex-col"><span className="text-[10px] font-black text-theme-accent uppercase tracking-widest mb-1">Workflow Builder</span><h1 className="text-[14px] font-black text-white uppercase truncate max-w-[300px]">{workflow?.name}</h1></div>
-          </div>
-        <div className="flex items-center gap-3">
+	        <div className="h-16 border-b border-white/10 bg-[#0a1120]/80 backdrop-blur-xl flex items-center justify-between px-6 z-20">
+	          <div className="flex items-center gap-4">
+	            <button onClick={() => onBack(metadata)} className="p-2.5 hover:bg-white/5 rounded-xl transition-colors text-white/40 hover:text-white"><ChevronLeft size={20} /></button>
+	            <div className="flex flex-col"><span className="text-[10px] font-black text-theme-accent uppercase tracking-widest mb-1">Workflow Builder</span><h1 className="text-[14px] font-black text-white uppercase truncate max-w-[300px]">{workflow?.name}</h1></div>
+              <div className="hidden xl:flex items-center gap-2 pl-4">
+                <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/50">{metadata.workspace}</span>
+                <span className="px-3 py-1 rounded-full bg-theme-accent/10 border border-theme-accent/20 text-[9px] font-black uppercase tracking-widest text-theme-accent">Critical {workflowAnalysis.critical_path_hours.toFixed(1)}h</span>
+                {workflowAnalysis.shift_handoff_risk && <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[9px] font-black uppercase tracking-widest text-amber-400">Shift Handoff Risk</span>}
+                {workflowAnalysis.has_cycle && <span className="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[9px] font-black uppercase tracking-widest text-red-400">Loop Detected</span>}
+                {workflowAnalysis.diff_summary.has_changes && <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black uppercase tracking-widest text-emerald-400">Diff Active</span>}
+              </div>
+	          </div>
+	        <div className="flex items-center gap-3">
           <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 mr-2 h-[38px] items-center">
             <button onClick={undo} disabled={history.length === 0} className="px-3 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all border-r border-white/5"><RefreshCw size={14} className="-scale-x-100" /></button>
             <button onClick={redo} disabled={redoStack.length === 0} className="px-3 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all"><RefreshCw size={14} /></button>
           </div>
-          <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 mr-2 h-[38px] items-center">
-            {(['bezier', 'smoothstep', 'straight'] as const).map(s => (
-              <button 
-                key={s} 
-                onClick={() => {
-                  setDefaultEdgeStyle(s);
-                  setEdges(eds => eds.map(e => ({ ...e, data: { ...e.data, edgeStyle: s } })));
-                }} 
-                className={cn("px-3 h-full text-[9px] font-black uppercase rounded-lg transition-all", defaultEdgeStyle === s ? "bg-theme-accent text-white" : "text-white/20 hover:text-white/40")}
-              >
+	          <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 mr-2 h-[38px] items-center">
+	            {(['bezier', 'smoothstep', 'straight'] as const).map(s => (
+	              <button 
+	                key={s} 
+	                onClick={() => {
+	                  saveToHistory();
+	                  setDefaultEdgeStyle(s);
+	                  setEdges(eds => eds.map(e => ({ ...e, data: { ...e.data, edgeStyle: s } })));
+	                  setIsDirty?.(true);
+	                }} 
+	                className={cn("px-3 h-full text-[9px] font-black uppercase rounded-lg transition-all", defaultEdgeStyle === s ? "bg-theme-accent text-white" : "text-white/20 hover:text-white/40")}
+	              >
                 {s === 'smoothstep' ? 'Angled' : s === 'bezier' ? 'Smooth' : 'Straight'}
               </button>
             ))}
           </div>
-          <button onClick={() => handleLayout(nodes, edges)} className="flex items-center gap-2 px-4 h-[38px] bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 transition-all"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
-          <button onClick={() => setIsBuganizerOpen(true)} className={cn("w-[38px] h-[38px] rounded-xl transition-all border flex items-center justify-center relative", bugReports.some(r => !r.acknowledged) ? "bg-rose-500/20 border-rose-500/40 text-rose-500 animate-pulse shadow-[0_0_15px_rgba(244,63,94,0.3)]" : "bg-white/5 border-white/10 text-white/40 hover:text-white")}>
+	          <button onClick={() => handleLayout(nodes, edges)} className="flex items-center gap-2 px-4 h-[38px] bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 transition-all"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
+            <button onClick={() => setIsSimulationOpen(true)} className="flex items-center gap-2 px-4 h-[38px] bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 transition-all"><Activity size={14} className="text-emerald-400" /> Simulate</button>
+	          <button onClick={() => setIsBuganizerOpen(true)} className={cn("w-[38px] h-[38px] rounded-xl transition-all border flex items-center justify-center relative", bugReports.some(r => !r.acknowledged) ? "bg-rose-500/20 border-rose-500/40 text-rose-500 animate-pulse shadow-[0_0_15px_rgba(244,63,94,0.3)]" : "bg-white/5 border-white/10 text-white/40 hover:text-white")}>
             <Bug size={18} />
             {bugReports.filter(r => !r.acknowledged).length > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white text-[8px] font-black rounded-full flex items-center justify-center border-2 border-[#0a1120]">{bugReports.filter(r => !r.acknowledged).length}</span>
@@ -1808,7 +2358,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     />
                   </div>
 
-                  {!isProtected && selectedTask.task_type !== 'LOOP' && (
+                  {!isProtected && (
                     <>
                       <div className="space-y-2">
                         <SearchableSelect 
@@ -1819,6 +2369,34 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           placeholder="SELECT TYPE..."
                         />
                       </div>
+
+                      {selectedTask.task_type === 'LOOP' && (
+                        <div className="space-y-3 p-4 bg-fuchsia-500/5 border border-fuchsia-500/20 rounded-2xl">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-[9px] font-black uppercase tracking-[0.25em] text-fuchsia-400">Decision Routing</p>
+                              <p className="text-[11px] font-bold text-white/60 mt-1">Decision nodes require exactly two outgoing branches labeled `True` and `False`.</p>
+                            </div>
+                            <span className={cn("px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border", decisionEdges.length === 2 ? "border-emerald-500/20 text-emerald-400 bg-emerald-500/10" : "border-fuchsia-500/20 text-fuchsia-400 bg-fuchsia-500/10")}>
+                              {decisionEdges.length} branches
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            {decisionEdges.length > 0 ? decisionEdges.map(edge => (
+                              <div key={edge.id} className="flex items-center gap-3 bg-black/30 border border-white/5 rounded-xl p-3">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-white/30 min-w-[88px]">Branch</span>
+                                <input className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[11px] font-black text-white uppercase outline-none focus:border-theme-accent" value={edge.data?.label || ''} onChange={e => updateEdge(edge.id, { label: e.target.value })} placeholder="TRUE or FALSE" />
+                                <button onClick={() => updateEdge(edge.id, { label: 'True' })} className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black uppercase tracking-widest text-emerald-400">True</button>
+                                <button onClick={() => updateEdge(edge.id, { label: 'False' })} className="px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[9px] font-black uppercase tracking-widest text-rose-400">False</button>
+                              </div>
+                            )) : (
+                              <div className="rounded-xl border border-dashed border-fuchsia-500/20 p-4 text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-400/70">
+                                Create two outgoing edges from this decision node to unlock branch labeling.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-xl">
                         <div className="space-y-2">
@@ -2305,6 +2883,54 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               )}
               {inspectorTab === 'appendix' && (
                 <div className="space-y-12 pb-20">
+                  <CollapsibleSection
+                    title="Node Discussion"
+                    isOpen={true}
+                    toggle={() => {}}
+                    count={scopedComments.length}
+                  >
+                    <div className="space-y-4 pt-4">
+                      <div className="space-y-3">
+                        {scopedComments.map(comment => (
+                          <div key={comment.id} className="bg-white/[0.03] border border-white/5 rounded-2xl p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-theme-accent">{comment.author}</span>
+                              <span className="text-[8px] text-white/20 font-black uppercase">{new Date(comment.created_at).toLocaleString()}</span>
+                            </div>
+                            <p className="text-[12px] font-bold text-white/80 leading-relaxed whitespace-pre-wrap">{comment.message}</p>
+                            {comment.mentions.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mt-3">
+                                {comment.mentions.map(mention => <span key={mention} className="px-2 py-1 rounded-lg bg-theme-accent/10 border border-theme-accent/20 text-[9px] font-black uppercase tracking-widest text-theme-accent">@{mention}</span>)}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="space-y-3">
+                        <textarea className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-[12px] text-white/80 h-28 resize-none outline-none focus:border-theme-accent transition-all" value={commentDraft} onChange={e => setCommentDraft(e.target.value)} placeholder="Leave a node-specific note. Use @Automation Team or @Metrology SME to mention groups." />
+                        <div className="flex gap-3">
+                          <button onClick={() => {
+                            if (!commentDraft.trim()) return;
+                            saveToHistory();
+                            const mentions = MENTION_OPTIONS.filter(option => commentDraft.toLowerCase().includes(`@${option.toLowerCase()}`));
+                            setMetadata({
+                              ...metadata,
+                              comments: [
+                                ...metadata.comments,
+                                { id: createLocalId('comment'), scope: 'task', scope_id: selectedTaskId || undefined, author: metadata.access_control.owner || 'Haewon Kim', message: commentDraft.trim(), mentions, created_at: new Date().toISOString(), resolved: false }
+                              ]
+                            });
+                            setCommentDraft('');
+                            setIsDirty?.(true);
+                          }} className="px-5 py-2.5 bg-theme-accent text-white rounded-xl text-[10px] font-black uppercase tracking-widest">Add Comment</button>
+                          <div className="flex-1">
+                            <SearchableSelect label="Mentions" options={MENTION_OPTIONS} value={[]} onChange={() => {}} placeholder="@MENTION DIRECTORY" isMulti />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CollapsibleSection>
+
                   <CollapsibleSection 
                     title="Operational References" 
                     isOpen={expandedSections.references} 
@@ -2414,15 +3040,21 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 <div className="flex items-center gap-3"><Link2 size={16} className="text-theme-accent" /><span className="text-[14px] font-black text-white uppercase tracking-widest">Edge Configuration</span></div>
                 <div className="flex gap-2">
                   <button onClick={() => swapEdgeDirection(selectedEdgeId)} title="Swap Direction" className="text-white/40 hover:text-white p-2 bg-white/5 border border-white/10 rounded-md transition-all"><LucideWorkflow size={16} className="rotate-90" /></button>
-                  <button onClick={() => { setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); setIsDirty?.(true); }} className="text-status-error hover:bg-status-error/10 p-2 border border-status-error/20 rounded-md transition-all"><Trash size={16} /></button>
+	                  <button onClick={() => { saveToHistory(); setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); setIsDirty?.(true); }} className="text-status-error hover:bg-status-error/10 p-2 border border-status-error/20 rounded-md transition-all"><Trash size={16} /></button>
                 </div>
               </div>
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Label</label>
-                  <input className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-3 text-[13px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedEdge.data?.label || ''} onChange={e => updateEdge(selectedEdgeId, { label: e.target.value })} />
-                </div>
-                <div className="space-y-2">
+	              <div className="space-y-6">
+	                <div className="space-y-2">
+	                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Label</label>
+	                  <input className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-3 text-[13px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedEdge.data?.label || ''} onChange={e => updateEdge(selectedEdgeId, { label: e.target.value })} />
+	                </div>
+                  {selectedTaskId === null && tasks.find(task => String(task.node_id || task.id) === String(selectedEdge.source))?.task_type === 'LOOP' && (
+                    <div className="flex gap-2">
+                      <button onClick={() => updateEdge(selectedEdgeId, { label: 'True' })} className="flex-1 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest text-emerald-400">Set True</button>
+                      <button onClick={() => updateEdge(selectedEdgeId, { label: 'False' })} className="flex-1 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] font-black uppercase tracking-widest text-rose-400">Set False</button>
+                    </div>
+                  )}
+	                <div className="space-y-2">
                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Style</label>
                   <div className="flex bg-white/5 p-1 rounded-md border border-white/10">
                     {(['smoothstep', 'bezier', 'straight'] as const).map((s) => (
@@ -2570,10 +3202,10 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-theme-accent font-black px-1">
-                    <Zap size={14} />
-                    <span className="text-[10px] tracking-[0.2em] uppercase">Trigger & Output</span>
+	                <div className="space-y-4">
+	                  <div className="flex items-center gap-2 text-theme-accent font-black px-1">
+	                    <Zap size={14} />
+	                    <span className="text-[10px] tracking-[0.2em] uppercase">Trigger & Output</span>
                   </div>
                   <div className="apple-card space-y-6 !bg-white/[0.02] border-white/5 p-6 rounded-2xl">
                     <div className="grid grid-cols-2 gap-4">
@@ -2618,11 +3250,65 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           onFocus={saveToHistory}
                           onChange={e => setMetadata({...metadata, output_description: e.target.value})} 
                         />
+	                    </div>
+	                  </div>
+	                </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-theme-accent font-black px-1">
+                      <ShieldAlert size={14} />
+                      <span className="text-[10px] tracking-[0.2em] uppercase">Governance & Collaboration</span>
+                    </div>
+                    <div className="apple-card space-y-6 !bg-white/[0.02] border-white/5 p-6 rounded-2xl">
+                      <div className="grid grid-cols-3 gap-4">
+                        <SearchableSelect label="Workspace" options={WORKSPACE_OPTIONS} value={metadata.workspace} onChange={val => { saveToHistory(); setMetadata({...metadata, workspace: val}); }} />
+                        <SearchableSelect label="Visibility" options={['private', 'workspace', 'org']} value={metadata.access_control.visibility} onChange={val => { saveToHistory(); setMetadata({...metadata, access_control: { ...metadata.access_control, visibility: val }}); }} />
+                        <SearchableSelect label="Editors" options={MENTION_OPTIONS} value={metadata.access_control.editors} onChange={vals => { saveToHistory(); setMetadata({...metadata, access_control: { ...metadata.access_control, editors: vals }}); }} isMulti />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black uppercase tracking-widest px-1 text-white/40">Version Notes</label>
+                          <textarea className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 h-24 resize-none outline-none focus:border-theme-accent transition-all" value={metadata.version_notes} onFocus={saveToHistory} onChange={e => setMetadata({...metadata, version_notes: e.target.value})} />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black uppercase tracking-widest px-1 text-white/40">Workflow Comments</label>
+                          <textarea className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 h-24 resize-none outline-none focus:border-theme-accent transition-all" value={commentDraft} onChange={e => setCommentDraft(e.target.value)} placeholder="Document decisions, callouts, and @mentions here..." />
+                          <button onClick={() => {
+                            if (!commentDraft.trim()) return;
+                            saveToHistory();
+                            const mentions = MENTION_OPTIONS.filter(option => commentDraft.toLowerCase().includes(`@${option.toLowerCase()}`));
+                            setMetadata({
+                              ...metadata,
+                              comments: [
+                                ...metadata.comments,
+                                { id: createLocalId('comment'), scope: 'workflow', author: metadata.access_control.owner || 'Haewon Kim', message: commentDraft.trim(), mentions, created_at: new Date().toISOString(), resolved: false }
+                              ]
+                            });
+                            setCommentDraft('');
+                          }} className="px-4 py-2 bg-theme-accent text-white rounded-xl text-[10px] font-black uppercase tracking-widest">Add Workflow Comment</button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-4">
+                        <div className="apple-card !bg-white/[0.03] border-white/10 p-4">
+                          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Critical Path</p>
+                          <p className="text-[24px] font-black text-theme-accent mt-2">{workflowAnalysis.critical_path_hours.toFixed(1)}h</p>
+                        </div>
+                        <div className="apple-card !bg-white/[0.03] border-white/10 p-4">
+                          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Disconnected</p>
+                          <p className="text-[24px] font-black text-white mt-2">{workflowAnalysis.disconnected_nodes.length}</p>
+                        </div>
+                        <div className="apple-card !bg-white/[0.03] border-white/10 p-4">
+                          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Diff Nodes</p>
+                          <p className="text-[24px] font-black text-emerald-400 mt-2">{workflowAnalysis.diff_summary.added_nodes.length + workflowAnalysis.diff_summary.modified_nodes.length}</p>
+                        </div>
+                        <div className="apple-card !bg-white/[0.03] border-white/10 p-4">
+                          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Shift Risk</p>
+                          <p className={cn("text-[24px] font-black mt-2", workflowAnalysis.shift_handoff_risk ? "text-amber-400" : "text-emerald-400")}>{workflowAnalysis.shift_handoff_risk ? 'Yes' : 'No'}</p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
+	              </div>
+	            </div>
             </div>
           )}
         </div>

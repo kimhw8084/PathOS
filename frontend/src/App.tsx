@@ -211,6 +211,7 @@ const GlobalHeader = () => {
 const PathOSApp: React.FC = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [selectedWorkflow, setSelectedWorkflow] = useState<any>(null);
+  const [intakeSeed, setIntakeSeed] = useState<any>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -260,6 +261,22 @@ const PathOSApp: React.FC = () => {
     }
   });
 
+  const cloneMutation = useMutation({
+    mutationFn: ({ workflowId, mode, workspace }: { workflowId: number, mode: 'clone' | 'version', workspace?: string }) =>
+      workflowsApi.clone(workflowId, mode, workspace),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      setSelectedWorkflow(data);
+      setIntakeSeed(null);
+      toast.success(variables.mode === 'version' ? 'Version draft created' : 'Workflow cloned');
+      navigate('/workflows/intake');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || "Workflow duplication failed.");
+      reportError(error.response?.data || error, 'backend');
+    }
+  });
+
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isDirty) {
@@ -280,6 +297,7 @@ const PathOSApp: React.FC = () => {
       return;
     }
     setSelectedWorkflow(wf);
+    setIntakeSeed(null);
     navigate('/workflows/builder');
   };
 
@@ -290,6 +308,7 @@ const PathOSApp: React.FC = () => {
     } else {
       if (['/workflows', '/dashboard', '/board', '/analytics', '/settings'].includes(path)) {
         setSelectedWorkflow(null);
+        setIntakeSeed(null);
       }
       navigate(path);
     }
@@ -301,6 +320,7 @@ const PathOSApp: React.FC = () => {
     if (pendingNavPath) {
       if (['/workflows', '/dashboard', '/board', '/analytics', '/settings'].includes(pendingNavPath)) {
         setSelectedWorkflow(null);
+        setIntakeSeed(null);
       }
       navigate(pendingNavPath);
       setPendingNavPath(null);
@@ -336,7 +356,7 @@ const PathOSApp: React.FC = () => {
                       <h3 className="text-header-sub flex items-center gap-2"><Database size={16} className="text-theme-accent" /> Recent Workflows</h3>
                       <Link to="/workflows" className="text-hint text-theme-accent hover:text-white transition-colors flex items-center gap-1">View Repository <ChevronRight size={12} /></Link>
                     </div>
-                    <WorkflowRegistry workflows={workflows.slice(0, 8)} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} onRestore={restoreMutation.mutate} />
+                    <WorkflowRegistry workflows={workflows.slice(0, 8)} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} onRestore={restoreMutation.mutate} onClone={(wf) => cloneMutation.mutate({ workflowId: wf.id, mode: 'clone', workspace: 'Personal Drafts' })} onCreateVersion={(wf) => cloneMutation.mutate({ workflowId: wf.id, mode: 'version', workspace: 'Personal Drafts' })} />
                   </div>
                 </div>
               } />
@@ -346,8 +366,20 @@ const PathOSApp: React.FC = () => {
                   onSelect={handleSelectWorkflow} 
                   onDelete={deleteMutation.mutate} 
                   onRestore={restoreMutation.mutate}
-                  onCreateNew={() => {
+                  onClone={(wf) => cloneMutation.mutate({ workflowId: wf.id, mode: 'clone', workspace: 'Personal Drafts' })}
+                  onCreateVersion={(wf) => cloneMutation.mutate({ workflowId: wf.id, mode: 'version', workspace: 'Personal Drafts' })}
+                  onCreateNew={(workspace?: string) => {
                     setSelectedWorkflow(null);
+                    setIntakeSeed({
+                      workspace: workspace || 'Personal Drafts',
+                      access_control: {
+                        visibility: workspace === 'Collaborative Workflows' ? 'workspace' : workspace === 'Standard Operations' ? 'org' : 'private',
+                        viewers: [],
+                        editors: [],
+                        mention_groups: [],
+                        owner: 'Haewon Kim'
+                      }
+                    });
                     navigate('/workflows/intake');
                   }}
                 />
@@ -356,12 +388,13 @@ const PathOSApp: React.FC = () => {
                 <div className="max-w-4xl mx-auto">
                   <IntakeGatekeeper 
                     key={location.key}
-                    initialData={selectedWorkflow} 
+                    initialData={selectedWorkflow || intakeSeed} 
                     taxonomy={taxonomy} 
                     onSuccess={(data) => { 
-                      if (selectedWorkflow) { 
+                      if (selectedWorkflow?.id) { 
                         workflowsApi.update(selectedWorkflow.id, data).then((updated) => { 
                           setSelectedWorkflow(updated); 
+                          setIntakeSeed(null);
                           navigate('/workflows/builder'); 
                         }); 
                       } else { 
@@ -369,7 +402,7 @@ const PathOSApp: React.FC = () => {
                       } 
                     }} 
                     onCancel={() => handleNavigateRequest('/workflows')} 
-                    onRestart={() => setSelectedWorkflow(null)}
+                    onRestart={() => { setSelectedWorkflow(null); setIntakeSeed(null); }}
                   />
                 </div>
               } />
@@ -381,13 +414,13 @@ const PathOSApp: React.FC = () => {
                       key={`${selectedWorkflow.id}-${selectedWorkflow.updated_at || 'stable'}`}
                       workflow={selectedWorkflow}
                       taxonomy={taxonomy}
-                      onSave={(data) => workflowsApi.update(selectedWorkflow.id, data).then((updated) => {
+                      onSave={(data: any) => workflowsApi.update(selectedWorkflow.id, data).then((updated) => {
                         toast.success("Configuration Saved");
                         queryClient.invalidateQueries({ queryKey: ['workflows'] });
                         setSelectedWorkflow(updated);
                         setIsDirty(false);
                       })} 
-                      onBack={(currentData) => {
+                      onBack={(currentData?: any) => {
                         if (currentData) {
                           setSelectedWorkflow({ ...selectedWorkflow, ...currentData });
                         }

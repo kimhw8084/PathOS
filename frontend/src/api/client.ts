@@ -35,6 +35,7 @@ export const workflowsApi = {
   get: (id: number) => apiClient.get(`/workflows/${id}`).then(res => res.data),
   create: (data: any) => apiClient.post('/workflows', data).then(res => res.data),
   update: (id: number, data: any) => apiClient.put(`/workflows/${id}`, data).then(res => res.data),
+  clone: (id: number, mode: 'clone' | 'version', workspace?: string) => apiClient.post(`/workflows/${id}/clone`, null, { params: { mode, workspace } }).then(res => res.data),
   delete: (id: number) => apiClient.delete(`/workflows/${id}`).then(res => res.data),
   restore: (id: number) => apiClient.post(`/workflows/${id}/restore`).then(res => res.data),
   updateTasks: (id: number, tasks: any[]) => apiClient.put(`/tasks/workflow/${id}/sync`, tasks).then(res => res.data),
@@ -50,4 +51,14 @@ export const settingsApi = {
   executeParameter: (key: string) => apiClient.post(`/settings/parameters/${key}/execute`).then(res => res.data),
   getParameterLogs: (key: string) => apiClient.get(`/settings/parameters/${key}/logs`).then(res => res.data),
   resolveDiscrepancy: (key: string, action: string) => apiClient.post(`/settings/parameters/${key}/resolve`, null, { params: { action } }).then(res => res.data),
+};
+
+export const mediaApi = {
+  upload: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post('/media/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(res => res.data);
+  },
 };
