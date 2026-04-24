@@ -46,7 +46,7 @@ const ConnectionStatus = () => {
         await client.get('/');
         setLatency(Math.round(performance.now() - start));
         setStatus('connected');
-      } catch (err) {
+      } catch {
         setStatus('disconnected');
       }
     };

@@ -42,7 +42,13 @@ import {
   Search,
   Paperclip,
   Cpu,
-  Edit3
+  Edit3,
+  Bug,
+  Terminal,
+  MousePointer2,
+  Copy,
+  CheckCircle2,
+  ShieldAlert
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -72,8 +78,6 @@ const ValidationMessage: React.FC<{ message: string; onClear: () => void }> = ({
     </div>
   </div>
 );
-
-import { ShieldAlert } from 'lucide-react';
 
 interface TaskMedia {
   id: string;
@@ -344,6 +348,7 @@ const ManagedListSection: React.FC<{
                   autoFocus
                   className="w-full bg-black/40 border border-theme-accent rounded-xl p-4 text-[13px] text-white outline-none min-h-[100px] leading-relaxed transition-all shadow-[0_0_20px_rgba(59,130,246,0.1)]"
                   value={editVal}
+                  onFocus={saveToHistory}
                   onChange={e => setEditVal(e.target.value)}
                 />
                 <div className="flex gap-2">
@@ -378,7 +383,7 @@ const ManagedListSection: React.FC<{
         ))}
         {editingIdx === -1 ? (
           <div className="bg-white/[0.02] border border-theme-accent rounded-2xl p-4 space-y-3 animate-apple-in shadow-2xl shadow-theme-accent/5 border-dashed">
-            <textarea autoFocus className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-[13px] text-white outline-none min-h-[100px] focus:border-theme-accent transition-all placeholder:text-white/10" value={editVal} onChange={e => setEditVal(e.target.value)} placeholder={placeholder || "Enter entry details..."} />
+            <textarea autoFocus className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-[13px] text-white outline-none min-h-[100px] focus:border-theme-accent transition-all placeholder:text-white/10" value={editVal} onFocus={saveToHistory} onChange={e => setEditVal(e.target.value)} placeholder={placeholder || "Enter entry details..."} />
             <div className="flex gap-2">
               <button onClick={() => { if (editVal.trim()) { onUpdate([...items, editVal.trim()]); setEditingIdx(null); setEditVal(''); } }} className="flex-1 py-2.5 bg-theme-accent text-white text-[10px] font-black uppercase rounded-xl shadow-xl shadow-theme-accent/20 hover:scale-[1.02] transition-all">Save Entry</button>
               <button onClick={() => { setEditingIdx(null); setEditVal(''); }} className="px-6 py-2.5 bg-white/5 text-white/40 text-[10px] font-black uppercase rounded-xl hover:bg-white/10 transition-all">Cancel</button>
@@ -883,6 +888,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         if (c.type === 'remove') {
           const node = nodes.find(n => n.id === c.id);
           if (node?.data?.interface === 'TRIGGER' || node?.data?.interface === 'OUTCOME') {
+            setValidationError("Trigger and Outcome entities are structural constants and cannot be deleted.");
+            return false;
+          }
+          if (checkTaskDependencies(c.id)) {
             return false;
           }
         }
@@ -890,7 +899,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       });
       setNodes((nds) => applyNodeChanges(filteredChanges, nds));
     },
-    [setNodes, nodes]
+    [setNodes, nodes, checkTaskDependencies]
   );
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const { project, fitView } = useReactFlow();
@@ -949,8 +958,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     }
   }, [validationError]);
 
-  const checkOutputDependency = (outputId: string) => {
-    const dependents = tasks.filter(t => 
+  const checkOutputDependency = useCallback((outputId: string) => {
+    const dependents = tasks.filter(t =>
       t.source_data_list.some(sd => sd.from_task_id === outputId)
     );
     if (dependents.length > 0) {
@@ -960,15 +969,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       return true;
     }
     return false;
-  };
+  }, [tasks, reportBug]);
 
-  const checkTaskDependencies = (taskId: string) => {
+  const checkTaskDependencies = useCallback((taskId: string) => {
     // Find any task that uses an output from this task as an input
     const taskOutputs = tasks.find(t => t.id === taskId)?.output_data_list.map(o => o.id) || [];
-    const dependents = tasks.filter(t => 
+    const dependents = tasks.filter(t =>
       t.source_data_list.some(sd => taskOutputs.includes(sd.from_task_id || ''))
     );
-    
+
     if (dependents.length > 0) {
       const taskNames = dependents.map(t => `"${t.name || 'Untitled'}"`).join(', ');
       setValidationError(`Critical Dependency: Other tasks (${taskNames}) depend on this task's data. Clear those inputs first.`);
@@ -976,8 +985,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       return true;
     }
     return false;
-  };
-
+  }, [tasks, reportBug]);
   useEffect(() => {
     settingsApi.listParameters().then(setSystemParams).catch(() => {});
   }, []);
@@ -1009,14 +1017,21 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
 
   const saveToHistory = useCallback(() => {
-    // Optimization: Only save if state actually changed
-    const currentState = JSON.stringify({ nodes, edges, tasks, metadata });
-    const lastHistory = history.length > 0 ? JSON.stringify(history[history.length - 1]) : null;
-    if (currentState === lastHistory) return;
+    const currentState = { 
+      nodes: JSON.parse(JSON.stringify(nodes)), 
+      edges: JSON.parse(JSON.stringify(edges)), 
+      tasks: JSON.parse(JSON.stringify(tasks)), 
+      metadata: JSON.parse(JSON.stringify(metadata)) 
+    };
 
-    setHistory(prev => [...prev.slice(-49), { nodes: JSON.parse(JSON.stringify(nodes)), edges: JSON.parse(JSON.stringify(edges)), tasks: JSON.parse(JSON.stringify(tasks)), metadata: JSON.parse(JSON.stringify(metadata)) }]);
+    setHistory(prev => {
+      if (prev.length > 0) {
+        if (JSON.stringify(prev[prev.length - 1]) === JSON.stringify(currentState)) return prev;
+      }
+      return [...prev.slice(-49), currentState];
+    });
     setRedoStack([]);
-  }, [nodes, edges, tasks, metadata, history]);
+  }, [nodes, edges, tasks, metadata]);
 
   const undo = useCallback(() => {
     if (history.length === 0) return;
@@ -1073,7 +1088,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           ...clipboard.node, 
           id, 
           position: { x: (clipboard.node.position?.x || 0) + 40, y: (clipboard.node.position?.y || 0) + 40 }, 
-          selected: true 
+          selected: true,
+          data: { ...clipboard.node.data, id, node_id: id }
         };
         const newTask = { ...clipboard.task, id, node_id: id };
         setTasks(prev => [...prev, newTask]);
@@ -1096,7 +1112,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       if (n.data?.interface === 'OUTCOME') return { ...n, data: { ...n.data, label: metadata.output_type || n.data.label, description: metadata.output_description || n.data.description } };
       return n;
     }));
-  }, [metadata.trigger_type, metadata.trigger_description, metadata.output_type, metadata.output_description]);
+  }, [metadata.trigger_type, metadata.trigger_description, metadata.output_type, metadata.output_description, setTasks, setNodes]);
 
   const selectedTask = useMemo(() => tasks.find(t => String(t.id) === String(selectedTaskId)), [tasks, selectedTaskId]);
   const selectedEdge = useMemo(() => edges.find(e => String(e.id) === String(selectedEdgeId)), [edges, selectedEdgeId]);
@@ -1204,10 +1220,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     } catch (error) {
       console.error("Dagre Layout Error:", error);
     }
-  }, [fitView, setNodes, setEdges, setIsDirty, defaultEdgeStyle]);
+  }, [fitView, setNodes, setEdges, setIsDirty, defaultEdgeStyle, nodes, edges]);
 
   // Ensure fitView on initial load
   const initialFitPerformed = useRef(false);
+  const lastInitializedWorkflowId = useRef<number | null>(null);
+
   useEffect(() => {
     if (nodes.length > 0 && !initialFitPerformed.current) {
       const timer = setTimeout(() => {
@@ -1219,8 +1237,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   }, [nodes.length, fitView]);
 
   useEffect(() => {
-    if (!workflow) return;
+    if (!workflow || lastInitializedWorkflowId.current === workflow.id) return;
     try {
+      lastInitializedWorkflowId.current = workflow.id;
       const seenNodeIds = new Set<string>();
       
       // Update metadata state when workflow changes
@@ -1242,7 +1261,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       };
       setMetadata(initialMetadata);
 
-      let initializedTasks = (workflow?.tasks || []).map((t: any) => {
+      const initializedTasks = (workflow?.tasks || []).map((t: any) => {
         let stableId = t.node_id ? String(t.node_id) : String(t.id);
         if (!stableId || stableId === 'undefined' || stableId === 'null') {
           stableId = `node-${Math.random().toString(36).substr(2, 9)}`;
@@ -1334,20 +1353,33 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     } catch (err) {
       console.error("[WorkflowBuilder] Critical Initialization Failure:", err);
     }
-  }, [workflow]);
+  }, [workflow, defaultEdgeStyle, handleLayout, setNodes, setEdges]);
 
   const updateTask = (id: string, updates: Partial<TaskEntity>) => {
-    saveToHistory();
-    setTasks(prev => prev.map(t => {
-      if (t.id === id) {
-        const updated = { ...t, ...updates };
+    setTasks(prev => {
+      const newTasks = prev.map(t => t.id === id ? { ...t, ...updates } : t);
+      const updated = newTasks.find(t => t.id === id);
+      if (updated) {
         setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { 
-          ...n.data, label: updated.name, task_type: updated.task_type, manual_time: updated.manual_time_minutes, automation_time: updated.automation_time_minutes, occurrence: updated.occurrence, involved_systems: updated.involved_systems, owningTeam: updated.owning_team, ownerPositions: updated.owner_positions, sourceCount: (updated.source_data_list || []).length, outputCount: (updated.output_data_list || []).length, validation_needed: updated.validation_needed, blockerCount: (updated.blockers || []).length, errorCount: (updated.errors || []).length, description: updated.description 
+          ...n.data, 
+          label: updated.name, 
+          task_type: updated.task_type, 
+          manual_time: updated.manual_time_minutes, 
+          automation_time: updated.automation_time_minutes, 
+          occurrence: updated.occurrence, 
+          involved_systems: updated.involved_systems, 
+          owningTeam: updated.owning_team, 
+          ownerPositions: updated.owner_positions, 
+          sourceCount: (updated.source_data_list || []).length, 
+          outputCount: (updated.output_data_list || []).length, 
+          validation_needed: updated.validation_needed, 
+          blockerCount: (updated.blockers || []).length, 
+          errorCount: (updated.errors || []).length, 
+          description: updated.description 
         } } : n));
-        return updated;
       }
-      return t;
-    }));
+      return newTasks;
+    });
     setIsDirty?.(true);
   };
 
@@ -1756,6 +1788,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         (showErrors && !selectedTask.name) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10"
                       )} 
                       value={selectedTask.name} 
+                      onFocus={saveToHistory}
                       onChange={e => updateTask(selectedTaskId, { name: e.target.value })} 
                       disabled={isProtected}
                     />
@@ -1769,6 +1802,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         (showErrors && !selectedTask.description) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10"
                       )} 
                       value={selectedTask.description} 
+                      onFocus={saveToHistory}
                       onChange={e => updateTask(selectedTaskId, { description: e.target.value })} 
                       disabled={isProtected}
                     />
@@ -1789,18 +1823,18 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       <div className="grid grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-xl">
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest px-1 text-center block">TAT Manual (m)</label>
-                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[14px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
+                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[14px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-purple-400 uppercase tracking-widest px-1 text-center block">TAT Machine (m)</label>
-                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[14px] font-black text-white outline-none focus:border-purple-400 text-center" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
+                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[14px] font-black text-white outline-none focus:border-purple-400 text-center" value={selectedTask.automation_time_minutes} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 items-end">
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owner Team</label>
-                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-11 text-[12px] font-bold text-white outline-none focus:border-theme-accent placeholder:text-white/10 transition-all" value={selectedTask.owning_team} onChange={e => updateTask(selectedTaskId, { owning_team: e.target.value })} placeholder="Team Name" />
+                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-11 text-[12px] font-bold text-white outline-none focus:border-theme-accent placeholder:text-white/10 transition-all" value={selectedTask.owning_team} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { owning_team: e.target.value })} placeholder="Team Name" />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Positions</label>
@@ -1825,6 +1859,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                     autoFocus
                                     className="flex-1 bg-black/60 border border-theme-accent rounded-lg px-3 py-2 text-[11px] font-bold text-white outline-none"
                                     value={pos}
+                                    onFocus={saveToHistory}
                                     onChange={(e) => updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.map((p, i) => i === idx ? e.target.value : p) })}
                                   />
                                   <button onClick={() => toggleItemEdit(`pos-${idx}`)} className="p-2 bg-theme-accent text-white rounded-lg shadow-lg shadow-theme-accent/20 hover:scale-105 transition-all"><Save size={14} /></button>
@@ -1884,18 +1919,18 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               <div className="space-y-4">
                                 <div className="space-y-1">
                                   <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">System Name</label>
-                                  <input className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={sys.name} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, name: e.target.value } : x) })} placeholder="e.g., SAP, Salesforce, Internal Tool" />
+                                  <input className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={sys.name} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, name: e.target.value } : x) })} placeholder="e.g., SAP, Salesforce, Internal Tool" />
                                 </div>
                                 <div className="space-y-1">
                                   <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Usage Context</label>
-                                  <textarea className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-theme-accent" value={sys.usage} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, usage: e.target.value } : x) })} placeholder="Describe how the system is used in this task..." />
+                                  <textarea className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-theme-accent" value={sys.usage} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, usage: e.target.value } : x) })} placeholder="Describe how the system is used in this task..." />
                                 </div>
                                 <ImagePasteField figures={sys.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, figures: figs } : x) })} label="System Screenshots (Ctrl+V)" />
                                 <div className="space-y-1">
                                   <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Documentation Link</label>
                                   <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl px-3 py-2">
                                     <Link2 size={12} className="text-theme-accent" />
-                                    <input className="flex-1 bg-transparent border-none p-0 text-[11px] text-theme-accent underline outline-none" value={sys.link} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, link: e.target.value } : x) })} placeholder="URL to SOP or Wiki" />
+                                    <input className="flex-1 bg-transparent border-none p-0 text-[11px] text-theme-accent underline outline-none" value={sys.link} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, link: e.target.value } : x) })} placeholder="URL to SOP or Wiki" />
                                   </div>
                                 </div>
                               </div>
@@ -1942,20 +1977,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             )}
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Input Name *</label>
-                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-theme-accent disabled:opacity-50" value={sd.name} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, name: e.target.value } : x) })} placeholder="e.g., FDC Log, SPC Chart" disabled={!!sd.from_task_id} />
+                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-theme-accent disabled:opacity-50" value={sd.name} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, name: e.target.value } : x) })} placeholder="e.g., FDC Log, SPC Chart" disabled={!!sd.from_task_id} />
                             </div>
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Description</label>
-                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-theme-accent disabled:opacity-50" value={sd.description} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, description: e.target.value } : x) })} placeholder="Define the input..." disabled={!!sd.from_task_id} />
+                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-theme-accent disabled:opacity-50" value={sd.description} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, description: e.target.value } : x) })} placeholder="Define the input..." disabled={!!sd.from_task_id} />
                             </div>
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Format / Example</label>
-                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 outline-none focus:border-theme-accent disabled:opacity-50" value={sd.data_example} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, data_example: e.target.value } : x) })} placeholder="Example value or format" disabled={!!sd.from_task_id} />
+                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 outline-none focus:border-theme-accent disabled:opacity-50" value={sd.data_example} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, data_example: e.target.value } : x) })} placeholder="Example value or format" disabled={!!sd.from_task_id} />
                             </div>
                             <ImagePasteField figures={sd.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, figures: figs } : x) })} label="Evidence Figures (Ctrl+V)" isLocked={!!sd.from_task_id} />
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Links</label>
-                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-theme-accent outline-none disabled:opacity-50" value={sd.link} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, link: e.target.value } : x) })} placeholder="Relevant URL" disabled={!!sd.from_task_id} />
+                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-theme-accent outline-none disabled:opacity-50" value={sd.link} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, link: e.target.value } : x) })} placeholder="Relevant URL" disabled={!!sd.from_task_id} />
                             </div>
                           </div>
                         </NestedCollapsible>
@@ -1994,20 +2029,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           <div className="space-y-4">
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Output Name *</label>
-                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={od.name} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, name: e.target.value } : x) })} placeholder="e.g., Final Report, Updated DB Entry" />
+                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={od.name} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, name: e.target.value } : x) })} placeholder="e.g., Final Report, Updated DB Entry" />
                             </div>
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Description</label>
-                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-theme-accent" value={od.description} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, description: e.target.value } : x) })} placeholder="Define the output artifact..." />
+                              <textarea className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-theme-accent" value={od.description} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, description: e.target.value } : x) })} placeholder="Define the output artifact..." />
                             </div>
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Format / Example</label>
-                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 outline-none focus:border-theme-accent" value={od.data_example} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, data_example: e.target.value } : x) })} placeholder="Example value or format" />
+                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 outline-none focus:border-theme-accent" value={od.data_example} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, data_example: e.target.value } : x) })} placeholder="Example value or format" />
                             </div>
                             <ImagePasteField figures={od.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, figures: figs } : x) })} label="Evidence Figures (Ctrl+V)" />
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Links</label>
-                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-theme-accent outline-none" value={od.link} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, link: e.target.value } : x) })} placeholder="Relevant URL" />
+                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-theme-accent outline-none" value={od.link} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, link: e.target.value } : x) })} placeholder="Relevant URL" />
                             </div>
                           </div>
                         </NestedCollapsible>
@@ -2053,6 +2088,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                   (showErrors && !b.blocking_entity) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10 focus:border-amber-500"
                                 )} 
                                 value={b.blocking_entity} 
+                                onFocus={saveToHistory}
                                 onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, blocking_entity: e.target.value } : x) })} 
                                 placeholder="What stops the process?" 
                               />
@@ -2065,19 +2101,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                   (showErrors && !b.reason) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10 focus:border-amber-500"
                                 )} 
                                 value={b.reason || ''} 
+                                onFocus={saveToHistory}
                                 onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, reason: e.target.value } : x) })} 
                                 placeholder="Why does this happen?" 
                               />
                             </div>
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Average Delay (Minutes)</label>
-                              <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[12px] text-white" value={b.average_delay_minutes || 0} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, average_delay_minutes: parseFloat(e.target.value) || 0 } : x) })} />
+                              <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[12px] text-white" value={b.average_delay_minutes || 0} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, average_delay_minutes: parseFloat(e.target.value) || 0 } : x) })} />
                             </div>
                             <div className="space-y-3">
                               <div className="flex justify-between items-center">
                                 <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Probability ({b.probability_percent || 0}%)</label>
                               </div>
-                              <input type="range" min="0" max="100" step="5" className="w-full accent-amber-500" value={b.probability_percent || 0} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, probability_percent: parseInt(e.target.value) } : x) })} />
+                              <input type="range" min="0" max="100" step="5" className="w-full accent-amber-500" value={b.probability_percent || 0} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, probability_percent: parseInt(e.target.value) } : x) })} />
                             </div>
                             <div className="space-y-1">
                               <label className={cn("text-[9px] font-black uppercase tracking-widest px-1", (showErrors && !b.standard_mitigation) ? "text-status-error" : "text-white/20")}>Standard Mitigation *</label>
@@ -2087,6 +2124,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                   (showErrors && !b.standard_mitigation) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10 focus:border-amber-500"
                                 )} 
                                 value={b.standard_mitigation || ''} 
+                                onFocus={saveToHistory}
                                 onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, standard_mitigation: e.target.value } : x) })} 
                                 placeholder="Action to reduce delay..." 
                               />
@@ -2132,6 +2170,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                   (showErrors && !er.error_type) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10 focus:border-status-error"
                                 )} 
                                 value={er.error_type} 
+                                onFocus={saveToHistory}
                                 onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, error_type: e.target.value } : x) })} 
                                 placeholder="e.g. Data Entry Mistake" 
                               />
@@ -2144,25 +2183,27 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                   (showErrors && !er.description) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10 focus:border-status-error"
                                 )} 
                                 value={er.description || ''} 
+                                onFocus={saveToHistory}
                                 onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, description: e.target.value } : x) })} 
                                 placeholder="What exactly goes wrong?" 
                               />
                             </div>
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Recovery Time (Minutes)</label>
-                              <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[12px] text-white" value={er.recovery_time_minutes || 0} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, recovery_time_minutes: parseFloat(e.target.value) || 0 } : x) })} />
+                              <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[12px] text-white" value={er.recovery_time_minutes || 0} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, recovery_time_minutes: parseFloat(e.target.value) || 0 } : x) })} />
                             </div>
                             <div className="space-y-3">
                               <div className="flex justify-between items-center">
                                 <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Probability ({er.probability_percent || 0}%)</label>
                               </div>
-                              <input type="range" min="0" max="100" step="5" className="w-full accent-status-error" value={er.probability_percent || 0} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, probability_percent: parseInt(e.target.value) } : x) })} />
+                              <input type="range" min="0" max="100" step="5" className="w-full accent-status-error" value={er.probability_percent || 0} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, probability_percent: parseInt(e.target.value) } : x) })} />
                             </div>
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Correction Method</label>
                               <textarea 
                                 className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[11px] text-white/60 h-32 resize-none outline-none focus:border-status-error" 
                                 value={er.correction_method || ''} 
+                                onFocus={saveToHistory}
                                 onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, correction_method: e.target.value } : x) })}
                                 placeholder="Steps to correct this error..." 
                               />
@@ -2238,6 +2279,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                         (showErrors && !step.description) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10 focus:border-orange-500"
                                       )} 
                                       value={step.description} 
+                                      onFocus={saveToHistory}
                                       onChange={e => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.map(x => x.id === step.id ? { ...x, description: e.target.value } : x) })} 
                                       placeholder="Describe the verification action..."
                                     />
@@ -2284,13 +2326,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           <div className="space-y-4">
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Reference Label *</label>
-                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={l.label} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(x => x.id === l.id ? { ...x, label: e.target.value } : x) })} placeholder="e.g., SOP v1.2" />
+                              <input className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={l.label} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(x => x.id === l.id ? { ...x, label: e.target.value } : x) })} placeholder="e.g., SOP v1.2" />
                             </div>
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Target URL / Path</label>
                               <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl px-3 py-2">
                                 <Link2 size={12} className="text-theme-accent" />
-                                <input className="flex-1 bg-transparent border-none p-0 text-[11px] text-theme-accent underline outline-none" value={l.url} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(x => x.id === l.id ? { ...x, url: e.target.value } : x) })} placeholder="https://..." />
+                                <input className="flex-1 bg-transparent border-none p-0 text-[11px] text-theme-accent underline outline-none" value={l.url} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(x => x.id === l.id ? { ...x, url: e.target.value } : x) })} placeholder="https://..." />
                               </div>
                             </div>
                           </div>
@@ -2344,6 +2386,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               <textarea 
                                 className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-[12px] text-white/80 h-32 resize-none outline-none focus:border-theme-accent transition-all" 
                                 value={step.description} 
+                                onFocus={saveToHistory}
                                 onChange={e => updateTask(selectedTaskId, { instructions: selectedTask.instructions.map(x => x.id === step.id ? { ...x, description: e.target.value } : x) })} 
                                 placeholder="Describe the action..."
                               />
@@ -2441,7 +2484,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           (showErrors && metadata.name.length < 2) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10"
                         )} 
                         value={metadata.name} 
-                        onChange={e => { saveToHistory(); setMetadata({...metadata, name: e.target.value}); }} 
+                        onFocus={saveToHistory}
+                        onChange={e => setMetadata({...metadata, name: e.target.value})} 
                       />
                     </div>
 
@@ -2456,7 +2500,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           (showErrors && !metadata.description) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10"
                         )} 
                         value={metadata.description} 
-                        onChange={e => { saveToHistory(); setMetadata({...metadata, description: e.target.value}); }} 
+                        onFocus={saveToHistory}
+                        onChange={e => setMetadata({...metadata, description: e.target.value})} 
                       />
                     </div>
 
@@ -2485,7 +2530,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             step="0.1"
                             className="w-12 bg-black/40 font-black text-[11px] text-white text-center py-2 rounded-lg outline-none" 
                             value={metadata.cadence_count} 
-                            onChange={e => { saveToHistory(); setMetadata({...metadata, cadence_count: parseFloat(e.target.value) || 1}); }} 
+                            onFocus={saveToHistory}
+                            onChange={e => setMetadata({...metadata, cadence_count: parseFloat(e.target.value) || 1})} 
                           />
                           <select 
                             className="flex-1 bg-transparent text-white font-black text-[9px] uppercase outline-none cursor-pointer"
@@ -2557,7 +2603,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             (showErrors && !metadata.trigger_description) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10"
                           )} 
                           value={metadata.trigger_description} 
-                          onChange={e => { saveToHistory(); setMetadata({...metadata, trigger_description: e.target.value}); }} 
+                          onFocus={saveToHistory}
+                          onChange={e => setMetadata({...metadata, trigger_description: e.target.value})} 
                         />
                       </div>
                       <div className="space-y-2">
@@ -2568,7 +2615,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             (showErrors && !metadata.output_description) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10"
                           )} 
                           value={metadata.output_description} 
-                          onChange={e => { saveToHistory(); setMetadata({...metadata, output_description: e.target.value}); }} 
+                          onFocus={saveToHistory}
+                          onChange={e => setMetadata({...metadata, output_description: e.target.value})} 
                         />
                       </div>
                     </div>

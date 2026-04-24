@@ -117,6 +117,95 @@ const STATUS_EXPLANATIONS: Record<string, { desc: string, color: string, badgeCo
 
 const STATUS_OPTIONS = Object.keys(STATUS_EXPLANATIONS);
 
+const StatusBadge = ({ status, fontSize, onShowHelp }: { status: string, fontSize: number, onShowHelp: () => void }) => {
+  const config = STATUS_EXPLANATIONS[status] || { desc: "Status unknown.", color: "slate", badgeColor: "bg-slate-500/10 text-slate-400 border-slate-500/20", dotColor: "bg-slate-400" };
+  
+  return (
+    <Tooltip.Root>
+      <Tooltip.Trigger asChild>
+        <button 
+          onClick={(e) => { e.stopPropagation(); onShowHelp(); }}
+          className={cn(
+            "px-3 py-1 font-black uppercase tracking-widest border rounded-full flex items-center justify-center gap-2 cursor-help transition-all hover:bg-white/10 active:scale-95",
+            config.badgeColor
+          )} 
+          style={{ 
+            fontSize: `${fontSize - 3}px`
+          }}
+        >
+          <span className="whitespace-nowrap">{status}</span>
+        </button>
+      </Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Content className="bg-theme-sidebar border border-theme-border p-3 rounded-xl shadow-2xl z-[100] text-[10px] font-bold text-white max-w-[200px] backdrop-blur-xl animate-apple-in" sideOffset={5}>
+          <p className="leading-relaxed opacity-90">{config.desc}</p>
+          <p className="mt-2 text-theme-accent text-[8px] font-black uppercase">Click to view status guide</p>
+          <Tooltip.Arrow className="fill-theme-border" />
+        </Tooltip.Content>
+      </Tooltip.Portal>
+    </Tooltip.Root>
+  );
+};
+
+const CircledNumber = ({ count, colorClass, fontSize }: { count: number, colorClass: string, fontSize: number }) => (
+  <div className={cn(
+    "w-5 h-5 rounded-full flex items-center justify-center font-black border",
+    count === 0 ? "opacity-10 border-white text-white" : colorClass
+  )} style={{ fontSize: `${fontSize - 4}px` }}>
+    {count}
+  </div>
+);
+
+const ResizableHeader = ({ 
+  label, 
+  widthKey, 
+  sortKey, 
+  center = false, 
+  sticky = null,
+  columnWidths,
+  sortConfig,
+  handleSort,
+  startResizing
+}: { 
+  label: string, 
+  widthKey: string, 
+  sortKey?: string, 
+  center?: boolean, 
+  sticky?: 'left' | 'right' | null,
+  columnWidths: any,
+  sortConfig: SortConfig,
+  handleSort: (key: string) => void,
+  startResizing: (key: string, e: React.MouseEvent) => void
+}) => (
+  <th 
+    style={{ width: columnWidths[widthKey] }}
+    className={cn(
+      "p-0 text-[12px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border relative group/th bg-[#1e293b]",
+      center && "text-center",
+      sticky === 'left' && "sticky left-0 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.3)]",
+      sticky === 'right' && "sticky right-[60px] z-20"
+    )}
+  >
+    <div 
+      className={cn(
+        "w-full h-full px-3 py-2 flex items-center justify-between",
+        sortKey && "cursor-pointer hover:text-white transition-colors",
+        center && "justify-center"
+      )}
+      onClick={() => sortKey && handleSort(sortKey)}
+    >
+      <span className="whitespace-nowrap">{label}</span>
+      {sortKey && sortConfig.key === sortKey && (
+        <span className="ml-1 text-theme-accent">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+      )}
+    </div>
+    <div 
+      className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent/50 transition-colors z-10"
+      onMouseDown={(e) => startResizing(widthKey, e)}
+    />
+  </th>
+);
+
 const MultiSelectFilter = ({ 
   label, 
   options, 
@@ -409,87 +498,6 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     setSortConfig({ key: 'created_at', direction: 'desc' });
   };
 
-  const StatusBadge = ({ status, fontSize }: { status: string, fontSize: number }) => {
-    const config = STATUS_EXPLANATIONS[status] || { desc: "Status unknown.", color: "slate", badgeColor: "bg-slate-500/10 text-slate-400 border-slate-500/20", dotColor: "bg-slate-400" };
-    
-    return (
-      <Tooltip.Root>
-        <Tooltip.Trigger asChild>
-          <button 
-            onClick={(e) => { e.stopPropagation(); setShowStatusHelp(true); }}
-            className={cn(
-              "px-3 py-1 font-black uppercase tracking-widest border rounded-full flex items-center justify-center gap-2 cursor-help transition-all hover:bg-white/10 active:scale-95",
-              config.badgeColor
-            )} 
-            style={{ 
-              fontSize: `${fontSize - 3}px`
-            }}
-          >
-            <span className="whitespace-nowrap">{status}</span>
-          </button>
-        </Tooltip.Trigger>
-        <Tooltip.Portal>
-          <Tooltip.Content className="bg-theme-sidebar border border-theme-border p-3 rounded-xl shadow-2xl z-[100] text-[10px] font-bold text-white max-w-[200px] backdrop-blur-xl animate-apple-in" sideOffset={5}>
-            <p className="leading-relaxed opacity-90">{config.desc}</p>
-            <p className="mt-2 text-theme-accent text-[8px] font-black uppercase">Click to view status guide</p>
-            <Tooltip.Arrow className="fill-theme-border" />
-          </Tooltip.Content>
-        </Tooltip.Portal>
-      </Tooltip.Root>
-    );
-  };
-
-  const CircledNumber = ({ count, colorClass, fontSize }: { count: number, colorClass: string, fontSize: number }) => (
-    <div className={cn(
-      "w-5 h-5 rounded-full flex items-center justify-center font-black border",
-      count === 0 ? "opacity-10 border-white text-white" : colorClass
-    )} style={{ fontSize: `${fontSize - 4}px` }}>
-      {count}
-    </div>
-  );
-
-  const ResizableHeader = ({ 
-    label, 
-    widthKey, 
-    sortKey, 
-    center = false, 
-    sticky = null 
-  }: { 
-    label: string, 
-    widthKey: string, 
-    sortKey?: string, 
-    center?: boolean, 
-    sticky?: 'left' | 'right' | null 
-  }) => (
-    <th 
-      style={{ width: columnWidths[widthKey] }}
-      className={cn(
-        "p-0 text-[12px] font-black text-theme-muted uppercase tracking-widest border-r border-theme-border relative group/th bg-[#1e293b]",
-        center && "text-center",
-        sticky === 'left' && "sticky left-0 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.3)]",
-        sticky === 'right' && "sticky right-[60px] z-20"
-      )}
-    >
-      <div 
-        className={cn(
-          "w-full h-full px-3 py-2 flex items-center justify-between",
-          sortKey && "cursor-pointer hover:text-white transition-colors",
-          center && "justify-center"
-        )}
-        onClick={() => sortKey && handleSort(sortKey)}
-      >
-        <span className="whitespace-nowrap">{label}</span>
-        {sortKey && sortConfig.key === sortKey && (
-          <span className="ml-1 text-theme-accent">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-        )}
-      </div>
-      <div 
-        className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent/50 transition-colors z-10"
-        onMouseDown={(e) => startResizing(widthKey, e)}
-      />
-    </th>
-  );
-
   return (
     <Tooltip.Provider>
     <div className="flex flex-col h-full animate-apple-in relative">
@@ -675,25 +683,25 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                   </div>
                 </th>
                 
-                <ResizableHeader label="Workflow" widthKey="workflow" sortKey="name" sticky="left" />
-                <ResizableHeader label="PRC" widthKey="prc" sortKey="prc" center />
-                <ResizableHeader label="Tool Family" widthKey="toolFamily" sortKey="tool_family" center />
-                <ResizableHeader label="Tool IDs" widthKey="toolId" sortKey="tool_id" center />
-                <ResizableHeader label="Type" widthKey="type" sortKey="workflow_type" center />
-                <ResizableHeader label="Trigger → Output" widthKey="triggerOutput" center />
-                <ResizableHeader label="Freq" widthKey="freq" sortKey="cadence_count" center />
-                <ResizableHeader label="Manual" widthKey="manual" center />
-                <ResizableHeader label="Auto" widthKey="auto" center />
-                <ResizableHeader label="ROI (h/wk)" widthKey="roi" sortKey="total_roi_saved_hours" center />
-                <ResizableHeader label="Tasks" widthKey="tasks" center />
-                <ResizableHeader label="Blockers" widthKey="blockers" center />
-                <ResizableHeader label="Errors" widthKey="errors" center />
-                <ResizableHeader label="Status" widthKey="status" sortKey="status" center />
-                <ResizableHeader label="Creator" widthKey="creator" sortKey="created_by" center />
-                <ResizableHeader label="Editor" widthKey="editor" sortKey="updated_by" center />
-                <ResizableHeader label="Created" widthKey="created" sortKey="created_at" center />
-                <ResizableHeader label="Updated" widthKey="updated" sortKey="updated_at" center />
-                <ResizableHeader label="Ver" widthKey="ver" sortKey="version" center sticky="right" />
+                <ResizableHeader label="Workflow" widthKey="workflow" sortKey="name" sticky="left" columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="PRC" widthKey="prc" sortKey="prc" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Tool Family" widthKey="toolFamily" sortKey="tool_family" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Tool IDs" widthKey="toolId" sortKey="tool_id" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Type" widthKey="type" sortKey="workflow_type" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Trigger → Output" widthKey="triggerOutput" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Freq" widthKey="freq" sortKey="cadence_count" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Manual" widthKey="manual" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Auto" widthKey="auto" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="ROI (h/wk)" widthKey="roi" sortKey="total_roi_saved_hours" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Tasks" widthKey="tasks" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Blockers" widthKey="blockers" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Errors" widthKey="errors" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Status" widthKey="status" sortKey="status" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Creator" widthKey="creator" sortKey="created_by" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Editor" widthKey="editor" sortKey="updated_by" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Created" widthKey="created" sortKey="created_at" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Updated" widthKey="updated" sortKey="updated_at" center columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
+                <ResizableHeader label="Ver" widthKey="ver" sortKey="version" center sticky="right" columnWidths={columnWidths} sortConfig={sortConfig} handleSort={handleSort} startResizing={startResizing} />
 
                 <th className="p-0 w-[60px] bg-[#1e293b] sticky right-0 shadow-[-2px_0_5px_rgba(0,0,0,0.3)] z-30 border-b border-theme-border"></th>
               </tr>
@@ -796,7 +804,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
 
                       <td className="p-0 border-r border-theme-border text-center" style={{ padding: `${density.rowPadding}px 8px` }}>
                         <div className="flex items-center justify-center w-full h-full">
-                          <StatusBadge status={w.status} fontSize={density.fontSize} />
+                          <StatusBadge status={w.status} fontSize={density.fontSize} onShowHelp={() => setShowStatusHelp(true)} />
                         </div>
                       </td>
 

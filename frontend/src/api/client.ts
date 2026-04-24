@@ -15,8 +15,16 @@ export const setGlobalReporter = (fn: any) => { reportErrorGlobal = fn; };
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (reportErrorGlobal && error.response?.data) {
-      reportErrorGlobal(error.response.data, 'backend');
+    if (reportErrorGlobal) {
+      if (error.response?.data) {
+        reportErrorGlobal(error.response.data, 'backend');
+      } else {
+        reportErrorGlobal({ 
+          message: error.message || "Network or Server unreachable", 
+          type: error.code || "CONNECTION_FAILURE",
+          traceback: error.stack 
+        }, 'backend');
+      }
     }
     return Promise.reject(error);
   }
