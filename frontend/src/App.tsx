@@ -216,6 +216,7 @@ const PathOSApp: React.FC = () => {
   const [intakeSeed, setIntakeSeed] = useState<any>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
+  const [pendingWorkflow, setPendingWorkflow] = useState<any>(null);
   const [showConfirm, setShowConfirm] = useState(false);
   
   const navigate = useNavigate();
@@ -231,6 +232,19 @@ const PathOSApp: React.FC = () => {
     queryKey: ['workflows'], 
     queryFn: () => workflowsApi.list(true) 
   });
+
+  // URL State Recovery
+  useEffect(() => {
+    const pathParts = location.pathname.split('/');
+    if ((pathParts.includes('builder') || pathParts.includes('intake')) && pathParts.length > 3) {
+      const id = parseInt(pathParts[3]);
+      if (!isNaN(id) && workflows.length > 0) {
+        const found = workflows.find((w: any) => w.id === id);
+        if (found) setSelectedWorkflow(found);
+      }
+    }
+  }, [location.pathname, workflows]);
+
   const { data: taxonomy = [] } = useQuery({ queryKey: ['taxonomy'], queryFn: taxonomyApi.list });
   const { data: executions = [] } = useQuery({ queryKey: ['executions'], queryFn: executionsApi.list });
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: projectsApi.list });
@@ -241,7 +255,7 @@ const PathOSApp: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
       toast.success("Workflow Created");
       setSelectedWorkflow(data);
-      navigate('/workflows/builder');
+      navigate(`/workflows/builder/${data.id}`);
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.detail || "Creation failed.");
@@ -273,7 +287,7 @@ const PathOSApp: React.FC = () => {
       setSelectedWorkflow(data);
       setIntakeSeed(null);
       toast.success(variables.mode === 'version' ? 'Version draft created' : 'Workflow cloned');
-      navigate('/workflows/intake');
+      navigate(`/workflows/intake/${data.id}`);
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.detail || "Workflow duplication failed.");
@@ -330,20 +344,20 @@ const PathOSApp: React.FC = () => {
 
   const handleSelectWorkflow = (wf: any) => {
     if (isDirty) {
-      setPendingNavPath(`/workflows/builder`);
+      setPendingNavPath(`/workflows/builder/${wf.id}`);
+      setPendingWorkflow(wf);
       setShowConfirm(true);
-      // We don't actually navigate yet, just set the pending path
-      // but we need the workflow data. Better to just block.
       return;
     }
     setSelectedWorkflow(wf);
     setIntakeSeed(null);
-    navigate('/workflows/builder');
+    navigate(`/workflows/builder/${wf.id}`);
   };
 
   const handleNavigateRequest = (path: string) => {
     if (isDirty) {
       setPendingNavPath(path);
+      setPendingWorkflow(null);
       setShowConfirm(true);
     } else {
       if (['/workflows', '/dashboard', '/board', '/analytics', '/settings'].includes(path)) {
@@ -357,7 +371,12 @@ const PathOSApp: React.FC = () => {
   const confirmDiscard = () => {
     setIsDirty(false);
     setShowConfirm(false);
-    if (pendingNavPath) {
+    if (pendingWorkflow) {
+      setSelectedWorkflow(pendingWorkflow);
+      setPendingWorkflow(null);
+      setPendingNavPath(null);
+      navigate(`/workflows/builder/${pendingWorkflow.id}`);
+    } else if (pendingNavPath) {
       if (['/workflows', '/dashboard', '/board', '/analytics', '/settings'].includes(pendingNavPath)) {
         setSelectedWorkflow(null);
         setIntakeSeed(null);
@@ -420,26 +439,38 @@ const PathOSApp: React.FC = () => {
                         owner: 'Haewon Kim'
                       }
                     });
-                    navigate('/workflows/intake');
+                    navigate('/workflows/intake/new');
                   }}
                 />
               } />
-              <Route path="/workflows/intake" element={
+              <Route path="/workflows/intake/new" element={
                 <div className="max-w-4xl mx-auto">
                   <IntakeGatekeeper 
-                    key={location.key}
-                    initialData={selectedWorkflow || intakeSeed} 
+                    key="intake-new"
+                    initialData={intakeSeed} 
+                    taxonomy={taxonomy} 
+                    onSuccess={(data) => { 
+                      createMutation.mutate(data); 
+                    }} 
+                    onCancel={() => handleNavigateRequest('/workflows')} 
+                    onRestart={() => { setSelectedWorkflow(null); setIntakeSeed(null); }}
+                  />
+                </div>
+              } />
+              <Route path="/workflows/intake/:workflowId" element={
+                <div className="max-w-4xl mx-auto">
+                  <IntakeGatekeeper 
+                    key={location.pathname}
+                    initialData={selectedWorkflow} 
                     taxonomy={taxonomy} 
                     onSuccess={(data) => { 
                       if (selectedWorkflow?.id) { 
                         workflowsApi.update(selectedWorkflow.id, data).then((updated) => { 
                           setSelectedWorkflow(updated); 
                           setIntakeSeed(null);
-                          navigate('/workflows/builder'); 
+                          navigate(`/workflows/builder/${updated.id}`); 
                         }); 
-                      } else { 
-                        createMutation.mutate(data); 
-                      } 
+                      }
                     }} 
                     onCancel={() => handleNavigateRequest('/workflows')} 
                     onRestart={() => { setSelectedWorkflow(null); setIntakeSeed(null); }}
@@ -464,11 +495,11 @@ const PathOSApp: React.FC = () => {
                   projects={projects}
                 />
               } />
-              <Route path="/workflows/builder" element={
+              <Route path="/workflows/builder/:workflowId" element={
                 selectedWorkflow ? (
                   <div className="h-[calc(100vh-140px)]">
                     <WorkflowBuilder 
-                      key={`${selectedWorkflow.id}-${selectedWorkflow.updated_at || 'stable'}`}
+                      key={selectedWorkflow.id}
                       workflow={selectedWorkflow}
                       taxonomy={taxonomy}
                       onSave={(data: any) => workflowsApi.update(selectedWorkflow.id, data).then((updated) => {
@@ -481,13 +512,13 @@ const PathOSApp: React.FC = () => {
                         if (currentData) {
                           setSelectedWorkflow({ ...selectedWorkflow, ...currentData });
                         }
-                        navigate('/workflows/intake');
+                        navigate(`/workflows/intake/${selectedWorkflow.id}`);
                       }}
                       onExit={() => handleNavigateRequest('/workflows')}
                       setIsDirty={setIsDirty}
                     />
                   </div>
-                ) : <Navigate to="/workflows" replace />
+                ) : <div className="flex items-center justify-center h-full text-theme-muted uppercase font-black tracking-widest gap-4 animate-pulse"><Layers size={32} /> Loading Workflow State...</div>
               } />
               <Route path="*" element={<div className="flex flex-col items-center justify-center h-full text-theme-muted uppercase font-black tracking-widest gap-4 opacity-20"><Layers size={64} /> <span>Under Development</span></div>} />
             </Routes>

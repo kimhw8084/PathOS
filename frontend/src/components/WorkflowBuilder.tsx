@@ -1354,19 +1354,22 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     simulation: workflow?.simulation,
   });
 
+  const lastHistorySnapshot = useRef<string>('');
+
   const saveToHistory = useCallback(() => {
     const currentState = { 
-      nodes: JSON.parse(JSON.stringify(nodes)), 
-      edges: JSON.parse(JSON.stringify(edges)), 
-      tasks: JSON.parse(JSON.stringify(tasks)), 
-      metadata: JSON.parse(JSON.stringify(metadata)) 
+      nodes: nodes, 
+      edges: edges, 
+      tasks: tasks, 
+      metadata: metadata 
     };
-
+    
+    const stateString = JSON.stringify(currentState);
+    if (stateString === lastHistorySnapshot.current) return;
+    
+    lastHistorySnapshot.current = stateString;
     setHistory(prev => {
-      if (prev.length > 0) {
-        if (JSON.stringify(prev[prev.length - 1]) === JSON.stringify(currentState)) return prev;
-      }
-      return [...prev.slice(-49), currentState];
+      return [...prev.slice(-49), JSON.parse(stateString)];
     });
     setRedoStack([]);
   }, [nodes, edges, tasks, metadata]);
@@ -1793,33 +1796,38 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const updateTask = (id: string, updates: Partial<TaskEntity>) => {
     setTasks(prev => {
       const newTasks = prev.map(t => t.id === id ? { ...t, ...updates } : t);
-      const updated = newTasks.find(t => t.id === id);
-      if (updated) {
-        setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { 
-          ...n.data, 
-          label: updated.name, 
-          task_type: updated.task_type, 
-          manual_time: updated.manual_time_minutes, 
-          automation_time: updated.automation_time_minutes, 
-          occurrence: updated.occurrence, 
-          involved_systems: updated.involved_systems, 
-          owningTeam: updated.owning_team, 
-          ownerPositions: updated.owner_positions, 
-          sourceCount: (updated.source_data_list || []).length, 
-          outputCount: (updated.output_data_list || []).length, 
-          validation_needed: updated.validation_needed, 
-          blockerCount: (updated.blockers || []).length, 
-          errorCount: (updated.errors || []).length, 
-          description: updated.description 
-        } } : n));
-      }
       return newTasks;
     });
+
+    setNodes(nds => nds.map(n => {
+      if (n.id === id) {
+        return {
+          ...n,
+          data: {
+            ...n.data,
+            ...(updates.name !== undefined && { label: updates.name }),
+            ...(updates.task_type !== undefined && { task_type: updates.task_type }),
+            ...(updates.manual_time_minutes !== undefined && { manual_time: updates.manual_time_minutes }),
+            ...(updates.automation_time_minutes !== undefined && { automation_time: updates.automation_time_minutes }),
+            ...(updates.occurrence !== undefined && { occurrence: updates.occurrence }),
+            ...(updates.involved_systems !== undefined && { involved_systems: updates.involved_systems }),
+            ...(updates.owning_team !== undefined && { owningTeam: updates.owning_team }),
+            ...(updates.owner_positions !== undefined && { ownerPositions: updates.owner_positions }),
+            ...(updates.source_data_list !== undefined && { sourceCount: (updates.source_data_list || []).length }),
+            ...(updates.output_data_list !== undefined && { outputCount: (updates.output_data_list || []).length }),
+            ...(updates.validation_needed !== undefined && { validation_needed: updates.validation_needed }),
+            ...(updates.blockers !== undefined && { blockerCount: (updates.blockers || []).length }),
+            ...(updates.errors !== undefined && { errorCount: (updates.errors || []).length }),
+            ...(updates.description !== undefined && { description: updates.description })
+          }
+        };
+      }
+      return n;
+    }));
     setIsDirty?.(true);
   };
 
   const updateEdge = (id: string, updates: any) => {
-    saveToHistory();
     setEdges(eds => eds.map(e => e.id === id ? { ...e, data: { ...e.data, ...updates }, markerEnd: { type: MarkerType.ArrowClosed, color: updates.color || e.data?.color || '#ffffff' } } : e));
     setIsDirty?.(true);
   };
@@ -1845,6 +1853,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const deleteTask = useCallback((id: string) => {
     const task = tasks.find(t => t.id === id);
     if (task?.interface) return;
+    if (checkTaskDependencies(id)) return;
+    
     saveToHistory();
     const outputIds = new Set((task?.output_data_list || []).map(output => output.id));
     setTasks(prev => prev
@@ -1879,7 +1889,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     setSelectedTaskId(null);
     setConfirmingDelete(null);
     setIsDirty?.(true);
-  }, [tasks, setNodes, setEdges, setIsDirty, saveToHistory]);
+  }, [tasks, checkTaskDependencies, saveToHistory, setNodes, setEdges, setIsDirty]);
 
 const onAddNode = (type: 'TASK' | 'CONDITION') => {
     saveToHistory();

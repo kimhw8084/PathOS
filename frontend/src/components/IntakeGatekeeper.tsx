@@ -94,7 +94,7 @@ export const SearchableSelect = ({
 
   const toggleOption = (opt: any) => {
     // Ensure we use the raw value without any transformations
-    const optValue = typeof opt === 'string' ? opt : (opt.value || opt.label);
+    const optValue = typeof opt === 'string' ? opt : (opt.value !== undefined && opt.value !== null ? opt.value : opt.label);
     if (isMulti) {
       const current = Array.isArray(value) ? value : [];
       if (current.includes(optValue)) {

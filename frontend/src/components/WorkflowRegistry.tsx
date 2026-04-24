@@ -395,7 +395,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
   });
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'created_at', direction: 'desc' });
-  const [activeRibbon, setActiveRibbon] = useState('Personal Drafts');
+  const [activeRibbon, setActiveRibbon] = useState('Submitted Requests');
   const [density, setDensity] = useState({ fontSize: 12, rowPadding: 2 });
   const [columnWidths, setColumnWidths] = useState<any>({
     workflow: 320,
@@ -480,8 +480,13 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
   const startResizing = (key: string, e: React.MouseEvent) => {
     const startX = e.clientX;
     const startWidth = columnWidths[key];
+    let lastUpdate = 0;
     
     const onMouseMove = (moveEvent: MouseEvent) => {
+      const now = Date.now();
+      if (now - lastUpdate < 33) return; // ~30fps
+      lastUpdate = now;
+
       const delta = moveEvent.clientX - startX;
       setColumnWidths((prev: any) => ({ ...prev, [key]: Math.max(60, startWidth + delta) }));
     };

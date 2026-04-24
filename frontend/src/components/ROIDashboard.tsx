@@ -23,6 +23,21 @@ const StatBox = ({ icon: Icon, label, value, subValue, colorClass = "text-white"
   </div>
 );
 
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="apple-glass !bg-[#0f172a]/95 !border-blue-500/30 p-3 rounded-xl shadow-2xl backdrop-blur-2xl">
+        <p className="text-[10px] text-white/40 font-black uppercase tracking-widest mb-1.5 border-b border-white/5 pb-1.5">{label}</p>
+        <div className="flex items-center gap-2">
+          <TrendingUp size={12} className="text-blue-400" />
+          <p className="text-[14px] font-black text-white">{payload[0].value.toFixed(1)} <span className="text-[10px] text-white/40">HRS / WK</span></p>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows, executions = [], projects = [] }) => {
   const sortedWorkflows = [...workflows].sort((a, b) => (b.total_roi_saved_hours || 0) - (a.total_roi_saved_hours || 0));
   const leaderboard = sortedWorkflows.slice(0, 10);
@@ -41,25 +56,10 @@ const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows, executions = [],
   const totalWeeklySavings = workflows.reduce((acc, wf) => acc + (wf.total_roi_saved_hours || 0), 0);
   const totalTasks = workflows.reduce((acc, wf) => acc + (wf.tasks?.length || 0), 0);
   const totalBlockers = workflows.reduce((acc, wf) => acc + (wf.tasks?.reduce((tAcc: number, t: any) => tAcc + (t.blockers?.length || 0), 0) || 0), 0);
-  const avgComplexity = workflows.length > 0 ? (totalTasks / workflows.length).toFixed(1) : 0;
+  const avgComplexity = workflows.length > 0 ? parseFloat((totalTasks / workflows.length).toFixed(1)) : 0;
   const trackedRuns = executions.length;
   const realizedMinutes = executions.reduce((acc, execution) => acc + Math.max((execution.baseline_manual_minutes || 0) - (execution.actual_duration_minutes || 0), 0), 0);
   const activeProjects = projects.filter((project: any) => !['Deployed', 'Done'].includes(project.status)).length;
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="apple-glass !bg-[#0f172a]/95 !border-blue-500/30 p-3 rounded-xl shadow-2xl backdrop-blur-2xl">
-          <p className="text-[10px] text-white/40 font-black uppercase tracking-widest mb-1.5 border-b border-white/5 pb-1.5">{label}</p>
-          <div className="flex items-center gap-2">
-            <TrendingUp size={12} className="text-blue-400" />
-            <p className="text-[14px] font-black text-white">{payload[0].value.toFixed(1)} <span className="text-[10px] text-white/40">HRS / WK</span></p>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="space-y-6 animate-apple-in">
