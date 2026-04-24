@@ -777,21 +777,21 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
 
                       <td className="p-0 border-r border-theme-border text-center" style={{ padding: `${density.rowPadding}px 8px` }}>
                          <div className="flex items-center justify-center gap-1">
-                           <span className="font-black text-white/80 whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>{analytics.frequencyPerWeek.toFixed(1)}</span>
+                           <span className="font-black text-white/80 whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>{(analytics.frequencyPerWeek || 0).toFixed(1)}</span>
                            <span className="text-[10px] font-bold text-white/20 uppercase tracking-tighter">/{w.cadence_unit}</span>
                          </div>
                       </td>
 
                       <td className="p-0 text-center border-r border-theme-border" style={{ padding: `${density.rowPadding}px 8px` }}>
-                        <span className="font-black text-white/80 whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>{analytics.manualPerCycle.toFixed(1)}h</span>
+                        <span className="font-black text-white/80 whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>{(analytics.manualPerCycle || 0).toFixed(1)}h</span>
                       </td>
 
                       <td className="p-0 text-center border-r border-theme-border" style={{ padding: `${density.rowPadding}px 8px` }}>
-                        <span className="font-black text-white/80 whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>{analytics.autoPerCycle.toFixed(1)}h</span>
+                        <span className="font-black text-white/80 whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>{(analytics.autoPerCycle || 0).toFixed(1)}h</span>
                       </td>
 
                       <td className="p-0 text-center border-r border-theme-border" style={{ padding: `${density.rowPadding}px 8px` }}>
-                        <span className="font-black text-theme-accent whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>+{analytics.manualWeekly.toFixed(1)}</span>
+                        <span className="font-black text-theme-accent whitespace-nowrap" style={{ fontSize: `${density.fontSize}px` }}>+{(analytics.manualWeekly || 0).toFixed(1)}</span>
                       </td>
 
                       <td className="p-0 text-center border-r border-theme-border" style={{ padding: `${density.rowPadding}px 8px` }}>

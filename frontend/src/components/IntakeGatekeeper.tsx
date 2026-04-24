@@ -88,7 +88,7 @@ export const SearchableSelect = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const filteredOptions = options.filter(opt => {
-    const labelText = typeof opt === 'string' ? opt : opt.label;
+    const labelText = typeof opt === 'string' ? opt : (opt?.label || String(opt?.value || ''));
     return labelText.toLowerCase().includes(search.toLowerCase());
   });
 
@@ -130,7 +130,7 @@ export const SearchableSelect = ({
         </span>
       ));
     } else {
-      if (!value) return null;
+      if (value === null || value === undefined || value === '') return null;
       return <span className="text-[12px] font-black text-white uppercase">{value}</span>;
     }
   };
@@ -479,8 +479,8 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                       type="number" 
                       step="0.1"
                       className="w-16 bg-black/40 font-black text-[13px] text-white text-center py-2 rounded-lg focus:border-theme-accent outline-none transition-all ml-1" 
-                      value={formData.cadence_count} 
-                      onChange={e => setFormData({...formData, cadence_count: parseFloat(e.target.value)})} 
+                      value={isNaN(formData.cadence_count) ? '' : formData.cadence_count} 
+                      onChange={e => setFormData({...formData, cadence_count: e.target.value === '' ? 0 : parseFloat(e.target.value)})} 
                     />
                     <select 
                       className="flex-1 bg-transparent text-white font-black text-center appearance-none cursor-pointer hover:bg-white/5 transition-all uppercase text-[10px] tracking-tight outline-none py-2"

@@ -30,7 +30,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         <p className="text-[10px] text-white/40 font-black uppercase tracking-widest mb-1.5 border-b border-white/5 pb-1.5">{label}</p>
         <div className="flex items-center gap-2">
           <TrendingUp size={12} className="text-blue-400" />
-          <p className="text-[14px] font-black text-white">{payload[0].value.toFixed(1)} <span className="text-[10px] text-white/40">HRS / WK</span></p>
+          <p className="text-[14px] font-black text-white">{(payload[0].value || 0).toFixed(1)} <span className="text-[10px] text-white/40">HRS / WK</span></p>
         </div>
       </div>
     );

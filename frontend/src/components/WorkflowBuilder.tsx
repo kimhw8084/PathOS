@@ -133,7 +133,7 @@ interface TaskEntity {
   name: string;
   description: string;
   task_type: string;
-  involved_systems: TaskSystem[];
+  target_systems: TaskSystem[];
   interface?: 'TRIGGER' | 'OUTCOME';
   manual_time_minutes: number;
   automation_time_minutes: number;
@@ -255,7 +255,7 @@ const cloneTaskEntity = (task: TaskEntity, nodeId: string): TaskEntity => ({
   node_id: nodeId,
   blockers: (task.blockers || []).map((blocker: any) => ({ ...blocker, id: createLocalId('blocker') })),
   errors: (task.errors || []).map((error: any) => ({ ...error, id: createLocalId('error') })),
-  involved_systems: (task.involved_systems || []).map((system) => ({ ...system, id: createLocalId('system') })),
+  target_systems: (task.target_systems || []).map((system) => ({ ...system, id: createLocalId('system') })),
   source_data_list: (task.source_data_list || []).map((item) => ({ ...item, id: createLocalId('input') })),
   output_data_list: (task.output_data_list || []).map((item) => ({ ...item, id: createLocalId('output') })),
   media: (task.media || []).map((media) => ({ ...media, id: createLocalId('media') })),
@@ -968,9 +968,9 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
     );
   }
 
-  const involvedSystems: TaskSystem[] = data.involved_systems || [];
-  const visibleSystems = involvedSystems.slice(0, 3);
-  const hiddenSystemsCount = involvedSystems.length - visibleSystems.length;
+  const targetSystems: TaskSystem[] = data.target_systems || [];
+  const visibleSystems = targetSystems.slice(0, 3);
+  const hiddenSystemsCount = targetSystems.length - visibleSystems.length;
 
   return (
     <div className={cn(
@@ -1089,7 +1089,7 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
              {hiddenSystemsCount > 0 && (
                <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-[12px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
              )}
-             {involvedSystems.length === 0 && (
+             {targetSystems.length === 0 && (
                <span className="text-[11px] font-black text-white/10 uppercase tracking-widest">No Systems</span>
              )}
           </div>
@@ -1715,7 +1715,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
           ...t,
           id: stableId,
           node_id: stableId,
-          involved_systems: Array.isArray(t.involved_systems) ? t.involved_systems : [],
+          target_systems: Array.isArray(t.target_systems) ? t.target_systems : [],
           blockers: Array.isArray(t.blockers) ? t.blockers : [],
           errors: Array.isArray(t.errors) ? t.errors : [],
           media: Array.isArray(t.media) ? t.media : [],
@@ -1769,7 +1769,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         type: t.task_type === 'LOOP' ? 'diamond' : 'matrix',
         position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
         data: {
-          ...t, label: t.name, task_type: t.task_type || 'GENERAL', manual_time: t.manual_time_minutes || 0, automation_time: t.automation_time_minutes || 0, occurrence: t.occurrence || 1, involved_systems: t.involved_systems, owningTeam: t.owning_team, ownerPositions: t.owner_positions, sourceCount: (t.source_data_list || []).length, outputCount: (t.output_data_list || []).length, interface: t.interface, validation_needed: t.validation_needed, blockerCount: (t.blockers || []).length, errorCount: (t.errors || []).length, description: t.description || '', id: String(t.node_id), baseFontSize: 14
+          ...t, label: t.name, task_type: t.task_type || 'GENERAL', manual_time: t.manual_time_minutes || 0, automation_time: t.automation_time_minutes || 0, occurrence: t.occurrence || 1, target_systems: t.target_systems, owningTeam: t.owning_team, ownerPositions: t.owner_positions, sourceCount: (t.source_data_list || []).length, outputCount: (t.output_data_list || []).length, interface: t.interface, validation_needed: t.validation_needed, blockerCount: (t.blockers || []).length, errorCount: (t.errors || []).length, description: t.description || '', id: String(t.node_id), baseFontSize: 14
         },
       }));
       const initialEdges: Edge[] = (workflow?.edges || []).map((e: any, idx: number) => {
@@ -1810,7 +1810,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
             ...(updates.manual_time_minutes !== undefined && { manual_time: updates.manual_time_minutes }),
             ...(updates.automation_time_minutes !== undefined && { automation_time: updates.automation_time_minutes }),
             ...(updates.occurrence !== undefined && { occurrence: updates.occurrence }),
-            ...(updates.involved_systems !== undefined && { involved_systems: updates.involved_systems }),
+            ...(updates.target_systems !== undefined && { target_systems: updates.target_systems }),
             ...(updates.owning_team !== undefined && { owningTeam: updates.owning_team }),
             ...(updates.owner_positions !== undefined && { ownerPositions: updates.owner_positions }),
             ...(updates.source_data_list !== undefined && { sourceCount: (updates.source_data_list || []).length }),
@@ -1895,14 +1895,14 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
     saveToHistory();
     const id = `node-${Date.now()}`;
     const center = project({ x: (window.innerWidth - inspectorWidth) / 2, y: window.innerHeight / 2 });
-    const newNode: Node = { id, type: type === 'CONDITION' ? 'diamond' : 'matrix', position: { x: Math.round((center.x - 160) / 10) * 10, y: Math.round((center.y - 140) / 10) * 10 }, data: { label: type === 'TASK' ? 'New Operational Task' : 'New Process Condition', task_type: type === 'TASK' ? 'System Interaction' : 'LOOP', manual_time: 0, automation_time: 0, occurrence: 1, involved_systems: [], validation_needed: false, blockerCount: 0, errorCount: 0, baseFontSize } };
+    const newNode: Node = { id, type: type === 'CONDITION' ? 'diamond' : 'matrix', position: { x: Math.round((center.x - 160) / 10) * 10, y: Math.round((center.y - 140) / 10) * 10 }, data: { label: type === 'TASK' ? 'New Operational Task' : 'New Process Condition', task_type: type === 'TASK' ? 'System Interaction' : 'LOOP', manual_time: 0, automation_time: 0, occurrence: 1, target_systems: [], validation_needed: false, blockerCount: 0, errorCount: 0, baseFontSize } };
     const newTask: TaskEntity = { 
       id, 
       node_id: id, 
       name: newNode.data.label, 
       description: type === 'TASK' ? 'Describe the operational steps and purpose of this task.' : 'Define the condition being evaluated (e.g., Is value > limit?).', 
       task_type: newNode.data.task_type, 
-      involved_systems: [], 
+      target_systems: [], 
       manual_time_minutes: 0, 
       automation_time_minutes: 0, 
       machine_wait_time_minutes: 0, 
@@ -2347,7 +2347,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         "w-full bg-black/40 border rounded-xl px-4 py-3 text-[14px] font-black text-white uppercase focus:border-theme-accent outline-none transition-all",
                         (showErrors && !selectedTask.name) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10"
                       )} 
-                      value={selectedTask.name} 
+                      value={selectedTask.name || ''} 
                       onFocus={saveToHistory}
                       onChange={e => updateTask(selectedTaskId, { name: e.target.value })} 
                       disabled={isProtected}
@@ -2361,7 +2361,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         "w-full bg-black/40 border rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 h-32 resize-none focus:border-theme-accent outline-none leading-relaxed transition-all",
                         (showErrors && !selectedTask.description) ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.1)]" : "border-white/10"
                       )} 
-                      value={selectedTask.description} 
+                      value={selectedTask.description || ''} 
                       onFocus={saveToHistory}
                       onChange={e => updateTask(selectedTaskId, { description: e.target.value })} 
                       disabled={isProtected}
@@ -2411,18 +2411,18 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       <div className="grid grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-xl">
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest px-1 text-center block">TAT Manual (m)</label>
-                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[14px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
+                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[14px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes ?? 0} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-purple-400 uppercase tracking-widest px-1 text-center block">TAT Machine (m)</label>
-                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[14px] font-black text-white outline-none focus:border-purple-400 text-center" value={selectedTask.automation_time_minutes} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
+                          <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[14px] font-black text-white outline-none focus:border-purple-400 text-center" value={selectedTask.automation_time_minutes ?? 0} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-4 items-end">
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owner Team</label>
-                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-11 text-[12px] font-bold text-white outline-none focus:border-theme-accent placeholder:text-white/10 transition-all" value={selectedTask.owning_team} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { owning_team: e.target.value })} placeholder="Team Name" />
+                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-11 text-[12px] font-bold text-white outline-none focus:border-theme-accent placeholder:text-white/10 transition-all" value={selectedTask.owning_team || ''} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { owning_team: e.target.value })} placeholder="Team Name" />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Positions</label>
@@ -2487,45 +2487,45 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
 
                       <CollapsibleSection 
                         title="Involved IT Systems" 
-                        isOpen={expandedSections.involved_systems || false} 
-                        toggle={() => toggleSection('involved_systems')} 
-                        count={selectedTask.involved_systems.length}
-                        onEdit={() => toggleSectionEdit('involved_systems')}
-                        isEditing={sectionEditModes['involved_systems']}
+                        isOpen={expandedSections.target_systems || false} 
+                        toggle={() => toggleSection('target_systems')} 
+                        count={selectedTask.target_systems.length}
+                        onEdit={() => toggleSectionEdit('target_systems')}
+                        isEditing={sectionEditModes['target_systems']}
                       >
                         <div className="space-y-3 pt-4">
-                          {(selectedTask.involved_systems || []).map(sys => (
+                          {(selectedTask.target_systems || []).map(sys => (
                             <NestedCollapsible 
                               key={sys.id} 
                               title={sys.name || "New System Entry"} 
                               isOpen={openItems[sys.id]} 
                               toggle={() => toggleItem(sys.id)} 
-                              onDelete={() => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.filter(x => x.id !== sys.id) })}
-                              isEditing={sectionEditModes['involved_systems']}
-                              onEdit={() => toggleSectionEdit('involved_systems')}
+                              onDelete={() => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.filter(x => x.id !== sys.id) })}
+                              isEditing={sectionEditModes['target_systems']}
+                              onEdit={() => toggleSectionEdit('target_systems')}
                             >
                               <div className="space-y-4">
                                 <div className="space-y-1">
                                   <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">System Name</label>
-                                  <input className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={sys.name} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, name: e.target.value } : x) })} placeholder="e.g., SAP, Salesforce, Internal Tool" />
+                                  <input className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[12px] text-white outline-none focus:border-theme-accent" value={sys.name} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.map(x => x.id === sys.id ? { ...x, name: e.target.value } : x) })} placeholder="e.g., SAP, Salesforce, Internal Tool" />
                                 </div>
                                 <div className="space-y-1">
                                   <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Usage Context</label>
-                                  <textarea className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-theme-accent" value={sys.usage} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, usage: e.target.value } : x) })} placeholder="Describe how the system is used in this task..." />
+                                  <textarea className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[11px] text-white/60 h-20 resize-none outline-none focus:border-theme-accent" value={sys.usage} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.map(x => x.id === sys.id ? { ...x, usage: e.target.value } : x) })} placeholder="Describe how the system is used in this task..." />
                                 </div>
-                                <ImagePasteField figures={sys.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, figures: figs } : x) })} label="System Screenshots (Ctrl+V)" />
+                                <ImagePasteField figures={sys.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.map(x => x.id === sys.id ? { ...x, figures: figs } : x) })} label="System Screenshots (Ctrl+V)" />
                                 <div className="space-y-1">
                                   <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Documentation Link</label>
                                   <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl px-3 py-2">
                                     <Link2 size={12} className="text-theme-accent" />
-                                    <input className="flex-1 bg-transparent border-none p-0 text-[11px] text-theme-accent underline outline-none" value={sys.link} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, link: e.target.value } : x) })} placeholder="URL to SOP or Wiki" />
+                                    <input className="flex-1 bg-transparent border-none p-0 text-[11px] text-theme-accent underline outline-none" value={sys.link} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.map(x => x.id === sys.id ? { ...x, link: e.target.value } : x) })} placeholder="URL to SOP or Wiki" />
                                   </div>
                                 </div>
                               </div>
                             </NestedCollapsible>
                           ))}
                           <button 
-                            onClick={() => updateTask(selectedTaskId, { involved_systems: [...(selectedTask.involved_systems || []), { id: Date.now().toString(), name: '', usage: '', figures: [], link: '' }] })} 
+                            onClick={() => updateTask(selectedTaskId, { target_systems: [...(selectedTask.target_systems || []), { id: Date.now().toString(), name: '', usage: '', figures: [], link: '' }] })} 
                             className="w-full py-2.5 bg-theme-accent/10 border border-theme-accent/30 rounded-xl text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all mt-2 flex items-center justify-center gap-2 shadow-lg shadow-theme-accent/5"
                           >
                             <Plus size={14} strokeWidth={3} /> Add System Dependency
@@ -2696,7 +2696,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             </div>
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Average Delay (Minutes)</label>
-                              <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[12px] text-white" value={b.average_delay_minutes || 0} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, average_delay_minutes: parseFloat(e.target.value) || 0 } : x) })} />
+                              <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[12px] text-white" value={b.average_delay_minutes ?? 0} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, average_delay_minutes: parseFloat(e.target.value) || 0 } : x) })} />
                             </div>
                             <div className="space-y-3">
                               <div className="flex justify-between items-center">
@@ -2778,7 +2778,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             </div>
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Recovery Time (Minutes)</label>
-                              <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[12px] text-white" value={er.recovery_time_minutes || 0} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, recovery_time_minutes: parseFloat(e.target.value) || 0 } : x) })} />
+                              <input type="number" className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[12px] text-white" value={er.recovery_time_minutes ?? 0} onFocus={saveToHistory} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, recovery_time_minutes: parseFloat(e.target.value) || 0 } : x) })} />
                             </div>
                             <div className="space-y-3">
                               <div className="flex justify-between items-center">
@@ -3171,9 +3171,9 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             type="number" 
                             step="0.1"
                             className="w-12 bg-black/40 font-black text-[11px] text-white text-center py-2 rounded-lg outline-none" 
-                            value={metadata.cadence_count} 
+                            value={metadata.cadence_count ?? 0} 
                             onFocus={saveToHistory}
-                            onChange={e => setMetadata({...metadata, cadence_count: parseFloat(e.target.value) || 1})} 
+                            onChange={e => setMetadata({...metadata, cadence_count: parseFloat(e.target.value) || 0})} 
                           />
                           <select 
                             className="flex-1 bg-transparent text-white font-black text-[9px] uppercase outline-none cursor-pointer"
