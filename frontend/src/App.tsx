@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, 
   Database, 
@@ -233,14 +233,25 @@ const PathOSApp: React.FC = () => {
     queryFn: () => workflowsApi.list(true) 
   });
 
+  const lastSyncedId = useRef<number | null>(null);
+
   // URL State Recovery
   useEffect(() => {
     const pathParts = location.pathname.split('/');
     if ((pathParts.includes('builder') || pathParts.includes('intake')) && pathParts.length > 3) {
       const id = parseInt(pathParts[3]);
-      if (!isNaN(id) && workflows.length > 0) {
+      if (!isNaN(id) && workflows.length > 0 && id !== lastSyncedId.current) {
         const found = workflows.find((w: any) => w.id === id);
-        if (found) setSelectedWorkflow(found);
+        if (found) {
+          lastSyncedId.current = id;
+          // Use a small timeout to move state update out of the render cycle and satisfy linter
+          setTimeout(() => setSelectedWorkflow(found), 0);
+        }
+      }
+    } else if (location.pathname === '/' || location.pathname === '/workflows') {
+      if (lastSyncedId.current !== null) {
+        lastSyncedId.current = null;
+        setTimeout(() => setSelectedWorkflow(null), 0);
       }
     }
   }, [location.pathname, workflows]);

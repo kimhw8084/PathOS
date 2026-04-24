@@ -131,5 +131,5 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 if __name__ == "__main__":
     import uvicorn
     host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "8081"))
+    port = int(os.getenv("PORT", "8085"))
     uvicorn.run("app.main:app", host=host, port=port, reload=True)
