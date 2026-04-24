@@ -24,12 +24,14 @@ import {
   useLocation,
   Link
 } from 'react-router-dom';
-import { workflowsApi, taxonomyApi, apiClient as client, setGlobalReporter } from './api/client';
+import { workflowsApi, taxonomyApi, executionsApi, projectsApi, apiClient as client, setGlobalReporter } from './api/client';
 import IntakeGatekeeper from './components/IntakeGatekeeper';
 import WorkflowRegistry from './components/WorkflowRegistry';
 import ROIDashboard from './components/ROIDashboard';
 import WorkflowBuilder from './components/WorkflowBuilder';
 import SettingsView from './components/SettingsView';
+import OperationalBoard from './components/OperationalBoard';
+import PerformanceAnalytics from './components/PerformanceAnalytics';
 import { ErrorFortressProvider, useErrorFortress } from './components/ErrorFortress';
 import * as Tooltip from '@radix-ui/react-tooltip';
 
@@ -230,6 +232,8 @@ const PathOSApp: React.FC = () => {
     queryFn: () => workflowsApi.list(true) 
   });
   const { data: taxonomy = [] } = useQuery({ queryKey: ['taxonomy'], queryFn: taxonomyApi.list });
+  const { data: executions = [] } = useQuery({ queryKey: ['executions'], queryFn: executionsApi.list });
+  const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: projectsApi.list });
 
   const createMutation = useMutation({
     mutationFn: workflowsApi.create,
@@ -273,6 +277,42 @@ const PathOSApp: React.FC = () => {
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.detail || "Workflow duplication failed.");
+      reportError(error.response?.data || error, 'backend');
+    }
+  });
+
+  const createExecutionMutation = useMutation({
+    mutationFn: executionsApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['executions'] });
+      toast.success('Execution logged');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Execution logging failed.');
+      reportError(error.response?.data || error, 'backend');
+    }
+  });
+
+  const createProjectMutation = useMutation({
+    mutationFn: projectsApi.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      toast.success('Automation project created');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Project creation failed.');
+      reportError(error.response?.data || error, 'backend');
+    }
+  });
+
+  const updateProjectMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number, data: any }) => projectsApi.update(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      toast.success('Project updated');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Project update failed.');
       reportError(error.response?.data || error, 'backend');
     }
   });
@@ -350,7 +390,7 @@ const PathOSApp: React.FC = () => {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={
                 <div className="space-y-6 max-w-[1400px] mx-auto">
-                  <ROIDashboard workflows={workflows.filter((w: any) => !w.is_deleted)} />
+                  <ROIDashboard workflows={workflows.filter((w: any) => !w.is_deleted)} executions={executions} projects={projects} />
                   <div className="space-y-4">
                     <div className="flex items-center justify-between border-b border-theme-border/50 pb-2">
                       <h3 className="text-header-sub flex items-center gap-2"><Database size={16} className="text-theme-accent" /> Recent Workflows</h3>
@@ -407,6 +447,23 @@ const PathOSApp: React.FC = () => {
                 </div>
               } />
               <Route path="/settings" element={<SettingsView />} />
+              <Route path="/board" element={
+                <OperationalBoard
+                  workflows={workflows.filter((w: any) => !w.is_deleted)}
+                  executions={executions}
+                  projects={projects}
+                  onCreateExecution={createExecutionMutation.mutate}
+                  onCreateProject={createProjectMutation.mutate}
+                  onUpdateProject={(id, data) => updateProjectMutation.mutate({ id, data })}
+                />
+              } />
+              <Route path="/analytics" element={
+                <PerformanceAnalytics
+                  workflows={workflows.filter((w: any) => !w.is_deleted)}
+                  executions={executions}
+                  projects={projects}
+                />
+              } />
               <Route path="/workflows/builder" element={
                 selectedWorkflow ? (
                   <div className="h-[calc(100vh-140px)]">

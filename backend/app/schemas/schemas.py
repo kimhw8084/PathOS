@@ -119,6 +119,78 @@ class WorkflowAnalysisSchema(BaseModel):
     diff_summary: dict = {}
     diagnostics: dict = {}
 
+
+class WorkflowSummarySchema(BaseModel):
+    id: int
+    name: str
+    status: str
+    total_roi_saved_hours: float = 0.0
+    model_config = ConfigDict(from_attributes=True)
+
+
+class WorkflowExecutionBase(BaseModel):
+    workflow_id: int
+    execution_started_at: Optional[datetime] = None
+    execution_completed_at: Optional[datetime] = None
+    executed_by: Optional[str] = None
+    team: Optional[str] = None
+    site: Optional[str] = None
+    status: str = "Completed"
+    actual_duration_minutes: float = 0.0
+    baseline_manual_minutes: float = 0.0
+    automated_duration_minutes: float = 0.0
+    wait_duration_minutes: float = 0.0
+    recovery_time_minutes: float = 0.0
+    exception_count: int = 0
+    automation_coverage_percent: float = 0.0
+    blockers_encountered: List[str] = []
+    notes: Optional[str] = None
+
+
+class WorkflowExecutionCreate(WorkflowExecutionBase):
+    pass
+
+
+class WorkflowExecutionRead(WorkflowExecutionBase):
+    id: int
+    is_deleted: bool = False
+    created_at: datetime
+    updated_at: datetime
+    workflow: Optional[WorkflowSummarySchema] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AutomationProjectBase(BaseModel):
+    name: str = Field(..., min_length=2)
+    workflow_ids: List[int] = []
+    summary: Optional[str] = None
+    owner: Optional[str] = None
+    sponsor: Optional[str] = None
+    team: Optional[str] = None
+    priority: str = "Medium"
+    status: str = "Scoping"
+    health: str = "On Track"
+    progress_percent: float = 0.0
+    target_completion_date: Optional[datetime] = None
+    projected_hours_saved_weekly: float = 0.0
+    realized_hours_saved_weekly: float = 0.0
+    blocker_summary: List[str] = []
+    milestone_summary: List[str] = []
+    next_action: Optional[str] = None
+    last_update: Optional[str] = None
+
+
+class AutomationProjectCreate(AutomationProjectBase):
+    pass
+
+
+class AutomationProjectRead(AutomationProjectBase):
+    id: int
+    is_deleted: bool = False
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
 class TaskBase(BaseModel):
     name: str = Field(..., min_length=1)
     node_id: Optional[str] = None

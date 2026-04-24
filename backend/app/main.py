@@ -117,13 +117,15 @@ async def api_root():
 async def health_check():
     return {"status": "healthy", "service": "PathOS", "version": "1.0.0"}
 
-from .api import workflows, taxonomy, tasks, settings, media
+from .api import workflows, taxonomy, tasks, settings, media, executions, projects
 
 app.include_router(workflows.router, prefix="/api/workflows", tags=["Workflows"])
 app.include_router(taxonomy.router, prefix="/api/taxonomy", tags=["Taxonomy"])
 app.include_router(tasks.router, prefix="/api/tasks", tags=["Tasks"])
 app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
 app.include_router(media.router, prefix="/api/media", tags=["Media"])
+app.include_router(executions.router, prefix="/api/executions", tags=["Executions"])
+app.include_router(projects.router, prefix="/api/projects", tags=["Projects"])
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 if __name__ == "__main__":

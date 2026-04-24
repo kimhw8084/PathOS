@@ -4,6 +4,8 @@ import { Zap, Clock, Trophy, Activity, ShieldAlert, Cpu, BarChart3, Layers, Chev
 
 interface ROIDashboardProps {
   workflows: any[];
+  executions?: any[];
+  projects?: any[];
 }
 
 const StatBox = ({ icon: Icon, label, value, subValue, colorClass = "text-white" }: any) => (
@@ -21,7 +23,7 @@ const StatBox = ({ icon: Icon, label, value, subValue, colorClass = "text-white"
   </div>
 );
 
-const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows }) => {
+const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows, executions = [], projects = [] }) => {
   const sortedWorkflows = [...workflows].sort((a, b) => (b.total_roi_saved_hours || 0) - (a.total_roi_saved_hours || 0));
   const leaderboard = sortedWorkflows.slice(0, 10);
 
@@ -40,6 +42,9 @@ const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows }) => {
   const totalTasks = workflows.reduce((acc, wf) => acc + (wf.tasks?.length || 0), 0);
   const totalBlockers = workflows.reduce((acc, wf) => acc + (wf.tasks?.reduce((tAcc: number, t: any) => tAcc + (t.blockers?.length || 0), 0) || 0), 0);
   const avgComplexity = workflows.length > 0 ? (totalTasks / workflows.length).toFixed(1) : 0;
+  const trackedRuns = executions.length;
+  const realizedMinutes = executions.reduce((acc, execution) => acc + Math.max((execution.baseline_manual_minutes || 0) - (execution.actual_duration_minutes || 0), 0), 0);
+  const activeProjects = projects.filter((project: any) => !['Deployed', 'Done'].includes(project.status)).length;
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -60,12 +65,14 @@ const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows }) => {
     <div className="space-y-6 animate-apple-in">
       {/* High-Density Stat Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatBox icon={Zap} label="Savings" value={`${totalWeeklySavings.toFixed(0)}h`} subValue="Weekly Cap" colorClass="text-blue-400" />
-        <StatBox icon={Activity} label="Coverage" value={`${(workflows.length > 0 ? (workflows.filter(wf => wf.status === 'PROD').length / workflows.length) * 100 : 0).toFixed(0)}%`} subValue="Standard Ratio" />
+        <StatBox icon={Zap} label="Savings" value={`${totalWeeklySavings.toFixed(0)}h`} subValue="Projected weekly cap" colorClass="text-blue-400" />
+        <StatBox icon={Activity} label="Coverage" value={`${(workflows.length > 0 ? (workflows.filter(wf => wf.status === 'PROD').length / workflows.length) * 100 : 0).toFixed(0)}%`} subValue="Standard ratio" />
         <StatBox icon={Cpu} label="Operations" value={totalTasks} subValue="Active Modules" />
         <StatBox icon={ShieldAlert} label="Risks" value={totalBlockers} subValue="Critical Issues" colorClass="text-red-500" />
         <StatBox icon={Layers} label="Density" value={avgComplexity} subValue="Steps Per Op" />
-        <StatBox icon={BarChart3} label="Workflows" value={workflows.length} subValue="Active Projects" />
+        <StatBox icon={Clock} label="Tracked Runs" value={trackedRuns} subValue={`${realizedMinutes.toFixed(0)}m realized`} colorClass="text-emerald-400" />
+        <StatBox icon={BarChart3} label="Programs" value={activeProjects} subValue="Automation projects" />
+        <StatBox icon={Trophy} label="Workflows" value={workflows.length} subValue="Active repositories" />
       </div>
 
 

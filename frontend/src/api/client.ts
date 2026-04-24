@@ -62,3 +62,15 @@ export const mediaApi = {
     }).then(res => res.data);
   },
 };
+
+export const executionsApi = {
+  list: () => apiClient.get('/executions').then(res => res.data),
+  create: (data: any) => apiClient.post('/executions', data).then(res => res.data),
+  update: (id: number, data: any) => apiClient.put(`/executions/${id}`, data).then(res => res.data),
+};
+
+export const projectsApi = {
+  list: () => apiClient.get('/projects').then(res => res.data),
+  create: (data: any) => apiClient.post('/projects', data).then(res => res.data),
+  update: (id: number, data: any) => apiClient.put(`/projects/${id}`, data).then(res => res.data),
+};

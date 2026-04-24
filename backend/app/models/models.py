@@ -74,6 +74,7 @@ class Workflow(Base, BaseMixin):
     total_roi_saved_hours = Column(Float, default=0.0)
     
     tasks = relationship("Task", back_populates="workflow", cascade="all, delete-orphan", order_by="Task.order_index")
+    executions = relationship("WorkflowExecution", back_populates="workflow", cascade="all, delete-orphan")
 
 class Task(Base, BaseMixin):
     __tablename__ = "tasks"
@@ -204,3 +205,46 @@ class AuditLog(Base):
     previous_state = Column(JSON, nullable=True)
     new_state = Column(JSON, nullable=True)
     description = Column(Text, nullable=True)
+
+
+class WorkflowExecution(Base, BaseMixin):
+    __tablename__ = "workflow_executions"
+    workflow_id = Column(Integer, ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False, index=True)
+    execution_started_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    execution_completed_at = Column(DateTime(timezone=True), nullable=True)
+    executed_by = Column(String, nullable=True)
+    team = Column(String, nullable=True)
+    site = Column(String, nullable=True)
+    status = Column(String, default="Completed")
+    actual_duration_minutes = Column(Float, default=0.0)
+    baseline_manual_minutes = Column(Float, default=0.0)
+    automated_duration_minutes = Column(Float, default=0.0)
+    wait_duration_minutes = Column(Float, default=0.0)
+    recovery_time_minutes = Column(Float, default=0.0)
+    exception_count = Column(Integer, default=0)
+    automation_coverage_percent = Column(Float, default=0.0)
+    blockers_encountered = Column(JSON, nullable=True)
+    notes = Column(Text, nullable=True)
+
+    workflow = relationship("Workflow", back_populates="executions")
+
+
+class AutomationProject(Base, BaseMixin):
+    __tablename__ = "automation_projects"
+    name = Column(String, index=True, nullable=False)
+    workflow_ids = Column(JSON, nullable=True)
+    summary = Column(Text, nullable=True)
+    owner = Column(String, nullable=True)
+    sponsor = Column(String, nullable=True)
+    team = Column(String, nullable=True)
+    priority = Column(String, default="Medium")
+    status = Column(String, default="Scoping")
+    health = Column(String, default="On Track")
+    progress_percent = Column(Float, default=0.0)
+    target_completion_date = Column(DateTime(timezone=True), nullable=True)
+    projected_hours_saved_weekly = Column(Float, default=0.0)
+    realized_hours_saved_weekly = Column(Float, default=0.0)
+    blocker_summary = Column(JSON, nullable=True)
+    milestone_summary = Column(JSON, nullable=True)
+    next_action = Column(Text, nullable=True)
+    last_update = Column(Text, nullable=True)
