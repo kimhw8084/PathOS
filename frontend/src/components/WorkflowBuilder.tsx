@@ -1045,26 +1045,36 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger if typing in an input/textarea
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
 
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         undo();
       }
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
         e.preventDefault();
         redo();
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedTaskId) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c' && selectedTaskId) {
         const task = tasks.find(t => t.id === selectedTaskId);
         if (task && !task.interface) {
-          setClipboard({ task: JSON.parse(JSON.stringify(task)), node: JSON.parse(JSON.stringify(nodes.find(n => n.id === selectedTaskId))) });
+          setClipboard({ 
+            task: JSON.parse(JSON.stringify(task)), 
+            node: JSON.parse(JSON.stringify(nodes.find(n => n.id === selectedTaskId))) 
+          });
         }
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && clipboard) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v' && clipboard) {
+        e.preventDefault();
         saveToHistory();
         const id = `node-${Date.now()}`;
-        const newNode = { ...clipboard.node, id, position: { x: (clipboard.node.position?.x || 0) + 40, y: (clipboard.node.position?.y || 0) + 40 }, selected: true };
+        const newNode = { 
+          ...clipboard.node, 
+          id, 
+          position: { x: (clipboard.node.position?.x || 0) + 40, y: (clipboard.node.position?.y || 0) + 40 }, 
+          selected: true 
+        };
         const newTask = { ...clipboard.task, id, node_id: id };
         setTasks(prev => [...prev, newTask]);
         setNodes(nds => nds.map(n => ({ ...n, selected: false })).concat(newNode));
@@ -1540,6 +1550,15 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
           onClear={() => setValidationError(null)} 
         />
       )}
+      {isBuganizerOpen && (
+        <BuganizerConsole 
+          reports={bugReports} 
+          onAcknowledge={(id) => setBugReports(prev => prev.map(r => r.id === id ? { ...r, acknowledged: true } : r))}
+          onDelete={(id) => setBugReports(prev => prev.filter(r => r.id !== id))}
+          onClear={() => setBugReports([])}
+          onClose={() => setIsBuganizerOpen(false)}
+        />
+      )}
       {/* Existing Output Picker Modal */}
       {isOutputPickerOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-8 bg-black/80 backdrop-blur-sm animate-apple-in">
@@ -1627,6 +1646,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             ))}
           </div>
           <button onClick={() => handleLayout(nodes, edges)} className="flex items-center gap-2 px-4 h-[38px] bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 transition-all"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
+          <button onClick={() => setIsBuganizerOpen(true)} className={cn("w-[38px] h-[38px] rounded-xl transition-all border flex items-center justify-center relative", bugReports.some(r => !r.acknowledged) ? "bg-rose-500/20 border-rose-500/40 text-rose-500 animate-pulse shadow-[0_0_15px_rgba(244,63,94,0.3)]" : "bg-white/5 border-white/10 text-white/40 hover:text-white")}>
+            <Bug size={18} />
+            {bugReports.filter(r => !r.acknowledged).length > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white text-[8px] font-black rounded-full flex items-center justify-center border-2 border-[#0a1120]">{bugReports.filter(r => !r.acknowledged).length}</span>
+            )}
+          </button>
           <button onClick={handleSave} className="flex items-center gap-2 px-6 h-[38px] bg-theme-accent text-white rounded-xl text-[10px] font-black uppercase shadow-xl shadow-theme-accent/20 hover:scale-[1.02] transition-all"><Save size={14} /> Commit Changes</button>
           <button onClick={onExit} className="p-2 text-white/20 hover:text-status-error"><X size={20} /></button>
         </div>
@@ -1675,21 +1700,44 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         </div>
 
         {selectedTaskId && selectedTask && (
-          <div className="px-6 py-3 border-b border-white/5 bg-white/[0.01] flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
+          <div className="px-6 py-4 border-b border-white/5 bg-white/[0.015] flex items-center justify-between">
+            <div className="flex items-center gap-4 min-w-0 flex-1">
               <div className={cn(
-                "w-2.5 h-2.5 rounded-full",
-                selectedTask.interface === 'TRIGGER' ? "bg-cyan-500 shadow-[0_0_10px_rgba(34,211,238,0.5)]" :
-                selectedTask.interface === 'OUTCOME' ? "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" :
-                "bg-theme-accent shadow-[0_0_10px_rgba(59,130,246,0.3)]"
+                "w-3 h-3 rounded-full shadow-2xl",
+                selectedTask.interface === 'TRIGGER' ? "bg-cyan-500 shadow-cyan-500/40" :
+                selectedTask.interface === 'OUTCOME' ? "bg-rose-500 shadow-rose-500/40" :
+                "bg-theme-accent shadow-theme-accent/40"
               )} />
-              <span className="text-[11px] font-black text-white/80 uppercase tracking-[0.2em] truncate">
-                {selectedTask.name || 'Untitled Task'}
-              </span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[12px] font-black text-white uppercase tracking-[0.1em] truncate leading-none mb-1">
+                  {selectedTask.name || 'Untitled Segment'}
+                </span>
+                <span className="text-[8px] font-bold text-white/20 uppercase tracking-[0.2em]">{selectedTask.task_type}</span>
+              </div>
             </div>
-            <span className="text-[8px] font-black text-white/30 uppercase tracking-widest whitespace-nowrap bg-white/5 px-2.5 py-1 rounded-md border border-white/5">
-              {selectedTask.task_type}
-            </span>
+            {!isProtected && (
+              <div className="flex items-center gap-2">
+                {confirmingDelete === selectedTaskId ? (
+                  <div className="flex items-center gap-1.5 bg-status-error/20 border border-status-error/30 rounded-xl p-1.5 animate-apple-in">
+                    <button 
+                      onClick={() => { if (!checkTaskDependencies(selectedTaskId)) deleteTask(selectedTaskId); }}
+                      className="px-3 py-1.5 bg-status-error text-white text-[8px] font-black uppercase rounded-lg shadow-lg shadow-status-error/30 hover:scale-105 transition-all"
+                    >
+                      Confirm
+                    </button>
+                    <button onClick={() => setConfirmingDelete(null)} className="p-1.5 text-white/40 hover:text-white transition-all"><X size={14} /></button>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => setConfirmingDelete(selectedTaskId)}
+                    className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 text-white/20 hover:bg-status-error/20 hover:border-status-error/40 hover:text-status-error transition-all flex items-center justify-center shadow-lg"
+                    title="Remove Task"
+                  >
+                    <Trash size={18} />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -1752,43 +1800,64 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       <div className="grid grid-cols-2 gap-4 items-end">
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owner Team</label>
-                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-11 text-[12px] font-bold text-white outline-none focus:border-theme-accent placeholder:text-white/10" value={selectedTask.owning_team} onChange={e => updateTask(selectedTaskId, { owning_team: e.target.value })} placeholder="Team Name" />
+                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-11 text-[12px] font-bold text-white outline-none focus:border-theme-accent placeholder:text-white/10 transition-all" value={selectedTask.owning_team} onChange={e => updateTask(selectedTaskId, { owning_team: e.target.value })} placeholder="Team Name" />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owner Positions</label>
+                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Positions</label>
                           <button 
                             onClick={() => setOwnerPositionsCollapsed(!ownerPositionsCollapsed)}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-11 flex items-center justify-between hover:bg-white/10 transition-colors"
+                            className={cn("w-full border rounded-xl px-4 h-11 flex items-center justify-between transition-all", ownerPositionsCollapsed ? "bg-white/5 border-white/10 text-white/40" : "bg-theme-accent/10 border-theme-accent/30 text-white")}
                           >
-                            <span className="text-[12px] font-bold text-white truncate">
-                              {selectedTask.owner_positions?.length || 0} Positions
+                            <span className="text-[11px] font-black uppercase truncate">
+                              {selectedTask.owner_positions?.length || 0} Entities
                             </span>
-                            {ownerPositionsCollapsed ? <ChevronDown size={14} className="text-white/20" /> : <ChevronUp size={14} className="text-white/20" />}
+                            {ownerPositionsCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
                           </button>
                         </div>
                       </div>
                       {!ownerPositionsCollapsed && (
-                        <div className="p-4 space-y-3 border border-white/10 bg-black/40 rounded-xl animate-apple-in -mt-2">
+                        <div className="p-4 space-y-3 border border-white/10 bg-black/40 rounded-2xl animate-apple-in -mt-2 shadow-2xl">
                           {(selectedTask.owner_positions || []).map((pos, idx) => (
-                            <div key={idx} className="flex gap-2 group/pos animate-apple-in">
-                              <input 
-                                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[11px] font-bold text-white outline-none focus:border-theme-accent"
-                                value={pos}
-                                onChange={(e) => updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.map((p, i) => i === idx ? e.target.value : p) })}
-                              />
-                              <button 
-                                onClick={() => updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.filter((_, i) => i !== idx) })}
-                                className="p-2 hover:bg-status-error/20 text-white/20 hover:text-status-error rounded-lg border border-white/10 transition-all"
-                              >
-                                <Trash size={12} />
-                              </button>
+                            <div key={idx} className="flex gap-2 group/pos animate-apple-in items-center">
+                              {itemEditModes[`pos-${idx}`] ? (
+                                <div className="flex-1 flex gap-2 animate-apple-in">
+                                  <input 
+                                    autoFocus
+                                    className="flex-1 bg-black/60 border border-theme-accent rounded-lg px-3 py-2 text-[11px] font-bold text-white outline-none"
+                                    value={pos}
+                                    onChange={(e) => updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.map((p, i) => i === idx ? e.target.value : p) })}
+                                  />
+                                  <button onClick={() => toggleItemEdit(`pos-${idx}`)} className="p-2 bg-theme-accent text-white rounded-lg shadow-lg shadow-theme-accent/20 hover:scale-105 transition-all"><Save size={14} /></button>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-[11px] font-black text-white/80 uppercase tracking-tight flex items-center justify-between group-hover/pos:bg-white/10 transition-all italic">
+                                    {pos || 'Untitled Entry'}
+                                    <div className="flex items-center gap-1 opacity-0 group-hover/pos:opacity-100 transition-all">
+                                      <button onClick={() => toggleItemEdit(`pos-${idx}`)} className="p-1.5 hover:bg-theme-accent/20 text-white/20 hover:text-theme-accent rounded-md transition-all"><Edit3 size={12} /></button>
+                                      {confirmingDelete === `pos-${idx}` ? (
+                                        <div className="flex items-center gap-1 animate-apple-in bg-status-error/20 rounded-md p-1 border border-status-error/30">
+                                          <button onClick={() => { updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.filter((_, i) => i !== idx) }); setConfirmingDelete(null); }} className="px-2 py-1 bg-status-error text-[7px] font-black uppercase text-white rounded-sm">Conf</button>
+                                          <button onClick={() => setConfirmingDelete(null)} className="text-white/20 hover:text-white"><X size={10} /></button>
+                                        </div>
+                                      ) : (
+                                        <button onClick={() => setConfirmingDelete(`pos-${idx}`)} className="p-1.5 hover:bg-status-error/20 text-white/20 hover:text-status-error rounded-md transition-all"><Trash size={12} /></button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           ))}
                           <button 
-                            onClick={() => updateTask(selectedTaskId, { owner_positions: [...(selectedTask.owner_positions || []), ''] })} 
-                            className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all"
+                            onClick={() => {
+                              const newList = [...(selectedTask.owner_positions || []), ''];
+                              updateTask(selectedTaskId, { owner_positions: newList });
+                              toggleItemEdit(`pos-${newList.length - 1}`);
+                            }} 
+                            className="w-full py-2.5 bg-theme-accent/10 border border-theme-accent/30 rounded-xl text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all flex items-center justify-center gap-2 shadow-lg shadow-theme-accent/5"
                           >
-                            + Add Position
+                            <Plus size={14} strokeWidth={3} /> Add Operation Role
                           </button>
                         </div>
                       )}
@@ -1810,6 +1879,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               toggle={() => toggleItem(sys.id)} 
                               onDelete={() => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.filter(x => x.id !== sys.id) })}
                               isEditing={sectionEditModes['involved_systems']}
+                              onEdit={() => toggleSectionEdit('involved_systems')}
                             >
                               <div className="space-y-4">
                                 <div className="space-y-1">
@@ -1831,36 +1901,15 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               </div>
                             </NestedCollapsible>
                           ))}
-                          {sectionEditModes['involved_systems'] && (
-                            <button 
-                              onClick={() => updateTask(selectedTaskId, { involved_systems: [...(selectedTask.involved_systems || []), { id: Date.now().toString(), name: '', usage: '', figures: [], link: '' }] })} 
-                              className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all mt-2"
-                            >
-                              + Add System Dependency
-                            </button>
-                          )}
+                          <button 
+                            onClick={() => updateTask(selectedTaskId, { involved_systems: [...(selectedTask.involved_systems || []), { id: Date.now().toString(), name: '', usage: '', figures: [], link: '' }] })} 
+                            className="w-full py-2.5 bg-theme-accent/10 border border-theme-accent/30 rounded-xl text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all mt-2 flex items-center justify-center gap-2 shadow-lg shadow-theme-accent/5"
+                          >
+                            <Plus size={14} strokeWidth={3} /> Add System Dependency
+                          </button>
                         </div>
                       </CollapsibleSection>
                     </>
-                  )}
-
-                  {!isProtected && (
-                    <div className="pt-6 border-t border-white/5 space-y-4">
-                      {confirmingDelete === selectedTaskId ? (
-                        <ConfirmDeleteOverlay 
-                          label={`Delete ${selectedTask.task_type === 'LOOP' ? 'Condition' : 'Task'}?`}
-                          onConfirm={() => deleteTask(selectedTaskId)}
-                          onCancel={() => setConfirmingDelete(null)}
-                        />
-                      ) : (
-                        <button 
-                          onClick={() => setConfirmingDelete(selectedTaskId)} 
-                          className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-xl text-[10px] font-black uppercase hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2"
-                        >
-                          <Trash size={12} /> Permanent Deletion
-                        </button>
-                      )}
-                    </div>
                   )}
                 </div>
               )}
@@ -2132,56 +2181,15 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     </div>
                   </CollapsibleSection>
 
-                  <CollapsibleSection 
+                  <ManagedListSection 
                     title="Tribal Knowledge Entries" 
                     isOpen={expandedSections.tribal} 
                     toggle={() => toggleSection('tribal')} 
-                    count={selectedTask.tribal_knowledge.length}
-                    onEdit={() => toggleSectionEdit('tribal')}
-                    isEditing={sectionEditModes['tribal']}
-                  >
-                    <div className="space-y-3 pt-4">
-                      {selectedTask.tribal_knowledge.map((item, idx) => (
-                        <div key={idx} className="bg-white/[0.02] border border-white/5 rounded-xl p-4 group relative">
-                          <p className="text-[12px] text-white/60 font-medium leading-relaxed italic">{item}</p>
-                          {sectionEditModes['tribal'] && (
-                            <div className="absolute top-2 right-2 flex items-center gap-1">
-                              <button 
-                                onClick={() => {
-                                  const newVal = prompt('Edit Tribal Knowledge:', item);
-                                  if (newVal !== null) {
-                                    updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.map((v, i) => i === idx ? newVal : v) });
-                                  }
-                                }}
-                                className="p-1.5 hover:bg-theme-accent/20 text-white/20 hover:text-theme-accent rounded-md transition-all"
-                              >
-                                <Edit3 size={12} />
-                              </button>
-                              <button 
-                                onClick={() => updateTask(selectedTaskId, { tribal_knowledge: selectedTask.tribal_knowledge.filter((_, i) => i !== idx) })}
-                                className="p-1.5 hover:bg-status-error/20 text-white/20 hover:text-status-error rounded-md transition-all"
-                              >
-                                <Trash size={12} />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                      {sectionEditModes['tribal'] && (
-                        <button 
-                          onClick={() => {
-                            const newVal = prompt('New Tribal Knowledge entry:');
-                            if (newVal) {
-                              updateTask(selectedTaskId, { tribal_knowledge: [...selectedTask.tribal_knowledge, newVal] });
-                            }
-                          }}
-                          className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all mt-2"
-                        >
-                          + Add Tribal Knowledge
-                        </button>
-                      )}
-                    </div>
-                  </CollapsibleSection>
+                    items={selectedTask.tribal_knowledge}
+                    onUpdate={(items) => updateTask(selectedTaskId, { tribal_knowledge: items })}
+                    placeholder="Enter undocumented process knowledge..."
+                    icon={<LucideWorkflow size={14} />}
+                  />
                 </div>
               )}
 
