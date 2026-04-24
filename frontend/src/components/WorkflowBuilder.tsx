@@ -153,6 +153,173 @@ interface TaskEntity {
   owner_positions?: string[];
 }
 
+interface BugReport {
+  id: string;
+  title: string;
+  timestamp: string;
+  view: string;
+  category: 'frontend' | 'backend';
+  status: 'error' | 'warning';
+  acknowledged: boolean;
+  endpoint?: string;
+  method?: string;
+  statusCode?: number;
+  type?: string;
+  platform: string;
+  userAgent: string;
+  traceback?: string;
+  payload?: any;
+}
+
+const BuganizerConsole: React.FC<{
+  reports: BugReport[];
+  onAcknowledge: (id: string) => void;
+  onDelete: (id: string) => void;
+  onClear: () => void;
+  onClose: () => void;
+}> = ({ reports, onAcknowledge, onDelete, onClear, onClose }) => {
+  const [filter, setFilter] = useState<'all' | 'frontend' | 'backend'>('all');
+  const filtered = reports.filter(r => filter === 'all' || r.category === filter);
+
+  return (
+    <div className="fixed inset-0 z-[4000] bg-black/90 backdrop-blur-3xl flex flex-col animate-apple-in font-sans">
+      <div className="h-20 border-b border-white/10 flex items-center justify-between px-8 bg-[#0a1120]/80">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-rose-500/20 flex items-center justify-center border border-rose-500/40 shadow-[0_0_20px_rgba(244,63,94,0.3)]">
+            <Bug size={24} className="text-rose-500" />
+          </div>
+          <div>
+            <h2 className="text-[22px] font-black text-white uppercase tracking-tighter">Buganizer 2.0</h2>
+            <div className="flex gap-4 mt-1">
+              {(['all', 'frontend', 'backend'] as const).map(f => (
+                <button 
+                  key={f} 
+                  onClick={() => setFilter(f)}
+                  className={cn("text-[10px] font-black uppercase tracking-widest transition-all", filter === f ? "text-rose-500 scale-110" : "text-white/20 hover:text-white")}
+                >
+                  {f} ({reports.filter(r => f === 'all' || r.category === f).length})
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={onClear} className="px-6 py-2.5 bg-white/5 hover:bg-rose-500/20 text-white/40 hover:text-rose-500 rounded-xl text-[10px] font-black uppercase transition-all border border-white/10">Purge Session</button>
+          <button onClick={onClose} className="p-3 hover:bg-white/5 rounded-xl transition-colors text-white/40 hover:text-white border border-white/10"><X size={24} /></button>
+        </div>
+      </div>
+      
+      <div className="flex-1 overflow-auto custom-scrollbar p-8 bg-[#050914]">
+        <div className="max-w-7xl mx-auto space-y-6 pb-20">
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-60 opacity-20">
+              <div className="w-32 h-32 rounded-full border-4 border-dashed border-white/20 flex items-center justify-center mb-6">
+                <Terminal size={48} />
+              </div>
+              <span className="text-[16px] font-black uppercase tracking-[0.3em]">Operational Readiness Confirmed</span>
+              <p className="text-[10px] mt-2 font-bold opacity-50 uppercase tracking-widest text-emerald-400">Zero active exceptions detected</p>
+            </div>
+          ) : filtered.sort((a,b) => b.timestamp.localeCompare(a.timestamp)).map(report => (
+            <div key={report.id} className={cn("apple-glass border rounded-3xl overflow-hidden transition-all duration-500", report.acknowledged ? "opacity-40 grayscale blur-[0.5px] border-white/5" : "border-rose-500/30 bg-rose-500/[0.03] shadow-2xl shadow-rose-500/5 hover:border-rose-500/50 hover:bg-rose-500/[0.05]")}>
+              <div className="p-8 flex items-start justify-between gap-10">
+                <div className="flex-1 space-y-6 min-w-0">
+                  <div className="flex items-center gap-4">
+                    <div className={cn("px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border shadow-lg", report.status === 'error' ? "bg-rose-500 border-rose-400 text-white" : "bg-amber-500 border-amber-400 text-black")}>{report.status}</div>
+                    <div className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-white/40 text-[10px] font-black uppercase tracking-widest">{report.category}</div>
+                    <div className="h-4 w-px bg-white/10" />
+                    <div className="text-[11px] text-white/30 font-mono tracking-tight">{report.timestamp}</div>
+                    <div className="flex items-center gap-2 text-[11px] text-theme-accent font-black uppercase tracking-[0.2em] bg-theme-accent/10 px-3 py-1 rounded-lg border border-theme-accent/20">
+                      <MousePointer2 size={12} /> {report.view}
+                    </div>
+                  </div>
+                  
+                  <h3 className="text-[22px] font-black text-white uppercase tracking-tight leading-none truncate selection:bg-rose-500 selection:text-white">{report.title}</h3>
+                  
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 py-6 border-y border-white/5 bg-black/20 rounded-2xl px-6">
+                    {report.endpoint && (
+                      <div className="space-y-2">
+                        <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] block">Network Context</span>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-black font-mono">{report.method}</span>
+                          <span className="text-[12px] font-bold text-white font-mono truncate">{report.endpoint}</span>
+                        </div>
+                      </div>
+                    )}
+                    {report.statusCode && (
+                      <div className="space-y-2">
+                        <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] block">HTTP Response</span>
+                        <span className={cn("text-[16px] font-black font-mono", report.statusCode >= 500 ? "text-rose-500" : "text-amber-500")}>{report.statusCode}</span>
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] block">Architecture</span>
+                      <span className="text-[12px] font-bold text-white/80 truncate block uppercase tracking-tight">{report.platform}</span>
+                    </div>
+                    <div className="space-y-2">
+                      <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] block">Agent Payload</span>
+                      <span className="text-[12px] font-bold text-white/40 truncate block italic">{report.userAgent}</span>
+                    </div>
+                  </div>
+
+                  {report.traceback && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between px-2">
+                        <div className="flex items-center gap-2 text-rose-500">
+                          <Terminal size={14} />
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em]">Full Diagnostic Traceback</span>
+                        </div>
+                        <button onClick={() => { navigator.clipboard.writeText(report.traceback!); }} className="text-[10px] font-black text-white/20 hover:text-white flex items-center gap-2 uppercase transition-colors group">
+                          <Copy size={12} className="group-hover:scale-110 transition-transform" /> Copy to Clipboard
+                        </button>
+                      </div>
+                      <div className="p-6 bg-black/60 rounded-3xl border border-white/5 text-[12px] text-rose-400/90 font-mono overflow-auto max-h-[400px] custom-scrollbar leading-relaxed selection:bg-rose-500 selection:text-white">
+                        {report.traceback}
+                      </div>
+                    </div>
+                  )}
+
+                  {report.payload && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-theme-accent px-2">
+                        <Database size={14} />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Transmission Payload</span>
+                      </div>
+                      <div className="p-6 bg-black/60 rounded-3xl border border-white/5 text-[12px] text-theme-accent/80 font-mono overflow-auto max-h-[300px] custom-scrollbar leading-relaxed selection:bg-theme-accent selection:text-white">
+                        {JSON.stringify(report.payload, null, 4)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex flex-col gap-3 sticky top-0">
+                  <button 
+                    onClick={() => onAcknowledge(report.id)}
+                    className={cn(
+                      "w-16 h-16 rounded-[24px] flex items-center justify-center transition-all duration-300 border-2", 
+                      report.acknowledged 
+                        ? "bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/20" 
+                        : "bg-white/5 border-white/10 text-white/20 hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:text-emerald-500"
+                    )}
+                    title={report.acknowledged ? "Resolved" : "Mark as Resolved"}
+                  >
+                    <CheckCircle2 size={32} strokeWidth={2.5} />
+                  </button>
+                  <button 
+                    onClick={() => onDelete(report.id)}
+                    className="w-16 h-16 rounded-[24px] bg-white/5 border border-white/10 text-white/20 hover:bg-rose-500 border-rose-500/20 hover:text-white flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-rose-500/40 group"
+                  >
+                    <Trash size={28} className="group-hover:scale-110 transition-transform" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ManagedListSection: React.FC<{
   title: string;
   items: string[];
@@ -164,131 +331,66 @@ const ManagedListSection: React.FC<{
 }> = ({ title, items, onUpdate, placeholder, icon, isOpen, toggle }) => {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editVal, setEditVal] = useState('');
+  const [confirmingIdx, setConfirmingIdx] = useState<number | null>(null);
 
   return (
     <CollapsibleSection title={title} count={items.length} isOpen={isOpen} toggle={toggle} icon={icon}>
       <div className="space-y-3 pt-4">
         {items.map((item, idx) => (
-          <div key={idx} className="bg-white/[0.02] border border-white/5 rounded-xl p-3 group relative">
+          <div key={idx} className="bg-white/[0.02] border border-white/5 rounded-xl p-3 group relative overflow-hidden animate-apple-in transition-all hover:bg-white/[0.03]">
             {editingIdx === idx ? (
-              <div className="space-y-2 animate-apple-in">
+              <div className="space-y-3 animate-apple-in p-1">
                 <textarea 
                   autoFocus
-                  className="w-full bg-black/40 border border-theme-accent rounded-lg p-3 text-[12px] text-white outline-none min-h-[80px]"
+                  className="w-full bg-black/40 border border-theme-accent rounded-xl p-4 text-[13px] text-white outline-none min-h-[100px] leading-relaxed transition-all shadow-[0_0_20px_rgba(59,130,246,0.1)]"
                   value={editVal}
                   onChange={e => setEditVal(e.target.value)}
                 />
                 <div className="flex gap-2">
                   <button 
-                    onClick={() => {
-                      if (editVal.trim()) {
-                        const newItems = [...items];
-                        newItems[idx] = editVal.trim();
-                        onUpdate(newItems);
-                        setEditingIdx(null);
-                      }
-                    }}
-                    className="flex-1 py-1.5 bg-theme-accent text-white text-[9px] font-black uppercase rounded-lg"
+                    onClick={() => { if (editVal.trim()) { const newItems = [...items]; newItems[idx] = editVal.trim(); onUpdate(newItems); setEditingIdx(null); } }}
+                    className="flex-1 py-2 bg-theme-accent text-white text-[10px] font-black uppercase rounded-lg shadow-lg shadow-theme-accent/20 hover:scale-[1.02] transition-all"
                   >
-                    Save Changes
+                    Apply Update
                   </button>
-                  <button 
-                    onClick={() => setEditingIdx(null)}
-                    className="px-4 py-1.5 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-lg"
-                  >
-                    Cancel
-                  </button>
+                  <button onClick={() => setEditingIdx(null)} className="px-5 py-2 bg-white/5 text-white/40 text-[10px] font-black uppercase rounded-lg hover:bg-white/10 transition-all">Dismiss</button>
                 </div>
               </div>
             ) : (
-              <div className="flex items-start justify-between gap-4">
-                <p className="text-[12px] text-white/80 font-medium leading-relaxed flex-1">{item}</p>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                  <button 
-                    onClick={() => { setEditingIdx(idx); setEditVal(item); }}
-                    className="p-1.5 hover:bg-theme-accent/20 text-white/40 hover:text-theme-accent rounded-md transition-all"
-                  >
-                    <Edit3 size={12} />
-                  </button>
-                  <button 
-                    onClick={() => onUpdate(items.filter((_, i) => i !== idx))}
-                    className="p-1.5 hover:bg-status-error/20 text-white/40 hover:text-status-error rounded-md transition-all"
-                  >
-                    <Trash size={12} />
-                  </button>
+              <div className="flex items-start justify-between gap-6 px-1">
+                <p className="text-[12px] text-white/80 font-medium leading-relaxed flex-1 italic selection:bg-theme-accent/30">{item}</p>
+                <div className="flex items-center gap-1.5 flex-shrink-0 pt-0.5">
+                  {confirmingIdx === idx ? (
+                    <div className="flex items-center gap-1.5 animate-apple-in bg-status-error/20 rounded-lg p-1.5 border border-status-error/30 shadow-xl">
+                      <button onClick={() => { onUpdate(items.filter((_, i) => i !== idx)); setConfirmingIdx(null); }} className="px-3 py-1.5 bg-status-error text-white text-[8px] font-black uppercase rounded-md shadow-lg shadow-status-error/30 hover:scale-105 transition-all">Confirm</button>
+                      <button onClick={() => setConfirmingIdx(null)} className="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded transition-all"><X size={12} /></button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0">
+                      <button onClick={() => { setEditingIdx(idx); setEditVal(item); }} className="p-2 hover:bg-theme-accent/20 text-white/20 hover:text-theme-accent rounded-xl transition-all border border-transparent hover:border-theme-accent/30"><Edit3 size={14} /></button>
+                      <button onClick={() => setConfirmingIdx(idx)} className="p-2 hover:bg-status-error/20 text-white/20 hover:text-status-error rounded-xl transition-all border border-transparent hover:border-status-error/30"><Trash size={14} /></button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
         ))}
         {editingIdx === -1 ? (
-          <div className="bg-white/[0.02] border border-theme-accent rounded-xl p-3 space-y-2 animate-apple-in">
-            <textarea 
-              autoFocus
-              className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none min-h-[80px] focus:border-theme-accent"
-              value={editVal}
-              onChange={e => setEditVal(e.target.value)}
-              placeholder={placeholder || "Enter details..."}
-            />
+          <div className="bg-white/[0.02] border border-theme-accent rounded-2xl p-4 space-y-3 animate-apple-in shadow-2xl shadow-theme-accent/5 border-dashed">
+            <textarea autoFocus className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-[13px] text-white outline-none min-h-[100px] focus:border-theme-accent transition-all placeholder:text-white/10" value={editVal} onChange={e => setEditVal(e.target.value)} placeholder={placeholder || "Enter entry details..."} />
             <div className="flex gap-2">
-              <button 
-                onClick={() => {
-                  if (editVal.trim()) {
-                    onUpdate([...items, editVal.trim()]);
-                    setEditingIdx(null);
-                    setEditVal('');
-                  }
-                }}
-                className="flex-1 py-1.5 bg-theme-accent text-white text-[9px] font-black uppercase rounded-lg"
-              >
-                Add Entry
-              </button>
-              <button 
-                onClick={() => { setEditingIdx(null); setEditVal(''); }}
-                className="px-4 py-1.5 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-lg"
-              >
-                Cancel
-              </button>
+              <button onClick={() => { if (editVal.trim()) { onUpdate([...items, editVal.trim()]); setEditingIdx(null); setEditVal(''); } }} className="flex-1 py-2.5 bg-theme-accent text-white text-[10px] font-black uppercase rounded-xl shadow-xl shadow-theme-accent/20 hover:scale-[1.02] transition-all">Save Entry</button>
+              <button onClick={() => { setEditingIdx(null); setEditVal(''); }} className="px-6 py-2.5 bg-white/5 text-white/40 text-[10px] font-black uppercase rounded-xl hover:bg-white/10 transition-all">Cancel</button>
             </div>
           </div>
         ) : (
-          <button 
-            onClick={() => { setEditingIdx(-1); setEditVal(''); }}
-            className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-theme-accent transition-all rounded-xl"
-          >
-            + Add {title.replace(/s$/, '')}
-          </button>
+          <button onClick={() => { setEditingIdx(-1); setEditVal(''); }} className="w-full py-2.5 bg-theme-accent/10 border border-theme-accent/30 rounded-xl text-[10px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all mt-2 flex items-center justify-center gap-3 shadow-lg shadow-theme-accent/5"><Plus size={14} strokeWidth={3} /> Add {title.replace(/Entries$/, '').replace(/s$/, '')}</button>
         )}
       </div>
     </CollapsibleSection>
   );
 };
-
-interface WorkflowMetadata {
-  name: string;
-  version: number;
-  description: string;
-  prc: string;
-  workflow_type: string;
-  tool_family: string[];
-  applicable_tools: string[];
-  trigger_type: string;
-  trigger_description: string;
-  output_type: string;
-  output_description: string;
-  cadence_count: number;
-  cadence_unit: string;
-  repeatability_check?: boolean;
-}
-
-interface WorkflowBuilderProps {
-  workflow: any;
-  taxonomy: any[];
-  onSave: (data: any) => void;
-  onBack: (metadata: any) => void;
-  onExit: () => void;
-  setIsDirty?: (dirty: boolean) => void;
-}
 
 const CollapsibleSection: React.FC<{ 
   title: string; 
@@ -297,36 +399,25 @@ const CollapsibleSection: React.FC<{
   toggle: () => void; 
   icon?: React.ReactNode;
   children: React.ReactNode;
-  onEdit?: () => void;
-  isEditing?: boolean;
-}> = ({ title, count, isOpen, toggle, icon, children, onEdit, isEditing }) => (
+}> = ({ title, count, isOpen, toggle, icon, children }) => (
   <div className="border-b border-white/5 pb-4">
     <div className="w-full flex items-center justify-between py-2 group">
-      <button onClick={toggle} className="flex items-center gap-3 min-w-0 flex-1">
-        {icon}
-        <span className="text-[11px] font-black text-white/40 uppercase tracking-widest group-hover:text-white transition-colors truncate">{title}</span>
-        {count !== undefined && count > 0 && (
-          <span className="px-1.5 py-0.5 rounded bg-theme-accent/20 text-theme-accent text-[9px] font-black">{count}</span>
-        )}
+      <button onClick={toggle} className="flex items-center gap-3 min-w-0 flex-1 text-left">
+        <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-white/20 group-hover:bg-theme-accent/10 group-hover:text-theme-accent transition-all border border-white/5 group-hover:border-theme-accent/20">
+          {icon || <Database size={14} />}
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[11px] font-black text-white/40 uppercase tracking-[0.15em] group-hover:text-white transition-colors truncate">{title}</span>
+          {count !== undefined && (
+            <span className="text-[9px] font-bold text-white/10 group-hover:text-theme-accent/60 uppercase tracking-widest">{count} {count === 1 ? 'Entry' : 'Entries'} Loaded</span>
+          )}
+        </div>
       </button>
-      <div className="flex items-center gap-2">
-        {onEdit && isOpen && (
-          <button 
-            onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            className={cn(
-              "px-3 py-1 rounded-lg text-[9px] font-black uppercase transition-all",
-              isEditing ? "bg-theme-accent text-white shadow-lg" : "bg-white/5 text-white/40 hover:text-white"
-            )}
-          >
-            {isEditing ? "Save" : "Edit"}
-          </button>
-        )}
-        <button onClick={toggle} className="p-1 text-white/20 hover:text-white">
-          {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
-      </div>
+      <button onClick={toggle} className="w-10 h-10 rounded-xl hover:bg-white/5 flex items-center justify-center text-white/20 hover:text-white transition-all border border-transparent hover:border-white/10">
+        {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+      </button>
     </div>
-    {isOpen && <div className="animate-apple-in">{children}</div>}
+    {isOpen && <div className="animate-apple-in pl-1">{children}</div>}
   </div>
 );
 
@@ -338,50 +429,58 @@ const NestedCollapsible: React.FC<{
   onDelete?: () => void;
   badge?: React.ReactNode;
   isLocked?: boolean;
+  onEdit?: () => void;
   isEditing?: boolean;
-}> = ({ title, isOpen, toggle, children, onDelete, badge, isLocked, isEditing }) => {
+}> = ({ title, isOpen, toggle, children, onDelete, badge, isLocked, onEdit, isEditing }) => {
   const [isConfirming, setIsConfirming] = useState(false);
   return (
-    <div className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden group/item animate-apple-in mt-2">
-      <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/5 transition-colors" onClick={toggle}>
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          {isOpen ? <ChevronUp size={12} className="text-white/20" /> : <ChevronDown size={12} className="text-white/20" />}
-          <span className={cn("text-[11px] font-black uppercase tracking-widest truncate", isOpen ? "text-white" : "text-white/40")}>
-            {title || "Untitled Item"}
-          </span>
-          {isLocked && <Link2 size={10} className="text-theme-accent" />}
+    <div className={cn("bg-white/[0.015] border rounded-2xl overflow-hidden group/item animate-apple-in mt-3 transition-all duration-300", isOpen ? "border-white/10 bg-white/[0.03] shadow-2xl" : "border-white/5 hover:border-white/10 hover:bg-white/[0.02]")}>
+      <div className={cn("flex items-center justify-between p-4 cursor-pointer", isOpen && "bg-white/[0.02]")} onClick={toggle}>
+        <div className="flex items-center gap-4 min-w-0 flex-1">
+          <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-500", isOpen ? "bg-theme-accent text-white rotate-180 shadow-lg shadow-theme-accent/20" : "bg-white/5 text-white/20 group-hover/item:text-white/60 group-hover/item:bg-white/10")}>
+            {isOpen ? <ChevronUp size={14} strokeWidth={3} /> : <ChevronDown size={14} strokeWidth={3} />}
+          </div>
+          <div className="flex flex-col min-w-0">
+            <span className={cn("text-[11px] font-black uppercase tracking-[0.1em] truncate transition-colors", isOpen ? "text-white" : "text-white/40 group-hover/item:text-white/80")}>
+              {title || "Untitled Record"}
+            </span>
+            {isLocked && <div className="flex items-center gap-1.5 mt-0.5"><Link2 size={10} className="text-theme-accent animate-pulse" /><span className="text-[8px] font-black text-theme-accent/60 uppercase tracking-widest">Locked Dependency</span></div>}
+          </div>
           {badge}
         </div>
-        {onDelete && (
-          <div className="flex items-center gap-2">
-            {isConfirming ? (
-              <div className="flex items-center gap-1 bg-status-error/20 rounded-lg p-1 animate-apple-in">
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setIsConfirming(false); onDelete(); }}
-                  className="px-2 py-1 bg-status-error text-white text-[8px] font-black uppercase rounded-md"
-                >
-                  Confirm
-                </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setIsConfirming(false); }}
-                  className="px-2 py-1 text-white/40 text-[8px] font-black uppercase"
-                >
-                  <X size={10} />
-                </button>
-              </div>
-            ) : (
-              <button 
-                onClick={(e) => { e.stopPropagation(); setIsConfirming(true); }} 
-                className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-status-error/20 text-white/20 hover:text-status-error transition-all rounded-lg"
-              >
-                <Trash size={12} />
-              </button>
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {!isEditing && onEdit && isOpen && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              className="px-4 py-2 bg-theme-accent/10 border border-theme-accent/20 rounded-xl text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all shadow-xl shadow-theme-accent/5 animate-apple-in flex items-center gap-2"
+            >
+              <Edit3 size={12} /> Edit Details
+            </button>
+          )}
+          {isEditing && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onEdit?.(); }}
+              className="px-5 py-2 bg-theme-accent text-white rounded-xl text-[9px] font-black uppercase shadow-2xl shadow-theme-accent/30 animate-apple-in border border-theme-accent/50 hover:scale-105 transition-all flex items-center gap-2"
+            >
+              <Save size={12} /> Save Changes
+            </button>
+          )}
+          {onDelete && (
+            <div className="flex items-center gap-2">
+              {isConfirming ? (
+                <div className="flex items-center gap-1.5 bg-status-error/20 rounded-xl p-1.5 animate-apple-in border border-status-error/30 shadow-2xl">
+                  <button onClick={(e) => { e.stopPropagation(); setIsConfirming(false); onDelete(); }} className="px-4 py-1.5 bg-status-error text-white text-[9px] font-black uppercase rounded-lg shadow-lg shadow-status-error/40 hover:scale-105 transition-all">Confirm Delete</button>
+                  <button onClick={(e) => { e.stopPropagation(); setIsConfirming(false); }} className="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-all"><X size={14} /></button>
+                </div>
+              ) : (
+                <button onClick={(e) => { e.stopPropagation(); setIsConfirming(true); }} className="opacity-0 group-hover/item:opacity-100 p-2.5 hover:bg-status-error/20 text-white/20 hover:text-status-error transition-all duration-300 rounded-xl border border-transparent hover:border-status-error/20"><Trash size={16} /></button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       {isOpen && (
-        <div className={cn("p-4 border-t border-white/5 bg-black/20", !isEditing && !isLocked && "pointer-events-none opacity-80")}>
+        <div className={cn("p-6 border-t border-white/5 bg-black/40 transition-all duration-500", !isEditing && !isLocked && "pointer-events-none opacity-60 grayscale-[0.3] scale-[0.99] origin-top")}>
           {children}
         </div>
       )}
@@ -813,10 +912,42 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showErrors, setShowErrors] = useState(false);
   const [sectionEditModes, setSectionEditModes] = useState<Record<string, boolean>>({});
+  const [itemEditModes, setItemEditModes] = useState<Record<string, boolean>>({});
+  const [bugReports, setBugReports] = useState<BugReport[]>([]);
+  const [isBuganizerOpen, setIsBuganizerOpen] = useState(false);
 
   const toggleSectionEdit = (sectionId: string) => {
     setSectionEditModes(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
   };
+
+  const toggleItemEdit = (itemId: string) => {
+    setItemEditModes(prev => ({ ...prev, [itemId]: !prev[itemId] }));
+  };
+
+  const reportBug = useCallback((title: string, category: 'frontend' | 'backend', status: 'error' | 'warning', extras?: Partial<BugReport>) => {
+    const newReport: BugReport = {
+      id: `bug-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      title,
+      timestamp: new Date().toLocaleString(),
+      view: 'Workflow Builder',
+      category,
+      status,
+      acknowledged: false,
+      platform: navigator.platform,
+      userAgent: navigator.userAgent,
+      ...extras
+    };
+    setBugReports(prev => [newReport, ...prev]);
+    if (status === 'error') setIsBuganizerOpen(true);
+  }, []);
+
+  // Standardize error messages - disappear after 1 second for "structural" warnings
+  useEffect(() => {
+    if (validationError && (validationError.includes("structural constants") || validationError.includes("Dependency Conflict"))) {
+      const timer = setTimeout(() => setValidationError(null), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [validationError]);
 
   const checkOutputDependency = (outputId: string) => {
     const dependents = tasks.filter(t => 
@@ -825,6 +956,23 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     if (dependents.length > 0) {
       const taskNames = dependents.map(t => `"${t.name || 'Untitled'}"`).join(', ');
       setValidationError(`Dependency Conflict: This output is used as an input by ${taskNames}. Remove those references first.`);
+      reportBug(`Deletion Blocked: Output ${outputId} has dependents`, 'frontend', 'warning', { type: 'DEPENDENCY_LOCK' });
+      return true;
+    }
+    return false;
+  };
+
+  const checkTaskDependencies = (taskId: string) => {
+    // Find any task that uses an output from this task as an input
+    const taskOutputs = tasks.find(t => t.id === taskId)?.output_data_list.map(o => o.id) || [];
+    const dependents = tasks.filter(t => 
+      t.source_data_list.some(sd => taskOutputs.includes(sd.from_task_id || ''))
+    );
+    
+    if (dependents.length > 0) {
+      const taskNames = dependents.map(t => `"${t.name || 'Untitled'}"`).join(', ');
+      setValidationError(`Critical Dependency: Other tasks (${taskNames}) depend on this task's data. Clear those inputs first.`);
+      reportBug(`Task Deletion Blocked: ${taskId} is a data source`, 'frontend', 'warning', { type: 'TASK_DEPENDENCY' });
       return true;
     }
     return false;
