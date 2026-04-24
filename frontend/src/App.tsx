@@ -9,10 +9,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Layers,
-  Terminal,
   Bug,
   AlertTriangle
 } from 'lucide-react';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Toaster, toast } from 'react-hot-toast';
 import { 
@@ -32,8 +33,12 @@ import WorkflowBuilder from './components/WorkflowBuilder';
 import SettingsView from './components/SettingsView';
 import OperationalBoard from './components/OperationalBoard';
 import PerformanceAnalytics from './components/PerformanceAnalytics';
-import { ErrorFortressProvider, useErrorFortress } from './components/ErrorFortress';
+import { BuganizerProvider, useBuganizer, useErrorFortress } from './components/ErrorFortress';
 import * as Tooltip from '@radix-ui/react-tooltip';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 const queryClient = new QueryClient();
 
@@ -170,7 +175,7 @@ const GlobalSidebar = ({ isOpen, setOpen, onNavigateRequested }: {
 };
 
 const GlobalHeader = () => {
-  const { setIsOpen, isOpen, errors } = useErrorFortress();
+  const { setIsOpen, isOpen, reports } = useBuganizer();
   const location = useLocation();
   const currentTab = location.pathname.split('/')[1] || 'dashboard';
   
@@ -188,6 +193,8 @@ const GlobalHeader = () => {
     return labels[id] || id;
   };
 
+  const activeReports = reports.filter(r => !r.acknowledged);
+
   return (
     <header className="h-14 bg-theme-header backdrop-blur-xl border-b border-theme-border flex items-center justify-between px-6 z-20 sticky top-0">
       <div className="flex items-center gap-6">
@@ -198,11 +205,16 @@ const GlobalHeader = () => {
       <div className="flex items-center gap-4">
         <button 
           onClick={() => setIsOpen(!isOpen)}
-          className={`flex items-center gap-2 px-3 py-1 rounded-full border transition-all duration-300 ${errors.length > 0 ? 'bg-status-error/10 border-status-error/30 text-status-error animate-pulse' : 'bg-white/[0.03] border-theme-border text-theme-secondary hover:bg-white/[0.06] hover:text-white'}`}
+          className={cn(
+            "flex items-center gap-2 px-4 py-1.5 rounded-full border transition-all duration-300",
+            activeReports.length > 0 
+              ? "bg-status-error/10 border-status-error/30 text-status-error animate-pulse shadow-[0_0_15px_rgba(255,59,48,0.1)]" 
+              : "bg-white/[0.03] border-theme-border text-theme-secondary hover:bg-white/[0.06] hover:text-white"
+          )}
         >
-          {errors.length > 0 ? <Bug size={14} /> : <Terminal size={14} />}
+          <Bug size={14} />
           <span className="text-[11px] font-black uppercase tracking-widest">
-            Logs {errors.length > 0 ? `(${errors.length})` : ''}
+            Buganizer Console {activeReports.length > 0 ? `(${activeReports.length})` : ''}
           </span>
         </button>
       </div>
@@ -543,11 +555,11 @@ const PathOSApp: React.FC = () => {
 const App: React.FC = () => (
   <QueryClientProvider client={queryClient}>
     <Tooltip.Provider delayDuration={400}>
-      <ErrorFortressProvider>
+      <BuganizerProvider>
         <Router>
           <PathOSApp />
         </Router>
-      </ErrorFortressProvider>
+      </BuganizerProvider>
     </Tooltip.Provider>
   </QueryClientProvider>
 );

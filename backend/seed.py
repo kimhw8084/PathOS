@@ -111,7 +111,9 @@ async def seed_data():
                 "name": "Advanced CD-SEM Gate Layer Metrology",
                 "workspace": "Submitted Requests",
                 "workflow_type": "NPI_SETUP",
+                "prc": "PRC-MET-001",
                 "tool_family": "cd_sem",
+                "applicable_tools": "CDSEM_01, CDSEM_02",
                 "trigger_type": "pie_request",
                 "trigger_description": "New PIE request for gate layer metrology setup.",
                 "output_type": "recipe_deployed",
@@ -148,7 +150,9 @@ async def seed_data():
                 "name": "Fully Automated Daily OVL Qual",
                 "workspace": "Submitted Requests",
                 "workflow_type": "QUAL_SHIFT",
+                "prc": "PRC-MET-002",
                 "tool_family": "ovl",
+                "applicable_tools": "OVL_01, OVL_02, OVL_03",
                 "trigger_type": "shift_qual",
                 "trigger_description": "Shift-based quality qualification trigger.",
                 "output_type": "tool_released",
@@ -184,7 +188,9 @@ async def seed_data():
                 "name": "Shadow IT Data Extract for YE",
                 "workspace": "Submitted Requests",
                 "workflow_type": "DATA_REPORTING",
+                "prc": "PRC-MET-003",
                 "tool_family": "all",
+                "applicable_tools": "ALL_TOOLS",
                 "trigger_type": "ooc_oos_alarm",
                 "trigger_description": "Yield Engineering data request following OOC alarm.",
                 "output_type": "report_generated",
@@ -212,7 +218,9 @@ async def seed_data():
                 "name": "Highly Blocked NPI Hardware Setup",
                 "workspace": "Submitted Requests",
                 "workflow_type": "NPI_SETUP",
+                "prc": "PRC-MET-004",
                 "tool_family": "ellipsometry",
+                "applicable_tools": "ELLIP_01",
                 "trigger_type": "pie_request",
                 "trigger_description": "Request for new hardware configuration.",
                 "output_type": "tool_released",
@@ -241,7 +249,9 @@ async def seed_data():
                 "name": "Multi-Shift Critical Path Recovery",
                 "workspace": "Submitted Requests",
                 "workflow_type": "PM_RECOVERY",
+                "prc": "PRC-MET-005",
                 "tool_family": "cd_sem",
+                "applicable_tools": "CDSEM_05",
                 "trigger_type": "tool_pm_recovery",
                 "trigger_description": "Post-PM recovery trigger.",
                 "output_type": "tool_released",
@@ -277,7 +287,9 @@ async def seed_data():
                 "name": "Cross-Tool Recipe Sync (Fleet)",
                 "workspace": "Submitted Requests",
                 "workflow_type": "NPI_SETUP",
+                "prc": "PRC-MET-006",
                 "tool_family": "ovl",
+                "applicable_tools": "OVL_ALL",
                 "trigger_type": "pie_request",
                 "trigger_description": "Fleet-wide recipe synchronization request.",
                 "output_type": "recipe_deployed",
@@ -315,7 +327,8 @@ async def seed_data():
         # 5. Insert Workflows and nested data
         for wf_def in workflow_definitions:
             tasks_data = wf_def.pop("tasks")
-            wf = Workflow(**wf_def)
+            applicable_tools = wf_def.pop("applicable_tools")
+            wf = Workflow(**wf_def, tool_id=applicable_tools)
             session.add(wf)
             await session.flush()
 

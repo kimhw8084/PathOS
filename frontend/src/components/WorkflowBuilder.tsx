@@ -45,16 +45,18 @@ import {
   Cpu,
   Edit3,
   Bug,
-  Terminal,
-  MousePointer2,
-  Copy,
-  CheckCircle2,
-  ShieldAlert
+  ShieldAlert,
+  Trash2,
+  Hash,
+  Clock,
+  Diamond,
+  Box
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { SearchableSelect } from './IntakeGatekeeper';
 import { mediaApi, settingsApi } from '../api/client';
+import { useBuganizer } from './ErrorFortress';
 
 /**
  * Utility for tailwind class merging
@@ -64,18 +66,111 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const ValidationMessage: React.FC<{ message: string; onClear: () => void }> = ({ message, onClear }) => (
-  <div className="fixed top-20 right-8 z-[2000] w-96 apple-glass border-status-error/30 bg-status-error/5 p-4 rounded-2xl shadow-2xl animate-apple-in">
+  <div className="fixed top-24 right-8 z-[2000] w-[28rem] apple-glass border-status-error/30 bg-[linear-gradient(180deg,rgba(239,68,68,0.12),rgba(15,23,42,0.92))] p-4 rounded-2xl shadow-2xl animate-apple-in">
     <div className="flex items-start gap-4">
-      <div className="w-10 h-10 rounded-full bg-status-error/20 flex items-center justify-center flex-shrink-0 border border-status-error/40">
+      <div className="w-10 h-10 rounded-2xl bg-status-error/20 flex items-center justify-center flex-shrink-0 border border-status-error/40 shadow-[0_0_18px_rgba(239,68,68,0.18)]">
         <ShieldAlert size={20} className="text-status-error" />
       </div>
       <div className="flex-1 space-y-1">
-        <h4 className="text-[11px] font-black text-white uppercase tracking-widest">Configuration Warning</h4>
-        <p className="text-[12px] font-bold text-white/60 leading-relaxed uppercase">{message}</p>
+        <h4 className="text-[10px] font-black text-status-error uppercase tracking-[0.24em]">Validation Block</h4>
+        <p className="text-[12px] font-bold text-white/80 leading-relaxed">{message}</p>
       </div>
       <button onClick={onClear} className="p-1 hover:bg-white/5 rounded-full text-white/20 hover:text-white transition-colors">
         <X size={16} />
       </button>
+    </div>
+  </div>
+);
+
+const estimateNodeWidth = (data: any) => {
+  const labelLength = String(data.label || '').length;
+  const descriptionLength = String(data.description || '').length;
+  const systemCount = (data.target_systems || []).length;
+  const complexity = Math.min(
+    Math.max(Math.round(labelLength / 14) * 22 + Math.round(descriptionLength / 60) * 10 + systemCount * 8, 0),
+    120
+  );
+  return Math.min(Math.max(360 + complexity, 380), 520);
+};
+
+const SaveStateChip: React.FC<{
+  saveState: 'clean' | 'dirty' | 'saving' | 'blocked';
+  issueCount: number;
+}> = ({ saveState, issueCount }) => {
+  const config = {
+    clean: {
+      label: 'Synced',
+      tone: 'text-emerald-400 border-emerald-500/20 bg-emerald-500/10',
+      dot: 'bg-emerald-400'
+    },
+    dirty: {
+      label: 'Unsaved',
+      tone: 'text-amber-400 border-amber-500/20 bg-amber-500/10',
+      dot: 'bg-amber-400'
+    },
+    saving: {
+      label: 'Saving',
+      tone: 'text-theme-accent border-theme-accent/20 bg-theme-accent/10',
+      dot: 'bg-theme-accent'
+    },
+    blocked: {
+      label: 'Blocked',
+      tone: 'text-rose-400 border-rose-500/20 bg-rose-500/10',
+      dot: 'bg-rose-400'
+    }
+  } as const;
+  const active = config[saveState];
+  return (
+    <div className={cn("flex items-center gap-3 px-4 py-2 rounded-2xl border", active.tone)}>
+      <div className={cn("w-2.5 h-2.5 rounded-full shadow-[0_0_8px_currentColor]", active.dot, saveState === 'saving' && 'animate-pulse')} />
+      <div className="flex flex-col">
+        <span className="text-[10px] font-black uppercase tracking-[0.18em]">{active.label}</span>
+        <span className="text-[9px] font-black uppercase tracking-widest text-white/35">{issueCount} active issues</span>
+      </div>
+    </div>
+  );
+};
+
+const IssueRail: React.FC<{
+  issues: Array<{ id: string; label: string; detail: string; severity: 'error' | 'warning'; target?: string | null; kind: 'metadata' | 'task' }>;
+  onSelect: (issue: { target?: string | null; kind: 'metadata' | 'task' }) => void;
+}> = ({ issues, onSelect }) => (
+  <div className="absolute top-6 left-6 z-20 w-[20rem] apple-glass bg-[#0a1120]/88 border-white/10 rounded-3xl shadow-2xl overflow-hidden">
+    <div className="px-5 py-4 border-b border-white/8 bg-white/[0.02]">
+      <p className="text-[9px] font-black uppercase tracking-[0.24em] text-theme-accent">Workflow Readiness</p>
+      <div className="flex items-end justify-between mt-2">
+        <h3 className="text-[16px] font-black text-white uppercase tracking-tight">Issue Rail</h3>
+        <span className="text-[10px] font-black uppercase tracking-widest text-white/35">{issues.length} signals</span>
+      </div>
+    </div>
+    <div className="max-h-[26rem] overflow-auto custom-scrollbar p-3 space-y-2">
+      {issues.length === 0 && (
+        <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/8 px-4 py-5">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">No Active Issues</p>
+          <p className="text-[11px] font-bold text-white/55 mt-2">Current graph and metadata pass the local builder checks.</p>
+        </div>
+      )}
+      {issues.map(issue => (
+        <button
+          key={issue.id}
+          onClick={() => onSelect(issue)}
+          className={cn(
+            "w-full text-left rounded-2xl border px-4 py-3 transition-all hover:translate-x-0.5",
+            issue.severity === 'error'
+              ? "border-rose-500/18 bg-rose-500/[0.08] hover:bg-rose-500/[0.12]"
+              : "border-amber-500/18 bg-amber-500/[0.08] hover:bg-amber-500/[0.12]"
+          )}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className={cn(
+              "text-[9px] font-black uppercase tracking-[0.2em]",
+              issue.severity === 'error' ? "text-rose-400" : "text-amber-400"
+            )}>{issue.label}</span>
+            <span className="text-[8px] font-black uppercase tracking-widest text-white/25">{issue.kind}</span>
+          </div>
+          <p className="text-[11px] font-bold text-white/70 leading-relaxed mt-2">{issue.detail}</p>
+        </button>
+      ))}
     </div>
   </div>
 );
@@ -464,173 +559,6 @@ const buildLocalAnalysis = (tasks: TaskEntity[], edges: Edge[], metadata: Workfl
   };
 };
 
-interface BugReport {
-  id: string;
-  title: string;
-  timestamp: string;
-  view: string;
-  category: 'frontend' | 'backend';
-  status: 'error' | 'warning';
-  acknowledged: boolean;
-  endpoint?: string;
-  method?: string;
-  statusCode?: number;
-  type?: string;
-  platform: string;
-  userAgent: string;
-  traceback?: string;
-  payload?: any;
-}
-
-const BuganizerConsole: React.FC<{
-  reports: BugReport[];
-  onAcknowledge: (id: string) => void;
-  onDelete: (id: string) => void;
-  onClear: () => void;
-  onClose: () => void;
-}> = ({ reports, onAcknowledge, onDelete, onClear, onClose }) => {
-  const [filter, setFilter] = useState<'all' | 'frontend' | 'backend'>('all');
-  const filtered = reports.filter(r => filter === 'all' || r.category === filter);
-
-  return (
-    <div className="fixed inset-0 z-[4000] bg-black/90 backdrop-blur-3xl flex flex-col animate-apple-in font-sans">
-      <div className="h-20 border-b border-white/10 flex items-center justify-between px-8 bg-[#0a1120]/80">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-rose-500/20 flex items-center justify-center border border-rose-500/40 shadow-[0_0_20px_rgba(244,63,94,0.3)]">
-            <Bug size={24} className="text-rose-500" />
-          </div>
-          <div>
-            <h2 className="text-[22px] font-black text-white uppercase tracking-tighter">Buganizer 2.0</h2>
-            <div className="flex gap-4 mt-1">
-              {(['all', 'frontend', 'backend'] as const).map(f => (
-                <button 
-                  key={f} 
-                  onClick={() => setFilter(f)}
-                  className={cn("text-[10px] font-black uppercase tracking-widest transition-all", filter === f ? "text-rose-500 scale-110" : "text-white/20 hover:text-white")}
-                >
-                  {f} ({reports.filter(r => f === 'all' || r.category === f).length})
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button onClick={onClear} className="px-6 py-2.5 bg-white/5 hover:bg-rose-500/20 text-white/40 hover:text-rose-500 rounded-xl text-[10px] font-black uppercase transition-all border border-white/10">Purge Session</button>
-          <button onClick={onClose} className="p-3 hover:bg-white/5 rounded-xl transition-colors text-white/40 hover:text-white border border-white/10"><X size={24} /></button>
-        </div>
-      </div>
-      
-      <div className="flex-1 overflow-auto custom-scrollbar p-8 bg-[#050914]">
-        <div className="max-w-7xl mx-auto space-y-6 pb-20">
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-60 opacity-20">
-              <div className="w-32 h-32 rounded-full border-4 border-dashed border-white/20 flex items-center justify-center mb-6">
-                <Terminal size={48} />
-              </div>
-              <span className="text-[16px] font-black uppercase tracking-[0.3em]">Operational Readiness Confirmed</span>
-              <p className="text-[10px] mt-2 font-bold opacity-50 uppercase tracking-widest text-emerald-400">Zero active exceptions detected</p>
-            </div>
-          ) : filtered.sort((a,b) => b.timestamp.localeCompare(a.timestamp)).map(report => (
-            <div key={report.id} className={cn("apple-glass border rounded-3xl overflow-hidden transition-all duration-500", report.acknowledged ? "opacity-40 grayscale blur-[0.5px] border-white/5" : "border-rose-500/30 bg-rose-500/[0.03] shadow-2xl shadow-rose-500/5 hover:border-rose-500/50 hover:bg-rose-500/[0.05]")}>
-              <div className="p-8 flex items-start justify-between gap-10">
-                <div className="flex-1 space-y-6 min-w-0">
-                  <div className="flex items-center gap-4">
-                    <div className={cn("px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border shadow-lg", report.status === 'error' ? "bg-rose-500 border-rose-400 text-white" : "bg-amber-500 border-amber-400 text-black")}>{report.status}</div>
-                    <div className="px-3 py-1 rounded-lg bg-white/5 border border-white/10 text-white/40 text-[10px] font-black uppercase tracking-widest">{report.category}</div>
-                    <div className="h-4 w-px bg-white/10" />
-                    <div className="text-[11px] text-white/30 font-mono tracking-tight">{report.timestamp}</div>
-                    <div className="flex items-center gap-2 text-[11px] text-theme-accent font-black uppercase tracking-[0.2em] bg-theme-accent/10 px-3 py-1 rounded-lg border border-theme-accent/20">
-                      <MousePointer2 size={12} /> {report.view}
-                    </div>
-                  </div>
-                  
-                  <h3 className="text-[22px] font-black text-white uppercase tracking-tight leading-none truncate selection:bg-rose-500 selection:text-white">{report.title}</h3>
-                  
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 py-6 border-y border-white/5 bg-black/20 rounded-2xl px-6">
-                    {report.endpoint && (
-                      <div className="space-y-2">
-                        <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] block">Network Context</span>
-                        <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-400 text-[10px] font-black font-mono">{report.method}</span>
-                          <span className="text-[12px] font-bold text-white font-mono truncate">{report.endpoint}</span>
-                        </div>
-                      </div>
-                    )}
-                    {report.statusCode && (
-                      <div className="space-y-2">
-                        <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] block">HTTP Response</span>
-                        <span className={cn("text-[16px] font-black font-mono", report.statusCode >= 500 ? "text-rose-500" : "text-amber-500")}>{report.statusCode}</span>
-                      </div>
-                    )}
-                    <div className="space-y-2">
-                      <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] block">Architecture</span>
-                      <span className="text-[12px] font-bold text-white/80 truncate block uppercase tracking-tight">{report.platform}</span>
-                    </div>
-                    <div className="space-y-2">
-                      <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.2em] block">Agent Payload</span>
-                      <span className="text-[12px] font-bold text-white/40 truncate block italic">{report.userAgent}</span>
-                    </div>
-                  </div>
-
-                  {report.traceback && (
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between px-2">
-                        <div className="flex items-center gap-2 text-rose-500">
-                          <Terminal size={14} />
-                          <span className="text-[10px] font-black uppercase tracking-[0.2em]">Full Diagnostic Traceback</span>
-                        </div>
-                        <button onClick={() => { navigator.clipboard.writeText(report.traceback!); }} className="text-[10px] font-black text-white/20 hover:text-white flex items-center gap-2 uppercase transition-colors group">
-                          <Copy size={12} className="group-hover:scale-110 transition-transform" /> Copy to Clipboard
-                        </button>
-                      </div>
-                      <div className="p-6 bg-black/60 rounded-3xl border border-white/5 text-[12px] text-rose-400/90 font-mono overflow-auto max-h-[400px] custom-scrollbar leading-relaxed selection:bg-rose-500 selection:text-white">
-                        {report.traceback}
-                      </div>
-                    </div>
-                  )}
-
-                  {report.payload && (
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-theme-accent px-2">
-                        <Database size={14} />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">Transmission Payload</span>
-                      </div>
-                      <div className="p-6 bg-black/60 rounded-3xl border border-white/5 text-[12px] text-theme-accent/80 font-mono overflow-auto max-h-[300px] custom-scrollbar leading-relaxed selection:bg-theme-accent selection:text-white">
-                        {JSON.stringify(report.payload, null, 4)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="flex flex-col gap-3 sticky top-0">
-                  <button 
-                    onClick={() => onAcknowledge(report.id)}
-                    className={cn(
-                      "w-16 h-16 rounded-[24px] flex items-center justify-center transition-all duration-300 border-2", 
-                      report.acknowledged 
-                        ? "bg-emerald-500 border-emerald-400 text-white shadow-lg shadow-emerald-500/20" 
-                        : "bg-white/5 border-white/10 text-white/20 hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:text-emerald-500"
-                    )}
-                    title={report.acknowledged ? "Resolved" : "Mark as Resolved"}
-                  >
-                    <CheckCircle2 size={32} strokeWidth={2.5} />
-                  </button>
-                  <button 
-                    onClick={() => onDelete(report.id)}
-                    className="w-16 h-16 rounded-[24px] bg-white/5 border border-white/10 text-white/20 hover:bg-rose-500 border-rose-500/20 hover:text-white flex items-center justify-center transition-all duration-300 shadow-lg hover:shadow-rose-500/40 group"
-                  >
-                    <Trash size={28} className="group-hover:scale-110 transition-transform" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const ManagedListSection: React.FC<{
   title: string;
   items: string[];
@@ -709,10 +637,8 @@ const CollapsibleSection: React.FC<{
   isOpen: boolean; 
   toggle: () => void; 
   icon?: React.ReactNode;
-  onEdit?: () => void;
-  isEditing?: boolean;
   children: React.ReactNode;
-}> = ({ title, count, isOpen, toggle, icon, onEdit, isEditing = false, children }) => (
+}> = ({ title, count, isOpen, toggle, icon, children }) => (
   <div className="border-b border-white/5 pb-4">
     <div className="w-full flex items-center justify-between py-2 group">
       <button onClick={toggle} className="flex items-center gap-3 min-w-0 flex-1 text-left">
@@ -727,19 +653,6 @@ const CollapsibleSection: React.FC<{
         </div>
       </button>
       <div className="flex items-center gap-2">
-        {onEdit && (
-          <button
-            onClick={onEdit}
-            className={cn(
-              "px-3 h-10 rounded-xl flex items-center justify-center text-[9px] font-black uppercase tracking-widest transition-all border",
-              isEditing
-                ? "bg-theme-accent/15 text-theme-accent border-theme-accent/30"
-                : "hover:bg-white/5 text-white/30 hover:text-white border-transparent hover:border-white/10"
-            )}
-          >
-            <Edit3 size={12} />
-          </button>
-        )}
         <button onClick={toggle} className="w-10 h-10 rounded-xl hover:bg-white/5 flex items-center justify-center text-white/20 hover:text-white transition-all border border-transparent hover:border-white/10">
           {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </button>
@@ -926,13 +839,15 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
   const baseFontSize = data.baseFontSize || 14;
   const titleFontSize = Math.max(24, baseFontSize + 10);
   const descFontSize = Math.max(12, titleFontSize - 6);
+  const nodeWidth = estimateNodeWidth(data);
 
   if (isTemplate) {
     return (
       <div className={cn(
-        "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-8 py-6 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center min-w-[200px] h-auto hover:z-[1000]",
-        selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
-      )}>
+        "apple-glass !bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(9,14,26,0.96))] !rounded-[1.5rem] px-8 py-6 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center min-w-[220px] h-auto hover:z-[1000]",
+        selected ? 'border-theme-accent shadow-[0_0_0_1px_rgba(59,130,246,0.6),0_0_38px_rgba(59,130,246,0.28)] scale-[1.02]' : (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
+      )} style={{ width: Math.max(240, Math.min(nodeWidth - 120, 340)) }}>
+        {selected && <div className="absolute inset-0 rounded-[1.4rem] border border-white/12 pointer-events-none" />}
         <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-[0.2em] border z-20 shadow-lg", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
           {isTrigger ? "TRIGGER" : "OUTCOME"}
         </div>
@@ -974,14 +889,16 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
 
   return (
     <div className={cn(
-      "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-7 py-6 w-[460px] shadow-2xl transition-all duration-300 relative border-2 h-auto min-h-[380px] hover:z-[1000]",
-      selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : 'border-white/10 hover:border-white/20',
+      "apple-glass !bg-[linear-gradient(180deg,rgba(15,23,42,0.97),rgba(9,14,26,0.97))] !rounded-[1.7rem] px-7 py-6 shadow-2xl transition-all duration-300 relative border-2 h-auto min-h-[356px] hover:z-[1000]",
+      selected ? 'border-theme-accent shadow-[0_0_0_1px_rgba(59,130,246,0.55),0_0_38px_rgba(59,130,246,0.24)] scale-[1.02]' : 'border-white/10 hover:border-white/18 hover:shadow-[0_20px_40px_rgba(0,0,0,0.32)]',
       data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]",
       data.diffState === 'added' && "border-emerald-500/60 shadow-[0_0_20px_rgba(16,185,129,0.2)]",
       data.diffState === 'modified' && "border-amber-500/60 shadow-[0_0_20px_rgba(245,158,11,0.2)]",
       data.diagnostics?.logic_warning && "border-fuchsia-500/60 shadow-[0_0_20px_rgba(217,70,239,0.2)]",
       data.diagnostics?.orphaned_input && "border-red-500/60 shadow-[0_0_20px_rgba(239,68,68,0.2)]"
-    )}>
+    )} style={{ width: nodeWidth }}>
+      {selected && <div className="absolute inset-[6px] rounded-[1.35rem] border border-white/10 pointer-events-none" />}
+      <div className="absolute inset-x-0 top-0 h-16 rounded-t-[1.5rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0))] pointer-events-none" />
       {data.validation_needed && (
         <div className="absolute -top-3 right-4 px-2 py-0.5 rounded-sm text-[10px] font-black uppercase tracking-[0.2em] bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
           VALIDATION REQUIRED
@@ -998,113 +915,122 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
         </div>
       )}
       <div className="flex flex-col gap-5 h-full">
-        <div className="flex items-center justify-between">
-          <div className={cn("px-3 py-1 rounded-md text-[13px] font-black uppercase tracking-widest border", typeColor)}>
+        <div className="flex items-start justify-between gap-3">
+          <div className={cn("px-3 py-1 rounded-xl text-[12px] font-black uppercase tracking-[0.16em] border shadow-sm", typeColor)}>
             {data.task_type || 'GENERAL'}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
             {data.occurrence > 1 && (
-              <div className="flex items-center gap-1.5 bg-blue-500 text-white px-3 py-1 rounded-lg text-[14px] font-black shadow-lg shadow-blue-500/20">
-                <RefreshCw size={14} /> {data.occurrence}
+              <div className="flex items-center gap-1.5 bg-blue-500/90 text-white px-3 py-1 rounded-xl text-[12px] font-black shadow-lg shadow-blue-500/20">
+                <RefreshCw size={13} /> {data.occurrence}
               </div>
             )}
             {data.blockerCount > 0 && (
-              <div className="flex items-center gap-1.5 bg-amber-500 text-white px-3 py-1 rounded-lg text-[14px] font-black shadow-lg shadow-amber-500/20">
-                <AlertCircle size={14} /> {data.blockerCount}
+              <div className="flex items-center gap-1.5 bg-amber-500/90 text-white px-3 py-1 rounded-xl text-[12px] font-black shadow-lg shadow-amber-500/20">
+                <AlertCircle size={13} /> {data.blockerCount}
               </div>
             )}
             {data.errorCount > 0 && (
-              <div className="flex items-center gap-1.5 bg-status-error text-white px-3 py-1 rounded-lg text-[14px] font-black shadow-lg shadow-status-error/20">
-                <X size={14} /> {data.errorCount}
+              <div className="flex items-center gap-1.5 bg-status-error/90 text-white px-3 py-1 rounded-xl text-[12px] font-black shadow-lg shadow-status-error/20">
+                <X size={13} /> {data.errorCount}
               </div>
             )}
             {data.diagnostics?.logic_warning && (
-              <div className="flex items-center gap-1.5 bg-fuchsia-500 text-white px-3 py-1 rounded-lg text-[12px] font-black shadow-lg shadow-fuchsia-500/20">
+              <div className="flex items-center gap-1.5 bg-fuchsia-500/90 text-white px-3 py-1 rounded-xl text-[11px] font-black shadow-lg shadow-fuchsia-500/20">
                 TF
               </div>
             )}
             {data.diagnostics?.orphaned_input && (
-              <div className="flex items-center gap-1.5 bg-red-600 text-white px-3 py-1 rounded-lg text-[12px] font-black shadow-lg shadow-red-500/20">
+              <div className="flex items-center gap-1.5 bg-red-600/90 text-white px-3 py-1 rounded-xl text-[11px] font-black shadow-lg shadow-red-500/20">
                 ORPHAN
               </div>
             )}
           </div>
         </div>
         
-        <div className="space-y-1 relative">
+        <div className="space-y-2 relative">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.22em] text-white/28">
+              <span>{data.owningTeam || 'Unassigned Team'}</span>
+              <span className="w-1 h-1 rounded-full bg-white/18" />
+              <span>{(data.ownerPositions || [])[0] || 'No Role'}</span>
+            </div>
+            {data.validation_needed && <span className="text-[8px] font-black uppercase tracking-[0.22em] text-amber-400">validated path</span>}
+          </div>
           <h4 
-            className="font-black text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-2 cursor-help overflow-hidden group/title min-h-[2.4em]"
+            className="font-black text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-3 cursor-help overflow-hidden group/title min-h-[3.1em]"
             style={{ fontSize: `${titleFontSize}px` }}
           >
             {data.label || "Untitled Task"}
             {!dragging && (
               <div className="absolute top-full left-0 w-[800px] bg-[#0f172a]/95 border-t-2 border-theme-accent/50 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden text-left">
                  <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 2}px` }}>{data.label}</p>
-                 <p className="text-white/80 font-medium leading-relaxed italic text-left" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
+                 <p className="text-white/78 font-medium leading-relaxed italic text-left" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
               </div>
             )}
           </h4>
+          <p className="text-[11px] font-bold text-white/48 leading-relaxed line-clamp-3 min-h-[3.9em]">{data.description || 'No description provided.'}</p>
         </div>
 
         <div className="flex flex-col gap-4 mt-2">
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-black/40 rounded-xl p-4 border border-white/5 flex flex-col items-center justify-center">
+            <div className="bg-black/30 rounded-2xl p-4 border border-white/6 flex flex-col items-center justify-center">
                <span className="text-[11px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-1">Manual</span>
                <span className="text-[32px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
             </div>
-            <div className="bg-black/40 rounded-xl p-4 border border-white/5 flex flex-col items-center justify-center">
+            <div className="bg-black/30 rounded-2xl p-4 border border-white/6 flex flex-col items-center justify-center">
                <span className="text-[11px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-1">Machine</span>
                <span className="text-[32px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
             </div>
           </div>
 
-          <div className="flex items-center justify-between py-3 border-t border-white/5">
+          <div className="flex items-center justify-between py-3 border-t border-white/6">
              <div className="flex items-center gap-6 flex-1 justify-center">
                <div className="flex flex-col items-center">
-                 <span className="text-[11px] font-black text-white/20 uppercase tracking-widest">Input</span>
+                 <span className="text-[10px] font-black text-white/24 uppercase tracking-[0.2em]">Input</span>
                  <span className="text-[20px] font-black text-white leading-none">{data.sourceCount || 0}</span>
                </div>
                <div className="w-px h-8 bg-white/5" />
                <div className="flex flex-col items-center">
-                 <span className="text-[11px] font-black text-white/20 uppercase tracking-widest">Output</span>
+                 <span className="text-[10px] font-black text-white/24 uppercase tracking-[0.2em]">Output</span>
                  <span className="text-[20px] font-black text-white leading-none">{data.outputCount || 0}</span>
                </div>
              </div>
              <div className="text-right flex flex-col items-end">
                 <div className="flex items-center gap-2">
-                   <span className="text-[13px] font-black text-white/60 uppercase truncate max-w-[120px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
+                   <span className="text-[12px] font-black text-white/58 uppercase truncate max-w-[140px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
                    {(data.ownerPositions || []).length > 1 && (
-                     <span className="text-[11px] font-black text-theme-accent">+{(data.ownerPositions || []).length - 1}</span>
+                     <span className="text-[10px] font-black text-theme-accent">+{(data.ownerPositions || []).length - 1}</span>
                    )}
                 </div>
                 {data.owningTeam && (
-                  <span className="text-[11px] font-black text-theme-accent/60 uppercase tracking-widest leading-none mt-1">{data.owningTeam}</span>
+                  <span className="text-[10px] font-black text-theme-accent/60 uppercase tracking-[0.18em] leading-none mt-1">{data.owningTeam}</span>
                 )}
              </div>
           </div>
-          <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-white/5 min-h-[42px]">
+          <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-white/6 min-h-[42px]">
              {visibleSystems.map((s: TaskSystem, i: number) => (
-               <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-[12px] font-bold text-white/40 uppercase">{s.name}</span>
+               <span key={i} className="px-3 py-1 bg-white/[0.04] border border-white/10 rounded-xl text-[11px] font-bold text-white/48 uppercase">{s.name}</span>
              ))}
              {hiddenSystemsCount > 0 && (
-               <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-[12px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
+               <span className="px-3 py-1 bg-white/[0.04] border border-white/10 rounded-xl text-[11px] font-bold text-white/28 uppercase">+{hiddenSystemsCount}</span>
              )}
              {targetSystems.length === 0 && (
-               <span className="text-[11px] font-black text-white/10 uppercase tracking-widest">No Systems</span>
+               <span className="text-[10px] font-black text-white/14 uppercase tracking-[0.2em]">No Systems</span>
              )}
           </div>
         </div>
       </div>
 
       
-      <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-all z-10" />
-      <Handle type="source" position={Position.Left} id="left-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-all opacity-0 z-20" />
-      <Handle type="target" position={Position.Right} id="right-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-all z-10" />
-      <Handle type="source" position={Position.Right} id="right-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl hover:scale-150 transition-all opacity-0 z-20" />
-      <Handle type="target" position={Position.Top} id="top-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-top-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-all z-10" />
-      <Handle type="source" position={Position.Top} id="top-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-top-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-all opacity-0 z-20" />
-      <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-bottom-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-all z-10" />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-bottom-1.5 !left-1/2 -translate-x-1/2 shadow-xl hover:scale-150 transition-all opacity-0 z-20" />
+      <Handle type="target" position={Position.Left} id="left-target" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-left-2 !top-1/2 -translate-y-1/2 shadow-xl transition-all z-10", selected ? "!w-5 !h-5 shadow-[0_0_18px_rgba(59,130,246,0.38)]" : "!w-4 !h-4 hover:scale-150")} />
+      <Handle type="source" position={Position.Left} id="left-source" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-left-2 !top-1/2 -translate-y-1/2 shadow-xl transition-all opacity-0 z-20", selected ? "!w-5 !h-5" : "!w-4 !h-4 hover:scale-150")} />
+      <Handle type="target" position={Position.Right} id="right-target" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-right-2 !top-1/2 -translate-y-1/2 shadow-xl transition-all z-10", selected ? "!w-5 !h-5 shadow-[0_0_18px_rgba(59,130,246,0.38)]" : "!w-4 !h-4 hover:scale-150")} />
+      <Handle type="source" position={Position.Right} id="right-source" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-right-2 !top-1/2 -translate-y-1/2 shadow-xl transition-all opacity-0 z-20", selected ? "!w-5 !h-5" : "!w-4 !h-4 hover:scale-150")} />
+      <Handle type="target" position={Position.Top} id="top-target" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-top-2 !left-1/2 -translate-x-1/2 shadow-xl transition-all z-10", selected ? "!w-5 !h-5 shadow-[0_0_18px_rgba(59,130,246,0.38)]" : "!w-4 !h-4 hover:scale-150")} />
+      <Handle type="source" position={Position.Top} id="top-source" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-top-2 !left-1/2 -translate-x-1/2 shadow-xl transition-all opacity-0 z-20", selected ? "!w-5 !h-5" : "!w-4 !h-4 hover:scale-150")} />
+      <Handle type="target" position={Position.Bottom} id="bottom-target" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-bottom-2 !left-1/2 -translate-x-1/2 shadow-xl transition-all z-10", selected ? "!w-5 !h-5 shadow-[0_0_18px_rgba(59,130,246,0.38)]" : "!w-4 !h-4 hover:scale-150")} />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-bottom-2 !left-1/2 -translate-x-1/2 shadow-xl transition-all opacity-0 z-20", selected ? "!w-5 !h-5" : "!w-4 !h-4 hover:scale-150")} />
     </div>
   );
 };
@@ -1204,16 +1130,17 @@ const CustomEdge = ({
         style={{ 
           ...style, 
           stroke: data?.color || '#ffffff', 
-          strokeWidth: selected ? '20px' : '10px', 
+          strokeWidth: selected ? '12px' : '8px', 
           strokeDasharray: data?.lineStyle === 'dashed' ? '15,15' : undefined, 
+          filter: selected ? 'drop-shadow(0 0 10px rgba(59,130,246,0.35))' : 'none',
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
           fill: 'none'
         }} 
       />
       {data?.label && (
         <EdgeLabelRenderer>
-          <div style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, zIndex: 100 }} className="bg-[#0f172a] px-3 py-1 rounded-lg border border-white/20 shadow-2xl pointer-events-none">
-            <span className="text-[10px] font-black text-white uppercase tracking-widest">{data.label}</span>
+          <div style={{ position: 'absolute', transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, zIndex: 100 }} className="bg-[#0f172a]/95 px-3 py-1.5 rounded-xl border border-white/12 shadow-2xl pointer-events-none">
+            <span className="text-[9px] font-black text-white/90 uppercase tracking-[0.18em]">{data.label}</span>
           </div>
         </EdgeLabelRenderer>
       )}
@@ -1225,6 +1152,7 @@ const nodeTypes = { matrix: MatrixNode, diamond: DiamondNode };
 const edgeTypes = { custom: CustomEdge };
 
 const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, onSave, onBack, onExit, setIsDirty }) => {
+  const { reportBug, setIsOpen: setBuganizerOpen, reports: bugReports } = useBuganizer();
   const [nodes, setNodes] = useNodesState([]);
   const [edges, setEdges] = useEdgesState([]);
   const { project, fitView } = useReactFlow();
@@ -1245,42 +1173,22 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const [systemParams, setSystemParams] = useState<any[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showErrors, setShowErrors] = useState(false);
-  const [sectionEditModes, setSectionEditModes] = useState<Record<string, boolean>>({});
   const [itemEditModes, setItemEditModes] = useState<Record<string, boolean>>({});
-  const [bugReports, setBugReports] = useState<BugReport[]>([]);
-  const [isBuganizerOpen, setIsBuganizerOpen] = useState(false);
   const [tasks, setTasks] = useState<TaskEntity[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [redoStack, setRedoStack] = useState<any[]>([]);
+  const [deletedHistory, setDeletedHistory] = useState<{ nodes: Node[], edges: Edge[], tasks: TaskEntity[] }>({ nodes: [], edges: [], tasks: [] });
+  const [isDeletedHistoryOpen, setIsDeletedHistoryOpen] = useState(false);
   const [clipboard, setClipboard] = useState<any>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
   const [isSimulationOpen, setIsSimulationOpen] = useState(false);
   const [commentDraft, setCommentDraft] = useState('');
-
-  const toggleSectionEdit = (sectionId: string) => {
-    setSectionEditModes(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
-  };
+  const [isSaving, setIsSaving] = useState(false);
+  const committedSnapshotRef = useRef('');
 
   const toggleItemEdit = (itemId: string) => {
     setItemEditModes(prev => ({ ...prev, [itemId]: !prev[itemId] }));
   };
-
-  const reportBug = useCallback((title: string, category: 'frontend' | 'backend', status: 'error' | 'warning', extras?: Partial<BugReport>) => {
-    const newReport: BugReport = {
-      id: `bug-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-      title,
-      timestamp: new Date().toLocaleString(),
-      view: 'Workflow Builder',
-      category,
-      status,
-      acknowledged: false,
-      platform: navigator.platform,
-      userAgent: navigator.userAgent,
-      ...extras
-    };
-    setBugReports(prev => [newReport, ...prev]);
-    if (status === 'error') setIsBuganizerOpen(true);
-  }, []);
 
   // Standardize error messages - disappear after 1 second for "structural" warnings
   useEffect(() => {
@@ -1318,6 +1226,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     }
     return false;
   }, [tasks, reportBug]);
+
   useEffect(() => {
     settingsApi.listParameters().then(setSystemParams).catch(() => {});
   }, []);
@@ -1355,6 +1264,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   });
 
   const lastHistorySnapshot = useRef<string>('');
+  const currentSnapshot = useMemo(() => JSON.stringify({ nodes, edges, tasks, metadata }), [nodes, edges, tasks, metadata]);
 
   const saveToHistory = useCallback(() => {
     const currentState = { 
@@ -1376,6 +1286,18 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
+      const structuralRemovals = changes.filter(c => {
+        if (c.type !== 'remove') return false;
+        const node = nodes.find(n => n.id === c.id);
+        return node?.data?.interface === 'TRIGGER' || node?.data?.interface === 'OUTCOME';
+      });
+
+      if (structuralRemovals.length > 0) {
+        setValidationError("Trigger and Outcome entities are structural constants and cannot be deleted.");
+        // If structural nodes are selected for removal, block all removals in this turn to ensure edge consistency
+        return;
+      }
+
       const mutatingChanges = changes.filter(c => c.type !== 'select');
       if (mutatingChanges.length > 0) {
         saveToHistory();
@@ -1383,13 +1305,18 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
       const filteredChanges = changes.filter(c => {
         if (c.type === 'remove') {
-          const node = nodes.find(n => n.id === c.id);
-          if (node?.data?.interface === 'TRIGGER' || node?.data?.interface === 'OUTCOME') {
-            setValidationError("Trigger and Outcome entities are structural constants and cannot be deleted.");
-            return false;
-          }
           if (checkTaskDependencies(c.id)) {
             return false;
+          }
+          // Move to deleted history
+          const node = nodes.find(n => n.id === c.id);
+          const task = tasks.find(t => t.id === c.id);
+          if (node && task) {
+            setDeletedHistory(prev => ({
+              ...prev,
+              nodes: [...prev.nodes, node],
+              tasks: [...prev.tasks, task]
+            }));
           }
         }
         return true;
@@ -1405,27 +1332,36 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
         setIsDirty?.(true);
       }
     },
-    [setNodes, nodes, checkTaskDependencies, saveToHistory, selectedTaskId, setIsDirty]
+    [setNodes, nodes, tasks, checkTaskDependencies, saveToHistory, selectedTaskId, setIsDirty]
   );
 
   const onEdgesChange = useCallback(
     (changes: any[]) => {
-      const mutatingChanges = changes.filter(c => c.type !== 'select');
-      if (mutatingChanges.length > 0) {
+      const mutatingChanges = changes.filter(c => c.type !== 'select');      if (mutatingChanges.length > 0) {
         saveToHistory();
       }
 
-      const removedIds = changes.filter(c => c.type === 'remove').map(c => c.id);
+      const filteredChanges = changes.filter(c => {
+        if (c.type === 'remove') {
+          const edge = edges.find(e => e.id === c.id);
+          if (edge) {
+            setDeletedHistory(prev => ({ ...prev, edges: [...prev.edges, edge] }));
+          }
+        }
+        return true;
+      });
+
+      const removedIds = filteredChanges.filter(c => c.type === 'remove').map(c => c.id);
       if (removedIds.length > 0 && selectedEdgeId && removedIds.includes(selectedEdgeId)) {
         setSelectedEdgeId(null);
       }
 
-      setEdges((eds) => applyEdgeChanges(changes, eds));
+      setEdges((eds) => applyEdgeChanges(filteredChanges, eds));
       if (mutatingChanges.length > 0) {
         setIsDirty?.(true);
       }
     },
-    [saveToHistory, selectedEdgeId, setEdges, setIsDirty]
+    [saveToHistory, selectedEdgeId, setEdges, setIsDirty, edges]
   );
 
   const undo = useCallback(() => {
@@ -1520,6 +1456,28 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const localWorkflowState = useMemo(() => buildLocalAnalysis(tasks, edges, metadata), [tasks, edges, metadata]);
   const workflowAnalysis = localWorkflowState.analysis;
   const workflowSimulation = localWorkflowState.simulation;
+  const issueItems = useMemo(() => {
+    const items: Array<{ id: string; label: string; detail: string; severity: 'error' | 'warning'; target?: string | null; kind: 'metadata' | 'task' }> = [];
+    if (!metadata.name || metadata.name.length < 2) items.push({ id: 'meta-name', label: 'Workflow Name', detail: 'Workflow definition needs a longer name.', severity: 'error', kind: 'metadata' });
+    if (!metadata.description) items.push({ id: 'meta-description', label: 'Workflow Description', detail: 'Add a concise workflow description for repository clarity.', severity: 'error', kind: 'metadata' });
+    if (!metadata.prc) items.push({ id: 'meta-prc', label: 'PRC Missing', detail: 'Assign a PRC so the workflow is traceable and sortable.', severity: 'warning', kind: 'metadata' });
+    if (!metadata.workflow_type) items.push({ id: 'meta-type', label: 'Type Missing', detail: 'Select a workflow type to keep repository taxonomy consistent.', severity: 'warning', kind: 'metadata' });
+    if (workflowAnalysis.has_cycle) items.push({ id: 'cycle', label: 'Routing Cycle', detail: 'The graph contains a cycle that blocks save.', severity: 'error', target: workflowAnalysis.cycle_nodes[0] || null, kind: 'task' });
+    workflowAnalysis.malformed_logic_nodes.forEach(nodeId => items.push({ id: `logic-${nodeId}`, label: 'Decision Logic', detail: 'Decision node must expose exactly two True / False branches.', severity: 'error', target: nodeId, kind: 'task' }));
+    workflowAnalysis.unreachable_nodes.forEach(nodeId => items.push({ id: `unreachable-${nodeId}`, label: 'Unreachable Task', detail: 'This task is not reachable from the workflow trigger.', severity: 'error', target: nodeId, kind: 'task' }));
+    workflowAnalysis.disconnected_nodes.forEach(nodeId => items.push({ id: `disconnected-${nodeId}`, label: 'Disconnected Task', detail: 'This task is not fully connected between trigger and outcome.', severity: 'error', target: nodeId, kind: 'task' }));
+    workflowAnalysis.orphaned_inputs.forEach(nodeId => items.push({ id: `orphan-${nodeId}`, label: 'Orphaned Input', detail: 'This task references removed upstream data.', severity: 'warning', target: nodeId, kind: 'task' }));
+    tasks.forEach(task => {
+      if (!task.name?.trim()) items.push({ id: `task-name-${task.id}`, label: 'Task Title', detail: 'A task is missing its operational title.', severity: 'error', target: task.id, kind: 'task' });
+      if (!task.description?.trim()) items.push({ id: `task-desc-${task.id}`, label: 'Task Description', detail: 'A task is missing contextual description.', severity: 'error', target: task.id, kind: 'task' });
+    });
+    return items;
+  }, [metadata, tasks, workflowAnalysis]);
+  const saveState = useMemo<'clean' | 'dirty' | 'saving' | 'blocked'>(() => {
+    if (isSaving) return 'saving';
+    if (issueItems.some(issue => issue.severity === 'error')) return 'blocked';
+    return currentSnapshot === committedSnapshotRef.current ? 'clean' : 'dirty';
+  }, [isSaving, issueItems, currentSnapshot]);
   const scopedComments = useMemo(
     () => metadata.comments.filter(comment => (selectedTaskId ? comment.scope === 'task' && comment.scope_id === selectedTaskId : comment.scope === 'workflow')),
     [metadata.comments, selectedTaskId]
@@ -1668,6 +1626,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
 
   useEffect(() => {
     if (!workflow || lastInitializedWorkflowId.current === workflow.id) return;
+    let hydrationTimer: ReturnType<typeof setTimeout> | null = null;
+    let layoutTimer: ReturnType<typeof setTimeout> | null = null;
     try {
       lastInitializedWorkflowId.current = workflow.id;
       const seenNodeIds = new Set<string>();
@@ -1788,19 +1748,46 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       }).filter(Boolean) as Edge[];
 
       // Wrap in setTimeout to avoid synchronous setState during effect which triggers lint error
-      setTimeout(() => {
+      hydrationTimer = setTimeout(() => {
+        // If this is an existing workflow (has id) but no base snapshot, create one from current state
+        // to ensure it doesn't show 'added' flags for existing data.
+        if (workflow.id && !initialMetadata.version_base_snapshot) {
+          initialMetadata.version_base_snapshot = {
+            tasks: initializedTasks.map((t: any) => ({
+              id: t.id,
+              node_id: t.node_id,
+              name: t.name,
+              description: t.description,
+              task_type: t.task_type,
+              occurrence: t.occurrence,
+              output_data_list: t.output_data_list,
+              source_data_list: t.source_data_list,
+            })),
+            edges: initialEdges.map(e => ({
+              source: e.source,
+              target: e.target,
+              label: e.data?.label,
+            }))
+          };
+        }
+        
         setMetadata(initialMetadata);
         setTasks(initializedTasks);
         setNodes(initialNodes);
         setEdges(initialEdges);
+        committedSnapshotRef.current = JSON.stringify({ nodes: initialNodes, edges: initialEdges, tasks: initializedTasks, metadata: initialMetadata });
       }, 0);
       
       if (initializedTasks.every((t: any) => !t.position_x && !t.position_y)) {
-        setTimeout(() => handleLayout(initialNodes, initialEdges), 100);
+        layoutTimer = setTimeout(() => handleLayout(initialNodes, initialEdges), 100);
       }
     } catch (err) {
       console.error("[WorkflowBuilder] Critical Initialization Failure:", err);
     }
+    return () => {
+      if (hydrationTimer) clearTimeout(hydrationTimer);
+      if (layoutTimer) clearTimeout(layoutTimer);
+    };
   }, [workflow, defaultEdgeStyle, handleLayout, setNodes, setEdges]);
 
   const updateTask = (id: string, updates: Partial<TaskEntity>) => {
@@ -1842,8 +1829,128 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     setIsDirty?.(true);
   };
 
+  const dedupeEdges = useCallback((edgeList: Edge[]) => {
+    const seen = new Set<string>();
+    return edgeList.filter(edge => {
+      const key = [edge.source, edge.target, edge.sourceHandle || '', edge.targetHandle || ''].join('|');
+      if (edge.source === edge.target || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+  }, []);
+
+  const removeTaskIds = useCallback((ids: string[]) => {
+    const removableIds = ids.filter(id => {
+      const task = tasks.find(t => t.id === id);
+      if (!task || task.interface) return false;
+      return !checkTaskDependencies(id);
+    });
+
+    if (removableIds.length === 0) {
+      setConfirmingDelete(null);
+      return;
+    }
+
+    saveToHistory();
+
+    const deletedTasks = tasks.filter(task => removableIds.includes(task.id));
+    const deletedNodes = nodes.filter(node => removableIds.includes(node.id));
+    if (deletedTasks.length > 0 || deletedNodes.length > 0) {
+      setDeletedHistory(prev => ({
+        ...prev,
+        tasks: [...prev.tasks, ...deletedTasks],
+        nodes: [...prev.nodes, ...deletedNodes]
+      }));
+    }
+
+    const removedOutputIds = new Set(
+      deletedTasks.flatMap(task => (task.output_data_list || []).map(output => String(output.id)))
+    );
+
+    setTasks(prev => prev
+      .filter(task => !removableIds.includes(task.id))
+      .map(task => ({
+        ...task,
+        source_data_list: (task.source_data_list || []).map(source =>
+          source.from_task_id && removedOutputIds.has(String(source.from_task_id))
+            ? {
+                ...source,
+                orphaned_input: true,
+                from_task_name: `${source.from_task_name || 'Source'} (Removed)`
+              }
+            : source
+        )
+      })));
+
+    setNodes(prev => prev.filter(node => !removableIds.includes(node.id)));
+    setEdges(prev => {
+      let nextEdges = [...prev];
+      for (const id of removableIds) {
+        const incoming = nextEdges.filter(edge => edge.target === id);
+        const outgoing = nextEdges.filter(edge => edge.source === id);
+        const survivors = nextEdges.filter(edge => edge.source !== id && edge.target !== id);
+        const healed = incoming.flatMap(inEdge => outgoing.map(outEdge => ({
+          ...outEdge,
+          id: `e-${inEdge.source}-${outEdge.target}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+          source: inEdge.source,
+          sourceHandle: inEdge.sourceHandle || 'right-source',
+          target: outEdge.target,
+          targetHandle: outEdge.targetHandle || 'left-target',
+          data: {
+            ...outEdge.data,
+            label: outEdge.data?.label || inEdge.data?.label || '',
+          }
+        })));
+        nextEdges = dedupeEdges([...survivors, ...healed]);
+      }
+      return nextEdges;
+    });
+
+    if (selectedTaskId && removableIds.includes(selectedTaskId)) {
+      setSelectedTaskId(null);
+    }
+    if (selectedEdgeId) {
+      setSelectedEdgeId(currentId => {
+        if (!currentId) return null;
+        const edgeStillExists = edges.some(edge =>
+          edge.id === currentId &&
+          !removableIds.includes(String(edge.source)) &&
+          !removableIds.includes(String(edge.target))
+        );
+        return edgeStillExists ? currentId : null;
+      });
+    }
+    setConfirmingDelete(null);
+    setIsDirty?.(true);
+  }, [tasks, nodes, edges, checkTaskDependencies, dedupeEdges, saveToHistory, selectedTaskId, selectedEdgeId, setNodes, setEdges, setIsDirty]);
+
   const onConnect = (params: Connection) => {
     if (!params.source || !params.target) return;
+    if (params.source === params.target) {
+      setValidationError("A task cannot connect to itself.");
+      return;
+    }
+
+    const sourceTask = tasks.find(task => String(task.node_id || task.id) === String(params.source));
+    const targetTask = tasks.find(task => String(task.node_id || task.id) === String(params.target));
+    if (targetTask?.interface === 'TRIGGER') {
+      setValidationError("Trigger nodes cannot receive incoming connections.");
+      return;
+    }
+    if (sourceTask?.interface === 'OUTCOME') {
+      setValidationError("Outcome nodes cannot create outgoing connections.");
+      return;
+    }
+    if (sourceTask?.task_type === 'LOOP') {
+      const existingDecisionEdges = edges.filter(edge => String(edge.source) === String(params.source));
+      if (existingDecisionEdges.length >= 2) {
+        setValidationError("Decision nodes can only have two outgoing routes.");
+        return;
+      }
+    }
+
     const isDuplicate = edges.some(edge =>
       edge.source === params.source &&
       edge.target === params.target &&
@@ -1855,51 +1962,16 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
       return;
     }
     saveToHistory();
-    const newEdge: Edge = { ...params, id: `e-${params.source}-${params.target}-${Date.now()}`, type: 'custom', data: { label: '', edgeStyle: defaultEdgeStyle, color: '#ffffff', lineStyle: 'solid' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#ffffff' }, source: params.source, target: params.target };
+    const decisionEdgeCount = sourceTask?.task_type === 'LOOP' ? edges.filter(edge => String(edge.source) === String(params.source)).length : 0;
+    const defaultLabel = sourceTask?.task_type === 'LOOP' ? (decisionEdgeCount === 0 ? 'True' : decisionEdgeCount === 1 ? 'False' : '') : '';
+    const newEdge: Edge = { ...params, id: `e-${params.source}-${params.target}-${Date.now()}`, type: 'custom', data: { label: defaultLabel, edgeStyle: defaultEdgeStyle, color: '#ffffff', lineStyle: 'solid' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#ffffff' }, source: params.source, target: params.target };
     setEdges(eds => addEdge(newEdge, eds));
     setIsDirty?.(true);
   };
 
   const deleteTask = useCallback((id: string) => {
-    const task = tasks.find(t => t.id === id);
-    if (task?.interface) return;
-    if (checkTaskDependencies(id)) return;
-    
-    saveToHistory();
-    const outputIds = new Set((task?.output_data_list || []).map(output => output.id));
-    setTasks(prev => prev
-      .filter(t => t.id !== id)
-      .map(t => ({
-        ...t,
-        source_data_list: (t.source_data_list || []).map(source =>
-          source.from_task_id && outputIds.has(source.from_task_id)
-            ? { ...source, orphaned_input: true, from_task_name: `${source.from_task_name || 'Source'} (Removed)` }
-            : source
-        )
-      })));
-    setNodes(nds => nds.filter(n => n.id !== id));
-    setEdges(eds => {
-      const incoming = eds.filter(e => e.target === id);
-      const outgoing = eds.filter(e => e.source === id);
-      const survivors = eds.filter(e => e.source !== id && e.target !== id);
-      const healed = incoming.flatMap(inEdge => outgoing.map(outEdge => ({
-        ...outEdge,
-        id: `e-${inEdge.source}-${outEdge.target}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-        source: inEdge.source,
-        sourceHandle: inEdge.sourceHandle || 'right-source',
-        target: outEdge.target,
-        targetHandle: outEdge.targetHandle || 'left-target',
-        data: {
-          ...outEdge.data,
-          label: outEdge.data?.label || inEdge.data?.label || '',
-        }
-      })));
-      return [...survivors, ...healed.filter(edge => edge.source !== edge.target)];
-    });
-    setSelectedTaskId(null);
-    setConfirmingDelete(null);
-    setIsDirty?.(true);
-  }, [tasks, checkTaskDependencies, saveToHistory, setNodes, setEdges, setIsDirty]);
+    removeTaskIds([id]);
+  }, [removeTaskIds]);
 
 const onAddNode = (type: 'TASK' | 'CONDITION') => {
     saveToHistory();
@@ -1938,7 +2010,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
     setIsDirty?.(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (tasks.length === 0) return;
     
     // Check Workflow Definition first
@@ -2015,6 +2087,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
     }
 
     try {
+      setIsSaving(true);
       const { applicable_tools, ...metaRest } = metadata;
       const finalData = {
         ...metaRest,
@@ -2037,11 +2110,14 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
           source: String(e.source), target: String(e.target), source_handle: String(e.sourceHandle || 'right-source'), target_handle: String(e.targetHandle || 'left-target'), label: String(e.data?.label || ''), edge_style: String(e.data?.edgeStyle || 'bezier'), color: String(e.data?.color || '#ffffff'), line_style: String(e.data?.lineStyle || 'solid') 
         }))
       };
-      onSave(finalData);
+      await onSave(finalData);
+      committedSnapshotRef.current = JSON.stringify({ nodes, edges, tasks, metadata });
       setValidationError(null);
       setShowErrors(false);
     } catch (err) {
       console.error("[WorkflowBuilder] Failed to prepare save data:", err);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -2051,6 +2127,18 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
     const handleMouseUp = () => { window.removeEventListener('mousemove', handleMouseMove); window.removeEventListener('mouseup', handleMouseUp); };
     window.addEventListener('mousemove', handleMouseMove); window.addEventListener('mouseup', handleMouseUp);
   };
+
+  const jumpToIssue = useCallback((issue: { target?: string | null; kind: 'metadata' | 'task' }) => {
+    if (issue.kind === 'metadata' || !issue.target) {
+      setSelectedTaskId(null);
+      setSelectedEdgeId(null);
+      setIsMetadataEditMode(true);
+      return;
+    }
+    setSelectedTaskId(issue.target);
+    setSelectedEdgeId(null);
+    setInspectorTab('overview');
+  }, []);
 
   const swapEdgeDirection = (id: string) => {
     saveToHistory();
@@ -2063,57 +2151,74 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
 
   const onNodesDelete = useCallback((deleted: Node[]) => {
     const ids = deleted
-      .filter(n => n.data?.interface !== 'TRIGGER' && n.data?.interface !== 'OUTCOME')
-      .map(n => n.id);
+      .filter(node => node.data?.interface !== 'TRIGGER' && node.data?.interface !== 'OUTCOME')
+      .map(node => node.id);
 
-    if (ids.length === 0) {
-      return;
-    }
-
-    setTasks(prev => prev.filter(t => !ids.includes(t.id)));
-    setEdges(eds => {
-      let nextEdges = [...eds];
-      for (const id of ids) {
-        const incoming = nextEdges.filter(edge => edge.target === id);
-        const outgoing = nextEdges.filter(edge => edge.source === id);
-        nextEdges = nextEdges.filter(edge => edge.source !== id && edge.target !== id);
-        nextEdges.push(...incoming.flatMap(inEdge => outgoing.map(outEdge => ({
-          ...outEdge,
-          id: `e-${inEdge.source}-${outEdge.target}-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-          source: inEdge.source,
-          sourceHandle: inEdge.sourceHandle || 'right-source',
-          target: outEdge.target,
-          targetHandle: outEdge.targetHandle || 'left-target',
-          data: {
-            ...outEdge.data,
-            label: outEdge.data?.label || inEdge.data?.label || '',
-          }
-        }))));
-      }
-      return nextEdges.filter(edge => edge.source !== edge.target);
-    });
-    if (selectedTaskId && ids.includes(selectedTaskId)) {
-      setSelectedTaskId(null);
-    }
-    setIsDirty?.(true);
-  }, [selectedTaskId, setTasks, setEdges, setIsDirty]);
+    if (ids.length === 0) return;
+    removeTaskIds(ids);
+  }, [removeTaskIds]);
 
   return (
-    <div className="flex h-full w-full bg-[#050914] overflow-hidden">
+    <div className="flex h-full w-full bg-[#050914] overflow-hidden font-sans">
       {validationError && (
         <ValidationMessage 
           message={validationError} 
           onClear={() => setValidationError(null)} 
         />
       )}
-      {isBuganizerOpen && (
-        <BuganizerConsole 
-          reports={bugReports} 
-          onAcknowledge={(id) => setBugReports(prev => prev.map(r => r.id === id ? { ...r, acknowledged: true } : r))}
-          onDelete={(id) => setBugReports(prev => prev.filter(r => r.id !== id))}
-          onClear={() => setBugReports([])}
-          onClose={() => setIsBuganizerOpen(false)}
-        />
+      {isDeletedHistoryOpen && (
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/80 backdrop-blur-md p-8 animate-apple-in">
+          <div className="w-full max-w-4xl apple-glass !bg-[#0f172a]/95 border border-white/10 rounded-3xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden">
+            <div className="p-8 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-theme-accent mb-1">Entity Recovery Console</p>
+                <h3 className="text-[24px] font-black text-white uppercase tracking-tight">Deleted History</h3>
+              </div>
+              <button onClick={() => setIsDeletedHistoryOpen(false)} className="p-4 text-white/30 hover:text-white hover:bg-white/5 rounded-2xl transition-all"><X size={24} /></button>
+            </div>
+            <div className="flex-1 overflow-auto p-8 custom-scrollbar">
+              <div className="space-y-6">
+                {deletedHistory.tasks.length === 0 && (
+                  <div className="py-20 text-center space-y-4">
+                    <Trash2 size={48} className="mx-auto text-white/5" />
+                    <p className="text-[14px] font-bold text-white/20 uppercase tracking-widest italic">No deleted entities in current session.</p>
+                  </div>
+                )}
+                {deletedHistory.tasks.map((task) => (
+                  <div key={task.id} className="group p-6 bg-white/[0.03] border border-white/5 rounded-2xl hover:border-theme-accent/30 hover:bg-theme-accent/[0.02] transition-all flex items-center justify-between">
+                    <div className="flex items-center gap-6">
+                      <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-white/20 group-hover:bg-theme-accent/20 group-hover:text-theme-accent transition-all border border-white/5">
+                        {task.task_type === 'LOOP' ? <Diamond size={20} /> : <Box size={20} />}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[14px] font-black text-white uppercase tracking-tight group-hover:text-theme-accent transition-colors">{task.name || 'Untitled Entity'}</span>
+                        <span className="text-[10px] font-bold text-white/20 uppercase tracking-[0.2em]">{task.task_type} • {task.id}</span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        const node = deletedHistory.nodes.find(n => n.id === task.id);
+                        if (node) {
+                          setTasks(prev => [...prev, task]);
+                          setNodes(nds => [...nds, node]);
+                          setDeletedHistory(prev => ({
+                            ...prev,
+                            tasks: prev.tasks.filter(t => t.id !== task.id),
+                            nodes: prev.nodes.filter(n => n.id !== task.id)
+                          }));
+                          setIsDirty?.(true);
+                        }
+                      }}
+                      className="px-6 py-3 bg-theme-accent/10 border border-theme-accent/30 text-theme-accent rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-theme-accent hover:text-white transition-all shadow-lg shadow-theme-accent/5"
+                    >
+                      Restore Entity
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
       {isSimulationOpen && (
         <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/70 backdrop-blur-md p-8 animate-apple-in">
@@ -2213,53 +2318,155 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
       )}
 
       <div className="flex-1 flex flex-col min-w-0 relative">
-	        <div className="h-16 border-b border-white/10 bg-[#0a1120]/80 backdrop-blur-xl flex items-center justify-between px-6 z-20">
-	          <div className="flex items-center gap-4">
-	            <button onClick={() => onBack(metadata)} className="p-2.5 hover:bg-white/5 rounded-xl transition-colors text-white/40 hover:text-white"><ChevronLeft size={20} /></button>
-	            <div className="flex flex-col"><span className="text-[10px] font-black text-theme-accent uppercase tracking-widest mb-1">Workflow Builder</span><h1 className="text-[14px] font-black text-white uppercase truncate max-w-[300px]">{workflow?.name}</h1></div>
-              <div className="hidden xl:flex items-center gap-2 pl-4">
-                <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/50">{metadata.workspace}</span>
-                <span className="px-3 py-1 rounded-full bg-theme-accent/10 border border-theme-accent/20 text-[9px] font-black uppercase tracking-widest text-theme-accent">Critical {workflowAnalysis.critical_path_hours.toFixed(1)}h</span>
-                {workflowAnalysis.shift_handoff_risk && <span className="px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[9px] font-black uppercase tracking-widest text-amber-400">Shift Handoff Risk</span>}
-                {workflowAnalysis.has_cycle && <span className="px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[9px] font-black uppercase tracking-widest text-red-400">Loop Detected</span>}
-                {workflowAnalysis.diff_summary.has_changes && <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black uppercase tracking-widest text-emerald-400">Diff Active</span>}
-              </div>
-	          </div>
-	        <div className="flex items-center gap-3">
-          <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 mr-2 h-[38px] items-center">
-            <button onClick={undo} disabled={history.length === 0} className="px-3 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all border-r border-white/5"><RefreshCw size={14} className="-scale-x-100" /></button>
-            <button onClick={redo} disabled={redoStack.length === 0} className="px-3 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all"><RefreshCw size={14} /></button>
-          </div>
-	          <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 mr-2 h-[38px] items-center">
-	            {(['bezier', 'smoothstep', 'straight'] as const).map(s => (
-	              <button 
-	                key={s} 
-	                onClick={() => {
-	                  saveToHistory();
-	                  setDefaultEdgeStyle(s);
-	                  setEdges(eds => eds.map(e => ({ ...e, data: { ...e.data, edgeStyle: s } })));
-	                  setIsDirty?.(true);
-	                }} 
-	                className={cn("px-3 h-full text-[9px] font-black uppercase rounded-lg transition-all", defaultEdgeStyle === s ? "bg-theme-accent text-white" : "text-white/20 hover:text-white/40")}
-	              >
-                {s === 'smoothstep' ? 'Angled' : s === 'bezier' ? 'Smooth' : 'Straight'}
+        {/* REDESIGNED HEADER - TWO LINES */}
+        <div className="border-b border-white/10 bg-[#0a1120]/95 backdrop-blur-2xl z-20 flex flex-col">
+          {/* LINE 1: IDENTITY & STATUS */}
+          <div className="h-16 flex items-center justify-between px-8 border-b border-white/5">
+            <div className="flex items-center gap-6">
+              <button onClick={() => onBack(metadata)} className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-xl transition-all text-white/40 hover:text-white border border-transparent hover:border-white/10">
+                <ChevronLeft size={22} />
               </button>
-            ))}
+              <div className="flex flex-col">
+                <div className="flex items-center gap-3">
+                  <h1 className="text-[18px] font-black text-white uppercase tracking-tight truncate max-w-[400px]">
+                    {metadata.name || 'UNTITLED WORKFLOW'}
+                  </h1>
+                  <span className="px-3 py-1 bg-theme-accent/10 border border-theme-accent/20 rounded-full text-[9px] font-black uppercase tracking-widest text-theme-accent">
+                    v{metadata.version}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 mt-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <Hash size={10} className="text-white/20" />
+                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{metadata.prc || 'NO PRC ASSIGNED'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock size={10} className="text-white/20" />
+                    <span className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
+                      Last Updated: {workflow?.updated_at ? new Date(workflow.updated_at).toLocaleString() : 'Just Now'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <SaveStateChip saveState={saveState} issueCount={issueItems.length} />
+              <div className="flex items-center gap-3 px-4 py-2 bg-white/[0.03] border border-white/10 rounded-2xl">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">{workflow?.status || 'DRAFT'}</span>
+              </div>
+              <button 
+                onClick={() => setBuganizerOpen(true)} 
+                className={cn(
+                  "flex items-center gap-3 h-10 px-4 rounded-xl transition-all border",
+                  bugReports.some(r => !r.acknowledged) 
+                    ? "bg-rose-500/20 border-rose-500/40 text-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.2)]" 
+                    : "bg-white/5 border-white/10 text-white/40 hover:text-white hover:bg-white/10"
+                )}
+              >
+                <Bug size={16} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Buganizer Console</span>
+                {bugReports.filter(r => !r.acknowledged).length > 0 && (
+                  <span className="w-5 h-5 bg-rose-600 text-white text-[10px] font-black rounded-lg flex items-center justify-center">
+                    {bugReports.filter(r => !r.acknowledged).length}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
-	          <button onClick={() => handleLayout(nodes, edges)} className="flex items-center gap-2 px-4 h-[38px] bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 transition-all"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
-            <button onClick={() => setIsSimulationOpen(true)} className="flex items-center gap-2 px-4 h-[38px] bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 transition-all"><Activity size={14} className="text-emerald-400" /> Simulate</button>
-	          <button onClick={() => setIsBuganizerOpen(true)} className={cn("w-[38px] h-[38px] rounded-xl transition-all border flex items-center justify-center relative", bugReports.some(r => !r.acknowledged) ? "bg-rose-500/20 border-rose-500/40 text-rose-500 animate-pulse shadow-[0_0_15px_rgba(244,63,94,0.3)]" : "bg-white/5 border-white/10 text-white/40 hover:text-white")}>
-            <Bug size={18} />
-            {bugReports.filter(r => !r.acknowledged).length > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-600 text-white text-[8px] font-black rounded-full flex items-center justify-center border-2 border-[#0a1120]">{bugReports.filter(r => !r.acknowledged).length}</span>
-            )}
-          </button>
-          <button onClick={handleSave} className="flex items-center gap-2 px-6 h-[38px] bg-theme-accent text-white rounded-xl text-[10px] font-black uppercase shadow-xl shadow-theme-accent/20 hover:scale-[1.02] transition-all"><Save size={14} /> Commit Changes</button>
-          <button onClick={onExit} className="p-2 text-white/20 hover:text-status-error"><X size={20} /></button>
-        </div>
+
+          {/* LINE 2: INTERACTIONS */}
+          <div className="h-16 flex items-center justify-between px-8 bg-white/[0.01]">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 px-4 h-11 bg-white/[0.03] border border-white/10 rounded-2xl">
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Canvas</span>
+                <span className="text-[10px] font-black text-white/70">{nodes.length} nodes</span>
+                <span className="w-1 h-1 rounded-full bg-white/15" />
+                <span className="text-[10px] font-black text-white/70">{edges.length} routes</span>
+              </div>
+              <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl p-1">
+                <div className="relative group/layout">
+                  <button className="flex items-center gap-2 px-4 h-9 bg-theme-accent text-white rounded-lg text-[10px] font-black uppercase shadow-lg shadow-theme-accent/20 transition-all hover:scale-[1.02]">
+                    <RefreshCw size={14} /> Auto Layout <ChevronDown size={12} />
+                  </button>
+                  <div className="absolute top-full left-0 mt-2 w-48 bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl opacity-0 invisible group-hover/layout:opacity-100 group-hover/layout:visible transition-all z-[100] p-2">
+                    {(['bezier', 'smoothstep', 'straight'] as const).map(s => (
+                      <button 
+                        key={s} 
+                        onClick={() => {
+                          saveToHistory();
+                          setDefaultEdgeStyle(s);
+                          setEdges(eds => eds.map(e => ({ ...e, data: { ...e.data, edgeStyle: s } })));
+                          handleLayout(nodes, edges);
+                        }} 
+                        className={cn(
+                          "w-full px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-between transition-all",
+                          defaultEdgeStyle === s ? "bg-theme-accent text-white" : "text-white/40 hover:bg-white/5 hover:text-white"
+                        )}
+                      >
+                        {s === 'smoothstep' ? 'Angled Connectors' : s === 'bezier' ? 'Smooth Curves' : 'Straight Lines'}
+                        {defaultEdgeStyle === s && <Zap size={10} fill="currentColor" />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="w-[1px] h-6 bg-white/10 mx-1" />
+                <button onClick={() => setIsSimulationOpen(true)} className="flex items-center gap-2 px-4 h-9 hover:bg-white/5 rounded-lg text-[10px] font-black text-white/60 uppercase transition-all hover:text-white">
+                  <Activity size={14} className="text-emerald-400" /> Dry Run Simulation
+                </button>
+              </div>
+
+              <div className="flex bg-white/5 border border-white/10 rounded-xl p-1">
+                <button 
+                  onClick={undo} 
+                  disabled={history.length === 0} 
+                  className="w-10 h-9 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 rounded-lg disabled:opacity-10 transition-all"
+                  title="Revert Backward (Undo)"
+                >
+                  <RefreshCw size={14} className="-scale-x-100" />
+                </button>
+                <button 
+                  onClick={redo} 
+                  disabled={redoStack.length === 0} 
+                  className="w-10 h-9 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 rounded-lg disabled:opacity-10 transition-all"
+                  title="Revert Forward (Redo)"
+                >
+                  <RefreshCw size={14} />
+                </button>
+              </div>
+
+              <button 
+                onClick={() => setIsDeletedHistoryOpen(true)}
+                className="flex items-center gap-2 px-4 h-11 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white/60 uppercase hover:bg-white/10 hover:text-white transition-all"
+              >
+                <Trash2 size={14} className="text-rose-400" /> Deleted History ({deletedHistory.tasks.length})
+              </button>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 px-4 h-11 bg-white/[0.03] border border-white/10 rounded-2xl">
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30">Validation</span>
+                <span className={cn("text-[11px] font-black", issueItems.some(issue => issue.severity === 'error') ? "text-rose-400" : "text-emerald-400")}>
+                  {issueItems.some(issue => issue.severity === 'error') ? 'Action Needed' : 'Ready'}
+                </span>
+              </div>
+              <button 
+                onClick={handleSave} 
+                disabled={isSaving}
+                className="flex items-center gap-2 px-8 h-11 bg-theme-accent text-white rounded-xl text-[10px] font-black uppercase shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:scale-100"
+              >
+                <Save size={16} /> {isSaving ? 'Saving...' : 'Commit Changes'}
+              </button>
+              <button onClick={onExit} className="w-11 h-11 flex items-center justify-center bg-rose-500/10 border border-rose-500/20 text-rose-500 rounded-xl hover:bg-rose-500 hover:text-white transition-all">
+                <X size={20} />
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="flex-1 relative">
+          <IssueRail issues={issueItems} onSelect={jumpToIssue} />
           <ReactFlow 
             nodes={nodes} 
             edges={edges} 
@@ -2282,11 +2489,14 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             <Background color="#1e293b" gap={30} size={1} />
             <Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl overflow-hidden" />
           </ReactFlow>
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex gap-1 p-1 bg-[#0a1120]/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl"><button onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2 bg-theme-accent text-white rounded-xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all"><Plus size={12} /> Add Task</button><button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all"><Plus size={12} /> Add Condition</button></div>
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex gap-1 p-1.5 bg-[#0a1120]/92 backdrop-blur-2xl border border-white/10 rounded-[1.2rem] shadow-2xl">
+            <button onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2.5 bg-theme-accent text-white rounded-xl text-[9px] font-black uppercase tracking-[0.16em] hover:scale-[1.05] transition-all"><Plus size={12} /> Add Task</button>
+            <button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-xl text-[9px] font-black uppercase tracking-[0.16em] hover:scale-[1.05] transition-all"><Plus size={12} /> Add Condition</button>
+          </div>
         </div>
       </div>
 
-      <div className="relative border-l border-white/10 bg-[#0a1120] flex flex-col z-[70]" style={{ width: `${inspectorWidth}px` }}>
+      <div className="relative border-l border-white/10 bg-[#0a1120] flex flex-col z-[70] shadow-[-18px_0_40px_rgba(0,0,0,0.24)]" style={{ width: `${inspectorWidth}px` }}>
         <div onMouseDown={handleMouseDown} className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent z-50" />
         <div className="h-14 flex border-b border-white/10 bg-white/[0.02]">
           {[ 
@@ -2299,6 +2509,23 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             <button key={t.id} onClick={() => setInspectorTab(t.id as any)} className={cn("flex-1 flex flex-col items-center justify-center gap-0.5 border-b-2", inspectorTab === t.id ? 'border-theme-accent bg-theme-accent/10 text-white' : 'border-transparent text-white/20 hover:text-white transition-all')}>{t.icon}<span className="text-[8px] font-black uppercase">{t.label}</span></button>
           ))}
           {selectedEdgeId && (<div className="flex-1 flex flex-col items-center justify-center gap-0.5 border-b-2 border-theme-accent bg-theme-accent/10 text-white"><Link2 size={12} /><span className="text-[8px] font-black uppercase">Edge</span></div>)}
+        </div>
+        <div className="h-12 flex items-center justify-between px-4 border-b border-white/6 bg-black/20">
+          <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/28">Inspector Width</span>
+          <div className="flex items-center gap-2">
+            {[380, 450, 560].map(width => (
+              <button
+                key={width}
+                onClick={() => setInspectorWidth(width)}
+                className={cn(
+                  "px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all",
+                  inspectorWidth === width ? "bg-theme-accent/12 border-theme-accent/30 text-theme-accent" : "bg-white/5 border-white/10 text-white/35 hover:text-white"
+                )}
+              >
+                {width === 380 ? 'Compact' : width === 450 ? 'Standard' : 'Wide'}
+              </button>
+            ))}
+          </div>
         </div>
 
         {selectedTaskId && selectedTask && (
@@ -2405,9 +2632,9 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             {decisionEdges.length > 0 ? decisionEdges.map(edge => (
                               <div key={edge.id} className="flex items-center gap-3 bg-black/30 border border-white/5 rounded-xl p-3">
                                 <span className="text-[10px] font-black uppercase tracking-widest text-white/30 min-w-[88px]">Branch</span>
-                                <input className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[11px] font-black text-white uppercase outline-none focus:border-theme-accent" value={edge.data?.label || ''} onChange={e => updateEdge(edge.id, { label: e.target.value })} placeholder="TRUE or FALSE" />
-                                <button onClick={() => updateEdge(edge.id, { label: 'True' })} className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black uppercase tracking-widest text-emerald-400">True</button>
-                                <button onClick={() => updateEdge(edge.id, { label: 'False' })} className="px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[9px] font-black uppercase tracking-widest text-rose-400">False</button>
+                                <input className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[11px] font-black text-white uppercase outline-none focus:border-theme-accent" value={edge.data?.label || ''} onFocus={saveToHistory} onChange={e => updateEdge(edge.id, { label: e.target.value })} placeholder="TRUE or FALSE" />
+                                <button onClick={() => { saveToHistory(); updateEdge(edge.id, { label: 'True' }); }} className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[9px] font-black uppercase tracking-widest text-emerald-400">True</button>
+                                <button onClick={() => { saveToHistory(); updateEdge(edge.id, { label: 'False' }); }} className="px-3 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[9px] font-black uppercase tracking-widest text-rose-400">False</button>
                               </div>
                             )) : (
                               <div className="rounded-xl border border-dashed border-fuchsia-500/20 p-4 text-[10px] font-black uppercase tracking-[0.2em] text-fuchsia-400/70">
@@ -2500,8 +2727,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         isOpen={expandedSections.target_systems || false} 
                         toggle={() => toggleSection('target_systems')} 
                         count={selectedTask.target_systems.length}
-                        onEdit={() => toggleSectionEdit('target_systems')}
-                        isEditing={sectionEditModes['target_systems']}
+                        icon={<Database size={14} />}
                       >
                         <div className="space-y-3 pt-4">
                           {(selectedTask.target_systems || []).map(sys => (
@@ -2511,8 +2737,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               isOpen={openItems[sys.id]} 
                               toggle={() => toggleItem(sys.id)} 
                               onDelete={() => updateTask(selectedTaskId, { target_systems: selectedTask.target_systems.filter(x => x.id !== sys.id) })}
-                              isEditing={sectionEditModes['target_systems']}
-                              onEdit={() => toggleSectionEdit('target_systems')}
+                              onEdit={() => toggleItemEdit(sys.id)}
+                              isEditing={itemEditModes[sys.id]}
                             >
                               <div className="space-y-4">
                                 <div className="space-y-1">
@@ -2535,7 +2761,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             </NestedCollapsible>
                           ))}
                           <button 
-                            onClick={() => updateTask(selectedTaskId, { target_systems: [...(selectedTask.target_systems || []), { id: Date.now().toString(), name: '', usage: '', figures: [], link: '' }] })} 
+                            onClick={() => {
+                              const id = Date.now().toString();
+                              updateTask(selectedTaskId, { target_systems: [...(selectedTask.target_systems || []), { id, name: '', usage: '', figures: [], link: '' }] });
+                              toggleItem(id);
+                              toggleItemEdit(id);
+                            }} 
                             className="w-full py-2.5 bg-theme-accent/10 border border-theme-accent/30 rounded-xl text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all mt-2 flex items-center justify-center gap-2 shadow-lg shadow-theme-accent/5"
                           >
                             <Plus size={14} strokeWidth={3} /> Add System Dependency
@@ -2553,8 +2784,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     isOpen={expandedSections.inputs} 
                     toggle={() => toggleSection('inputs')} 
                     count={selectedTask.source_data_list.length}
-                    onEdit={() => toggleSectionEdit('inputs')}
-                    isEditing={sectionEditModes['inputs']}
                   >
                     <div className="space-y-3 pt-4">
                       {selectedTask.source_data_list.map((sd) => (
@@ -2565,7 +2794,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           toggle={() => toggleItem(sd.id)} 
                           onDelete={() => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.filter(x => x.id !== sd.id) })} 
                           isLocked={!!sd.from_task_id}
-                          isEditing={sectionEditModes['inputs']}
+                          onEdit={() => toggleItemEdit(sd.id)}
+                          isEditing={itemEditModes[sd.id]}
                         >
                           <div className="space-y-4">
                             {sd.from_task_name && (
@@ -2593,12 +2823,15 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
-                      {sectionEditModes['inputs'] && (
-                        <div className="grid grid-cols-2 gap-2 mt-2">
-                          <button onClick={() => updateTask(selectedTaskId, { source_data_list: [...selectedTask.source_data_list, { id: Date.now().toString(), name: '', description: '', figures: [], link: '', data_example: '' }] })} className="py-2 bg-theme-accent/10 border border-theme-accent/30 text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all rounded-lg flex items-center justify-center gap-2"><Plus size={12} /> Add Manual Input</button>
-                          <button onClick={() => setIsOutputPickerOpen(true)} className="py-2 bg-white/5 border border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white transition-all rounded-lg flex items-center justify-center gap-2"><Search size={12} /> Registry Search</button>
-                        </div>
-                      )}
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <button onClick={() => {
+                          const id = Date.now().toString();
+                          updateTask(selectedTaskId, { source_data_list: [...selectedTask.source_data_list, { id, name: '', description: '', figures: [], link: '', data_example: '' }] });
+                          toggleItem(id);
+                          toggleItemEdit(id);
+                        }} className="py-2 bg-theme-accent/10 border border-theme-accent/30 text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all rounded-lg flex items-center justify-center gap-2"><Plus size={12} /> Add Manual Input</button>
+                        <button onClick={() => setIsOutputPickerOpen(true)} className="py-2 bg-white/5 border border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white transition-all rounded-lg flex items-center justify-center gap-2"><Search size={12} /> Registry Search</button>
+                      </div>
                     </div>
                   </CollapsibleSection>
 
@@ -2607,8 +2840,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     isOpen={expandedSections.outputs} 
                     toggle={() => toggleSection('outputs')} 
                     count={selectedTask.output_data_list.length}
-                    onEdit={() => toggleSectionEdit('outputs')}
-                    isEditing={sectionEditModes['outputs']}
                   >
                     <div className="space-y-3 pt-4">
                       {selectedTask.output_data_list.map((od) => (
@@ -2622,7 +2853,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.filter(x => x.id !== od.id) });
                             }
                           }}
-                          isEditing={sectionEditModes['outputs']}
+                          onEdit={() => toggleItemEdit(od.id)}
+                          isEditing={itemEditModes[od.id]}
                         >
                           <div className="space-y-4">
                             <div className="space-y-1">
@@ -2645,14 +2877,17 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
-                      {sectionEditModes['outputs'] && (
-                        <button 
-                          onClick={() => updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '', figures: [], link: '', data_example: '' }] })} 
-                          className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all rounded-lg flex items-center justify-center gap-2 mt-2"
-                        >
-                          <Plus size={12} /> Add Output Artifact
-                        </button>
-                      )}
+                      <button 
+                        onClick={() => {
+                          const id = Date.now().toString();
+                          updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id, name: '', description: '', figures: [], link: '', data_example: '' }] });
+                          toggleItem(id);
+                          toggleItemEdit(id);
+                        }} 
+                        className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all rounded-lg flex items-center justify-center gap-2 mt-2"
+                      >
+                        <Plus size={12} /> Add Output Artifact
+                      </button>
                     </div>
                   </CollapsibleSection>
                 </div>
@@ -2664,8 +2899,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     isOpen={expandedSections.blockers} 
                     toggle={() => toggleSection('blockers')} 
                     count={selectedTask.blockers.length}
-                    onEdit={() => toggleSectionEdit('blockers')}
-                    isEditing={sectionEditModes['blockers']}
                   >
                     <div className="space-y-3 pt-4">
                       {selectedTask.blockers.map((b) => (
@@ -2675,7 +2908,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           isOpen={openItems[b.id]} 
                           toggle={() => toggleItem(b.id)} 
                           onDelete={() => updateTask(selectedTaskId, { blockers: selectedTask.blockers.filter(x => x.id !== b.id) })}
-                          isEditing={sectionEditModes['blockers']}
+                          onEdit={() => toggleItemEdit(b.id)}
+                          isEditing={itemEditModes[b.id]}
                         >
                           <div className="space-y-4">
                             <div className="space-y-1">
@@ -2730,14 +2964,17 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
-                      {sectionEditModes['blockers'] && (
-                        <button 
-                          onClick={() => updateTask(selectedTaskId, { blockers: [...selectedTask.blockers, { id: Date.now().toString(), blocking_entity: '', reason: '', standard_mitigation: '', average_delay_minutes: 0, probability_percent: 10 }] })} 
-                          className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all flex items-center justify-center gap-2 mt-2"
-                        >
-                          <Plus size={12} /> Add Roadblock
-                        </button>
-                      )}
+                      <button 
+                        onClick={() => {
+                          const id = Date.now().toString();
+                          updateTask(selectedTaskId, { blockers: [...selectedTask.blockers, { id, blocking_entity: '', reason: '', standard_mitigation: '', average_delay_minutes: 0, probability_percent: 10 }] });
+                          toggleItem(id);
+                          toggleItemEdit(id);
+                        }} 
+                        className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all flex items-center justify-center gap-2 mt-2"
+                      >
+                        <Plus size={12} /> Add Roadblock
+                      </button>
                     </div>
                   </CollapsibleSection>
 
@@ -2746,8 +2983,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     isOpen={expandedSections.errors} 
                     toggle={() => toggleSection('errors')} 
                     count={selectedTask.errors.length}
-                    onEdit={() => toggleSectionEdit('errors')}
-                    isEditing={sectionEditModes['errors']}
                   >
                     <div className="space-y-3 pt-4">
                       {selectedTask.errors.map((er) => (
@@ -2757,7 +2992,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           isOpen={openItems[er.id]} 
                           toggle={() => toggleItem(er.id)} 
                           onDelete={() => updateTask(selectedTaskId, { errors: selectedTask.errors.filter(x => x.id !== er.id) })}
-                          isEditing={sectionEditModes['errors']}
+                          onEdit={() => toggleItemEdit(er.id)}
+                          isEditing={itemEditModes[er.id]}
                         >
                           <div className="space-y-4">
                             <div className="space-y-1">
@@ -2809,14 +3045,17 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
-                      {sectionEditModes['errors'] && (
-                        <button 
-                          onClick={() => updateTask(selectedTaskId, { errors: [...selectedTask.errors, { id: Date.now().toString(), error_type: '', description: '', recovery_time_minutes: 0, probability_percent: 5, correction_method: '' }] })} 
-                          className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all flex items-center justify-center gap-2 mt-2"
-                        >
-                          <Plus size={12} /> Add Human Error
-                        </button>
-                      )}
+                      <button 
+                        onClick={() => {
+                          const id = Date.now().toString();
+                          updateTask(selectedTaskId, { errors: [...selectedTask.errors, { id, error_type: '', description: '', recovery_time_minutes: 0, probability_percent: 5, correction_method: '' }] });
+                          toggleItem(id);
+                          toggleItemEdit(id);
+                        }} 
+                        className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all flex items-center justify-center gap-2 mt-2"
+                      >
+                        <Plus size={12} /> Add Human Error
+                      </button>
                     </div>
                   </CollapsibleSection>
 
@@ -2855,8 +3094,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           isOpen={true} 
                           toggle={() => {}} 
                           count={selectedTask.validation_procedure_steps.length}
-                          onEdit={() => toggleSectionEdit('validation')}
-                          isEditing={sectionEditModes['validation']}
                         >
                           <div className="space-y-4 pt-4">
                             {(selectedTask.validation_procedure_steps || []).map((step, idx) => (
@@ -2866,7 +3103,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                 isOpen={openItems[step.id]} 
                                 toggle={() => toggleItem(step.id)} 
                                 onDelete={() => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.filter(x => x.id !== step.id) })}
-                                isEditing={sectionEditModes['validation']}
+                                onEdit={() => toggleItemEdit(step.id)}
+                                isEditing={itemEditModes[step.id]}
                               >
                                 <div className="space-y-4">
                                   <div className="space-y-1">
@@ -2882,18 +3120,21 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                       placeholder="Describe the verification action..."
                                     />
                                   </div>
-                                  <ImagePasteField figures={step.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.map(x => x.id === step.id ? { ...x, figures: figs } : x) })} label="Evidence Figures (Ctrl+V)" isLocked={!sectionEditModes['validation']} />
+                                  <ImagePasteField figures={step.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.map(x => x.id === step.id ? { ...x, figures: figs } : x) })} label="Evidence Figures (Ctrl+V)" />
                                 </div>
                               </NestedCollapsible>
                             ))}
-                            {sectionEditModes['validation'] && (
-                              <button 
-                                onClick={() => updateTask(selectedTaskId, { validation_procedure_steps: [...(selectedTask.validation_procedure_steps || []), { id: Date.now().toString(), description: '', figures: [] }] })} 
-                                className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all mt-2"
-                              >
-                                + Add Verification Step
-                              </button>
-                            )}
+                            <button 
+                              onClick={() => {
+                                const id = Date.now().toString();
+                                updateTask(selectedTaskId, { validation_procedure_steps: [...(selectedTask.validation_procedure_steps || []), { id, description: '', figures: [] }] });
+                                toggleItem(id);
+                                toggleItemEdit(id);
+                              }} 
+                              className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all mt-2"
+                            >
+                              + Add Verification Step
+                            </button>
                           </div>
                         </CollapsibleSection>
                       </div>
@@ -2956,8 +3197,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     isOpen={expandedSections.references} 
                     toggle={() => toggleSection('references')} 
                     count={selectedTask.reference_links.length}
-                    onEdit={() => toggleSectionEdit('references')}
-                    isEditing={sectionEditModes['references']}
                   >
                     <div className="space-y-3 pt-4">
                       {selectedTask.reference_links.map(l => (
@@ -2967,7 +3206,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           isOpen={openItems[l.id]} 
                           toggle={() => toggleItem(l.id)} 
                           onDelete={() => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.filter(x => x.id !== l.id) })}
-                          isEditing={sectionEditModes['references']}
+                          onEdit={() => toggleItemEdit(l.id)}
+                          isEditing={itemEditModes[l.id]}
                         >
                           <div className="space-y-4">
                             <div className="space-y-1">
@@ -2984,14 +3224,17 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
-                      {sectionEditModes['references'] && (
-                        <button 
-                          onClick={() => updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, { id: Date.now().toString(), label: '', url: '' }] })} 
-                          className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all mt-2"
-                        >
-                          + Add Reference Link
-                        </button>
-                      )}
+                      <button 
+                        onClick={() => {
+                          const id = Date.now().toString();
+                          updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, { id, label: '', url: '' }] });
+                          toggleItem(id);
+                          toggleItemEdit(id);
+                        }} 
+                        className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all mt-2"
+                      >
+                        + Add Reference Link
+                      </button>
                     </div>
                   </CollapsibleSection>
 
@@ -3000,11 +3243,9 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     isOpen={expandedSections.assets} 
                     toggle={() => toggleSection('assets')} 
                     count={selectedTask.media.length}
-                    onEdit={() => toggleSectionEdit('assets')}
-                    isEditing={sectionEditModes['assets']}
                   >
                     <div className="pt-4">
-                      <ImagePasteField figures={selectedTask.media.map(m => m.url)} onPaste={(figs) => updateTask(selectedTaskId, { media: figs.map(f => ({ id: Date.now().toString(), type: 'image', url: f, label: 'Pasted Asset' })) })} label="Visual Assets (Ctrl+V)" isLocked={!sectionEditModes['assets']} />
+                      <ImagePasteField figures={selectedTask.media.map(m => m.url)} onPaste={(figs) => updateTask(selectedTaskId, { media: figs.map(f => ({ id: Date.now().toString(), type: 'image', url: f, label: 'Pasted Asset' })) })} label="Visual Assets (Ctrl+V)" />
                     </div>
                   </CollapsibleSection>
 
@@ -3013,8 +3254,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     isOpen={expandedSections.instructions} 
                     toggle={() => toggleSection('instructions')} 
                     count={selectedTask.instructions.length}
-                    onEdit={() => toggleSectionEdit('instructions')}
-                    isEditing={sectionEditModes['instructions']}
                   >
                     <div className="space-y-4 pt-4">
                       {selectedTask.instructions.map((step, idx) => (
@@ -3024,7 +3263,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           isOpen={openItems[step.id]} 
                           toggle={() => toggleItem(step.id)} 
                           onDelete={() => updateTask(selectedTaskId, { instructions: selectedTask.instructions.filter(x => x.id !== step.id) })}
-                          isEditing={sectionEditModes['instructions']}
+                          onEdit={() => toggleItemEdit(step.id)}
+                          isEditing={itemEditModes[step.id]}
                         >
                           <div className="space-y-4">
                             <div className="space-y-1">
@@ -3037,18 +3277,21 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                 placeholder="Describe the action..."
                               />
                             </div>
-                            <ImagePasteField figures={step.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { instructions: selectedTask.instructions.map(x => x.id === step.id ? { ...x, figures: figs } : x) })} label="Step Figures (Ctrl+V)" isLocked={!sectionEditModes['instructions']} />
+                            <ImagePasteField figures={step.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { instructions: selectedTask.instructions.map(x => x.id === step.id ? { ...x, figures: figs } : x) })} label="Step Figures (Ctrl+V)" />
                           </div>
                         </NestedCollapsible>
                       ))}
-                      {sectionEditModes['instructions'] && (
-                        <button 
-                          onClick={() => updateTask(selectedTaskId, { instructions: [...selectedTask.instructions, { id: Date.now().toString(), description: '', figures: [], links: [] }] })} 
-                          className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all mt-2"
-                        >
-                          + Add Instruction Step
-                        </button>
-                      )}
+                      <button 
+                        onClick={() => {
+                          const id = Date.now().toString();
+                          updateTask(selectedTaskId, { instructions: [...selectedTask.instructions, { id, description: '', figures: [], links: [] }] });
+                          toggleItem(id);
+                          toggleItemEdit(id);
+                        }} 
+                        className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all mt-2"
+                      >
+                        + Add Instruction Step
+                      </button>
                     </div>
                   </CollapsibleSection>
                 </div>
@@ -3066,19 +3309,19 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
 	              <div className="space-y-6">
 	                <div className="space-y-2">
 	                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Label</label>
-	                  <input className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-3 text-[13px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedEdge.data?.label || ''} onChange={e => updateEdge(selectedEdgeId, { label: e.target.value })} />
+	                  <input className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-3 text-[13px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedEdge.data?.label || ''} onFocus={saveToHistory} onChange={e => updateEdge(selectedEdgeId, { label: e.target.value })} />
 	                </div>
                   {selectedTaskId === null && tasks.find(task => String(task.node_id || task.id) === String(selectedEdge.source))?.task_type === 'LOOP' && (
                     <div className="flex gap-2">
-                      <button onClick={() => updateEdge(selectedEdgeId, { label: 'True' })} className="flex-1 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest text-emerald-400">Set True</button>
-                      <button onClick={() => updateEdge(selectedEdgeId, { label: 'False' })} className="flex-1 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] font-black uppercase tracking-widest text-rose-400">Set False</button>
+                      <button onClick={() => { saveToHistory(); updateEdge(selectedEdgeId, { label: 'True' }); }} className="flex-1 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest text-emerald-400">Set True</button>
+                      <button onClick={() => { saveToHistory(); updateEdge(selectedEdgeId, { label: 'False' }); }} className="flex-1 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] font-black uppercase tracking-widest text-rose-400">Set False</button>
                     </div>
                   )}
 	                <div className="space-y-2">
                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Style</label>
                   <div className="flex bg-white/5 p-1 rounded-md border border-white/10">
                     {(['smoothstep', 'bezier', 'straight'] as const).map((s) => (
-                      <button key={s} onClick={() => updateEdge(selectedEdgeId, { edgeStyle: s })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-md transition-all", (selectedEdge.data?.edgeStyle || 'bezier') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
+                      <button key={s} onClick={() => { saveToHistory(); updateEdge(selectedEdgeId, { edgeStyle: s }); }} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-md transition-all", (selectedEdge.data?.edgeStyle || 'bezier') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
                     ))}
                   </div>
                 </div>
@@ -3086,7 +3329,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Line Style</label>
                   <div className="flex bg-white/5 p-1 rounded-md border border-white/10">
                     {(['solid', 'dashed'] as const).map((s) => (
-                      <button key={s} onClick={() => updateEdge(selectedEdgeId, { lineStyle: s })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-md transition-all", (selectedEdge.data?.lineStyle || 'solid') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
+                      <button key={s} onClick={() => { saveToHistory(); updateEdge(selectedEdgeId, { lineStyle: s }); }} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-md transition-all", (selectedEdge.data?.lineStyle || 'solid') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
                     ))}
                   </div>
                 </div>
@@ -3094,7 +3337,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Color Palette</label>
                   <div className="flex flex-wrap gap-2">
                     {['#ffffff', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'].map((c) => (
-                      <button key={c} onClick={() => updateEdge(selectedEdgeId, { color: c })} className={cn("w-6 h-6 rounded-full border transition-all", (selectedEdge.data?.color || '#ffffff') === c ? "border-white scale-125" : "border-transparent hover:scale-110")} style={{ backgroundColor: c }} />
+                      <button key={c} onClick={() => { saveToHistory(); updateEdge(selectedEdgeId, { color: c }); }} className={cn("w-6 h-6 rounded-full border transition-all", (selectedEdge.data?.color || '#ffffff') === c ? "border-white scale-125" : "border-transparent hover:scale-110")} style={{ backgroundColor: c }} />
                     ))}
                   </div>
                 </div>
@@ -3115,6 +3358,24 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   >
                     {isMetadataEditMode ? "Finish Editing" : "Edit Definition"}
                   </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="apple-card !bg-white/[0.025] border-white/6 p-5 rounded-2xl">
+                  <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/28">Selection</p>
+                  <p className="text-[18px] font-black text-white mt-2">Workflow Shell</p>
+                  <p className="text-[11px] font-bold text-white/48 leading-relaxed mt-2">No node is selected. Use this panel to tune repository-facing workflow definition and governance.</p>
+                </div>
+                <div className="apple-card !bg-white/[0.025] border-white/6 p-5 rounded-2xl">
+                  <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/28">Readiness</p>
+                  <p className="text-[18px] font-black text-theme-accent mt-2">{issueItems.length}</p>
+                  <p className="text-[11px] font-bold text-white/48 leading-relaxed mt-2">Active builder signals across workflow definition, routing integrity, and node completeness.</p>
+                </div>
+                <div className="apple-card !bg-white/[0.025] border-white/6 p-5 rounded-2xl">
+                  <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/28">Change State</p>
+                  <p className="text-[18px] font-black mt-2 text-white">{saveState === 'clean' ? 'Clean' : saveState === 'dirty' ? 'Unsaved' : saveState === 'saving' ? 'Saving' : 'Blocked'}</p>
+                  <p className="text-[11px] font-bold text-white/48 leading-relaxed mt-2">The builder now exposes save state explicitly so edits and blockers are easier to trust.</p>
                 </div>
               </div>
               
