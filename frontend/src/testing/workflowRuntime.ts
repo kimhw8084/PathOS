@@ -40,8 +40,10 @@ export const validateBuilderRuntimeState = (input: {
       issues.push({ code: 'runtime.duplicate_node_id', severity: 'error', message: `Duplicate node id detected: ${nodeId}.`, targetId: nodeId });
     }
     nodeIds.add(nodeId);
-    if (text(node.data?.interface).toUpperCase() === 'TRIGGER') triggerIds.push(nodeId);
-    if (text(node.data?.interface).toUpperCase() === 'OUTCOME') outcomeIds.push(nodeId);
+    
+    const taskInterface = String(node.data?.interface || node.data?.interface_type || node.data?.task_type || '').toUpperCase();
+    if (taskInterface === 'TRIGGER') triggerIds.push(nodeId);
+    if (taskInterface === 'OUTCOME') outcomeIds.push(nodeId);
   });
 
   input.tasks.forEach((task) => {

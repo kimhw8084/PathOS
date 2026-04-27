@@ -379,10 +379,17 @@ export const auditWorkflowDraft = (input: {
   });
 
   const triggerNodes = tasks
-    .filter((task) => text(task.interface).toUpperCase() === 'TRIGGER')
+    .filter((task) => {
+      const taskInterface = String(task.interface || task.interface_type || task.task_type || '').toUpperCase();
+      return taskInterface === 'TRIGGER';
+    })
     .map((task) => toId(task.node_id || task.id));
+
   const outcomeNodes = tasks
-    .filter((task) => text(task.interface).toUpperCase() === 'OUTCOME')
+    .filter((task) => {
+      const taskInterface = String(task.interface || task.interface_type || task.task_type || '').toUpperCase();
+      return taskInterface === 'OUTCOME';
+    })
     .map((task) => toId(task.node_id || task.id));
 
   if (triggerNodes.length === 0) {

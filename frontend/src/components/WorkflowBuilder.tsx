@@ -622,8 +622,12 @@ const buildLocalAnalysis = (tasks: TaskEntity[], edges: Edge[], metadata: Workfl
   };
   for (const nodeId of taskMap.keys()) dfsCycle(nodeId);
 
-  const triggerNodes = [...taskMap.entries()].filter(([, task]) => task.interface === 'TRIGGER').map(([id]) => id);
-  const outcomeNodes = [...taskMap.entries()].filter(([, task]) => task.interface === 'OUTCOME').map(([id]) => id);
+  const triggerNodes = [...taskMap.entries()]
+    .filter(([, task]) => String(task.interface || task.interface_type || task.task_type || '').toUpperCase() === 'TRIGGER')
+    .map(([id]) => id);
+  const outcomeNodes = [...taskMap.entries()]
+    .filter(([, task]) => String(task.interface || task.interface_type || task.task_type || '').toUpperCase() === 'OUTCOME')
+    .map(([id]) => id);
   const roots = triggerNodes.length > 0 ? triggerNodes : [...indegree.entries()].filter(([, degree]) => degree === 0).map(([id]) => id);
   const reachable = new Set<string>();
   const queue = [...roots];
@@ -2305,8 +2309,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         if (!stableId || stableId === 'undefined' || stableId === 'null') {
           stableId = `node-${Math.random().toString(36).substr(2, 9)}`;
         }
-        if (t.interface === 'TRIGGER') stableId = 'node-trigger';
-        if (t.interface === 'OUTCOME') stableId = 'node-outcome';
+        
+        // Robust interface detection
+        const taskInterface = String(t.interface || t.interface_type || t.task_type || '').toUpperCase();
+        const isTrigger = taskInterface === 'TRIGGER';
+        const isOutcome = taskInterface === 'OUTCOME';
+
+        if (isTrigger) stableId = 'node-trigger';
+        if (isOutcome) stableId = 'node-outcome';
+        
         if (seenNodeIds.has(stableId)) {
           stableId = `${stableId}-dup-${Math.random().toString(36).substr(2, 9)}`;
         }
@@ -2316,6 +2327,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
           ...t,
           id: stableId,
           node_id: stableId,
+          interface: isTrigger ? 'TRIGGER' : (isOutcome ? 'OUTCOME' : t.interface),
           target_systems: Array.isArray(t.target_systems) ? t.target_systems : [],
           blockers: Array.isArray(t.blockers) ? t.blockers : [],
           errors: Array.isArray(t.errors) ? t.errors : [],
@@ -2353,9 +2365,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         initializedTasks.unshift({
           id: 'node-trigger', node_id: 'node-trigger', name: initialMetadata.trigger_type || 'START', description: initialMetadata.trigger_description || '', task_type: 'TRIGGER', interface: 'TRIGGER', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, validation_procedure_steps: []
         });
-      } else {
-        trigger.id = trigger.node_id = 'node-trigger';
-        trigger.name = initialMetadata.trigger_type || trigger.name;
       }
 
       const outcome = initializedTasks.find((t: any) => t.interface === 'OUTCOME');
@@ -2363,9 +2372,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         initializedTasks.push({
           id: 'node-outcome', node_id: 'node-outcome', name: initialMetadata.output_type || 'END', description: initialMetadata.output_description || '', task_type: 'OUTCOME', interface: 'OUTCOME', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, validation_procedure_steps: []
         });
-      } else {
-        outcome.id = outcome.node_id = 'node-outcome';
-        outcome.name = initialMetadata.output_type || outcome.name;
       }
 
       const initialNodes: Node[] = initializedTasks.map((t: any) => ({
@@ -2377,12 +2383,27 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         },
       }));
 
+      // Create a mapping from old IDs to new stable IDs for edges
+      const taskIdMap = new Map<string, string>();
+      (workflow?.tasks || []).forEach((t: any) => {
+        const oldId = String(t.node_id || t.id);
+        const taskInterface = String(t.interface || t.interface_type || t.task_type || '').toUpperCase();
+        if (taskInterface === 'TRIGGER') taskIdMap.set(oldId, 'node-trigger');
+        else if (taskInterface === 'OUTCOME') taskIdMap.set(oldId, 'node-outcome');
+        else taskIdMap.set(oldId, oldId);
+      });
+
       const initialEdges: Edge[] = (workflow?.edges || []).map((e: any, idx: number) => {
-        const sourceId = String(e.source || '');
-        const targetId = String(e.target || '');
+        const originalSourceId = String(e.source || '');
+        const originalTargetId = String(e.target || '');
+        
+        const sourceId = taskIdMap.get(originalSourceId) || originalSourceId;
+        const targetId = taskIdMap.get(originalTargetId) || originalTargetId;
+        
         if (!sourceId || !targetId) return null;
         const sourceExists = initializedTasks.some((t: any) => String(t.node_id) === sourceId);
         const targetExists = initializedTasks.some((t: any) => String(t.node_id) === targetId);
+        
         if (!sourceExists || !targetExists) return null;
         return {
           id: String(e.id || `e-${sourceId}-${targetId}-${idx}`), source: sourceId, target: targetId, sourceHandle: e.source_handle || e.sourceHandle || 'right-source', targetHandle: e.target_handle || e.targetHandle || 'left-target', type: 'custom', data: { label: e.label || '', edgeStyle: e.edge_style || e.edgeStyle || defaultEdgeStyle, color: e.color || '#ffffff', lineStyle: e.line_style || e.style || 'solid' }, markerEnd: { type: MarkerType.ArrowClosed, color: e.color || '#ffffff' },
@@ -3036,11 +3057,31 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
 
   const hydratePersistedWorkflow = useCallback((persistedWorkflow: any) => {
     if (!persistedWorkflow) return;
-    const persistedTasks = (persistedWorkflow.tasks || []).map((task: any) => ({
-      ...task,
-      id: String(task.node_id || task.id),
-      node_id: String(task.node_id || task.id),
-    }));
+    
+    // Create a mapping from old IDs to new stable IDs for this specific hydration
+    const taskIdMap = new Map<string, string>();
+    (persistedWorkflow.tasks || []).forEach((t: any) => {
+      const oldId = String(t.node_id || t.id);
+      const taskInterface = String(t.interface || t.interface_type || t.task_type || '').toUpperCase();
+      if (taskInterface === 'TRIGGER') taskIdMap.set(oldId, 'node-trigger');
+      else if (taskInterface === 'OUTCOME') taskIdMap.set(oldId, 'node-outcome');
+      else taskIdMap.set(oldId, oldId);
+    });
+
+    const persistedTasks = (persistedWorkflow.tasks || []).map((task: any) => {
+      const stableId = taskIdMap.get(String(task.node_id || task.id)) || String(task.node_id || task.id);
+      const taskInterface = String(task.interface || task.interface_type || task.task_type || '').toUpperCase();
+      const isTrigger = taskInterface === 'TRIGGER';
+      const isOutcome = taskInterface === 'OUTCOME';
+      
+      return {
+        ...task,
+        id: stableId,
+        node_id: stableId,
+        interface: isTrigger ? 'TRIGGER' : (isOutcome ? 'OUTCOME' : task.interface),
+      };
+    });
+
     const persistedNodes: Node[] = persistedTasks.map((task: any) => ({
       id: String(task.node_id || task.id),
       type: task.task_type === 'LOOP' ? 'diamond' : 'matrix',
@@ -3066,21 +3107,29 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         baseFontSize: 14,
       },
     }));
-    const persistedEdges: Edge[] = (persistedWorkflow.edges || []).map((edge: any, idx: number) => ({
-      id: String(edge.id || `e-${edge.source}-${edge.target}-${idx}`),
-      source: String(edge.source),
-      target: String(edge.target),
-      sourceHandle: edge.source_handle || edge.sourceHandle || 'right-source',
-      targetHandle: edge.target_handle || edge.targetHandle || 'left-target',
-      type: 'custom',
-      data: {
-        label: edge.label || '',
-        edgeStyle: edge.edge_style || edge.edgeStyle || defaultEdgeStyle,
-        color: edge.color || '#ffffff',
-        lineStyle: edge.line_style || edge.lineStyle || 'solid',
-      },
-      markerEnd: { type: MarkerType.ArrowClosed, color: edge.color || '#ffffff' },
-    }));
+
+    const persistedEdges: Edge[] = (persistedWorkflow.edges || []).map((edge: any, idx: number) => {
+      const originalSourceId = String(edge.source || '');
+      const originalTargetId = String(edge.target || '');
+      const sourceId = taskIdMap.get(originalSourceId) || originalSourceId;
+      const targetId = taskIdMap.get(originalTargetId) || originalTargetId;
+
+      return {
+        id: String(edge.id || `e-${sourceId}-${targetId}-${idx}`),
+        source: sourceId,
+        target: targetId,
+        sourceHandle: edge.source_handle || edge.sourceHandle || 'right-source',
+        targetHandle: edge.target_handle || edge.targetHandle || 'left-target',
+        type: 'custom',
+        data: {
+          label: edge.label || '',
+          edgeStyle: edge.edge_style || edge.edgeStyle || defaultEdgeStyle,
+          color: edge.color || '#ffffff',
+          lineStyle: edge.line_style || edge.lineStyle || 'solid',
+        },
+        markerEnd: { type: MarkerType.ArrowClosed, color: edge.color || '#ffffff' },
+      };
+    });
     const persistedMetadata: WorkflowMetadata = {
       ...metadata,
       name: persistedWorkflow.name || metadata.name,
