@@ -41,9 +41,13 @@ export const validateBuilderRuntimeState = (input: {
     }
     nodeIds.add(nodeId);
     
-    const taskInterface = String(node.data?.interface || node.data?.interface_type || node.data?.task_type || '').toUpperCase();
-    if (taskInterface === 'TRIGGER') triggerIds.push(nodeId);
-    if (taskInterface === 'OUTCOME') outcomeIds.push(nodeId);
+    const rawInterface = node.data?.interface || node.data?.interface_type || node.data?.task_type || '';
+    const taskInterface = String(rawInterface).toUpperCase();
+    const isTrigger = taskInterface === 'TRIGGER' || nodeId === 'node-trigger' || nodeId.includes('trigger');
+    const isOutcome = taskInterface === 'OUTCOME' || nodeId === 'node-outcome' || nodeId.includes('outcome');
+
+    if (isTrigger) triggerIds.push(nodeId);
+    if (isOutcome) outcomeIds.push(nodeId);
   });
 
   input.tasks.forEach((task) => {
@@ -68,7 +72,7 @@ export const validateBuilderRuntimeState = (input: {
     }
   });
 
-  if (triggerIds.length !== 1) {
+  if (input.nodes.length > 0 && triggerIds.length !== 1) {
     issues.push({
       code: 'runtime.trigger_count',
       severity: 'error',
@@ -76,7 +80,7 @@ export const validateBuilderRuntimeState = (input: {
       targetId: triggerIds[0] || null,
     });
   }
-  if (outcomeIds.length !== 1) {
+  if (input.nodes.length > 0 && outcomeIds.length !== 1) {
     issues.push({
       code: 'runtime.outcome_count',
       severity: 'error',

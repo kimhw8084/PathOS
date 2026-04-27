@@ -623,10 +623,16 @@ const buildLocalAnalysis = (tasks: TaskEntity[], edges: Edge[], metadata: Workfl
   for (const nodeId of taskMap.keys()) dfsCycle(nodeId);
 
   const triggerNodes = [...taskMap.entries()]
-    .filter(([, task]) => String(task.interface || task.interface_type || task.task_type || '').toUpperCase() === 'TRIGGER')
+    .filter(([id, task]) => {
+      const taskInterface = String(task.interface || task.interface_type || task.task_type || '').toUpperCase();
+      return taskInterface === 'TRIGGER' || String(id) === 'node-trigger';
+    })
     .map(([id]) => id);
   const outcomeNodes = [...taskMap.entries()]
-    .filter(([, task]) => String(task.interface || task.interface_type || task.task_type || '').toUpperCase() === 'OUTCOME')
+    .filter(([id, task]) => {
+      const taskInterface = String(task.interface || task.interface_type || task.task_type || '').toUpperCase();
+      return taskInterface === 'OUTCOME' || String(id) === 'node-outcome';
+    })
     .map(([id]) => id);
   const roots = triggerNodes.length > 0 ? triggerNodes : [...indegree.entries()].filter(([, degree]) => degree === 0).map(([id]) => id);
   const reachable = new Set<string>();
@@ -1861,7 +1867,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
 
   const selectedTask = useMemo(() => tasks.find(t => String(t.id) === String(selectedTaskId)), [tasks, selectedTaskId]);
   const selectedEdge = useMemo(() => edges.find(e => String(e.id) === String(selectedEdgeId)), [edges, selectedEdgeId]);
-  const isProtected = selectedTask?.interface === 'TRIGGER' || selectedTask?.interface === 'OUTCOME';
+  const isProtected = useMemo(() => {
+    if (!selectedTask) return false;
+    const nodeId = String(selectedTask.id);
+    const rawInterface = selectedTask.interface || selectedTask.interface_type || selectedTask.task_type || '';
+    const taskInterface = String(rawInterface).toUpperCase();
+    return taskInterface === 'TRIGGER' || taskInterface === 'OUTCOME' || nodeId === 'node-trigger' || nodeId === 'node-outcome' || nodeId.toLowerCase().includes('trigger') || nodeId.toLowerCase().includes('outcome');
+  }, [selectedTask]);
   useEffect(() => {
     if (!selectedTask) return;
     if (selectedTask.task_type === 'LOOP') {
@@ -1892,6 +1904,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   );
   const issueItems = useMemo(() => {
     const items: Array<{ id: string; label: string; detail: string; severity: 'error' | 'warning'; target?: string | null; kind: 'metadata' | 'task' }> = [];
+    if (tasks.length === 0 || nodes.length === 0 || isSaving) return items;
     const seenTaskIssues = new Set<string>();
     const pushTaskIssue = (nodeId: string, label: string, detail: string, severity: 'error' | 'warning') => {
       const key = `${nodeId}:${label}`;
@@ -1942,9 +1955,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     if (laneMode === 'none') return [] as Array<{ key: string; label: string; nodes: Node[]; bounds: { x: number; y: number; width: number; height: number } }>;
     const buckets = new Map<string, Node[]>();
     nodes.forEach(node => {
+      const rawLabel = node.data?.interface || node.data?.task_type || 'General';
+      const nodeId = String(node.id);
+      const isTrigger = String(rawLabel).toUpperCase() === 'TRIGGER' || nodeId === 'node-trigger';
+      const isOutcome = String(rawLabel).toUpperCase() === 'OUTCOME' || nodeId === 'node-outcome';
       const label = laneMode === 'owner'
         ? String(node.data?.owningTeam || 'Unassigned')
-        : String(node.data?.interface || node.data?.task_type || 'General');
+        : (isTrigger ? 'TRIGGER' : (isOutcome ? 'OUTCOME' : String(rawLabel)));
       const bucket = buckets.get(label) || [];
       bucket.push(node);
       buckets.set(label, bucket);
@@ -1982,6 +1999,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   }, [currentSnapshot, syncDirtyState]);
 
   useEffect(() => {
+    if (tasks.length === 0 || nodes.length === 0) return;
+
     if (runtimeAudit.repairs.clearSelectedTask) {
       setSelectedTaskId(null);
     }
@@ -2012,7 +2031,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     } else if (!hasRuntimeErrors && validationError?.includes('Runtime Integrity')) {
       setValidationError(null);
     }
-  }, [runtimeAudit, reportBug, validationError]);
+  }, [runtimeAudit, reportBug, validationError, tasks.length, nodes.length]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2311,23 +2330,27 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         }
         
         // Robust interface detection
-        const taskInterface = String(t.interface || t.interface_type || t.task_type || '').toUpperCase();
-        const isTrigger = taskInterface === 'TRIGGER';
-        const isOutcome = taskInterface === 'OUTCOME';
+        const rawInterface = t.interface || t.interface_type || t.task_type || '';
+        const stableId = t.node_id ? String(t.node_id) : String(t.id);
+        const taskInterface = String(rawInterface).toUpperCase();
+        const isTrigger = taskInterface === 'TRIGGER' || stableId === 'node-trigger' || stableId.toLowerCase().includes('trigger');
+        const isOutcome = taskInterface === 'OUTCOME' || stableId === 'node-outcome' || stableId.toLowerCase().includes('outcome');
 
-        if (isTrigger) stableId = 'node-trigger';
-        if (isOutcome) stableId = 'node-outcome';
+        let finalStableId = stableId;
+        if (isTrigger) finalStableId = 'node-trigger';
+        if (isOutcome) finalStableId = 'node-outcome';
         
-        if (seenNodeIds.has(stableId)) {
-          stableId = `${stableId}-dup-${Math.random().toString(36).substr(2, 9)}`;
+        if (seenNodeIds.has(finalStableId)) {
+          finalStableId = `${finalStableId}-dup-${Math.random().toString(36).substr(2, 5)}`;
         }
-        seenNodeIds.add(stableId);
+        seenNodeIds.add(finalStableId);
         
         return {
           ...t,
-          id: stableId,
-          node_id: stableId,
+          id: finalStableId,
+          node_id: finalStableId,
           interface: isTrigger ? 'TRIGGER' : (isOutcome ? 'OUTCOME' : t.interface),
+          task_type: isTrigger ? 'TRIGGER' : (isOutcome ? 'OUTCOME' : (t.task_type || 'System Interaction')),
           target_systems: Array.isArray(t.target_systems) ? t.target_systems : [],
           blockers: Array.isArray(t.blockers) ? t.blockers : [],
           errors: Array.isArray(t.errors) ? t.errors : [],
@@ -2360,14 +2383,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         };
       });
 
-      const trigger = initializedTasks.find((t: any) => t.interface === 'TRIGGER');
+      const trigger = initializedTasks.find((t: any) => t.interface === 'TRIGGER' || t.id === 'node-trigger');
       if (!trigger) {
         initializedTasks.unshift({
           id: 'node-trigger', node_id: 'node-trigger', name: initialMetadata.trigger_type || 'START', description: initialMetadata.trigger_description || '', task_type: 'TRIGGER', interface: 'TRIGGER', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, validation_procedure_steps: []
         });
       }
 
-      const outcome = initializedTasks.find((t: any) => t.interface === 'OUTCOME');
+      const outcome = initializedTasks.find((t: any) => t.interface === 'OUTCOME' || t.id === 'node-outcome');
       if (!outcome) {
         initializedTasks.push({
           id: 'node-outcome', node_id: 'node-outcome', name: initialMetadata.output_type || 'END', description: initialMetadata.output_description || '', task_type: 'OUTCOME', interface: 'OUTCOME', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, validation_procedure_steps: []
@@ -3019,7 +3042,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
 
   const onNodesDelete = useCallback((deleted: Node[]) => {
     const ids = deleted
-      .filter(node => node.data?.interface !== 'TRIGGER' && node.data?.interface !== 'OUTCOME')
+      .filter(node => {
+        const nodeId = String(node.id);
+        const taskInterface = String(node.data?.interface || node.data?.interface_type || node.data?.task_type || '').toUpperCase();
+        const isProtected = taskInterface === 'TRIGGER' || taskInterface === 'OUTCOME' || nodeId === 'node-trigger' || nodeId === 'node-outcome';
+        return !isProtected;
+      })
       .map(node => node.id);
 
     if (ids.length === 0) return;
@@ -3063,17 +3091,18 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     (persistedWorkflow.tasks || []).forEach((t: any) => {
       const oldId = String(t.node_id || t.id);
       const taskInterface = String(t.interface || t.interface_type || t.task_type || '').toUpperCase();
-      if (taskInterface === 'TRIGGER') taskIdMap.set(oldId, 'node-trigger');
-      else if (taskInterface === 'OUTCOME') taskIdMap.set(oldId, 'node-outcome');
+      if (taskInterface === 'TRIGGER' || oldId === 'node-trigger') taskIdMap.set(oldId, 'node-trigger');
+      else if (taskInterface === 'OUTCOME' || oldId === 'node-outcome') taskIdMap.set(oldId, 'node-outcome');
       else taskIdMap.set(oldId, oldId);
     });
 
     const persistedTasks = (persistedWorkflow.tasks || []).map((task: any) => {
-      const stableId = taskIdMap.get(String(task.node_id || task.id)) || String(task.node_id || task.id);
+      const oldId = String(task.node_id || task.id);
+      const stableId = taskIdMap.get(oldId) || oldId;
       const taskInterface = String(task.interface || task.interface_type || task.task_type || '').toUpperCase();
-      const isTrigger = taskInterface === 'TRIGGER';
-      const isOutcome = taskInterface === 'OUTCOME';
-      
+      const isTrigger = taskInterface === 'TRIGGER' || stableId === 'node-trigger';
+      const isOutcome = taskInterface === 'OUTCOME' || stableId === 'node-outcome';
+
       return {
         ...task,
         id: stableId,
@@ -3081,7 +3110,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         interface: isTrigger ? 'TRIGGER' : (isOutcome ? 'OUTCOME' : task.interface),
       };
     });
-
     const persistedNodes: Node[] = persistedTasks.map((task: any) => ({
       id: String(task.node_id || task.id),
       type: task.task_type === 'LOOP' ? 'diamond' : 'matrix',

@@ -346,6 +346,7 @@ const PathOSApp: React.FC = () => {
   const createMutation = useMutation({
     mutationFn: workflowsApi.create,
     onSuccess: (data) => {
+      queryClient.removeQueries({ queryKey: ['workflows'] });
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
       toast.success("Workflow Created");
       setSelectedWorkflow(data);

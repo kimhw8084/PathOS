@@ -380,15 +380,17 @@ export const auditWorkflowDraft = (input: {
 
   const triggerNodes = tasks
     .filter((task) => {
+      const nodeId = toId(task.node_id || task.id);
       const taskInterface = String(task.interface || task.interface_type || task.task_type || '').toUpperCase();
-      return taskInterface === 'TRIGGER';
+      return taskInterface === 'TRIGGER' || nodeId === 'node-trigger';
     })
     .map((task) => toId(task.node_id || task.id));
 
   const outcomeNodes = tasks
     .filter((task) => {
+      const nodeId = toId(task.node_id || task.id);
       const taskInterface = String(task.interface || task.interface_type || task.task_type || '').toUpperCase();
-      return taskInterface === 'OUTCOME';
+      return taskInterface === 'OUTCOME' || nodeId === 'node-outcome';
     })
     .map((task) => toId(task.node_id || task.id));
 
