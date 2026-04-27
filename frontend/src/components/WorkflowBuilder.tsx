@@ -92,31 +92,32 @@ const estimateNodeWidth = (data: any) => {
   const descriptionLength = String(data.description || '').length;
   const systemCount = (data.target_systems || []).length;
   const densityMode = data.densityMode || 'standard';
-  const densityOffset = densityMode === 'compact' ? -32 : densityMode === 'expanded' ? 42 : 0;
+  const densityOffset = densityMode === 'compact' ? -32 : densityMode === 'expanded' ? 62 : 0;
   const complexity = Math.min(
-    Math.max(Math.round(labelLength / 14) * 22 + Math.round(descriptionLength / 60) * 10 + systemCount * 8, 0),
-    120
+    Math.max(Math.round(labelLength / 12) * 24 + Math.round(descriptionLength / 50) * 12 + systemCount * 10, 0),
+    160
   );
-  return Math.min(Math.max(360 + complexity + densityOffset, 340), 560);
+  return Math.min(Math.max(380 + complexity + densityOffset, 360), 620);
 };
 
 const getNodeDimensions = (node: Node | { type?: string; data?: any }) => {
   const densityMode = node.data?.densityMode || 'standard';
-  const isDiamond = node.type === 'diamond';
-  const isTemplate = node.data?.interface === 'TRIGGER' || node.data?.interface === 'OUTCOME';
+  const isDiamond = node.type === 'diamond' || node.data?.task_type === 'LOOP';
+  const isTemplate = node.data?.interface === 'TRIGGER' || node.data?.interface === 'OUTCOME' || node.data?.task_type === 'TRIGGER' || node.data?.task_type === 'OUTCOME';
+  
   if (isDiamond) {
-    const size = densityMode === 'compact' ? 250 : densityMode === 'expanded' ? 320 : 280;
+    const size = densityMode === 'compact' ? 260 : densityMode === 'expanded' ? 340 : 300;
     return { width: size, height: size };
   }
   if (isTemplate) {
     return {
-      width: Math.max(240, Math.min(estimateNodeWidth(node.data || {}) - 120, 360)),
-      height: densityMode === 'compact' ? 136 : densityMode === 'expanded' ? 184 : 160,
+      width: Math.max(280, Math.min(estimateNodeWidth(node.data || {}) - 100, 380)),
+      height: densityMode === 'compact' ? 144 : densityMode === 'expanded' ? 200 : 172,
     };
   }
   return {
     width: estimateNodeWidth(node.data || {}),
-    height: densityMode === 'compact' ? 320 : densityMode === 'expanded' ? 468 : 404,
+    height: densityMode === 'compact' ? 340 : densityMode === 'expanded' ? 500 : 440,
   };
 };
 
@@ -1071,50 +1072,52 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
   const isTemplate = isTrigger || isOutcome;
   const baseFontSize = data.baseFontSize || 14;
   const densityMode = data.densityMode || 'standard';
-  const titleFontSize = Math.max(24, baseFontSize + 10);
-  const descFontSize = Math.max(12, titleFontSize - 6);
+  const titleFontSize = Math.max(22, baseFontSize + 8);
+  const descFontSize = Math.max(12, titleFontSize - 8);
   const nodeWidth = estimateNodeWidth(data);
-  const bodyMinHeight = densityMode === 'compact' ? 300 : densityMode === 'expanded' ? 392 : 356;
+  const bodyMinHeight = densityMode === 'compact' ? 320 : densityMode === 'expanded' ? 440 : 380;
 
   if (isTemplate) {
     return (
       <div className={cn(
-        "apple-glass !bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(9,14,26,0.96))] !rounded-[1.5rem] px-8 py-6 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center min-w-[220px] h-auto hover:z-[1000]",
-        selected ? 'border-theme-accent shadow-[0_0_0_1px_rgba(59,130,246,0.6),0_0_38px_rgba(59,130,246,0.28)] scale-[1.02]' : (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
+        "apple-glass !bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(9,14,26,0.98))] !rounded-[2rem] px-10 py-8 shadow-2xl transition-all duration-500 group relative border-2 flex flex-col items-center justify-center h-auto hover:z-[1000]",
+        selected ? 'border-theme-accent shadow-[0_0_0_1px_rgba(59,130,246,0.6),0_0_48px_rgba(59,130,246,0.32)] scale-[1.03]' : (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
         data.focusMuted && "!opacity-35 saturate-[0.7]",
-      )} style={{ width: Math.max(240, Math.min(nodeWidth - 120, 340)) }}>
-        {selected && <div className="absolute inset-0 rounded-[1.4rem] border border-white/12 pointer-events-none" />}
-        <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-[0.2em] border z-20 shadow-lg", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
+      )} style={{ width: Math.max(300, Math.min(nodeWidth - 80, 420)) }}>
+        {selected && <div className="absolute inset-0 rounded-[1.9rem] border border-white/12 pointer-events-none" />}
+        <div className={cn("absolute -top-3.5 left-6 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.22em] border z-20 shadow-xl", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
           {isTrigger ? "TRIGGER" : "OUTCOME"}
         </div>
-        <div className="w-full relative flex justify-center">
+        <div className="w-full relative flex flex-col items-center text-center">
           <h4 
-            className="font-black text-white tracking-tighter leading-tight uppercase text-center cursor-help group/title relative"
-            style={{ fontSize: `${titleFontSize}px` }}
+            className="font-black text-white tracking-tighter leading-tight uppercase cursor-help group/title relative whitespace-normal break-words"
+            style={{ fontSize: `${titleFontSize + 4}px` }}
           >
             {data.label}
             {!dragging && (
-              <div className="absolute top-full left-0 w-[800px] bg-[#0f172a]/95 border-t-2 border-white/20 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden text-left">
-                 <div className={cn("absolute top-0 left-0 w-full h-1", isTrigger ? "bg-cyan-500" : "bg-rose-500")} />
-                 <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 2}px` }}>
+              <div className="absolute top-full left-1/2 -translate-x-1/2 w-[600px] bg-[#0f172a]/98 border-t-2 border-white/20 p-8 rounded-[2rem] shadow-[0_35px_80px_-15px_rgba(0,0,0,0.9)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-300 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-6 group-hover/title:translate-y-4 border-x border-b border-white/10 overflow-hidden text-left">
+                 <div className={cn("absolute top-0 left-0 w-full h-1.5", isTrigger ? "bg-cyan-500" : "bg-rose-500")} />
+                 <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-4 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 6}px` }}>
                    {data.label}
                  </p>
-                 <div className="flex items-center gap-3 mb-4">
-                    <span className={cn("px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest", isTrigger ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-rose-500/20 text-rose-400 border border-rose-500/30")}>
+                 <div className="flex items-center gap-3 mb-5">
+                    <span className={cn("px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-[0.2em]", isTrigger ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-rose-500/20 text-rose-400 border border-rose-500/30")}>
                       {isTrigger ? "Input Origin" : "Process Termination"}
                     </span>
                  </div>
-                 <p className="text-white/80 font-medium leading-relaxed italic text-left" style={{ fontSize: `${descFontSize}px` }}>{data.description || (isTrigger ? 'Initial state that activates this workflow sequence.' : 'The final deliverable or state reached upon successful completion.')}</p>
+                 <p className="text-white/90 font-medium leading-relaxed italic text-left" style={{ fontSize: `${descFontSize + 2}px` }}>{data.description || (isTrigger ? 'Initial state that activates this workflow sequence.' : 'The final deliverable or state reached upon successful completion.')}</p>
               </div>
             )}
           </h4>
+          <p className="mt-4 text-white/40 font-bold text-[11px] uppercase tracking-[0.2em]">
+            {isTrigger ? "Workflow Initiation" : "Workflow Culmination"}
+          </p>
         </div>
         
-        <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl z-10" />
-        <Handle type="source" position={Position.Left} id="left-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-left-1.5 !top-1/2 -translate-y-1/2 shadow-xl z-20 opacity-0" />
-        
-        <Handle type="target" position={Position.Right} id="right-target" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl z-10" />
-        <Handle type="source" position={Position.Right} id="right-source" className="!bg-theme-accent !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !-right-1.5 !top-1/2 -translate-y-1/2 shadow-xl z-20 opacity-0" />
+        <Handle type="target" position={Position.Left} id="left-target" className="!bg-theme-accent !w-4 !h-4 !border-[2.5px] !border-[#0f172a] !-left-2 !top-1/2 -translate-y-1/2 shadow-2xl z-10" />
+        <Handle type="source" position={Position.Left} id="left-source" className="!bg-theme-accent !w-4 !h-4 !border-[2.5px] !border-[#0f172a] !-left-2 !top-1/2 -translate-y-1/2 shadow-2xl z-20 opacity-0" />
+        <Handle type="target" position={Position.Right} id="right-target" className="!bg-theme-accent !w-4 !h-4 !border-[2.5px] !border-[#0f172a] !-right-2 !top-1/2 -translate-y-1/2 shadow-2xl z-10" />
+        <Handle type="source" position={Position.Right} id="right-source" className="!bg-theme-accent !w-4 !h-4 !border-[2.5px] !border-[#0f172a] !-right-2 !top-1/2 -translate-y-1/2 shadow-2xl z-20 opacity-0" />
       </div>
     );
   }
@@ -1125,198 +1128,189 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
 
   return (
     <div className={cn(
-      "apple-glass !bg-[linear-gradient(180deg,rgba(15,23,42,0.97),rgba(9,14,26,0.97))] !rounded-[1.7rem] px-7 py-6 shadow-2xl transition-all duration-300 relative border-2 h-auto hover:z-[1000]",
-      selected ? 'border-theme-accent shadow-[0_0_0_1px_rgba(59,130,246,0.55),0_0_38px_rgba(59,130,246,0.24)] scale-[1.02]' : 'border-white/10 hover:border-white/18 hover:shadow-[0_20px_40px_rgba(0,0,0,0.32)]',
-      data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]",
-      data.diffState === 'added' && "border-emerald-500/60 shadow-[0_0_20px_rgba(16,185,129,0.2)]",
-      data.diffState === 'modified' && "border-amber-500/60 shadow-[0_0_20px_rgba(245,158,11,0.2)]",
-      data.diagnostics?.logic_warning && "border-fuchsia-500/60 shadow-[0_0_20px_rgba(217,70,239,0.2)]",
-      data.diagnostics?.orphaned_input && "border-red-500/60 shadow-[0_0_20px_rgba(239,68,68,0.2)]",
-      data.focusMuted && "!opacity-30 saturate-[0.72]"
+      "apple-glass !bg-[linear-gradient(180deg,rgba(15,23,42,0.98),rgba(9,14,26,0.98))] !rounded-[2.2rem] px-8 py-7 shadow-2xl transition-all duration-500 relative border-2 h-auto hover:z-[1000]",
+      selected ? 'border-theme-accent shadow-[0_0_0_1px_rgba(59,130,246,0.6),0_0_48px_rgba(59,130,246,0.32)] scale-[1.03]' : 'border-white/10 hover:border-white/20 hover:shadow-[0_25px_50px_rgba(0,0,0,0.4)]',
+      data.validation_needed && "border-orange-500/60 shadow-[0_0_30px_rgba(249,115,22,0.2)]",
+      data.diffState === 'added' && "border-emerald-500/70 shadow-[0_0_30px_rgba(16,185,129,0.25)]",
+      data.diffState === 'modified' && "border-amber-500/70 shadow-[0_0_30px_rgba(245,158,11,0.25)]",
+      data.diagnostics?.logic_warning && "border-fuchsia-500/70 shadow-[0_0_30px_rgba(217,70,239,0.25)]",
+      data.diagnostics?.orphaned_input && "border-red-500/70 shadow-[0_0_30px_rgba(239,68,68,0.25)]",
+      data.focusMuted && "!opacity-30 saturate-[0.7]"
     )} style={{ width: nodeWidth, minHeight: bodyMinHeight }}>
-      {selected && <div className="absolute inset-[6px] rounded-[1.35rem] border border-white/10 pointer-events-none" />}
-      <div className="absolute inset-x-0 top-0 h-16 rounded-t-[1.5rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0))] pointer-events-none" />
+      {selected && <div className="absolute inset-[6px] rounded-[1.8rem] border border-white/10 pointer-events-none" />}
+      
+      {/* Visual Header Decoration */}
+      <div className="absolute inset-x-0 top-0 h-24 rounded-t-[2rem] bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0))] pointer-events-none" />
+      
       {data.validation_needed && (
-        <div className="absolute -top-3 right-4 px-2 py-0.5 rounded-sm text-[10px] font-black uppercase tracking-[0.2em] bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
-          VALIDATION REQUIRED
+        <div className="absolute -top-3.5 right-6 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.22em] bg-orange-500 border border-orange-400 text-white z-20 shadow-xl animate-pulse">
+          VALIDATION REQ
         </div>
       )}
       {data.diffState === 'added' && (
-        <div className="absolute -top-3 left-4 px-2 py-0.5 rounded-sm text-[9px] font-black uppercase tracking-[0.2em] bg-emerald-500 border border-emerald-400 text-white z-20 shadow-lg">
+        <div className="absolute -top-3.5 left-6 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.22em] bg-emerald-500 border border-emerald-400 text-white z-20 shadow-xl">
           ADDED
         </div>
       )}
       {data.diffState === 'modified' && (
-        <div className="absolute -top-3 left-4 px-2 py-0.5 rounded-sm text-[9px] font-black uppercase tracking-[0.2em] bg-amber-500 border border-amber-400 text-white z-20 shadow-lg">
+        <div className="absolute -top-3.5 left-6 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.22em] bg-amber-500 border border-amber-400 text-white z-20 shadow-xl">
           MODIFIED
         </div>
       )}
-      <div className="flex flex-col gap-5 h-full">
-        <div className="flex items-start justify-between gap-3">
-          <div className={cn("px-3 py-1.5 rounded-2xl text-[11px] font-black uppercase tracking-[0.18em] border shadow-sm", typeColor)}>
+
+      <div className="flex flex-col gap-6 h-full min-h-0">
+        <div className="flex items-start justify-between gap-4">
+          <div className={cn("px-4 py-2 rounded-2xl text-[12px] font-black uppercase tracking-[0.2em] border shadow-inner", typeColor)}>
             {data.task_type || 'GENERAL'}
           </div>
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="flex items-center gap-2.5 flex-wrap justify-end">
             {data.occurrence > 1 && (
-              <div className="flex items-center gap-1.5 bg-blue-500/85 text-white px-3 py-1.5 rounded-2xl text-[11px] font-black shadow-lg shadow-blue-500/20">
-                <RefreshCw size={13} /> {data.occurrence}
+              <div className="flex items-center gap-2 bg-blue-500/90 text-white px-3.5 py-2 rounded-2xl text-[12px] font-black shadow-xl shadow-blue-500/25">
+                <RefreshCw size={14} strokeWidth={3} /> {data.occurrence}
               </div>
             )}
             {data.blockerCount > 0 && (
-              <div className="flex items-center gap-1.5 bg-amber-500/85 text-white px-3 py-1.5 rounded-2xl text-[11px] font-black shadow-lg shadow-amber-500/20">
-                <AlertCircle size={13} /> {data.blockerCount}
+              <div className="flex items-center gap-2 bg-amber-500/90 text-white px-3.5 py-2 rounded-2xl text-[12px] font-black shadow-xl shadow-amber-500/25">
+                <AlertCircle size={14} strokeWidth={3} /> {data.blockerCount}
               </div>
             )}
             {data.errorCount > 0 && (
-              <div className="flex items-center gap-1.5 bg-status-error/85 text-white px-3 py-1.5 rounded-2xl text-[11px] font-black shadow-lg shadow-status-error/20">
-                <X size={13} /> {data.errorCount}
-              </div>
-            )}
-            {data.diagnostics?.logic_warning && (
-              <div className="flex items-center gap-1.5 bg-fuchsia-500/85 text-white px-3 py-1.5 rounded-2xl text-[10px] font-black shadow-lg shadow-fuchsia-500/20">
-                TF Branch
-              </div>
-            )}
-            {data.diagnostics?.orphaned_input && (
-              <div className="flex items-center gap-1.5 bg-red-600/85 text-white px-3 py-1.5 rounded-2xl text-[10px] font-black shadow-lg shadow-red-500/20">
-                Orphan Input
+              <div className="flex items-center gap-2 bg-status-error/90 text-white px-3.5 py-2 rounded-2xl text-[12px] font-black shadow-xl shadow-status-error/25">
+                <X size={14} strokeWidth={3} /> {data.errorCount}
               </div>
             )}
           </div>
         </div>
         
-        <div className="space-y-2 relative">
+        <div className="space-y-3 relative flex-1 min-h-0">
           <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.22em] text-white/42">
-              <span>{data.owningTeam || 'Unassigned Team'}</span>
-              <span className="w-1 h-1 rounded-full bg-white/18" />
-              <span>{(data.ownerPositions || [])[0] || 'No Role'}</span>
+            <div className="flex items-center gap-2.5 text-[10px] font-black uppercase tracking-[0.25em] text-white/40">
+              <span className="truncate max-w-[120px]">{data.owningTeam || 'Unassigned Team'}</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-theme-accent/30" />
+              <span className="truncate max-w-[100px]">{(data.ownerPositions || [])[0] || 'No Role'}</span>
             </div>
-            {data.validation_needed && <span className="text-[8px] font-black uppercase tracking-[0.22em] text-amber-400">validated path</span>}
+            {data.validation_needed && <span className="text-[9px] font-black uppercase tracking-[0.25em] text-amber-400 animate-pulse">validated</span>}
           </div>
           <h4 
-            className="font-black text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-3 cursor-help overflow-hidden group/title min-h-[3.1em]"
+            className="font-black text-white tracking-tight leading-[1.15] hover:text-theme-accent transition-colors cursor-help overflow-hidden group/title line-clamp-2 min-h-[2.3em]"
             style={{ fontSize: `${titleFontSize}px` }}
           >
-            {data.label || "Untitled Task"}
+            {data.label || "Untitled Segment"}
             {!dragging && (
-              <div className="absolute top-full left-0 w-[800px] bg-[#0f172a]/95 border-t-2 border-theme-accent/50 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden text-left">
-                 <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 2}px` }}>{data.label}</p>
-                 <p className="text-white/78 font-medium leading-relaxed italic text-left" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
+              <div className="absolute top-full left-0 w-[600px] bg-[#0f172a]/98 border-t-2 border-theme-accent p-8 rounded-[2rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,1)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-300 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-6 group-hover/title:translate-y-4 border-x border-b border-white/10 overflow-hidden text-left shadow-2xl">
+                 <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-4 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 4}px` }}>{data.label}</p>
+                 <p className="text-white/85 font-medium leading-relaxed italic text-left" style={{ fontSize: `${descFontSize + 2}px` }}>{data.description || 'Operational segment without descriptive metadata.'}</p>
               </div>
             )}
           </h4>
-          <p className="text-[11px] font-bold text-white/60 leading-relaxed line-clamp-3 min-h-[3.9em]">{data.description || 'No description provided.'}</p>
+          <p className="text-[12px] font-bold text-white/55 leading-relaxed line-clamp-3 min-h-[4.2em]">{data.description || 'Operational segment without descriptive metadata.'}</p>
         </div>
 
-        <div className="flex flex-col gap-4 mt-2">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-black/30 rounded-2xl p-4 border border-white/6 flex flex-col items-center justify-center">
-               <span className="text-[11px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-1">Manual</span>
-               <span className="text-[32px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
+        <div className="flex flex-col gap-5 mt-auto pt-4 border-t border-white/5">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white/[0.03] rounded-[1.5rem] p-5 border border-white/5 flex flex-col items-center justify-center group/metric hover:bg-white/[0.06] transition-all">
+               <span className="text-[11px] font-black uppercase text-blue-400/40 tracking-[0.25em] mb-2 group-hover/metric:text-blue-400/60 transition-colors">Manual</span>
+               <span className="text-[36px] font-black text-white leading-none tracking-tighter">{(data.manual_time || 0).toFixed(0)}m</span>
             </div>
-            <div className="bg-black/30 rounded-2xl p-4 border border-white/6 flex flex-col items-center justify-center">
-               <span className="text-[11px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-1">Machine</span>
-               <span className="text-[32px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
+            <div className="bg-white/[0.03] rounded-[1.5rem] p-5 border border-white/5 flex flex-col items-center justify-center group/metric hover:bg-white/[0.06] transition-all">
+               <span className="text-[11px] font-black uppercase text-purple-400/40 tracking-[0.25em] mb-2 group-hover/metric:text-purple-400/60 transition-colors">Machine</span>
+               <span className="text-[36px] font-black text-white leading-none tracking-tighter">{(data.automation_time || 0).toFixed(0)}m</span>
             </div>
           </div>
 
-          <div className="flex items-center justify-between py-3 border-t border-white/6">
-             <div className="flex items-center gap-6 flex-1 justify-center">
-               <div className="flex flex-col items-center">
-                 <span className="text-[10px] font-black text-white/24 uppercase tracking-[0.2em]">Input</span>
-                 <span className="text-[20px] font-black text-white leading-none">{data.sourceCount || 0}</span>
+          <div className="flex items-center justify-between px-2">
+             <div className="flex items-center gap-8">
+               <div className="flex flex-col">
+                 <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.25em] mb-1">Inputs</span>
+                 <span className="text-[22px] font-black text-white leading-none tracking-tighter">{data.sourceCount || 0}</span>
                </div>
-               <div className="w-px h-8 bg-white/5" />
-               <div className="flex flex-col items-center">
-                 <span className="text-[10px] font-black text-white/24 uppercase tracking-[0.2em]">Output</span>
-                 <span className="text-[20px] font-black text-white leading-none">{data.outputCount || 0}</span>
+               <div className="w-px h-10 bg-white/5" />
+               <div className="flex flex-col">
+                 <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.25em] mb-1">Outputs</span>
+                 <span className="text-[22px] font-black text-white leading-none tracking-tighter">{data.outputCount || 0}</span>
                </div>
              </div>
              <div className="text-right flex flex-col items-end">
                 <div className="flex items-center gap-2">
-                 <span className="text-[12px] font-black text-white/72 uppercase truncate max-w-[140px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
+                 <span className="text-[14px] font-black text-white/80 uppercase truncate max-w-[160px] tracking-tight">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
                    {(data.ownerPositions || []).length > 1 && (
-                     <span className="text-[10px] font-black text-theme-accent">+{(data.ownerPositions || []).length - 1}</span>
+                     <span className="text-[11px] font-black text-theme-accent bg-theme-accent/10 px-1.5 py-0.5 rounded-md">+{(data.ownerPositions || []).length - 1}</span>
                    )}
                 </div>
-                {data.owningTeam && (
-                  <span className="text-[10px] font-black text-theme-accent/60 uppercase tracking-[0.18em] leading-none mt-1">{data.owningTeam}</span>
-                )}
+                <span className="text-[11px] font-black text-theme-accent/50 uppercase tracking-[0.2em] leading-none mt-1.5">{data.owningTeam || 'No Organization'}</span>
              </div>
           </div>
-          <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-white/6 min-h-[42px]">
+
+          <div className="flex flex-wrap gap-2.5 items-center min-h-[44px]">
              {visibleSystems.map((s: TaskSystem, i: number) => (
-               <span key={i} className="px-3 py-1 bg-white/[0.04] border border-white/10 rounded-xl text-[11px] font-bold text-white/48 uppercase">{s.name}</span>
+               <span key={i} className="px-3.5 py-1.5 bg-white/[0.04] border border-white/10 rounded-[1rem] text-[11px] font-black text-white/50 uppercase tracking-wider hover:bg-white/10 hover:text-white transition-all cursor-default">{s.name}</span>
              ))}
              {hiddenSystemsCount > 0 && (
-               <span className="px-3 py-1 bg-white/[0.04] border border-white/10 rounded-xl text-[11px] font-bold text-white/28 uppercase">+{hiddenSystemsCount}</span>
+               <span className="px-3 py-1.5 bg-theme-accent/10 border border-theme-accent/20 rounded-[1rem] text-[11px] font-black text-theme-accent uppercase">+{hiddenSystemsCount}</span>
              )}
              {targetSystems.length === 0 && (
-               <span className="text-[10px] font-black text-white/14 uppercase tracking-[0.2em]">No Systems</span>
+               <span className="text-[11px] font-black text-white/10 uppercase tracking-[0.3em] w-full text-center">No Active Systems</span>
              )}
           </div>
         </div>
       </div>
 
-      
-      <Handle type="target" position={Position.Left} id="left-target" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-left-2 !top-1/2 -translate-y-1/2 shadow-xl transition-all z-10", selected ? "!w-5 !h-5 shadow-[0_0_18px_rgba(59,130,246,0.38)]" : "!w-4 !h-4 hover:scale-150")} />
-      <Handle type="source" position={Position.Left} id="left-source" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-left-2 !top-1/2 -translate-y-1/2 shadow-xl transition-all opacity-0 z-20", selected ? "!w-5 !h-5" : "!w-4 !h-4 hover:scale-150")} />
-      <Handle type="target" position={Position.Right} id="right-target" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-right-2 !top-1/2 -translate-y-1/2 shadow-xl transition-all z-10", selected ? "!w-5 !h-5 shadow-[0_0_18px_rgba(59,130,246,0.38)]" : "!w-4 !h-4 hover:scale-150")} />
-      <Handle type="source" position={Position.Right} id="right-source" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-right-2 !top-1/2 -translate-y-1/2 shadow-xl transition-all opacity-0 z-20", selected ? "!w-5 !h-5" : "!w-4 !h-4 hover:scale-150")} />
-      <Handle type="target" position={Position.Top} id="top-target" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-top-2 !left-1/2 -translate-x-1/2 shadow-xl transition-all z-10", selected ? "!w-5 !h-5 shadow-[0_0_18px_rgba(59,130,246,0.38)]" : "!w-4 !h-4 hover:scale-150")} />
-      <Handle type="source" position={Position.Top} id="top-source" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-top-2 !left-1/2 -translate-x-1/2 shadow-xl transition-all opacity-0 z-20", selected ? "!w-5 !h-5" : "!w-4 !h-4 hover:scale-150")} />
-      <Handle type="target" position={Position.Bottom} id="bottom-target" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-bottom-2 !left-1/2 -translate-x-1/2 shadow-xl transition-all z-10", selected ? "!w-5 !h-5 shadow-[0_0_18px_rgba(59,130,246,0.38)]" : "!w-4 !h-4 hover:scale-150")} />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" className={cn("!bg-theme-accent !border-[2px] !border-[#0f172a] !-bottom-2 !left-1/2 -translate-x-1/2 shadow-xl transition-all opacity-0 z-20", selected ? "!w-5 !h-5" : "!w-4 !h-4 hover:scale-150")} />
+      <Handle type="target" position={Position.Left} id="left-target" className={cn("!bg-theme-accent !border-[2.5px] !border-[#0f172a] !-left-2.5 !top-1/2 -translate-y-1/2 shadow-2xl transition-all z-10", selected ? "!w-6 !h-6 shadow-[0_0_24px_rgba(59,130,246,0.5)]" : "!w-5 !h-5 hover:scale-125")} />
+      <Handle type="source" position={Position.Left} id="left-source" className={cn("!bg-theme-accent !border-[2.5px] !border-[#0f172a] !-left-2.5 !top-1/2 -translate-y-1/2 shadow-2xl transition-all opacity-0 z-20", selected ? "!w-6 !h-6" : "!w-5 !h-5 hover:scale-125")} />
+      <Handle type="target" position={Position.Right} id="right-target" className={cn("!bg-theme-accent !border-[2.5px] !border-[#0f172a] !-right-2.5 !top-1/2 -translate-y-1/2 shadow-2xl transition-all z-10", selected ? "!w-6 !h-6 shadow-[0_0_24px_rgba(59,130,246,0.5)]" : "!w-5 !h-5 hover:scale-125")} />
+      <Handle type="source" position={Position.Right} id="right-source" className={cn("!bg-theme-accent !border-[2.5px] !border-[#0f172a] !-right-2.5 !top-1/2 -translate-y-1/2 shadow-2xl transition-all opacity-0 z-20", selected ? "!w-6 !h-6" : "!w-5 !h-5 hover:scale-125")} />
+      <Handle type="target" position={Position.Top} id="top-target" className={cn("!bg-theme-accent !border-[2.5px] !border-[#0f172a] !-top-2.5 !left-1/2 -translate-x-1/2 shadow-2xl transition-all z-10", selected ? "!w-6 !h-6 shadow-[0_0_24px_rgba(59,130,246,0.5)]" : "!w-5 !h-5 hover:scale-125")} />
+      <Handle type="source" position={Position.Top} id="top-source" className={cn("!bg-theme-accent !border-[2.5px] !border-[#0f172a] !-top-2.5 !left-1/2 -translate-x-1/2 shadow-2xl transition-all opacity-0 z-20", selected ? "!w-6 !h-6" : "!w-5 !h-5 hover:scale-125")} />
+      <Handle type="target" position={Position.Bottom} id="bottom-target" className={cn("!bg-theme-accent !border-[2.5px] !border-[#0f172a] !-bottom-2.5 !left-1/2 -translate-x-1/2 shadow-2xl transition-all z-10", selected ? "!w-6 !h-6 shadow-[0_0_24px_rgba(59,130,246,0.5)]" : "!w-5 !h-5 hover:scale-125")} />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" className={cn("!bg-theme-accent !border-[2.5px] !border-[#0f172a] !-bottom-2.5 !left-1/2 -translate-x-1/2 shadow-2xl transition-all opacity-0 z-20", selected ? "!w-6 !h-6" : "!w-5 !h-5 hover:scale-125")} />
     </div>
   );
 };
 
 const DiamondNode = ({ data, selected, dragging }: { data: any, selected: boolean, dragging?: boolean }) => {
   const baseFontSize = data.baseFontSize || 14;
-  const titleFontSize = Math.max(24, baseFontSize + 10);
-  const descFontSize = Math.max(12, titleFontSize - 3);
+  const titleFontSize = Math.max(20, baseFontSize + 6);
+  const descFontSize = Math.max(12, titleFontSize - 6);
   const branchLabels = Array.isArray(data?.decisionLabels) ? data.decisionLabels : [];
   const densityMode = data.densityMode || 'standard';
-  const diamondSize = densityMode === 'compact' ? 250 : densityMode === 'expanded' ? 320 : 280;
-  const innerSize = densityMode === 'compact' ? 176 : densityMode === 'expanded' ? 226 : 198;
+  const diamondSize = densityMode === 'compact' ? 260 : densityMode === 'expanded' ? 360 : 310;
+  const innerSize = densityMode === 'compact' ? 184 : densityMode === 'expanded' ? 254 : 218;
   return (
-    <div className={cn("relative flex items-center justify-center transition-all duration-300 hover:z-[1000]", selected ? 'scale-105 z-50' : 'z-10', data.focusMuted && "!opacity-30 saturate-[0.72]")} style={{ width: diamondSize, height: diamondSize }}>
-      <div className={cn("absolute rotate-45 border-2 transition-all duration-300 bg-[linear-gradient(180deg,rgba(23,14,40,0.96),rgba(15,23,42,0.96))] rounded-2xl", selected ? 'border-fuchsia-400 shadow-[0_0_30px_rgba(217,70,239,0.35)]' : 'border-fuchsia-300/25', data.validation_needed ? 'shadow-[0_0_20px_rgba(249,115,22,0.28)]' : '')} style={{ width: innerSize, height: innerSize }} />
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
-        <SemanticBadge label="Decision Node" tone="decision" />
+    <div className={cn("relative flex items-center justify-center transition-all duration-500 hover:z-[1000]", selected ? 'scale-[1.05] z-50' : 'z-10', data.focusMuted && "!opacity-30 saturate-[0.7]")} style={{ width: diamondSize, height: diamondSize }}>
+      <div className={cn("absolute rotate-45 border-[3px] transition-all duration-500 bg-[linear-gradient(135deg,rgba(23,14,40,0.98),rgba(15,23,42,0.98))] rounded-[2rem] shadow-2xl", selected ? 'border-fuchsia-400 shadow-[0_0_50px_rgba(217,70,239,0.4)]' : 'border-fuchsia-300/20', data.validation_needed ? 'shadow-[0_0_30px_rgba(249,115,22,0.3)]' : '')} style={{ width: innerSize, height: innerSize }} />
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30">
+        <SemanticBadge label="Decision Point" tone="decision" />
       </div>
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex gap-2">
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex gap-3">
         <SemanticBadge label={branchLabels[0] || 'True'} tone="success" />
         <SemanticBadge label={branchLabels[1] || 'False'} tone="danger" />
       </div>
       
-      {/* Handles at lower z-index than tooltip container */}
-      <Handle type="target" position={Position.Left} id="left-target" className="!bg-fuchsia-400 !w-4 !h-4 !border-[2px] !border-[#0f172a] !left-0 shadow-lg z-10" />
-      <Handle type="source" position={Position.Left} id="left-source" className="!bg-fuchsia-400 !w-4 !h-4 !border-[2px] !border-[#0f172a] !left-0 shadow-lg z-20 opacity-0" />
-      <Handle type="target" position={Position.Right} id="right-target" className="!bg-fuchsia-400 !w-4 !h-4 !border-[2px] !border-[#0f172a] !right-0 shadow-lg z-10" />
-      <Handle type="source" position={Position.Right} id="right-source" className="!bg-fuchsia-400 !w-4 !h-4 !border-[2px] !border-[#0f172a] !right-0 shadow-lg z-20 opacity-0" />
-      <Handle type="target" position={Position.Top} id="top-target" className="!bg-fuchsia-400 !w-4 !h-4 !border-[2px] !border-[#0f172a] !top-0 shadow-lg z-10" />
-      <Handle type="source" position={Position.Top} id="top-source" className="!bg-fuchsia-400 !w-4 !h-4 !border-[2px] !border-[#0f172a] !top-0 shadow-lg z-20 opacity-0" />
-      <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-fuchsia-400 !w-4 !h-4 !border-[2px] !border-[#0f172a] !bottom-0 shadow-lg z-10" />
-      <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-fuchsia-400 !w-4 !h-4 !border-[2px] !border-[#0f172a] !bottom-0 shadow-lg z-20 opacity-0" />
+      <Handle type="target" position={Position.Left} id="left-target" className="!bg-fuchsia-400 !w-5 !h-5 !border-[2.5px] !border-[#0f172a] !left-0 shadow-2xl z-10" />
+      <Handle type="source" position={Position.Left} id="left-source" className="!bg-fuchsia-400 !w-5 !h-5 !border-[2.5px] !border-[#0f172a] !left-0 shadow-2xl z-20 opacity-0" />
+      <Handle type="target" position={Position.Right} id="right-target" className="!bg-fuchsia-400 !w-5 !h-5 !border-[2.5px] !border-[#0f172a] !right-0 shadow-2xl z-10" />
+      <Handle type="source" position={Position.Right} id="right-source" className="!bg-fuchsia-400 !w-5 !h-5 !border-[2.5px] !border-[#0f172a] !right-0 shadow-2xl z-20 opacity-0" />
+      <Handle type="target" position={Position.Top} id="top-target" className="!bg-fuchsia-400 !w-5 !h-5 !border-[2.5px] !border-[#0f172a] !top-0 shadow-2xl z-10" />
+      <Handle type="source" position={Position.Top} id="top-source" className="!bg-fuchsia-400 !w-5 !h-5 !border-[2.5px] !border-[#0f172a] !top-0 shadow-2xl z-20 opacity-0" />
+      <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-fuchsia-400 !w-5 !h-5 !border-[2.5px] !border-[#0f172a] !bottom-0 shadow-2xl z-10" />
+      <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-fuchsia-400 !w-5 !h-5 !border-[2.5px] !border-[#0f172a] !bottom-0 shadow-2xl z-20 opacity-0" />
 
-      <div className="relative z-40 flex flex-col items-center justify-center p-8 w-full h-full pointer-events-none">
+      <div className="relative z-40 flex flex-col items-center justify-center p-10 w-full h-full pointer-events-none">
         <span 
-          className="font-black text-white text-center leading-tight break-words max-w-[186px] line-clamp-3 overflow-visible cursor-help hover:text-fuchsia-300 transition-colors group/title pointer-events-auto relative tracking-tight"
+          className="font-black text-white text-center leading-[1.15] break-words max-w-[200px] cursor-help hover:text-fuchsia-300 transition-colors group/title pointer-events-auto relative tracking-tight line-clamp-3"
           style={{ fontSize: `${titleFontSize}px` }}
         >
-          {data.label || "Condition"}
+          {data.label || "Logic Gate"}
           {!dragging && (
-            <div className="absolute top-[85%] left-0 w-[800px] bg-[#0f172a]/95 border-t-2 border-amber-400/50 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 text-left">
-               <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight" style={{ fontSize: `${titleFontSize - 4}px` }}>{data.label || 'Condition'}</p>
-               <p className="text-white/85 font-medium leading-relaxed italic" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
+            <div className="absolute top-[85%] left-1/2 -translate-x-1/2 w-[500px] bg-[#0f172a]/98 border-t-2 border-fuchsia-400/50 p-8 rounded-[2rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,1)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-300 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-6 group-hover/title:translate-y-4 border-x border-b border-white/10 text-left">
+               <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-4 leading-tight tracking-tight" style={{ fontSize: `${titleFontSize + 2}px` }}>{data.label || 'Logic Gate'}</p>
+               <p className="text-white/90 font-medium leading-relaxed italic" style={{ fontSize: `${descFontSize + 2}px` }}>{data.description || 'Conditional logic checkpoint for workflow branching.'}</p>
             </div>
           )}
         </span>
       </div>
     {data.validation_needed && (
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[120px] px-2 py-1 rounded-full text-[7px] font-black uppercase tracking-[0.18em] bg-orange-500 border border-orange-400 text-white z-30 shadow-lg">Validation</div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[130px] px-3 py-1.5 rounded-full text-[8px] font-black uppercase tracking-[0.22em] bg-orange-500 border border-orange-400 text-white z-30 shadow-2xl">Validation Required</div>
     )}
   </div>
 );
@@ -1958,10 +1952,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     nodes.forEach(node => {
       const rawLabel = node.data?.interface || node.data?.task_type || 'General';
       const nodeId = String(node.id);
-      const isTrigger = String(rawLabel).toUpperCase() === 'TRIGGER' || nodeId === 'node-trigger';
-      const isOutcome = String(rawLabel).toUpperCase() === 'OUTCOME' || nodeId === 'node-outcome';
+      const isTrigger = String(rawLabel).toUpperCase() === 'TRIGGER' || nodeId === 'node-trigger' || nodeId.toLowerCase().includes('trigger');
+      const isOutcome = String(rawLabel).toUpperCase() === 'OUTCOME' || nodeId === 'node-outcome' || nodeId.toLowerCase().includes('outcome');
       const label = laneMode === 'owner'
-        ? String(node.data?.owningTeam || 'Unassigned')
+        ? String(node.data?.owningTeam || 'Unassigned Team')
         : (isTrigger ? 'TRIGGER' : (isOutcome ? 'OUTCOME' : String(rawLabel)));
       const bucket = buckets.get(label) || [];
       bucket.push(node);
@@ -1981,15 +1975,18 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       const minY = Math.min(...positions.map(pos => pos.y));
       const maxX = Math.max(...positions.map(pos => pos.x + pos.width));
       const maxY = Math.max(...positions.map(pos => pos.y + pos.height));
+      
+      // World-class 60px margin on all sides
+      const margin = 60;
       return {
         key,
         label: key,
         nodes: bucket,
         bounds: {
-          x: minX - 32,
-          y: minY - 40,
-          width: maxX - minX + 64,
-          height: maxY - minY + 80,
+          x: minX - margin,
+          y: minY - margin,
+          width: maxX - minX + (margin * 2),
+          height: maxY - minY + (margin * 2),
         }
       };
     });
@@ -2340,7 +2337,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         if (isTrigger) finalStableId = 'node-trigger';
         if (isOutcome) finalStableId = 'node-outcome';
         
-        if (seenNodeIds.has(finalStableId)) {
+        if (seenNodeIds.has(finalStableId) && !isTrigger && !isOutcome) {
           finalStableId = `${finalStableId}-dup-${Math.random().toString(36).substr(2, 5)}`;
         }
         seenNodeIds.add(finalStableId);
@@ -2386,14 +2383,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       const trigger = initializedTasks.find((t: any) => t.interface === 'TRIGGER' || t.id === 'node-trigger');
       if (!trigger) {
         initializedTasks.unshift({
-          id: 'node-trigger', node_id: 'node-trigger', name: initialMetadata.trigger_type || 'START', description: initialMetadata.trigger_description || '', task_type: 'TRIGGER', interface: 'TRIGGER', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, validation_procedure_steps: []
+          id: 'node-trigger', node_id: 'node-trigger', name: initialMetadata.trigger_type || 'TRIGGER START', description: initialMetadata.trigger_description || 'The initiating event for this workflow.', task_type: 'TRIGGER', interface: 'TRIGGER', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, validation_procedure_steps: [], target_systems: [], manual_inputs: [], manual_outputs: [], verification_steps: [], phase_name: '', subflow_name: '', task_block_key: '', decision_details: {}
         });
       }
 
       const outcome = initializedTasks.find((t: any) => t.interface === 'OUTCOME' || t.id === 'node-outcome');
       if (!outcome) {
         initializedTasks.push({
-          id: 'node-outcome', node_id: 'node-outcome', name: initialMetadata.output_type || 'END', description: initialMetadata.output_description || '', task_type: 'OUTCOME', interface: 'OUTCOME', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, validation_procedure_steps: []
+          id: 'node-outcome', node_id: 'node-outcome', name: initialMetadata.output_type || 'OUTCOME END', description: initialMetadata.output_description || 'The final deliverable of this workflow.', task_type: 'OUTCOME', interface: 'OUTCOME', occurrence: 1, blockers: [], errors: [], media: [], reference_links: [], instructions: [], source_data_list: [], output_data_list: [], tribal_knowledge: [], manual_time_minutes: 0, automation_time_minutes: 0, machine_wait_time_minutes: 0, validation_procedure_steps: [], target_systems: [], manual_inputs: [], manual_outputs: [], verification_steps: [], phase_name: '', subflow_name: '', task_block_key: '', decision_details: {}
         });
       }
 
@@ -3791,7 +3788,29 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
               </div>
             </div>
           )}
-          <ReactFlow 
+          <div className="flex-1 relative overflow-hidden bg-[#020617]">
+            {/* Lane Groups Layer (Behind Nodes) */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+              {laneMode !== 'none' && laneGroups.map((group, index) => (
+                <div
+                  key={group.key}
+                  className={cn(
+                    "absolute rounded-[3rem] border border-white/5 transition-all duration-700",
+                    index % 3 === 0 ? "bg-cyan-500/[0.025]" : index % 3 === 1 ? "bg-emerald-500/[0.025]" : "bg-fuchsia-500/[0.025]"
+                  )}
+                  style={{
+                    transform: `translate(${group.bounds.x * viewport.zoom + viewport.x}px, ${group.bounds.y * viewport.zoom + viewport.y}px)`,
+                    width: group.bounds.width * viewport.zoom,
+                    height: group.bounds.height * viewport.zoom,
+                  }}
+                >
+                  <div className="absolute -top-12 left-8 px-5 py-2 rounded-full border border-white/10 bg-[#0a1120]/98 text-[11px] font-black uppercase tracking-[0.25em] text-white/50 shadow-2xl">
+                    {group.label} <span className="text-theme-accent ml-3">({group.nodes.length} Segments)</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <ReactFlow 
             nodes={nodes} 
             edges={edges} 
             onNodesChange={onNodesChange} 
@@ -3812,7 +3831,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
             connectionMode={ConnectionMode.Loose} 
             connectionLineType={ConnectionLineType.Bezier} 
             onlyRenderVisibleElements={isLargeWorkflow}
-            className="react-flow-industrial"
+            className="react-flow-industrial z-10"
+            style={{ background: 'transparent' }}
           >
             <Background color="#1e293b" gap={30} size={1} />
             <Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl overflow-hidden" />
@@ -3832,25 +3852,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
               />
             )}
           </ReactFlow>
-          <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            {laneMode !== 'none' && laneGroups.map((group, index) => (
-              <div
-                key={group.key}
-                className={cn(
-                  "absolute rounded-[2rem] border backdrop-blur-[1px]",
-                  index % 3 === 0 ? "border-cyan-500/20 bg-cyan-500/[0.035]" : index % 3 === 1 ? "border-emerald-500/20 bg-emerald-500/[0.03]" : "border-fuchsia-500/20 bg-fuchsia-500/[0.03]"
-                )}
-                style={{
-                  transform: `translate(${group.bounds.x * viewport.zoom + viewport.x}px, ${group.bounds.y * viewport.zoom + viewport.y}px)`,
-                  width: group.bounds.width * viewport.zoom,
-                  height: group.bounds.height * viewport.zoom,
-                }}
-              >
-                <div className="absolute -top-7 left-3 px-3 py-1 rounded-full border border-white/10 bg-[#0a1120]/90 text-[9px] font-black uppercase tracking-[0.18em] text-white/70">
-                  {group.label} <span className="text-theme-accent">({group.nodes.length})</span>
-                </div>
-              </div>
-            ))}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-20">
             {alignmentGuides.x !== null && (
               <div
                 className="absolute top-0 bottom-0 w-px bg-theme-accent/60 shadow-[0_0_12px_rgba(59,130,246,0.55)]"
