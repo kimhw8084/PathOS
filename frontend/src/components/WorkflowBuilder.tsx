@@ -374,6 +374,7 @@ interface TaskEntity {
   task_type: string;
   target_systems: TaskSystem[];
   interface?: 'TRIGGER' | 'OUTCOME';
+  interface_type?: string;
   manual_time_minutes: number;
   automation_time_minutes: number;
   machine_wait_time_minutes: number;
@@ -2331,7 +2332,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         
         // Robust interface detection
         const rawInterface = t.interface || t.interface_type || t.task_type || '';
-        const stableId = t.node_id ? String(t.node_id) : String(t.id);
         const taskInterface = String(rawInterface).toUpperCase();
         const isTrigger = taskInterface === 'TRIGGER' || stableId === 'node-trigger' || stableId.toLowerCase().includes('trigger');
         const isOutcome = taskInterface === 'OUTCOME' || stableId === 'node-outcome' || stableId.toLowerCase().includes('outcome');
