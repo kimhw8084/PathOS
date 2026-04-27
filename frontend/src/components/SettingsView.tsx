@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Settings, Code, Type, Play, Save, 
   RefreshCw, Terminal, 
-  Box, ShieldAlert, Clock, AlertTriangle, ChevronRight, History, Building2, Activity
+  Box, ShieldAlert, Clock, AlertTriangle, ChevronRight, History, Building2, Activity, Server
 } from 'lucide-react';
 import { settingsApi } from '../api/client';
 import { toast } from 'react-hot-toast';
@@ -20,24 +20,36 @@ const SettingsView: React.FC = () => {
   const [executing, setExecuting] = useState(false);
   const [logs, setLogs] = useState<any[]>([]);
   const [showLogs, setShowLogs] = useState(false);
-  const [activeTab, setActiveTab] = useState<'parameters' | 'rollout' | 'quality'>('parameters');
+  const [activeTab, setActiveTab] = useState<'parameters' | 'rollout' | 'quality' | 'environments'>('parameters');
   const [adminOverview, setAdminOverview] = useState<any>({ configs: [], members: [], saved_views: [] });
   const [qualityOverview, setQualityOverview] = useState<any>(null);
+  const [envConfig, setEnvConfig] = useState<{ backend_env: string, frontend_env: string, backend_path: string, frontend_path: string } | null>(null);
 
   useEffect(() => {
     loadParameters();
   }, []);
 
+  const loadEnvConfig = async () => {
+    try {
+      const data = await settingsApi.getEnvironmentConfig();
+      setEnvConfig(data);
+    } catch (err) {
+      toast.error("Failed to load environment configuration");
+    }
+  };
+
   const loadParameters = async () => {
     try {
-      const [parameterData, rolloutData, qualityData] = await Promise.all([
+      const [parameterData, rolloutData, qualityData, environmentData] = await Promise.all([
         settingsApi.listParameters(),
         settingsApi.adminOverview(),
         settingsApi.qualityOverview(),
+        settingsApi.getEnvironmentConfig(),
       ]);
       setParameters(parameterData);
       setAdminOverview(rolloutData);
       setQualityOverview(qualityData);
+      setEnvConfig(environmentData);
       if (parameterData.length > 0 && !selectedKey) setSelectedKey(parameterData[0].key);
     } catch (err) {
       toast.error("Failed to load parameters");
@@ -105,6 +117,16 @@ const SettingsView: React.FC = () => {
     }
   };
 
+  const handleEnvUpdate = async (data: any) => {
+    try {
+      await settingsApi.updateEnvironmentConfig(data);
+      toast.success("Environment configuration updated. Restart services to apply.");
+      loadEnvConfig();
+    } catch (err) {
+      toast.error("Failed to update environment configuration");
+    }
+  };
+
   if (loading) return (
     <div className="h-[60vh] flex items-center justify-center">
       <RefreshCw className="animate-spin text-theme-accent" size={32} />
@@ -132,6 +154,9 @@ const SettingsView: React.FC = () => {
         </button>
         <button onClick={() => setActiveTab('quality')} className={`rounded-2xl border px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-all ${activeTab === 'quality' ? 'border-theme-accent/20 bg-theme-accent/10 text-theme-accent' : 'border-white/10 bg-white/[0.03] text-white/55 hover:text-white'}`}>
           <span className="inline-flex items-center gap-2"><Activity size={14} /> Quality Center</span>
+        </button>
+        <button onClick={() => setActiveTab('environments')} className={`rounded-2xl border px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-all ${activeTab === 'environments' ? 'border-theme-accent/20 bg-theme-accent/10 text-theme-accent' : 'border-white/10 bg-white/[0.03] text-white/55 hover:text-white'}`}>
+          <span className="inline-flex items-center gap-2"><Server size={14} /> Environments</span>
         </button>
       </div>
 
@@ -364,6 +389,76 @@ const SettingsView: React.FC = () => {
           await loadParameters();
           queryClient.invalidateQueries({ queryKey: ['runtime-config'] });
         }} />
+      ) : activeTab === 'environments' ? (
+        <div className="space-y-10 animate-apple-in">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            <div className="apple-card space-y-6 border-theme-border bg-black/20">
+              <div className="flex items-center justify-between border-b border-theme-border/50 pb-6">
+                 <div className="flex items-center gap-4">
+                    <div className="p-3 bg-theme-accent/10 rounded-xl border border-theme-accent/20">
+                       <Server size={20} className="text-theme-accent" />
+                    </div>
+                    <div>
+                       <h3 className="text-[14px] font-black text-white tracking-tight">Backend Runtime (.env)</h3>
+                       <p className="text-[10px] text-theme-muted font-mono">{envConfig?.backend_path}</p>
+                    </div>
+                 </div>
+                 <button 
+                  onClick={() => handleEnvUpdate({ backend_env: envConfig?.backend_env })}
+                  className="btn-apple-primary !py-2 !px-5 !text-[11px]"
+                 >
+                   Update
+                 </button>
+              </div>
+              <div className="apple-card-inset !p-0 !bg-black/60 border-theme-border/50 overflow-hidden">
+                <textarea 
+                  className="w-full h-[500px] bg-transparent p-6 font-mono text-[12px] text-theme-accent outline-none resize-none leading-relaxed"
+                  spellCheck={false}
+                  value={envConfig?.backend_env || ""}
+                  onChange={e => setEnvConfig(prev => prev ? { ...prev, backend_env: e.target.value } : null)}
+                />
+              </div>
+            </div>
+
+            <div className="apple-card space-y-6 border-theme-border bg-black/20">
+              <div className="flex items-center justify-between border-b border-theme-border/50 pb-6">
+                 <div className="flex items-center gap-4">
+                    <div className="p-3 bg-theme-accent/10 rounded-xl border border-theme-accent/20">
+                       <Code size={20} className="text-theme-accent" />
+                    </div>
+                    <div>
+                       <h3 className="text-[14px] font-black text-white tracking-tight">Frontend Runtime (.env)</h3>
+                       <p className="text-[10px] text-theme-muted font-mono">{envConfig?.frontend_path}</p>
+                    </div>
+                 </div>
+                 <button 
+                  onClick={() => handleEnvUpdate({ frontend_env: envConfig?.frontend_env })}
+                  className="btn-apple-primary !py-2 !px-5 !text-[11px]"
+                 >
+                   Update
+                 </button>
+              </div>
+              <div className="apple-card-inset !p-0 !bg-black/60 border-theme-border/50 overflow-hidden">
+                <textarea 
+                  className="w-full h-[500px] bg-transparent p-6 font-mono text-[12px] text-theme-accent outline-none resize-none leading-relaxed"
+                  spellCheck={false}
+                  value={envConfig?.frontend_env || ""}
+                  onChange={e => setEnvConfig(prev => prev ? { ...prev, frontend_env: e.target.value } : null)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="apple-card !bg-status-warning/5 border-status-warning/20 flex items-center gap-6 p-8">
+             <div className="p-4 bg-status-warning/10 rounded-2xl border border-status-warning/20">
+                <RefreshCw size={24} className="text-status-warning" />
+             </div>
+             <div>
+                <h4 className="text-[13px] font-black text-white uppercase tracking-widest mb-1">Service Restart Required</h4>
+                <p className="text-[11px] text-theme-secondary opacity-70">Changes to .env files are loaded at process startup. You must restart the backend (uvicorn) and frontend (vite) for these changes to take effect.</p>
+             </div>
+          </div>
+        </div>
       ) : (
         <QualityCenter overview={qualityOverview} bugReports={reports} />
       )}

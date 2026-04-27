@@ -66,6 +66,8 @@ export const settingsApi = {
   adminOverview: () => apiClient.get('/settings/admin-overview').then(res => res.data),
   qualityOverview: () => apiClient.get('/settings/quality-overview').then(res => res.data),
   runtimeConfig: () => apiClient.get('/settings/runtime-config').then(res => res.data),
+  getEnvironmentConfig: () => apiClient.get('/settings/environment-config').then(res => res.data),
+  updateEnvironmentConfig: (data: any) => apiClient.put('/settings/environment-config', data).then(res => res.data),
   exportRuntimeConfig: () => apiClient.get('/settings/runtime-config/export').then(res => res.data),
   importRuntimeConfig: (data: any) => apiClient.post('/settings/runtime-config/import', data).then(res => res.data),
   getAppConfig: (key: string) => apiClient.get(`/settings/app-config/${key}`).then(res => res.data),

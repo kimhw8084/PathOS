@@ -504,3 +504,15 @@ class RuntimeConfigImport(BaseModel):
     new_state: Optional[dict] = None
     description: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
+
+
+class EnvironmentConfigRead(BaseModel):
+    backend_env: str
+    frontend_env: str
+    backend_path: str
+    frontend_path: str
+
+
+class EnvironmentConfigUpdate(BaseModel):
+    backend_env: Optional[str] = None
+    frontend_env: Optional[str] = None

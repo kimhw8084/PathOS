@@ -23,6 +23,8 @@ from ..schemas.schemas import (
     RuntimeConfigImport,
     SavedViewCreate,
     SavedViewRead,
+    EnvironmentConfigRead,
+    EnvironmentConfigUpdate,
 )
 from pydantic import BaseModel
 from ..runtime_defaults import (
@@ -34,6 +36,44 @@ from ..runtime_defaults import (
 )
 
 router = APIRouter(tags=["settings"])
+
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+BACKEND_ENV_PATH = os.path.join(ROOT_DIR, "backend", ".env")
+FRONTEND_ENV_PATH = os.path.join(ROOT_DIR, "frontend", ".env")
+
+
+def _read_env_file(path: str) -> str:
+    if not os.path.exists(path):
+        return ""
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+def _write_env_file(path: str, content: str) -> None:
+    # Ensure directory exists just in case
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(content)
+
+
+@router.get("/environment-config", response_model=EnvironmentConfigRead)
+async def get_environment_config():
+    return {
+        "backend_env": _read_env_file(BACKEND_ENV_PATH),
+        "frontend_env": _read_env_file(FRONTEND_ENV_PATH),
+        "backend_path": BACKEND_ENV_PATH,
+        "frontend_path": FRONTEND_ENV_PATH,
+    }
+
+
+@router.put("/environment-config")
+async def update_environment_config(data: EnvironmentConfigUpdate):
+    if data.backend_env is not None:
+        _write_env_file(BACKEND_ENV_PATH, data.backend_env)
+    if data.frontend_env is not None:
+        _write_env_file(FRONTEND_ENV_PATH, data.frontend_env)
+    return {"status": "success", "message": "Environment files updated. Restart services to apply changes."}
+
 
 FIXED_PARAMETERS = get_fixed_parameters()
 
