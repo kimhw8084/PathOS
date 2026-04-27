@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { 
   LayoutDashboard, 
   Database, 
@@ -10,7 +10,8 @@ import {
   ChevronRight,
   Layers,
   Bug,
-  AlertTriangle
+  AlertTriangle,
+  Users,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -25,22 +26,34 @@ import {
   useLocation,
   Link
 } from 'react-router-dom';
-import { workflowsApi, taxonomyApi, executionsApi, projectsApi, apiClient as client, setGlobalReporter } from './api/client';
-import IntakeGatekeeper from './components/IntakeGatekeeper';
-import WorkflowRegistry from './components/WorkflowRegistry';
-import ROIDashboard from './components/ROIDashboard';
-import WorkflowBuilder from './components/WorkflowBuilder';
-import SettingsView from './components/SettingsView';
-import OperationalBoard from './components/OperationalBoard';
-import PerformanceAnalytics from './components/PerformanceAnalytics';
+import { workflowsApi, taxonomyApi, executionsApi, projectsApi, settingsApi, apiClient as client, setGlobalReporter } from './api/client';
 import { BuganizerProvider, useBuganizer, useErrorFortress } from './components/ErrorFortress';
 import * as Tooltip from '@radix-ui/react-tooltip';
+import { buildWorkflowDefaults, resolvedRuntimeConfig, useRuntimeConfig } from './config/runtime';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 const queryClient = new QueryClient();
+const IntakeGatekeeper = lazy(() => import('./components/IntakeGatekeeper'));
+const WorkflowRegistry = lazy(() => import('./components/WorkflowRegistry'));
+const ROIDashboard = lazy(() => import('./components/ROIDashboard'));
+const WorkflowBuilder = lazy(() => import('./components/WorkflowBuilder'));
+const SettingsView = lazy(() => import('./components/SettingsView'));
+const OperationalBoard = lazy(() => import('./components/OperationalBoard'));
+const PerformanceAnalytics = lazy(() => import('./components/PerformanceAnalytics'));
+const WorkflowSummaryView = lazy(() => import('./components/WorkflowSummaryView'));
+const CompanyRolloutCenter = lazy(() => import('./components/CompanyRolloutCenter'));
+const CollaborationDrawer = lazy(() => import('./components/CollaborationDrawer'));
+const HelpCenter = lazy(() => import('./components/HelpCenter'));
+
+const RouteLoading = ({ label = 'Loading View' }: { label?: string }) => (
+  <div className="flex items-center justify-center h-full min-h-[280px] text-theme-muted uppercase font-black tracking-widest gap-4 animate-pulse">
+    <Layers size={28} />
+    <span>{label}</span>
+  </div>
+);
 
 const ConnectionStatus = () => {
   const [status, setStatus] = useState<'connected' | 'reconnecting' | 'disconnected'>('connected');
@@ -103,10 +116,11 @@ const ConfirmationDialog = ({ isOpen, onConfirm, onCancel, title, message }: {
   );
 };
 
-const GlobalSidebar = ({ isOpen, setOpen, onNavigateRequested }: { 
+const GlobalSidebar = ({ isOpen, setOpen, onNavigateRequested, currentUser }: { 
   isOpen: boolean, 
   setOpen: (v: boolean) => void, 
-  onNavigateRequested: (path: string) => void
+  onNavigateRequested: (path: string) => void,
+  currentUser?: any,
 }) => {
   const location = useLocation();
   const currentTab = location.pathname.split('/')[1] || 'dashboard';
@@ -156,12 +170,12 @@ const GlobalSidebar = ({ isOpen, setOpen, onNavigateRequested }: {
         <div className="pt-3 mt-1 border-t border-theme-border/30">
           <button className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-theme-secondary hover:bg-white/[0.04] hover:text-white group">
             <div className="w-6 h-6 rounded-full bg-theme-accent/20 border border-theme-accent/30 flex items-center justify-center text-[11px] font-black text-theme-accent group-hover:scale-110 transition-transform">
-              HK
+              {currentUser?.avatar_initials || currentUser?.full_name?.split(' ').map((part: string) => part[0]).join('').slice(0, 2) || 'CU'}
             </div>
             {isOpen && (
               <div className="flex flex-col items-start overflow-hidden">
-                <span className="text-[11px] font-bold truncate w-full text-left text-white">Haewon Kim</span>
-                <span className="text-[9px] text-theme-muted font-bold uppercase tracking-widest leading-none">Metrology SME</span>
+                <span className="text-[11px] font-bold truncate w-full text-left text-white">{currentUser?.full_name || 'Company User'}</span>
+                <span className="text-[9px] text-theme-muted font-bold uppercase tracking-widest leading-none">{currentUser?.title || currentUser?.team || 'Rollout Identity'}</span>
               </div>
             )}
           </button>
@@ -174,7 +188,17 @@ const GlobalSidebar = ({ isOpen, setOpen, onNavigateRequested }: {
   );
 };
 
-const GlobalHeader = () => {
+const GlobalHeader = ({
+  currentUser,
+  inboxCount = 0,
+  activeSessionCount = 0,
+  onOpenCollaboration,
+}: {
+  currentUser?: any;
+  inboxCount?: number;
+  activeSessionCount?: number;
+  onOpenCollaboration: () => void;
+}) => {
   const { setIsOpen, isOpen, reports } = useBuganizer();
   const location = useLocation();
   const currentTab = location.pathname.split('/')[1] || 'dashboard';
@@ -203,6 +227,19 @@ const GlobalHeader = () => {
       </div>
       
       <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2.5 px-3.5 py-1.5 bg-white/[0.03] backdrop-blur-md rounded-full border border-theme-border">
+          <div className="w-7 h-7 rounded-full bg-theme-accent/15 border border-theme-accent/25 flex items-center justify-center text-[10px] font-black text-theme-accent">
+            {currentUser?.avatar_initials || currentUser?.full_name?.split(' ').map((part: string) => part[0]).join('').slice(0, 2) || 'CU'}
+          </div>
+          <div className="flex flex-col">
+            <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white">{currentUser?.full_name || 'Company User'}</span>
+            <span className="text-[9px] font-bold text-white/45">{currentUser?.team || 'No team'} • {inboxCount} inbox • {activeSessionCount} live</span>
+          </div>
+        </div>
+        <button onClick={onOpenCollaboration} className="flex items-center gap-2 px-4 py-1.5 rounded-full border bg-white/[0.03] border-theme-border text-theme-secondary hover:bg-white/[0.06] hover:text-white transition-all">
+          <Users size={14} />
+          <span className="text-[11px] font-black uppercase tracking-widest">Collaboration</span>
+        </button>
         <button 
           onClick={() => setIsOpen(!isOpen)}
           className={cn(
@@ -230,6 +267,8 @@ const PathOSApp: React.FC = () => {
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const [pendingWorkflow, setPendingWorkflow] = useState<any>(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isCollaborationOpen, setCollaborationOpen] = useState(false);
+  const [activeSessions, setActiveSessions] = useState<any[]>([]);
   
   const navigate = useNavigate();
   const location = useLocation();
@@ -250,7 +289,7 @@ const PathOSApp: React.FC = () => {
   // URL State Recovery
   useEffect(() => {
     const pathParts = location.pathname.split('/');
-    if ((pathParts.includes('builder') || pathParts.includes('intake')) && pathParts.length > 3) {
+    if ((pathParts.includes('builder') || pathParts.includes('intake') || pathParts.includes('summary')) && pathParts.length > 3) {
       const id = parseInt(pathParts[3]);
       if (!isNaN(id) && workflows.length > 0 && id !== lastSyncedId.current) {
         const found = workflows.find((w: any) => w.id === id);
@@ -269,8 +308,40 @@ const PathOSApp: React.FC = () => {
   }, [location.pathname, workflows]);
 
   const { data: taxonomy = [] } = useQuery({ queryKey: ['taxonomy'], queryFn: taxonomyApi.list });
+  const { data: runtimeConfigData } = useRuntimeConfig();
+  const runtimeConfig = resolvedRuntimeConfig(runtimeConfigData);
   const { data: executions = [] } = useQuery({ queryKey: ['executions'], queryFn: executionsApi.list });
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: projectsApi.list });
+  const { data: workflowInsights = {} } = useQuery({ queryKey: ['workflow-insights'], queryFn: workflowsApi.insights });
+  const { data: presidentInsights = {} } = useQuery({ queryKey: ['workflow-president-insights'], queryFn: workflowsApi.presidentInsights });
+  const { data: workflowTemplates = [] } = useQuery({ queryKey: ['workflow-templates'], queryFn: workflowsApi.templates });
+  const { data: standardsLibrary = [] } = useQuery({ queryKey: ['workflow-standards-library'], queryFn: workflowsApi.standardsLibrary });
+  const { data: adminOverview = { configs: [], members: [], saved_views: [], active_member: null } } = useQuery({ queryKey: ['settings-admin-overview'], queryFn: settingsApi.adminOverview });
+  const currentUser = runtimeConfig?.current_member || adminOverview?.active_member || null;
+  const { data: workflowInbox = { items: [], unread_count: 0 } } = useQuery({
+    queryKey: ['workflow-inbox', currentUser?.email],
+    queryFn: () => workflowsApi.inbox(currentUser?.email),
+    enabled: Boolean(currentUser?.email),
+  });
+  const { data: governanceCenter = { counts: {}, review_queue: [], approval_queue: [], stale_workflows: [], recertification_queue: [] } } = useQuery({
+    queryKey: ['workflow-governance-center'],
+    queryFn: workflowsApi.governanceCenter,
+  });
+  const { data: workflowDiscovery = { related: [], duplicates: [], cross_department: [] } } = useQuery({
+    queryKey: ['workflow-discovery', selectedWorkflow?.id],
+    queryFn: () => workflowsApi.discovery(selectedWorkflow.id),
+    enabled: Boolean(selectedWorkflow?.id),
+  });
+  const { data: workflowPolicyOverlay = { rules: [], sites: [] } } = useQuery({
+    queryKey: ['workflow-policy-overlay', selectedWorkflow?.id],
+    queryFn: () => workflowsApi.policyOverlay(selectedWorkflow.id),
+    enabled: Boolean(selectedWorkflow?.id),
+  });
+  const { data: workflowRollbackPreview = { available: false, guardrails: [] } } = useQuery({
+    queryKey: ['workflow-rollback-preview', selectedWorkflow?.id],
+    queryFn: () => workflowsApi.rollbackPreview(selectedWorkflow.id),
+    enabled: Boolean(selectedWorkflow?.id),
+  });
 
   const createMutation = useMutation({
     mutationFn: workflowsApi.create,
@@ -318,6 +389,22 @@ const PathOSApp: React.FC = () => {
     }
   });
 
+  const rollbackDraftMutation = useMutation({
+    mutationFn: ({ workflowId, workspace }: { workflowId: number, workspace?: string }) =>
+      workflowsApi.rollbackDraft(workflowId, workspace),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      setSelectedWorkflow(data);
+      setIntakeSeed(null);
+      toast.success('Rollback draft created');
+      navigate(`/workflows/intake/${data.id}`);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || error.response?.data?.message || 'Rollback draft failed.');
+      reportError(error.response?.data || error, 'backend');
+    }
+  });
+
   const createExecutionMutation = useMutation({
     mutationFn: executionsApi.create,
     onSuccess: () => {
@@ -354,6 +441,38 @@ const PathOSApp: React.FC = () => {
     }
   });
 
+  const governanceActionMutation = useMutation({
+    mutationFn: ({ workflowId, action, requestId }: { workflowId: number, action: string, requestId?: string }) =>
+      workflowsApi.governanceAction(workflowId, { action, request_id: requestId, actor: currentUser?.email || currentUser?.full_name || 'system_user' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      queryClient.invalidateQueries({ queryKey: ['workflow-inbox'] });
+      queryClient.invalidateQueries({ queryKey: ['workflow-governance-center'] });
+      toast.success('Governance action applied');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Governance action failed.');
+      reportError(error.response?.data || error, 'backend');
+    }
+  });
+
+  const notificationReadMutation = useMutation({
+    mutationFn: ({ workflowId, notificationId }: { workflowId: number; notificationId: string }) => {
+      const normalizedId = String(notificationId).startsWith('notif-')
+        ? String(notificationId).split('-').slice(2).join('-')
+        : notificationId;
+      return workflowsApi.markNotificationRead(workflowId, normalizedId, currentUser?.email || currentUser?.full_name || 'system_user');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      queryClient.invalidateQueries({ queryKey: ['workflow-inbox'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.detail || 'Notification update failed.');
+      reportError(error.response?.data || error, 'backend');
+    },
+  });
+
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isDirty) {
@@ -364,6 +483,57 @@ const PathOSApp: React.FC = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isDirty]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const channel = 'BroadcastChannel' in window ? new BroadcastChannel('pathos-collaboration') : null;
+    const sessionId = `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const publish = () => {
+      const pathParts = location.pathname.split('/');
+      const payload = {
+        id: sessionId,
+        name: currentUser?.full_name || 'Company User',
+        route: location.pathname,
+        viewLabel: pathParts[1] || 'dashboard',
+        workflowId: selectedWorkflow?.id || null,
+        workflowName: selectedWorkflow?.name || null,
+        at: Date.now(),
+      };
+      window.localStorage.setItem(`pathos-presence-${sessionId}`, JSON.stringify(payload));
+      channel?.postMessage({ type: 'presence', payload });
+    };
+    const collect = () => {
+      const now = Date.now();
+      const keys = Object.keys(window.localStorage).filter((key) => key.startsWith('pathos-presence-'));
+      const sessions = keys
+        .map((key) => {
+          try {
+            return JSON.parse(window.localStorage.getItem(key) || 'null');
+          } catch {
+            return null;
+          }
+        })
+        .filter((item) => item && now - item.at < 45000);
+      setActiveSessions(sessions);
+    };
+    publish();
+    collect();
+    const interval = window.setInterval(() => {
+      publish();
+      collect();
+    }, 10000);
+    const handleStorage = () => collect();
+    const handleMessage = () => collect();
+    window.addEventListener('storage', handleStorage);
+    channel?.addEventListener('message', handleMessage);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('storage', handleStorage);
+      channel?.removeEventListener('message', handleMessage);
+      channel?.close();
+      window.localStorage.removeItem(`pathos-presence-${sessionId}`);
+    };
+  }, [location.pathname, currentUser?.full_name, selectedWorkflow?.id, selectedWorkflow?.name]);
 
   const handleSelectWorkflow = (wf: any) => {
     if (isDirty) {
@@ -416,6 +586,7 @@ const PathOSApp: React.FC = () => {
         isOpen={isSidebarOpen} 
         setOpen={setSidebarOpen} 
         onNavigateRequested={handleNavigateRequest}
+        currentUser={currentUser}
       />
       <ConfirmationDialog 
         isOpen={showConfirm}
@@ -424,125 +595,231 @@ const PathOSApp: React.FC = () => {
         title="Discard Unsaved Changes?"
         message="You have unsaved process configurations. Moving to a different view will permanently lose these modifications."
       />
+      <Suspense fallback={null}>
+        <CollaborationDrawer
+          isOpen={isCollaborationOpen}
+          onClose={() => setCollaborationOpen(false)}
+          inbox={workflowInbox}
+          governance={governanceCenter}
+          currentUser={currentUser}
+          activeSessions={activeSessions}
+          onOpenWorkflow={(workflowId: number) => {
+            const found = workflows.find((w: any) => w.id === workflowId);
+            if (found) {
+              setCollaborationOpen(false);
+              handleSelectWorkflow(found);
+            }
+          }}
+          onGovernanceAction={(workflowId: number, action: string, requestId?: string) =>
+            governanceActionMutation.mutate({ workflowId, action, requestId })
+          }
+          onMarkNotificationRead={(workflowId: number, notificationId: string) =>
+            notificationReadMutation.mutate({ workflowId, notificationId })
+          }
+        />
+      </Suspense>
       <main className="flex-1 flex flex-col overflow-hidden relative">
-        <GlobalHeader />
+        <GlobalHeader currentUser={currentUser} inboxCount={workflowInbox?.unread_count || 0} activeSessionCount={activeSessions.length} onOpenCollaboration={() => setCollaborationOpen(true)} />
         <div className="flex-1 overflow-auto custom-scrollbar relative">
           <div className="mx-auto p-4 lg:p-6 animate-apple-in max-w-full h-full">
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={
-                <div className="space-y-6 max-w-[1400px] mx-auto">
-                  <ROIDashboard workflows={workflows.filter((w: any) => !w.is_deleted)} executions={executions} projects={projects} />
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between border-b border-theme-border/50 pb-2">
-                      <h3 className="text-header-sub flex items-center gap-2"><Database size={16} className="text-theme-accent" /> Recent Workflows</h3>
-                      <Link to="/workflows" className="text-hint text-theme-accent hover:text-white transition-colors flex items-center gap-1">View Repository <ChevronRight size={12} /></Link>
+                <Suspense fallback={<RouteLoading label="Loading Dashboard" />}>
+                  <div className="space-y-6 max-w-[1400px] mx-auto">
+                    <CompanyRolloutCenter
+                      currentUser={currentUser}
+                      inbox={workflowInbox}
+                      governance={governanceCenter}
+                      savedViews={adminOverview?.saved_views || []}
+                      onOpenWorkflow={(workflowId) => {
+                        const found = workflows.find((w: any) => w.id === workflowId);
+                        if (found) handleSelectWorkflow(found);
+                      }}
+                      onGovernanceAction={(workflowId, action, requestId) => governanceActionMutation.mutate({ workflowId, action, requestId })}
+                    />
+                    <ROIDashboard 
+                      workflows={workflows.filter((w: any) => !w.is_deleted)} 
+                      executions={executions} 
+                      projects={projects} 
+                      insights={presidentInsights} 
+                      runtimeConfig={runtimeConfig}
+                    />
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between border-b border-theme-border/50 pb-2">
+                        <h3 className="text-header-sub flex items-center gap-2"><Database size={16} className="text-theme-accent" /> Recent Workflows</h3>
+                        <Link to="/workflows" className="text-hint text-theme-accent hover:text-white transition-colors flex items-center gap-1">View Repository <ChevronRight size={12} /></Link>
+                      </div>
+                      <WorkflowRegistry workflows={workflows.slice(0, 8)} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} onRestore={restoreMutation.mutate} onClone={(wf) => cloneMutation.mutate({ workflowId: wf.id, mode: 'clone', workspace: 'Personal Drafts' })} onCreateVersion={(wf) => cloneMutation.mutate({ workflowId: wf.id, mode: 'version', workspace: 'Personal Drafts' })} onOpenSummary={(wf) => { setSelectedWorkflow(wf); navigate(`/workflows/summary/${wf.id}`); }} runtimeConfig={runtimeConfig} />
                     </div>
-                    <WorkflowRegistry workflows={workflows.slice(0, 8)} onSelect={handleSelectWorkflow} onDelete={deleteMutation.mutate} onRestore={restoreMutation.mutate} onClone={(wf) => cloneMutation.mutate({ workflowId: wf.id, mode: 'clone', workspace: 'Personal Drafts' })} onCreateVersion={(wf) => cloneMutation.mutate({ workflowId: wf.id, mode: 'version', workspace: 'Personal Drafts' })} />
                   </div>
-                </div>
+                </Suspense>
               } />
               <Route path="/workflows" element={
-                <WorkflowRegistry 
-                  workflows={workflows} 
-                  onSelect={handleSelectWorkflow} 
-                  onDelete={deleteMutation.mutate} 
-                  onRestore={restoreMutation.mutate}
-                  onClone={(wf) => cloneMutation.mutate({ workflowId: wf.id, mode: 'clone', workspace: 'Personal Drafts' })}
-                  onCreateVersion={(wf) => cloneMutation.mutate({ workflowId: wf.id, mode: 'version', workspace: 'Personal Drafts' })}
-                  onCreateNew={(workspace?: string) => {
-                    setSelectedWorkflow(null);
-                    setIntakeSeed({
-                      workspace: workspace || 'Personal Drafts',
-                      access_control: {
-                        visibility: workspace === 'Collaborative Workflows' ? 'workspace' : workspace === 'Standard Operations' ? 'org' : 'private',
-                        viewers: [],
-                        editors: [],
-                        mention_groups: [],
-                        owner: 'Haewon Kim'
-                      }
-                    });
-                    navigate('/workflows/intake/new');
-                  }}
-                />
+                <Suspense fallback={<RouteLoading label="Loading Workflow Repository" />}>
+                  <WorkflowRegistry 
+                    workflows={workflows} 
+                    onSelect={handleSelectWorkflow} 
+                    onDelete={deleteMutation.mutate} 
+                    onRestore={restoreMutation.mutate}
+                    onClone={(wf) => cloneMutation.mutate({ workflowId: wf.id, mode: 'clone', workspace: 'Personal Drafts' })}
+                    onCreateVersion={(wf) => cloneMutation.mutate({ workflowId: wf.id, mode: 'version', workspace: 'Personal Drafts' })}
+                    onOpenSummary={(wf) => { setSelectedWorkflow(wf); navigate(`/workflows/summary/${wf.id}`); }}
+                    onCreateNew={(workspace?: string) => {
+                      const defaults = buildWorkflowDefaults(runtimeConfig, currentUser?.full_name);
+                      setSelectedWorkflow(null);
+                      setIntakeSeed({
+                        workspace: workspace || runtimeConfig.organization.default_workspace || 'Personal Drafts',
+                        access_control: {
+                          ...defaults.access_control,
+                          visibility: workspace === 'Collaborative Workflows' ? 'workspace' : workspace === 'Standard Operations' ? 'org' : defaults.access_control.visibility,
+                        },
+                        ownership: defaults.ownership,
+                        governance: defaults.governance,
+                      });
+                      navigate('/workflows/intake/new');
+                    }}
+                    runtimeConfig={runtimeConfig}
+                  />
+                </Suspense>
               } />
               <Route path="/workflows/intake/new" element={
-                <div className="max-w-4xl mx-auto">
-                  <IntakeGatekeeper 
-                    key="intake-new"
-                    initialData={intakeSeed} 
-                    taxonomy={taxonomy} 
-                    onSuccess={(data) => { 
-                      createMutation.mutate(data); 
-                    }} 
-                    onCancel={() => handleNavigateRequest('/workflows')} 
-                    onRestart={() => { setSelectedWorkflow(null); setIntakeSeed(null); }}
-                  />
-                </div>
+                <Suspense fallback={<RouteLoading label="Loading Intake" />}>
+                  <div className="max-w-4xl mx-auto">
+                    <IntakeGatekeeper 
+                      key="intake-new"
+                      initialData={intakeSeed} 
+                      taxonomy={taxonomy} 
+                      workflows={workflows.filter((w: any) => !w.is_deleted)}
+                      templates={workflowTemplates}
+                      runtimeConfig={runtimeConfig}
+                      onSuccess={(data) => { 
+                        createMutation.mutate(data); 
+                      }} 
+                      onCancel={() => handleNavigateRequest('/workflows')} 
+                      onRestart={() => { setSelectedWorkflow(null); setIntakeSeed(null); }}
+                    />
+                  </div>
+                </Suspense>
               } />
               <Route path="/workflows/intake/:workflowId" element={
-                <div className="max-w-4xl mx-auto">
-                  <IntakeGatekeeper 
-                    key={location.pathname}
-                    initialData={selectedWorkflow} 
-                    taxonomy={taxonomy} 
-                    onSuccess={(data) => { 
-                      if (selectedWorkflow?.id) { 
-                        workflowsApi.update(selectedWorkflow.id, data).then((updated) => { 
-                          setSelectedWorkflow(updated); 
-                          setIntakeSeed(null);
-                          navigate(`/workflows/builder/${updated.id}`); 
-                        }); 
-                      }
-                    }} 
-                    onCancel={() => handleNavigateRequest('/workflows')} 
-                    onRestart={() => { setSelectedWorkflow(null); setIntakeSeed(null); }}
-                  />
-                </div>
+                <Suspense fallback={<RouteLoading label="Loading Intake" />}>
+                  <div className="max-w-4xl mx-auto">
+                    <IntakeGatekeeper 
+                      key={location.pathname}
+                      initialData={selectedWorkflow} 
+                      taxonomy={taxonomy} 
+                      workflows={workflows.filter((w: any) => !w.is_deleted)}
+                      templates={workflowTemplates}
+                      runtimeConfig={runtimeConfig}
+                      onSuccess={(data) => { 
+                        if (selectedWorkflow?.id) { 
+                          workflowsApi.update(selectedWorkflow.id, data).then((updated) => { 
+                            setSelectedWorkflow(updated); 
+                            setIntakeSeed(null);
+                            navigate(`/workflows/builder/${updated.id}`); 
+                          }).catch((error: any) => {
+                            toast.error(error.response?.data?.detail || "Workflow update failed.");
+                            reportError(error.response?.data || error, 'backend');
+                          }); 
+                        }
+                      }} 
+                      onCancel={() => handleNavigateRequest('/workflows')} 
+                      onRestart={() => { setSelectedWorkflow(null); setIntakeSeed(null); }}
+                    />
+                  </div>
+                </Suspense>
               } />
-              <Route path="/settings" element={<SettingsView />} />
+              <Route path="/settings" element={<Suspense fallback={<RouteLoading label="Loading Settings" />}><SettingsView /></Suspense>} />
               <Route path="/board" element={
-                <OperationalBoard
-                  workflows={workflows.filter((w: any) => !w.is_deleted)}
-                  executions={executions}
-                  projects={projects}
-                  onCreateExecution={createExecutionMutation.mutate}
-                  onCreateProject={createProjectMutation.mutate}
-                  onUpdateProject={(id, data) => updateProjectMutation.mutate({ id, data })}
-                />
+                <Suspense fallback={<RouteLoading label="Loading Operational Board" />}>
+                  <OperationalBoard
+                    workflows={workflows.filter((w: any) => !w.is_deleted)}
+                    executions={executions}
+                    projects={projects}
+                    insights={presidentInsights}
+                    governance={governanceCenter}
+                    inbox={workflowInbox}
+                    currentUser={currentUser}
+                    runtimeConfig={runtimeConfig}
+                    onCreateExecution={createExecutionMutation.mutate}
+                    onCreateProject={createProjectMutation.mutate}
+                    onUpdateProject={(id, data) => updateProjectMutation.mutate({ id, data })}
+                    onOpenWorkflow={handleSelectWorkflow}
+                  />
+                </Suspense>
               } />
               <Route path="/analytics" element={
-                <PerformanceAnalytics
-                  workflows={workflows.filter((w: any) => !w.is_deleted)}
-                  executions={executions}
-                  projects={projects}
-                />
+                <Suspense fallback={<RouteLoading label="Loading Analytics" />}>
+                  <PerformanceAnalytics
+                    workflows={workflows.filter((w: any) => !w.is_deleted)}
+                    executions={executions}
+                    projects={projects}
+                    insights={presidentInsights}
+                    runtimeConfig={runtimeConfig}
+                  />
+                </Suspense>
+              } />
+              <Route path="/workflows/summary/:workflowId" element={
+                selectedWorkflow ? (
+                  <Suspense fallback={<RouteLoading label="Loading Workflow Summary" />}>
+                    <WorkflowSummaryView
+                      workflow={selectedWorkflow}
+                      related={workflowDiscovery.related || []}
+                      discovery={workflowDiscovery}
+                      insights={workflowInsights}
+                      presidentInsights={presidentInsights}
+                      standardsLibrary={standardsLibrary}
+                      policyOverlay={workflowPolicyOverlay}
+                      rollbackPreview={workflowRollbackPreview}
+                      runtimeConfig={runtimeConfig}
+                      onCreateRollbackDraft={() => selectedWorkflow?.id && rollbackDraftMutation.mutate({ workflowId: selectedWorkflow.id, workspace: 'Personal Drafts' })}
+                      onBack={() => handleNavigateRequest('/workflows')}
+                      onOpenWorkflow={(wf) => handleSelectWorkflow(wf)}
+                      currentUser={currentUser}
+                      activeSessions={activeSessions}
+                      onGovernanceAction={(action, requestId) => governanceActionMutation.mutate({ workflowId: selectedWorkflow.id, action, requestId })}
+                      onMarkNotificationRead={(notificationId) => notificationReadMutation.mutate({ workflowId: selectedWorkflow.id, notificationId })}
+                    />
+                  </Suspense>
+                ) : <div className="flex items-center justify-center h-full text-theme-muted uppercase font-black tracking-widest gap-4 animate-pulse"><Layers size={32} /> Loading Workflow Summary...</div>
               } />
               <Route path="/workflows/builder/:workflowId" element={
                 selectedWorkflow ? (
-                  <div className="h-[calc(100vh-140px)]">
-                    <WorkflowBuilder 
-                      key={selectedWorkflow.id}
-                      workflow={selectedWorkflow}
-                      taxonomy={taxonomy}
-                      onSave={(data: any) => workflowsApi.update(selectedWorkflow.id, data).then((updated) => {
-                        toast.success("Configuration Saved");
-                        queryClient.invalidateQueries({ queryKey: ['workflows'] });
-                        setSelectedWorkflow(updated);
-                        setIsDirty(false);
-                      })} 
-                      onBack={(currentData?: any) => {
-                        if (currentData) {
-                          setSelectedWorkflow({ ...selectedWorkflow, ...currentData });
-                        }
-                        navigate(`/workflows/intake/${selectedWorkflow.id}`);
-                      }}
-                      onExit={() => handleNavigateRequest('/workflows')}
-                      setIsDirty={setIsDirty}
-                    />
-                  </div>
+                  <Suspense fallback={<RouteLoading label="Loading Workflow Builder" />}>
+                    <div className="h-[calc(100vh-140px)]">
+                      <WorkflowBuilder 
+                        key={selectedWorkflow.id}
+                        workflow={selectedWorkflow}
+                        taxonomy={taxonomy}
+                        templates={workflowTemplates}
+                        relatedWorkflows={workflowDiscovery.related || []}
+                        insights={workflowInsights}
+                        policyOverlay={workflowPolicyOverlay}
+                        rollbackPreview={workflowRollbackPreview}
+                        runtimeConfig={runtimeConfig}
+                        onSave={(data: any) => workflowsApi.update(selectedWorkflow.id, data).then((updated) => {
+                          toast.success("Configuration Saved");
+                          queryClient.invalidateQueries({ queryKey: ['workflows'] });
+                          setSelectedWorkflow(updated);
+                          setIsDirty(false);
+                          return updated;
+                        })} 
+                        onBack={(currentData?: any) => {
+                          if (currentData) {
+                            setSelectedWorkflow({ ...selectedWorkflow, ...currentData });
+                          }
+                          navigate(`/workflows/intake/${selectedWorkflow.id}`);
+                        }}
+                        onExit={() => handleNavigateRequest('/workflows')}
+                        onCreateRollbackDraft={() => selectedWorkflow?.id && rollbackDraftMutation.mutate({ workflowId: selectedWorkflow.id, workspace: 'Personal Drafts' })}
+                        setIsDirty={setIsDirty}
+                      />
+                    </div>
+                  </Suspense>
                 ) : <div className="flex items-center justify-center h-full text-theme-muted uppercase font-black tracking-widest gap-4 animate-pulse"><Layers size={32} /> Loading Workflow State...</div>
               } />
+              <Route path="/help" element={<Suspense fallback={<RouteLoading label="Loading Help Center" />}><HelpCenter /></Suspense>} />
               <Route path="*" element={<div className="flex flex-col items-center justify-center h-full text-theme-muted uppercase font-black tracking-widest gap-4 opacity-20"><Layers size={64} /> <span>Under Development</span></div>} />
             </Routes>
           </div>

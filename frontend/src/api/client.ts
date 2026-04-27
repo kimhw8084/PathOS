@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = '/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_PATH || '/api';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -32,10 +32,26 @@ apiClient.interceptors.response.use(
 
 export const workflowsApi = {
   list: (includeDeleted = false) => apiClient.get('/workflows', { params: { include_deleted: includeDeleted } }).then(res => res.data),
+  search: (q: string, includeDeleted = false) => apiClient.get('/workflows/search', { params: { q, include_deleted: includeDeleted } }).then(res => res.data),
+  globalSearch: (q: string, limit = 8) => apiClient.get('/workflows/global-search', { params: { q, limit } }).then(res => res.data),
+  inbox: (memberEmail?: string) => apiClient.get('/workflows/inbox', { params: { member_email: memberEmail } }).then(res => res.data),
+  governanceCenter: () => apiClient.get('/workflows/governance-center').then(res => res.data),
+  insights: () => apiClient.get('/workflows/insights/overview').then(res => res.data),
+  presidentInsights: () => apiClient.get('/workflows/insights/president').then(res => res.data),
+  templates: () => apiClient.get('/workflows/templates').then(res => res.data),
+  draftAssist: (data: any) => apiClient.post('/workflows/draft-assist', data).then(res => res.data),
+  standardsLibrary: () => apiClient.get('/workflows/standards/library').then(res => res.data),
+  discovery: (id: number) => apiClient.get(`/workflows/discovery/${id}`).then(res => res.data),
+  policyOverlay: (id: number) => apiClient.get(`/workflows/policy-overlays/${id}`).then(res => res.data),
+  rollbackPreview: (id: number) => apiClient.get(`/workflows/${id}/rollback-preview`).then(res => res.data),
   get: (id: number) => apiClient.get(`/workflows/${id}`).then(res => res.data),
   create: (data: any) => apiClient.post('/workflows', data).then(res => res.data),
   update: (id: number, data: any) => apiClient.put(`/workflows/${id}`, data).then(res => res.data),
   clone: (id: number, mode: 'clone' | 'version', workspace?: string) => apiClient.post(`/workflows/${id}/clone`, null, { params: { mode, workspace } }).then(res => res.data),
+  rollbackDraft: (id: number, workspace?: string) => apiClient.post(`/workflows/${id}/rollback-draft`, null, { params: { workspace } }).then(res => res.data),
+  governanceAction: (id: number, data: any) => apiClient.post(`/workflows/${id}/governance-action`, data).then(res => res.data),
+  markNotificationRead: (workflowId: number, notificationId: string, actor?: string) =>
+    apiClient.post(`/workflows/${workflowId}/notifications/${notificationId}/read`, { actor }).then(res => res.data),
   delete: (id: number) => apiClient.delete(`/workflows/${id}`).then(res => res.data),
   restore: (id: number) => apiClient.post(`/workflows/${id}/restore`).then(res => res.data),
   updateTasks: (id: number, tasks: any[]) => apiClient.put(`/tasks/workflow/${id}/sync`, tasks).then(res => res.data),
@@ -47,6 +63,19 @@ export const taxonomyApi = {
 
 export const settingsApi = {
   listParameters: () => apiClient.get('/settings/parameters').then(res => res.data),
+  adminOverview: () => apiClient.get('/settings/admin-overview').then(res => res.data),
+  qualityOverview: () => apiClient.get('/settings/quality-overview').then(res => res.data),
+  runtimeConfig: () => apiClient.get('/settings/runtime-config').then(res => res.data),
+  exportRuntimeConfig: () => apiClient.get('/settings/runtime-config/export').then(res => res.data),
+  importRuntimeConfig: (data: any) => apiClient.post('/settings/runtime-config/import', data).then(res => res.data),
+  getAppConfig: (key: string) => apiClient.get(`/settings/app-config/${key}`).then(res => res.data),
+  updateAppConfig: (key: string, data: any) => apiClient.put(`/settings/app-config/${key}`, data).then(res => res.data),
+  listMembers: () => apiClient.get('/settings/members').then(res => res.data),
+  createMember: (data: any) => apiClient.post('/settings/members', data).then(res => res.data),
+  updateMember: (id: number, data: any) => apiClient.put(`/settings/members/${id}`, data).then(res => res.data),
+  listSavedViews: (entityType?: string) => apiClient.get('/settings/saved-views', { params: { entity_type: entityType } }).then(res => res.data),
+  createSavedView: (data: any) => apiClient.post('/settings/saved-views', data).then(res => res.data),
+  updateSavedView: (id: number, data: any) => apiClient.put(`/settings/saved-views/${id}`, data).then(res => res.data),
   updateParameter: (key: string, data: any) => apiClient.put(`/settings/parameters/${key}`, data).then(res => res.data),
   executeParameter: (key: string) => apiClient.post(`/settings/parameters/${key}/execute`).then(res => res.data),
   getParameterLogs: (key: string) => apiClient.get(`/settings/parameters/${key}/logs`).then(res => res.data),

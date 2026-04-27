@@ -83,3 +83,33 @@ async def test_update_workflow_roi_uses_critical_path_for_branched_flow():
     hours = await update_workflow_roi(wf)
     assert round(hours, 2) == 0.33
     assert round(wf.analysis["critical_path_hours"], 2) == 0.33
+
+def test_analyze_workflow_standards_library_and_governance():
+    wf = Workflow(
+        name="Standards Test",
+        trigger_type="Start",
+        trigger_description="Start",
+        output_type="End",
+        output_description="End",
+        org=None, # Missing org
+        team="Yield",
+    )
+    wf.tasks = [
+        build_task("node-trigger", "Start", "TRIGGER", interface="TRIGGER"),
+        build_task("node-outcome", "Outcome", "OUTCOME", interface="OUTCOME")
+    ]
+    wf.edges = [{"source": "node-trigger", "target": "node-outcome", "label": ""}]
+    
+    analysis = analyze_workflow(wf)
+    
+    # Verify standards library picks up missing org
+    matches = analysis.get("standards_library_matches", [])
+    ownership_match = next((m for m in matches if m["flag"] == "ownership"), None)
+    assert ownership_match is not None
+    assert ownership_match["matched"] is False
+    
+    # Verify scores are generated
+    assert "scores" in analysis
+    assert "readiness" in analysis["scores"]
+    assert "standardization" in analysis["scores"]
+

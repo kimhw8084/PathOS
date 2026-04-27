@@ -1,0 +1,74 @@
+{
+  "profile_version": 1,
+  "network": {
+    "backend": {
+      "port": 8095
+    },
+    "frontend": {
+      "port": 5180,
+      "api_url": "http://localhost:8095/api"
+    }
+  },
+  "organization": {
+    "name": "PathOS Home Lab",
+    "auth_mode": "Local",
+    "active_member_email": "home.owner@example.com",
+    "default_workspace": "Personal Drafts",
+    "default_visibility": "private",
+    "mention_directory": [
+      "Home Owner",
+      "Automation Sandbox",
+      "Family Review"
+    ],
+    "mention_groups": [
+      "Automation Sandbox",
+      "Family Review"
+    ],
+    "reviewer_role_options": [
+      "Home Owner",
+      "Automation Sandbox"
+    ],
+    "directory_seed": [
+      {
+        "full_name": "Home Owner",
+        "email": "home.owner@example.com",
+        "title": "Owner",
+        "department": "Home",
+        "team": "Household",
+        "site": "Home Lab",
+        "manager": "Self",
+        "roles": ["sme", "reviewer", "admin"],
+        "permissions": ["workflow:edit", "workflow:review", "workflow:approve", "settings:manage"],
+        "avatar_initials": "HO"
+      }
+    ]
+  },
+  "parameters": {
+    "defaults": [
+      {
+        "key": "TOOL_ID",
+        "label": "Applicable Tool ID",
+        "description": "Specific tool identifiers.",
+        "values": ["PRINTER_01", "LAB_PC", "NAS_01"]
+      },
+      {
+        "key": "HARDWARE_FAMILY",
+        "label": "Hardware Family",
+        "description": "Hardware family taxonomy.",
+        "values": ["Home Lab", "Office", "Storage"]
+      },
+      {
+        "key": "WORKFLOW_TYPE",
+        "label": "Workflow Type",
+        "description": "Workflow classification.",
+        "values": ["Maintenance", "Automation Study", "Household Routine"]
+      },
+      {
+        "key": "PRC",
+        "label": "PRC",
+        "description": "Process or business classification values.",
+        "values": ["HOME-001", "HOME-002", "HOME-003"]
+      }
+    ]
+  }
+}

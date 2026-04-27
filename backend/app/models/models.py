@@ -69,6 +69,18 @@ class Workflow(Base, BaseMixin):
     comments = Column(JSON, nullable=True)
     analysis = Column(JSON, nullable=True)
     simulation = Column(JSON, nullable=True)
+    quick_capture_notes = Column(Text, nullable=True)
+    template_key = Column(String, nullable=True)
+    ownership = Column(JSON, nullable=True)
+    governance = Column(JSON, nullable=True)
+    review_state = Column(String, default="Draft")
+    approval_state = Column(String, default="Draft")
+    required_reviewer_roles = Column(JSON, nullable=True)
+    review_requests = Column(JSON, nullable=True)
+    activity_timeline = Column(JSON, nullable=True)
+    notification_feed = Column(JSON, nullable=True)
+    related_workflow_ids = Column(JSON, nullable=True)
+    standards_profile = Column(JSON, nullable=True)
     
     # ROI Metrics (Cached/Calculated)
     total_roi_saved_hours = Column(Float, default=0.0)
@@ -134,6 +146,10 @@ class Task(Base, BaseMixin):
     reference_links = Column(JSON, nullable=True)
     instructions = Column(JSON, nullable=True) # New Field: List of objects {step, description, image, links}
     diagnostics = Column(JSON, nullable=True)
+    phase_name = Column(String, nullable=True)
+    subflow_name = Column(String, nullable=True)
+    task_block_key = Column(String, nullable=True)
+    decision_details = Column(JSON, nullable=True)
     
     order_index = Column(Integer, default=0)
     
@@ -207,9 +223,49 @@ class AuditLog(Base):
     description = Column(Text, nullable=True)
 
 
+class AppConfig(Base, BaseMixin):
+    __tablename__ = "app_configs"
+    key = Column(String, unique=True, index=True)
+    label = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    value = Column(JSON, nullable=True)
+
+
+class OrgMember(Base, BaseMixin):
+    __tablename__ = "org_members"
+    full_name = Column(String, nullable=False, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    title = Column(String, nullable=True)
+    org = Column(String, nullable=True, index=True)
+    team = Column(String, nullable=True, index=True)
+    site = Column(String, nullable=True, index=True)
+    manager = Column(String, nullable=True)
+    roles = Column(JSON, nullable=True)
+    permissions = Column(JSON, nullable=True)
+    status = Column(String, default="active")
+    avatar_initials = Column(String, nullable=True)
+
+
+class SavedView(Base, BaseMixin):
+    __tablename__ = "saved_views"
+    entity_type = Column(String, default="workflow", index=True)
+    name = Column(String, nullable=False)
+    owner_email = Column(String, nullable=False, index=True)
+    scope = Column(String, default="personal")
+    search_text = Column(String, nullable=True)
+    filters = Column(JSON, nullable=True)
+    active_ribbon = Column(String, nullable=True)
+    view_mode = Column(String, nullable=True)
+    shared_with_roles = Column(JSON, nullable=True)
+    shared_with_teams = Column(JSON, nullable=True)
+
+
 class WorkflowExecution(Base, BaseMixin):
     __tablename__ = "workflow_executions"
     workflow_id = Column(Integer, ForeignKey("workflows.id", ondelete="CASCADE"), nullable=False, index=True)
+    workflow_version = Column(Integer, nullable=True)
+    workflow_name_snapshot = Column(String, nullable=True)
+    automation_status_snapshot = Column(String, nullable=True)
     execution_started_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     execution_completed_at = Column(DateTime(timezone=True), nullable=True)
     executed_by = Column(String, nullable=True)
@@ -246,5 +302,9 @@ class AutomationProject(Base, BaseMixin):
     realized_hours_saved_weekly = Column(Float, default=0.0)
     blocker_summary = Column(JSON, nullable=True)
     milestone_summary = Column(JSON, nullable=True)
+    traceability = Column(JSON, nullable=True)
+    benefits_realization = Column(JSON, nullable=True)
+    exception_governance = Column(JSON, nullable=True)
+    delivery_metrics = Column(JSON, nullable=True)
     next_action = Column(Text, nullable=True)
     last_update = Column(Text, nullable=True)

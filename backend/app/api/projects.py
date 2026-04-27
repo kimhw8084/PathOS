@@ -23,7 +23,12 @@ async def list_projects(db: AsyncSession = Depends(get_db)):
 
 @router.post("", response_model=AutomationProjectRead)
 async def create_project(project_data: AutomationProjectCreate, db: AsyncSession = Depends(get_db)):
-    project = AutomationProject(**project_data.model_dump())
+    payload = project_data.model_dump()
+    payload.setdefault("traceability", {})
+    payload.setdefault("benefits_realization", {})
+    payload.setdefault("exception_governance", {})
+    payload.setdefault("delivery_metrics", {})
+    project = AutomationProject(**payload)
     db.add(project)
     await db.flush()
 
@@ -32,7 +37,7 @@ async def create_project(project_data: AutomationProjectCreate, db: AsyncSession
         action_type="CREATE",
         table_name="automation_projects",
         record_id=project.id,
-        new_state=project_data.model_dump(mode="json"),
+        new_state=payload,
         description=f"Created automation project '{project.name}'",
     )
     await db.commit()
@@ -46,7 +51,12 @@ async def update_project(project_id: int, project_data: AutomationProjectCreate,
         raise HTTPException(status_code=404, detail="Automation project not found")
 
     previous_state = {c.name: getattr(project, c.name) for c in project.__table__.columns}
-    for key, value in project_data.model_dump().items():
+    payload = project_data.model_dump()
+    payload.setdefault("traceability", {})
+    payload.setdefault("benefits_realization", {})
+    payload.setdefault("exception_governance", {})
+    payload.setdefault("delivery_metrics", {})
+    for key, value in payload.items():
         if hasattr(project, key):
             setattr(project, key, value)
 
@@ -56,7 +66,7 @@ async def update_project(project_id: int, project_data: AutomationProjectCreate,
         table_name="automation_projects",
         record_id=project.id,
         previous_state=previous_state,
-        new_state=project_data.model_dump(mode="json"),
+        new_state=payload,
         description=f"Updated automation project '{project.name}'",
     )
     await db.commit()

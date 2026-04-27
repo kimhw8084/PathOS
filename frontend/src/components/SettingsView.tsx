@@ -2,18 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { 
   Settings, Code, Type, Play, Save, 
   RefreshCw, Terminal, 
-  Box, ShieldAlert, Clock, AlertTriangle, ChevronRight, History
+  Box, ShieldAlert, Clock, AlertTriangle, ChevronRight, History, Building2, Activity
 } from 'lucide-react';
 import { settingsApi } from '../api/client';
 import { toast } from 'react-hot-toast';
+import AdminRolloutSettings from './AdminRolloutSettings';
+import QualityCenter from './QualityCenter';
+import { useBuganizer } from './ErrorFortress';
+import { useQueryClient } from '@tanstack/react-query';
 
 const SettingsView: React.FC = () => {
+  const queryClient = useQueryClient();
+  const { reports } = useBuganizer();
   const [parameters, setParameters] = useState<any[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [executing, setExecuting] = useState(false);
   const [logs, setLogs] = useState<any[]>([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [activeTab, setActiveTab] = useState<'parameters' | 'rollout' | 'quality'>('parameters');
+  const [adminOverview, setAdminOverview] = useState<any>({ configs: [], members: [], saved_views: [] });
+  const [qualityOverview, setQualityOverview] = useState<any>(null);
 
   useEffect(() => {
     loadParameters();
@@ -21,9 +30,15 @@ const SettingsView: React.FC = () => {
 
   const loadParameters = async () => {
     try {
-      const data = await settingsApi.listParameters();
-      setParameters(data);
-      if (data.length > 0 && !selectedKey) setSelectedKey(data[0].key);
+      const [parameterData, rolloutData, qualityData] = await Promise.all([
+        settingsApi.listParameters(),
+        settingsApi.adminOverview(),
+        settingsApi.qualityOverview(),
+      ]);
+      setParameters(parameterData);
+      setAdminOverview(rolloutData);
+      setQualityOverview(qualityData);
+      if (parameterData.length > 0 && !selectedKey) setSelectedKey(parameterData[0].key);
     } catch (err) {
       toast.error("Failed to load parameters");
     } finally {
@@ -101,13 +116,26 @@ const SettingsView: React.FC = () => {
       <div className="flex items-center justify-between border-b border-theme-border/50 pb-8">
         <div>
           <h2 className="text-header-main mb-2">System Configuration</h2>
-          <p className="text-subtext">Manage global parameters and automated data connectors.</p>
+          <p className="text-subtext">Manage global parameters, identity simulation, company rollout defaults, and governance controls.</p>
         </div>
         <div className="flex items-center gap-4">
            <span className="text-hint bg-status-success/10 text-status-success px-4 py-2 rounded-full border border-status-success/20">Background Engine Active</span>
         </div>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <button onClick={() => setActiveTab('parameters')} className={`rounded-2xl border px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-all ${activeTab === 'parameters' ? 'border-theme-accent/20 bg-theme-accent/10 text-theme-accent' : 'border-white/10 bg-white/[0.03] text-white/55 hover:text-white'}`}>
+          <span className="inline-flex items-center gap-2"><Settings size={14} /> Parameter Engine</span>
+        </button>
+        <button onClick={() => setActiveTab('rollout')} className={`rounded-2xl border px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-all ${activeTab === 'rollout' ? 'border-theme-accent/20 bg-theme-accent/10 text-theme-accent' : 'border-white/10 bg-white/[0.03] text-white/55 hover:text-white'}`}>
+          <span className="inline-flex items-center gap-2"><Building2 size={14} /> Company Rollout</span>
+        </button>
+        <button onClick={() => setActiveTab('quality')} className={`rounded-2xl border px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-all ${activeTab === 'quality' ? 'border-theme-accent/20 bg-theme-accent/10 text-theme-accent' : 'border-white/10 bg-white/[0.03] text-white/55 hover:text-white'}`}>
+          <span className="inline-flex items-center gap-2"><Activity size={14} /> Quality Center</span>
+        </button>
+      </div>
+
+      {activeTab === 'parameters' ? (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         <div className="lg:col-span-4 space-y-6">
           <div className="apple-card !p-3 space-y-1 bg-black/20 border-theme-border">
@@ -331,6 +359,14 @@ const SettingsView: React.FC = () => {
           )}
         </div>
       </div>
+      ) : activeTab === 'rollout' ? (
+        <AdminRolloutSettings overview={adminOverview} onRefresh={async () => {
+          await loadParameters();
+          queryClient.invalidateQueries({ queryKey: ['runtime-config'] });
+        }} />
+      ) : (
+        <QualityCenter overview={qualityOverview} bugReports={reports} />
+      )}
     </div>
   );
 };

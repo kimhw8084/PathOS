@@ -1,11 +1,13 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
-import { Zap, Clock, Trophy, Activity, ShieldAlert, Cpu, BarChart3, Layers, ChevronRight, TrendingUp } from 'lucide-react';
+import { Zap, Clock, Trophy, Activity, ShieldAlert, Cpu, BarChart3, Layers, ChevronRight, TrendingUp, Medal, Sparkles } from 'lucide-react';
 
 interface ROIDashboardProps {
   workflows: any[];
   executions?: any[];
   projects?: any[];
+  insights?: any;
+  runtimeConfig?: any;
 }
 
 const StatBox = ({ icon: Icon, label, value, subValue, colorClass = "text-white" }: any) => (
@@ -38,7 +40,12 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows, executions = [], projects = [] }) => {
+const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows, executions = [], projects = [], insights = {}, runtimeConfig }) => {
+  const statusCats = runtimeConfig?.governance?.status_categories || {
+    STANDARD: ['Partially Automated', 'Fully Automated'],
+    REVIEW: ['Created', 'Workflow Review', 'Verification'],
+    PENDING: ['Backlog', 'Automation Planned', 'In Automation'],
+  };
   const sortedWorkflows = [...workflows].sort((a, b) => (b.total_roi_saved_hours || 0) - (a.total_roi_saved_hours || 0));
   const leaderboard = sortedWorkflows.slice(0, 10);
 
@@ -48,9 +55,9 @@ const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows, executions = [],
   }));
 
   const statusData = [
-    { name: 'STANDARD', value: workflows.filter(wf => wf.status === 'PROD').length },
-    { name: 'REVIEW', value: workflows.filter(wf => ['DRAFT', 'Verification'].includes(wf.status)).length },
-    { name: 'PENDING', value: workflows.filter(wf => !['PROD', 'DRAFT', 'Verification'].includes(wf.status)).length },
+    { name: 'STANDARD', value: workflows.filter(wf => statusCats.STANDARD.includes(wf.status)).length },
+    { name: 'REVIEW', value: workflows.filter(wf => statusCats.REVIEW.includes(wf.status)).length },
+    { name: 'PENDING', value: workflows.filter(wf => statusCats.PENDING.includes(wf.status)).length },
   ].filter(d => d.value > 0);
 
   const totalWeeklySavings = workflows.reduce((acc, wf) => acc + (wf.total_roi_saved_hours || 0), 0);
@@ -60,13 +67,25 @@ const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows, executions = [],
   const trackedRuns = executions.length;
   const realizedMinutes = executions.reduce((acc, execution) => acc + Math.max((execution.baseline_manual_minutes || 0) - (execution.actual_duration_minutes || 0), 0), 0);
   const activeProjects = projects.filter((project: any) => !['Deployed', 'Done'].includes(project.status)).length;
+  const recognition = (insights?.contributor_scorecards?.length ? insights.contributor_scorecards : [...workflows]
+    .map((workflow) => ({
+      label: workflow.ownership?.owner || workflow.access_control?.owner || 'Unassigned',
+      score: (workflow.total_roi_saved_hours || 0) + ((workflow.analysis?.scores?.standardization || 0) / 25),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4));
+  const candidateQueue = (insights?.automation_candidate_queue?.length ? insights.automation_candidate_queue : [...workflows]
+    .sort((a, b) => ((b.analysis?.scores?.readiness || 0) + (b.total_roi_saved_hours || 0) * 4 - (b.analysis?.scores?.complexity_risk || 0) * 0.2) - ((a.analysis?.scores?.readiness || 0) + (a.total_roi_saved_hours || 0) * 4 - (a.analysis?.scores?.complexity_risk || 0) * 0.2))
+    .slice(0, 3));
+  const teamRollups = insights?.team_rollups || [];
+  const narratives = insights?.executive_narratives || [];
 
   return (
     <div className="space-y-6 animate-apple-in">
       {/* High-Density Stat Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatBox icon={Zap} label="Savings" value={`${totalWeeklySavings.toFixed(0)}h`} subValue="Projected weekly cap" colorClass="text-blue-400" />
-        <StatBox icon={Activity} label="Coverage" value={`${(workflows.length > 0 ? (workflows.filter(wf => wf.status === 'PROD').length / workflows.length) * 100 : 0).toFixed(0)}%`} subValue="Standard ratio" />
+        <StatBox icon={Activity} label="Coverage" value={`${(workflows.length > 0 ? (workflows.filter(wf => statusCats.STANDARD.includes(wf.status)).length / workflows.length) * 100 : 0).toFixed(0)}%`} subValue="Standard ratio" />
         <StatBox icon={Cpu} label="Operations" value={totalTasks} subValue="Active Modules" />
         <StatBox icon={ShieldAlert} label="Risks" value={totalBlockers} subValue="Critical Issues" colorClass="text-red-500" />
         <StatBox icon={Layers} label="Density" value={avgComplexity} subValue="Steps Per Op" />
@@ -151,6 +170,81 @@ const ROIDashboard: React.FC<ROIDashboardProps> = ({ workflows, executions = [],
           </div>
         </div>
       </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[0.95fr_1.05fr] gap-6">
+        <div className="apple-card flex flex-col gap-4 !bg-[#111827]/40 border-white/10 p-6">
+          <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+            <div className="p-2 bg-violet-600/20 rounded-lg border border-violet-500/20">
+              <Medal size={16} className="text-violet-300" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-white uppercase tracking-tighter">Recognition</h3>
+              <span className="text-[10px] text-white/20 font-bold uppercase tracking-[0.2em] block">Participation Leaders</span>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {recognition.map((item: any, index: number) => (
+              <div key={`${item.label}-${index}`} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{item.label}</p>
+                  <p className="mt-1 text-[10px] font-bold text-white/35">{item.workflow_count ? `${item.workflow_count} workflows` : 'Impact Driver'}</p>
+                </div>
+                <p className="text-[16px] font-black text-violet-300">{Number(item.impact_score ?? item.score ?? 0).toFixed(1)}</p>
+              </div>
+            ))}
+            {!!teamRollups.length && (
+              <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Top Team Momentum</p>
+                <p className="mt-2 text-[16px] font-black text-white">{teamRollups[0]?.label}</p>
+                <p className="mt-1 text-[11px] font-bold text-white/55">{Number(teamRollups[0]?.saved_minutes || 0).toFixed(0)} measured minutes saved</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="apple-card flex flex-col gap-4 !bg-[#111827]/40 border-white/10 p-6">
+          <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+            <div className="p-2 bg-theme-accent/20 rounded-lg border border-theme-accent/20">
+              <Sparkles size={16} className="text-theme-accent" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-white uppercase tracking-tighter">Automation Candidates</h3>
+              <span className="text-[10px] text-white/20 font-bold uppercase tracking-[0.2em] block">Best Next Bets</span>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {candidateQueue.map((workflow: any) => (
+              <div key={workflow.id || workflow.workflow_id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{workflow.name}</p>
+                    <p className="mt-1 text-[11px] font-bold text-white/55">{workflow.top_opportunity || workflow.analysis?.recommendations?.[0]?.title || 'Tighten definition and scope the automation opportunity.'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[16px] font-black text-theme-accent">{Number(workflow.projected_hours_saved_weekly ?? workflow.total_roi_saved_hours ?? 0).toFixed(1)}h</p>
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/25">Projected</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">Readiness {Number((workflow.readiness ?? workflow.analysis?.scores?.readiness) || 0).toFixed(0)}</span>
+                  <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">Standardization {Number((workflow.standardization ?? workflow.analysis?.scores?.standardization) || 0).toFixed(0)}</span>
+                  <span className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/60">Risk {Number((workflow.complexity_risk ?? workflow.analysis?.scores?.complexity_risk) || 0).toFixed(0)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {!!narratives.length && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {narratives.slice(0, 4).map((item: string) => (
+            <div key={item} className="apple-card !bg-theme-accent/10 border-theme-accent/20 p-5 text-[12px] font-bold leading-relaxed text-white/80">
+              {item}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Leaderboard */}
       <div className="apple-card !p-0 overflow-hidden !bg-[#111827]/40 border-white/10">

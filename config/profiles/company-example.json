@@ -1,0 +1,51 @@
+{
+  "profile_version": 1,
+  "organization": {
+    "name": "PathOS Company Cloud",
+    "auth_mode": "SSO Ready (Simulated)",
+    "active_member_email": "owner@company.example",
+    "mention_directory": [
+      "Operations Lead",
+      "Automation Team",
+      "Process SME",
+      "Quality Reviewer"
+    ],
+    "mention_groups": [
+      "Automation Team",
+      "Process SME",
+      "Quality Reviewer"
+    ],
+    "reviewer_role_options": [
+      "Process SME",
+      "Automation Team",
+      "Process Owner",
+      "Quality Reviewer"
+    ],
+    "directory_seed": [
+      {
+        "full_name": "Operations Lead",
+        "email": "owner@company.example",
+        "title": "Operations Lead",
+        "department": "Operations",
+        "team": "Workflow Excellence",
+        "site": "HQ",
+        "manager": "Operations Leadership",
+        "roles": ["sme", "reviewer", "admin"],
+        "permissions": ["workflow:edit", "workflow:review", "workflow:approve", "settings:manage"],
+        "avatar_initials": "OL"
+      },
+      {
+        "full_name": "Automation Team",
+        "email": "automation@company.example",
+        "title": "Automation Engineering",
+        "department": "Automation",
+        "team": "Automation Delivery",
+        "site": "HQ",
+        "manager": "Automation Leadership",
+        "roles": ["automation_engineer"],
+        "permissions": ["project:create", "workflow:version"],
+        "avatar_initials": "AT"
+      }
+    ]
+  }
+}

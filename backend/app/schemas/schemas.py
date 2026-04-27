@@ -88,6 +88,9 @@ class WorkflowCommentSchema(BaseModel):
     author: str = "system_user"
     message: str
     mentions: List[str] = []
+    parent_id: Optional[str] = None
+    assignee: Optional[str] = None
+    review_state: str = "open"
     created_at: Optional[str] = None
     resolved: bool = False
 
@@ -97,6 +100,47 @@ class AccessControlSchema(BaseModel):
     editors: List[str] = []
     mention_groups: List[str] = []
     owner: str = "system_user"
+
+class WorkflowOwnershipSchema(BaseModel):
+    owner: str = "system_user"
+    smes: List[str] = []
+    backup_owners: List[str] = []
+    automation_owner: Optional[str] = None
+    reviewers: List[str] = []
+
+class WorkflowGovernanceSchema(BaseModel):
+    lifecycle_stage: str = "Draft"
+    review_state: str = "Draft"
+    approval_state: str = "Draft"
+    required_reviewer_roles: List[str] = []
+    standards_flags: List[str] = []
+    stale_after_days: int = 90
+    review_due_at: Optional[str] = None
+    last_reviewed_at: Optional[str] = None
+
+class ReviewRequestSchema(BaseModel):
+    id: Optional[str] = None
+    role: str
+    requested_from: Optional[str] = None
+    requested_by: str = "system_user"
+    status: str = "open"
+    due_at: Optional[str] = None
+    note: Optional[str] = None
+
+class ActivityEntrySchema(BaseModel):
+    id: Optional[str] = None
+    type: str
+    message: str
+    actor: str = "system_user"
+    created_at: Optional[str] = None
+
+class NotificationSchema(BaseModel):
+    id: Optional[str] = None
+    kind: str
+    title: str
+    detail: Optional[str] = None
+    read: bool = False
+    created_at: Optional[str] = None
 
 class SimulationSummarySchema(BaseModel):
     best_case_minutes: float = 0.0
@@ -118,6 +162,17 @@ class WorkflowAnalysisSchema(BaseModel):
     shift_handoff_risk: bool = False
     diff_summary: dict = {}
     diagnostics: dict = {}
+    bottlenecks: List[dict] = []
+    scores: dict = {}
+    change_impact: dict = {}
+    recommendations: List[dict] = []
+    benchmarking: dict = {}
+    certification: dict = {}
+    storytelling: dict = {}
+    portfolio_rollup: dict = {}
+    opportunity_queue: List[dict] = []
+    standards_library_matches: List[dict] = []
+    task_diagnostic_summary: dict = {}
 
 
 class WorkflowSummarySchema(BaseModel):
@@ -130,6 +185,9 @@ class WorkflowSummarySchema(BaseModel):
 
 class WorkflowExecutionBase(BaseModel):
     workflow_id: int
+    workflow_version: Optional[int] = None
+    workflow_name_snapshot: Optional[str] = None
+    automation_status_snapshot: Optional[str] = None
     execution_started_at: Optional[datetime] = None
     execution_completed_at: Optional[datetime] = None
     executed_by: Optional[str] = None
@@ -176,6 +234,10 @@ class AutomationProjectBase(BaseModel):
     realized_hours_saved_weekly: float = 0.0
     blocker_summary: List[str] = []
     milestone_summary: List[str] = []
+    traceability: Optional[dict] = None
+    benefits_realization: Optional[dict] = None
+    exception_governance: Optional[dict] = None
+    delivery_metrics: Optional[dict] = None
     next_action: Optional[str] = None
     last_update: Optional[str] = None
 
@@ -241,6 +303,10 @@ class TaskBase(BaseModel):
     reference_links: Optional[List[ReferenceLinkSchema]] = []
     instructions: Optional[List[InstructionSchema]] = []
     diagnostics: Optional[dict] = None
+    phase_name: Optional[str] = None
+    subflow_name: Optional[str] = None
+    task_block_key: Optional[str] = None
+    decision_details: Optional[dict] = None
     order_index: int = 0
 
 class TaskCreate(TaskBase):
@@ -289,6 +355,18 @@ class WorkflowBase(BaseModel):
     comments: Optional[List[WorkflowCommentSchema]] = []
     analysis: Optional[WorkflowAnalysisSchema] = None
     simulation: Optional[SimulationSummarySchema] = None
+    quick_capture_notes: Optional[str] = None
+    template_key: Optional[str] = None
+    ownership: Optional[WorkflowOwnershipSchema] = None
+    governance: Optional[WorkflowGovernanceSchema] = None
+    review_state: str = "Draft"
+    approval_state: str = "Draft"
+    required_reviewer_roles: Optional[List[str]] = []
+    review_requests: Optional[List[ReviewRequestSchema]] = []
+    activity_timeline: Optional[List[ActivityEntrySchema]] = []
+    notification_feed: Optional[List[NotificationSchema]] = []
+    related_workflow_ids: Optional[List[int]] = []
+    standards_profile: Optional[dict] = None
 
 class WorkflowCreate(WorkflowBase):
     pass
@@ -340,6 +418,88 @@ class AuditLogRead(BaseModel):
     action_type: str
     table_name: str
     record_id: int
+
+
+class AppConfigBase(BaseModel):
+    label: str
+    description: Optional[str] = None
+    value: Optional[dict] = None
+
+
+class AppConfigUpdate(AppConfigBase):
+    pass
+
+
+class AppConfigRead(AppConfigBase):
+    key: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OrgMemberBase(BaseModel):
+    full_name: str
+    email: str
+    title: Optional[str] = None
+    org: Optional[str] = None
+    team: Optional[str] = None
+    site: Optional[str] = None
+    manager: Optional[str] = None
+    roles: List[str] = []
+    permissions: List[str] = []
+    status: str = "active"
+    avatar_initials: Optional[str] = None
+
+
+class OrgMemberCreate(OrgMemberBase):
+    pass
+
+
+class OrgMemberRead(OrgMemberBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SavedViewBase(BaseModel):
+    entity_type: str = "workflow"
+    name: str
+    owner_email: str
+    scope: str = "personal"
+    search_text: Optional[str] = None
+    filters: Optional[dict] = None
+    active_ribbon: Optional[str] = None
+    view_mode: Optional[str] = None
+    shared_with_roles: List[str] = []
+    shared_with_teams: List[str] = []
+
+
+class SavedViewCreate(SavedViewBase):
+    pass
+
+
+class SavedViewRead(SavedViewBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RuntimeConfigRead(BaseModel):
+    profile: dict
+    app: dict
+    network: dict
+    organization: dict
+    governance: dict
+    project_governance: dict = {}
+    workflow_defaults: dict
+    roles: List[dict] = []
+    parameters: dict = {}
+    templates: List[dict] = []
+    integrations: dict = {}
+    features: dict = {}
+    current_member: Optional[dict] = None
+
+
+class RuntimeConfigImport(BaseModel):
+    app_configs: List[AppConfigRead] = []
+    members: List[OrgMemberCreate] = []
+    saved_views: List[SavedViewCreate] = []
     previous_state: Optional[dict] = None
     new_state: Optional[dict] = None
     description: Optional[str] = None

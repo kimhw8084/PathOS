@@ -1,0 +1,311 @@
+{
+  "profile_version": 1,
+  "app": {
+    "name": "PathOS",
+    "short_name": "PathOS",
+    "description": "Workflow operations, execution tracking, and automation management platform.",
+    "service_name": "PathOS",
+    "version": "1.0.0"
+  },
+  "network": {
+    "backend": {
+      "host": "0.0.0.0",
+      "port": 8085,
+      "api_prefix": "/api",
+      "allowed_origins": [
+        "http://localhost:5174",
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://127.0.0.1:5174"
+      ]
+    },
+    "frontend": {
+      "host": "0.0.0.0",
+      "port": 5174,
+      "api_url": "http://localhost:8085/api"
+    }
+  },
+  "storage": {
+    "upload_dir": "backend/uploads"
+  },
+  "database": {
+    "url": "sqlite+aiosqlite:///./pathos.db",
+    "sqlite_busy_timeout": 5000
+  },
+  "organization": {
+    "name": "PathOS Workspace",
+    "auth_mode": "Local",
+    "active_member_email": "owner@example.com",
+    "default_workspace": "Collaborative Workflows",
+    "default_visibility": "workspace",
+    "workspace_options": [
+      "Personal Drafts",
+      "Submitted Requests",
+      "Collaborative Workflows",
+      "Standard Operations"
+    ],
+    "lifecycle_options": [
+      "Draft",
+      "In Review",
+      "Changes Requested",
+      "Approved",
+      "Active"
+    ],
+    "mention_directory": [
+      "Primary Owner",
+      "Automation Team",
+      "Process SME",
+      "Operations Leadership"
+    ],
+    "mention_groups": [
+      "Automation Team",
+      "Process SME",
+      "Operations Leadership"
+    ],
+    "reviewer_role_options": [
+      "Process SME",
+      "Automation Team",
+      "Process Owner",
+      "Quality Reviewer"
+    ],
+    "site_options": ["HQ", "Site A", "Site B"],
+    "team_options": ["Operations", "Automation", "Yield Engineering", "Process Control"],
+    "org_options": ["Operations", "Engineering", "Quality"],
+    "directory_seed": [
+      {
+        "full_name": "Haewon Kim",
+        "email": "haewon.kim@company.example",
+        "title": "Process Owner",
+        "org": "Operations",
+        "team": "Workflow Excellence",
+        "site": "HQ",
+        "manager": "Operations Leadership",
+        "roles": ["sme", "reviewer", "admin"],
+        "permissions": ["workflow:edit", "workflow:review", "workflow:approve", "settings:manage"],
+        "avatar_initials": "HK"
+      },
+      {
+        "full_name": "Automation Team",
+        "email": "automation@example.com",
+        "title": "Automation Engineering",
+        "org": "Automation",
+        "team": "Automation Delivery",
+        "site": "HQ",
+        "manager": "Automation Leadership",
+        "roles": ["automation_engineer"],
+        "permissions": ["project:create", "workflow:version"],
+        "avatar_initials": "AT"
+      }
+    ]
+  },
+  "roles": {
+    "catalog": [
+      {
+        "key": "operator",
+        "label": "Operator",
+        "permissions": ["run:log", "workflow:view"]
+      },
+      {
+        "key": "sme",
+        "label": "SME",
+        "permissions": ["workflow:edit", "workflow:review"]
+      },
+      {
+        "key": "reviewer",
+        "label": "Reviewer",
+        "permissions": ["workflow:review", "workflow:approve"]
+      },
+      {
+        "key": "automation_engineer",
+        "label": "Automation Engineer",
+        "permissions": ["project:create", "workflow:version"]
+      },
+      {
+        "key": "manager",
+        "label": "Manager",
+        "permissions": ["analytics:view", "portfolio:view"]
+      },
+      {
+        "key": "admin",
+        "label": "Admin",
+        "permissions": ["settings:manage", "org:manage", "policy:manage"]
+      }
+    ]
+  },
+  "governance": {
+    "approval_sla_days": 5,
+    "recertification_default_days": 90,
+    "stale_after_days": 90,
+    "required_roles_by_workflow_type": {
+      "Verification": ["Process SME", "Reviewer"],
+      "Automation Study": ["Automation Team", "Process Owner"],
+      "Shift Handoff": ["Shift Lead", "Process SME"]
+    },
+    "certification_states": [
+      "Draft",
+      "Pending Review",
+      "Certified",
+      "Needs Recertification"
+    ],
+    "lifecycle_stages": [
+      "Draft",
+      "In Review",
+      "Approved",
+      "Active",
+      "Deprecated",
+      "Archived"
+    ],
+    "review_states": [
+      "Draft",
+      "Requested",
+      "Changes Requested",
+      "Approved"
+    ],
+    "approval_states": [
+      "Draft",
+      "Pending Review",
+      "Certified",
+      "Needs Recertification"
+    ],
+    "status_categories": {
+      "STANDARD": ["Partially Automated", "Fully Automated"],
+      "REVIEW": ["Created", "Workflow Review", "Verification"],
+      "PENDING": ["Backlog", "Automation Planned", "In Automation"]
+    }
+  },
+  "notifications": {
+    "channels": ["in_app"],
+    "review_reminder_days": [2, 5],
+    "stale_workflow_digest_days": 7
+  },
+  "parameters": {
+    "keys": {
+      "tool_id": "TOOL_ID",
+      "hardware_family": "HARDWARE_FAMILY",
+      "workflow_type": "WORKFLOW_TYPE",
+      "prc": "PRC",
+      "trigger_architecture": "TRIGGER_ARCHITECTURE",
+      "output_classification": "OUTPUT_CLASSIFICATION"
+    },
+    "fixed": [
+      "TOOL_ID",
+      "HARDWARE_FAMILY",
+      "WORKFLOW_TYPE",
+      "PRC",
+      "TRIGGER_ARCHITECTURE",
+      "OUTPUT_CLASSIFICATION"
+    ],
+    "defaults": [
+      {
+        "key": "TOOL_ID",
+        "label": "Applicable Tool ID",
+        "description": "Specific tool identifiers.",
+        "values": ["TOOL_01", "TOOL_02", "TOOL_03"]
+      },
+      {
+        "key": "HARDWARE_FAMILY",
+        "label": "Hardware Family",
+        "description": "Hardware family taxonomy.",
+        "values": ["Inspection", "Measurement", "Assembly"]
+      },
+      {
+        "key": "WORKFLOW_TYPE",
+        "label": "Workflow Type",
+        "description": "Workflow classification.",
+        "values": ["Verification", "Automation Study", "Exception Response", "Shift Handoff"]
+      },
+      {
+        "key": "PRC",
+        "label": "PRC",
+        "description": "Process or business classification values.",
+        "values": ["PRC-001", "PRC-002", "PRC-003"]
+      }
+    ]
+  },
+  "workflow_defaults": {
+    "access_control": {
+      "visibility": "private",
+      "viewers": [],
+      "editors": [],
+      "mention_groups": [],
+      "owner": "Primary Owner"
+    },
+    "ownership": {
+      "owner": "Primary Owner",
+      "smes": [],
+      "backup_owners": [],
+      "automation_owner": "",
+      "reviewers": []
+    },
+    "governance": {
+      "lifecycle_stage": "Draft",
+      "review_state": "Draft",
+      "approval_state": "Draft",
+      "required_reviewer_roles": [],
+      "standards_flags": [],
+      "stale_after_days": 90,
+      "review_due_at": "",
+      "last_reviewed_at": ""
+    }
+  },
+  "templates": {
+    "workflow": [
+      {
+        "key": "shift-handoff",
+        "label": "Shift Handoff",
+        "description": "Team-owned handoff workflow with validation and exception capture.",
+        "workflow_type": "Shift Handoff",
+        "required_reviewer_roles": ["Process SME", "Shift Lead"],
+        "standards_flags": ["handoff", "validation", "ownership"],
+        "task_blocks": [
+          { "label": "Receive Trigger", "task_type": "Documentation", "phase_name": "Intake" },
+          { "label": "Validate State", "task_type": "Verification", "phase_name": "Verification" },
+          { "label": "Record Exceptions", "task_type": "Communication", "phase_name": "Exception Review" }
+        ]
+      },
+      {
+        "key": "automation-candidate-study",
+        "label": "Automation Candidate Study",
+        "description": "Capture manual burden, validation, and exception handling before automation scope approval.",
+        "workflow_type": "Automation Study",
+        "required_reviewer_roles": ["Automation Team", "Process Owner"],
+        "standards_flags": ["roi", "exceptions", "automation-ready"],
+        "task_blocks": [
+          { "label": "Capture Manual Step", "task_type": "Hands-on", "phase_name": "Current State" },
+          { "label": "Decision Branch", "task_type": "LOOP", "phase_name": "Exceptions" },
+          { "label": "Document Output", "task_type": "Documentation", "phase_name": "Outcome" }
+        ]
+      }
+    ]
+  },
+  "project_governance": {
+    "columns": ["Scoping", "Planned", "In Progress", "Validation", "Deployed"],
+    "priorities": ["High", "Medium", "Low"],
+    "health_states": ["On Track", "At Risk", "Blocked"]
+  },
+  "integrations": {
+    "auth": {
+      "provider": "local",
+      "mode": "simulated"
+    },
+    "storage": {
+      "provider": "local_uploads"
+    },
+    "notifications": {
+      "provider": "in_app"
+    },
+    "docs": {
+      "provider": "none",
+      "base_url": ""
+    },
+    "project_system": {
+      "provider": "none",
+      "base_url": ""
+    }
+  },
+  "features": {
+    "ai_draft_assist": true,
+    "quality_center": true,
+    "help_center": true
+  }
+}

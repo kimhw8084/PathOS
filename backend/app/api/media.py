@@ -1,20 +1,28 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
+from ..config import get_upload_dir
 
 router = APIRouter()
 
-UPLOAD_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "uploads"))
+UPLOAD_DIR = str(get_upload_dir())
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 
 @router.post("/upload")
 async def upload_media(file: UploadFile = File(...)):
-    if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Only image uploads are supported")
+    allowed_exact = {
+        "application/pdf",
+        "text/plain",
+        "text/markdown",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
+    if not file.content_type or not (file.content_type.startswith("image/") or file.content_type in allowed_exact):
+        raise HTTPException(status_code=400, detail="Only images and common document attachments are supported")
 
     ext = os.path.splitext(file.filename or "")[1] or ".png"
     token = f"{uuid4().hex}{ext}"
@@ -29,6 +37,6 @@ async def upload_media(file: UploadFile = File(...)):
         "label": file.filename or "Uploaded Asset",
         "file_name": file.filename or token,
         "mime_type": file.content_type,
-        "uploaded_at": datetime.utcnow().isoformat(),
-        "type": "image",
+        "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        "type": "image" if file.content_type.startswith("image/") else "document",
     }

@@ -45,6 +45,8 @@ interface WorkflowRegistryProps {
   onCreateNew?: (workspace?: string) => void;
   onClone?: (wf: any) => void;
   onCreateVersion?: (wf: any) => void;
+  onOpenSummary?: (wf: any) => void;
+  runtimeConfig?: any;
 }
 
 // Automation Status Enum from Backend with Explanations
@@ -383,8 +385,16 @@ const ActionMenu = ({ data, onSelect, onDelete, onRestore, onClone, onCreateVers
   </Popover.Root>
 );
 
-const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect, onDelete, onRestore, onCreateNew, onClone, onCreateVersion }) => {
+const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect, onDelete, onRestore, onCreateNew, onClone, onCreateVersion, onOpenSummary, runtimeConfig }) => {
   const [searchText, setSearchText] = useState('');
+  const [savedViews, setSavedViews] = useState<Array<{ id: string; label: string; searchText: string; filters: any; activeRibbon: string }>>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      return JSON.parse(window.localStorage.getItem('pathos-workflow-saved-views') || '[]');
+    } catch {
+      return [];
+    }
+  });
   const [filters, setFilters] = useState<any>({
     prc: [],
     tool_family: [],
@@ -423,10 +433,20 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
   const [showStatusHelp, setShowStatusHelp] = useState(false);
   const [isFilterBarOpen, setFilterBarOpen] = useState(false);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('pathos-workflow-saved-views', JSON.stringify(savedViews));
+  }, [savedViews]);
+
   const calculateAnalytics = (wf: any) => {
     const totalManual = wf.tasks?.reduce((acc: number, t: any) => acc + (t.manual_time_minutes || 0) * (t.occurrence || 1), 0) || 0;
     const totalAuto = wf.tasks?.reduce((acc: number, t: any) => acc + (t.automation_time_minutes || 0) * (t.occurrence || 1), 0) || 0;
-    const cadenceMult = wf.cadence_unit === 'day' ? 7 : wf.cadence_unit === 'month' ? 0.25 : 1;
+    const cadenceMult =
+      wf.cadence_unit === 'day' ? 7 :
+      wf.cadence_unit === 'week' ? 1 :
+      wf.cadence_unit === 'month' ? (1 / 4.345) :
+      wf.cadence_unit === 'year' ? (1 / 52) :
+      1;
     const frequencyPerWeek = (wf.cadence_count || 1) * cadenceMult;
     
     return {
@@ -438,6 +458,28 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     };
   };
 
+  const availablePrcValues = useMemo(
+    () => Array.from(new Set(workflows.map((w: any) => w.prc).filter(Boolean))).sort(),
+    [workflows]
+  );
+
+  const availableToolFamilies = useMemo(
+    () => Array.from(new Set(
+      workflows.flatMap((w: any) =>
+        String(w.tool_family || '')
+          .split(',')
+          .map((item: string) => item.trim())
+          .filter(Boolean)
+      )
+    )).sort(),
+    [workflows]
+  );
+
+  const availableWorkflowTypes = useMemo(
+    () => Array.from(new Set(workflows.map((w: any) => w.workflow_type).filter(Boolean))).sort(),
+    [workflows]
+  );
+
   const filteredWorkflows = useMemo(() => {
     let result = workflows.filter(w => {
       const isDeleted = w.is_deleted;
@@ -447,10 +489,25 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
       
       const matchSearch = w.name?.toLowerCase().includes(searchText.toLowerCase()) || 
                          (w.prc && w.prc.toLowerCase().includes(searchText.toLowerCase())) ||
-                         w.status?.toLowerCase().includes(searchText.toLowerCase());
+                         w.status?.toLowerCase().includes(searchText.toLowerCase()) ||
+                         w.workflow_type?.toLowerCase().includes(searchText.toLowerCase()) ||
+                         w.tool_family?.toLowerCase().includes(searchText.toLowerCase()) ||
+                         w.tool_id?.toLowerCase().includes(searchText.toLowerCase()) ||
+                         w.trigger_type?.toLowerCase().includes(searchText.toLowerCase()) ||
+                         w.output_type?.toLowerCase().includes(searchText.toLowerCase()) ||
+                         w.description?.toLowerCase().includes(searchText.toLowerCase()) ||
+                         w.team?.toLowerCase().includes(searchText.toLowerCase()) ||
+                         w.org?.toLowerCase().includes(searchText.toLowerCase()) ||
+                         w.comments?.some((comment: any) => comment.message?.toLowerCase().includes(searchText.toLowerCase())) ||
+                         w.tasks?.some((task: any) =>
+                           [task.name, task.description, task.task_type, task.phase_name, task.subflow_name, task.owning_team]
+                             .filter(Boolean)
+                             .some((candidate: any) => String(candidate).toLowerCase().includes(searchText.toLowerCase()))
+                         );
       
       const matchPrc = filters.prc.length === 0 || filters.prc.includes(w.prc);
-      const matchTool = filters.tool_family.length === 0 || filters.tool_family.includes(w.tool_family);
+      const workflowToolFamilies = String(w.tool_family || '').split(',').map((item: string) => item.trim()).filter(Boolean);
+      const matchTool = filters.tool_family.length === 0 || filters.tool_family.some((selected: string) => workflowToolFamilies.includes(selected));
       const matchType = filters.type.length === 0 || filters.type.includes(w.workflow_type);
       const matchStatus = filters.status.length === 0 || filters.status.includes(w.status);
       
@@ -506,6 +563,42 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
     setSortConfig({ key: 'created_at', direction: 'desc' });
   };
 
+  const saveCurrentView = () => {
+    if (!searchText.trim() && Object.values(filters).every((value: any) => Array.isArray(value) ? value.length === 0 : !value)) return;
+    setSavedViews(prev => [
+      {
+        id: `saved-view-${Date.now()}`,
+        label: `View ${prev.length + 1}`,
+        searchText,
+        filters,
+        activeRibbon,
+      },
+      ...prev,
+    ].slice(0, 6));
+  };
+
+  const contributionStats = useMemo(() => {
+    const active = workflows.filter((workflow: any) => !workflow.is_deleted);
+    const activeOwner = runtimeConfig?.current_member?.full_name || runtimeConfig?.workflow_defaults?.ownership?.owner;
+    const ownerCount = activeOwner
+      ? active.filter((workflow: any) => (workflow.ownership?.owner || workflow.access_control?.owner) === activeOwner).length
+      : 0;
+    const teamMap = new Map<string, number>();
+    active.forEach((workflow: any) => {
+      const key = workflow.team || workflow.workspace || 'Unassigned';
+      teamMap.set(key, (teamMap.get(key) || 0) + 1);
+    });
+    return {
+      ownerCount,
+      staleCount: active.filter((workflow: any) => {
+        const staleDays = workflow.governance?.stale_after_days || 90;
+        const updated = new Date(workflow.updated_at).getTime();
+        return Date.now() - updated > staleDays * 86400000;
+      }).length,
+      topTeams: Array.from(teamMap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3),
+    };
+  }, [runtimeConfig, workflows]);
+
   return (
     <Tooltip.Provider>
     <div className="flex flex-col h-full animate-apple-in relative">
@@ -524,6 +617,9 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
         </div>
         
         <div className="flex items-center gap-2">
+          <button onClick={saveCurrentView} className="flex items-center gap-2 px-3 h-10 bg-white/[0.03] border border-theme-border hover:border-theme-accent hover:text-white transition-all rounded-lg text-theme-secondary text-[11px] font-bold uppercase tracking-widest">
+            <RefreshCw size={14} /> Save View
+          </button>
           <Popover.Root>
             <Popover.Trigger asChild>
               <button className="flex items-center gap-2 px-3 h-10 bg-white/[0.03] border border-theme-border hover:border-theme-accent hover:text-white transition-all rounded-lg text-theme-secondary text-[11px] font-bold uppercase tracking-widest">
@@ -577,12 +673,47 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
           </button>
           <div className="w-[1px] h-6 bg-theme-border mx-1" />
           <button 
+            data-testid="workflow-create-new"
             onClick={() => onCreateNew?.(activeRibbon)}
             className="btn-apple-primary h-10 !px-6 flex items-center gap-2"
           >
             <Plus size={16} strokeWidth={3} />
             <span className="text-[12px]">Create New</span>
           </button>
+        </div>
+      </div>
+
+      <div className="mb-4 grid grid-cols-[1.15fr_0.85fr] gap-4 px-1">
+        <div className="rounded-2xl border border-theme-border bg-white/[0.02] p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Participation Snapshot</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="rounded-full border border-theme-accent/20 bg-theme-accent/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent">{contributionStats.ownerCount} owned by Haewon</span>
+                <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">{contributionStats.staleCount} stale review candidates</span>
+                {contributionStats.topTeams.map(([team, count]) => <span key={team} className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/65">{team} ({count})</span>)}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-theme-border bg-white/[0.02] p-4">
+          <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Saved Views</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {savedViews.length === 0 && <span className="text-[11px] font-bold text-theme-muted">Save your current filters to speed up review and discovery.</span>}
+            {savedViews.map(view => (
+              <button
+                key={view.id}
+                onClick={() => {
+                  setSearchText(view.searchText);
+                  setFilters(view.filters);
+                  setActiveRibbon(view.activeRibbon);
+                }}
+                className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/65 hover:border-theme-accent/30 hover:text-white transition-all"
+              >
+                {view.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -643,19 +774,19 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
             <div className="p-4 flex flex-wrap gap-4 border-b border-theme-border items-end">
               <MultiSelectFilter 
                 label="PRC" 
-                options={['CD', 'INS', 'RV', 'OCD', 'IM', 'THK', 'CON']} 
+                options={availablePrcValues} 
                 selected={filters.prc} 
                 onChange={vals => setFilters({...filters, prc: vals})} 
               />
               <MultiSelectFilter 
                 label="Tool Family" 
-                options={['Hitachi', 'KLA']} 
+                options={availableToolFamilies} 
                 selected={filters.tool_family} 
                 onChange={vals => setFilters({...filters, tool_family: vals})} 
               />
               <MultiSelectFilter 
                 label="Type" 
-                options={['Equipment', 'Process', 'All']} 
+                options={availableWorkflowTypes} 
                 selected={filters.type} 
                 onChange={vals => setFilters({...filters, type: vals})} 
               />
@@ -840,7 +971,14 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
 
                       <td className="p-0 text-right sticky right-0 bg-[#0a1120] group-hover:bg-[#151d2e] shadow-[-2px_0_5px_rgba(0,0,0,0.3)] z-10 transition-colors" style={{ padding: `${density.rowPadding}px 0` }}>
                         <div className="flex justify-center items-center w-full h-full">
-                          <ActionMenu data={w} onSelect={onSelect} onDelete={onDelete} onRestore={onRestore} onClone={onClone} onCreateVersion={onCreateVersion} />
+                          <div className="flex items-center gap-1">
+                            {onOpenSummary && (
+                              <button onClick={() => onOpenSummary(w)} className="p-2 text-theme-muted hover:text-white transition-all" title="Open Summary">
+                                <Eye size={14} />
+                              </button>
+                            )}
+                            <ActionMenu data={w} onSelect={onSelect} onDelete={onDelete} onRestore={onRestore} onClone={onClone} onCreateVersion={onCreateVersion} />
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -848,7 +986,7 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                 })
               ) : (
                 <tr>
-                  <td colSpan={19} className="py-24 text-center">
+                  <td colSpan={21} className="py-24 text-center">
                     <div className="flex flex-col items-center gap-4 opacity-20">
                       <FilterX size={48} />
                       <p className="text-[14px] font-black uppercase tracking-widest">No matching workflows identified</p>

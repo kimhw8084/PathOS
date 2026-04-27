@@ -27,3 +27,5 @@ reference/
 *.md
 !README.md
 .env
+frontend/playwright-report/
+frontend/test-results/

@@ -28,7 +28,11 @@ async def create_execution(execution_data: WorkflowExecutionCreate, db: AsyncSes
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
 
-    execution = WorkflowExecution(**execution_data.model_dump())
+    payload = execution_data.model_dump()
+    payload["workflow_version"] = payload.get("workflow_version") or workflow.version
+    payload["workflow_name_snapshot"] = payload.get("workflow_name_snapshot") or workflow.name
+    payload["automation_status_snapshot"] = payload.get("automation_status_snapshot") or workflow.status
+    execution = WorkflowExecution(**payload)
     db.add(execution)
     await db.flush()
 
@@ -58,7 +62,12 @@ async def update_execution(execution_id: int, execution_data: WorkflowExecutionC
         raise HTTPException(status_code=404, detail="Workflow not found")
 
     previous_state = {c.name: getattr(execution, c.name) for c in execution.__table__.columns}
-    for key, value in execution_data.model_dump().items():
+    payload = execution_data.model_dump()
+    payload["workflow_version"] = payload.get("workflow_version") or workflow.version
+    payload["workflow_name_snapshot"] = payload.get("workflow_name_snapshot") or workflow.name
+    payload["automation_status_snapshot"] = payload.get("automation_status_snapshot") or workflow.status
+
+    for key, value in payload.items():
         if hasattr(execution, key):
             setattr(execution, key, value)
 
@@ -68,7 +77,7 @@ async def update_execution(execution_id: int, execution_data: WorkflowExecutionC
         table_name="workflow_executions",
         record_id=execution.id,
         previous_state=previous_state,
-        new_state=execution_data.model_dump(mode="json"),
+        new_state=payload,
         description=f"Updated workflow execution {execution.id}",
     )
     await db.commit()
