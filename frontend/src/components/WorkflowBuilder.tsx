@@ -64,6 +64,14 @@ function cn(...inputs: ClassValue[]) {
 
 type BuilderMode = 'guided' | 'advanced';
 type InspectorTab = 'overview' | 'data' | 'exceptions' | 'validation' | 'appendix' | 'governance' | 'history';
+type BuilderDockSide = 'left' | 'right';
+
+interface BuilderLayoutPrefs {
+  inspectorDock: BuilderDockSide;
+  inspectorCollapsed: boolean;
+  showMiniMap: boolean;
+  showCanvasControls: boolean;
+}
 
 interface WorkflowComment {
   id: string;
@@ -105,6 +113,7 @@ interface OwnershipState {
 }
 
 const getWorkflowBuilderDraftKey = (workflowId?: string | number | null) => `pathos-workflow-builder-draft-${workflowId ?? 'new'}`;
+const getWorkflowBuilderLayoutKey = (workflowId?: string | number | null) => `pathos-workflow-builder-layout-${workflowId ?? 'new'}`;
 
 const createWorkflowComment = (scope: WorkflowComment['scope'] = 'workflow', scopeId = ''): WorkflowComment => ({
   id: `comment-${Date.now()}`,
@@ -556,7 +565,7 @@ const ImagePasteField: React.FC<{
   );
 };
 
-const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean, dragging?: boolean }) => {
+const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
   const typeColors: Record<string, string> = {
     'Admin': 'text-blue-400 border-blue-400/30 bg-blue-400/10',
     'Technical': 'text-purple-400 border-purple-400/30 bg-purple-400/10',
@@ -573,8 +582,6 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
   const isTemplate = isTrigger || isOutcome;
   const baseFontSize = data.baseFontSize || 14;
   const titleFontSize = Math.max(22, baseFontSize + 8);
-  const descFontSize = Math.max(12, titleFontSize - 6);
-
   if (isTemplate) {
     return (
       <div className={cn(
@@ -585,25 +592,12 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
           {isTrigger ? "TRIGGER" : "OUTCOME"}
         </div>
         <div className="w-full relative flex justify-center">
-          <h4 
-            className="font-black text-white tracking-tighter leading-tight uppercase text-center cursor-help group/title relative"
+          <h4
+            className="max-w-full text-center font-black text-white tracking-tight leading-tight uppercase"
             style={{ fontSize: `${titleFontSize}px` }}
+            title={data.label}
           >
             {data.label}
-            {!dragging && (
-              <div className="absolute top-full left-0 bg-[#0b1221]/96 border-t-2 border-white/20 p-5 sm:p-6 rounded-[24px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden text-left" style={{ width: 'min(90vw, 42rem)' }}>
-                 <div className={cn("absolute top-0 left-0 w-full h-1", isTrigger ? "bg-cyan-500" : "bg-rose-500")} />
-                 <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 2}px` }}>
-                   {data.label}
-                 </p>
-                 <div className="flex items-center gap-3 mb-4">
-                    <span className={cn("px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest", isTrigger ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30" : "bg-rose-500/20 text-rose-400 border border-rose-500/30")}>
-                      {isTrigger ? "Input Origin" : "Process Termination"}
-                    </span>
-                 </div>
-                 <p className="text-white/80 font-medium leading-relaxed italic text-left" style={{ fontSize: `${descFontSize}px` }}>{data.description || (isTrigger ? 'Initial state that activates this workflow sequence.' : 'The final deliverable or state reached upon successful completion.')}</p>
-              </div>
-            )}
           </h4>
         </div>
         
@@ -656,17 +650,12 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
         </div>
         
         <div className="space-y-1 relative">
-          <h4 
-            className="font-black text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-2 cursor-help overflow-hidden group/title min-h-[2.4em]"
+          <h4
+            className="font-black text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-2 overflow-hidden min-h-[2.4em]"
             style={{ fontSize: `${titleFontSize}px` }}
+            title={data.label || 'Untitled Task'}
           >
             {data.label || "Untitled Task"}
-            {!dragging && (
-              <div className="absolute top-full left-0 bg-[#0f172a]/95 border-t-2 border-theme-accent/50 p-5 sm:p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden text-left" style={{ width: 'min(90vw, 42rem)' }}>
-                 <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 2}px` }}>{data.label}</p>
-                 <p className="text-white/80 font-medium leading-relaxed italic text-left" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
-              </div>
-            )}
           </h4>
         </div>
 
@@ -733,10 +722,9 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
   );
 };
 
-const DiamondNode = ({ data, selected, dragging }: { data: any, selected: boolean, dragging?: boolean }) => {
+const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
   const baseFontSize = data.baseFontSize || 14;
   const titleFontSize = Math.max(22, baseFontSize + 8);
-  const descFontSize = Math.max(12, titleFontSize - 4);
   return (
     <div className={cn("relative w-[clamp(220px,24vw,280px)] h-[clamp(220px,24vw,280px)] flex items-center justify-center transition-all duration-300 hover:z-[1000]", selected ? 'scale-105 z-50' : 'z-10')}>
       <div className={cn("absolute w-[clamp(174px,17vw,198px)] h-[clamp(174px,17vw,198px)] rotate-45 border-2 transition-all duration-300 bg-[#0b1221]/96 rounded-[28px]", selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20', data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : '')} />
@@ -752,17 +740,12 @@ const DiamondNode = ({ data, selected, dragging }: { data: any, selected: boolea
       <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !bottom-0 shadow-lg z-20 opacity-0" />
 
       <div className="relative z-40 flex flex-col items-center justify-center p-8 w-full h-full pointer-events-none">
-        <span 
-          className="font-bold text-white text-center leading-tight break-words max-w-[180px] line-clamp-3 overflow-visible cursor-help hover:text-amber-400 transition-colors group/title pointer-events-auto relative"
+        <span
+          className="max-w-[180px] text-center font-bold text-white leading-tight break-words line-clamp-3 transition-colors"
           style={{ fontSize: `${titleFontSize}px` }}
+          title={data.label || 'Condition'}
         >
           {data.label || "Condition"}
-          {!dragging && (
-            <div className="absolute top-[85%] left-0 bg-[#0b1221]/96 border-t-2 border-amber-400/50 p-5 sm:p-6 rounded-[24px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 text-left" style={{ width: 'min(90vw, 42rem)' }}>
-               <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight" style={{ fontSize: `${titleFontSize - 4}px` }}>{data.label || 'Condition'}</p>
-               <p className="text-white/80 font-medium leading-relaxed italic" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
-            </div>
-          )}
         </span>
       </div>
     {data.validation_needed && (
@@ -871,6 +854,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('overview');
   const [inspectorWidth, setInspectorWidth] = useState(450);
+  const [layoutPrefs, setLayoutPrefs] = useState<BuilderLayoutPrefs>({
+    inspectorDock: 'right',
+    inspectorCollapsed: false,
+    showMiniMap: true,
+    showCanvasControls: true,
+  });
   const [baseFontSize] = useState(14);
   const [defaultEdgeStyle, setDefaultEdgeStyle] = useState<'bezier' | 'smoothstep' | 'straight'>('smoothstep');
   const [builderMode, setBuilderMode] = useState<BuilderMode>('guided');
@@ -913,6 +902,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   const draftSaveTimer = useRef<number | null>(null);
   const draftRestoreAttempted = useRef(false);
   const initialSnapshotRef = useRef<any>(null);
+  const layoutPrefsKey = useMemo(() => getWorkflowBuilderLayoutKey(workflow?.id), [workflow?.id]);
 
   const toggleSection = (section: string) => { setExpandedSections(prev => ({ ...prev, [section]: !prev[section] })); };
   const toggleItem = (itemId: string) => { setOpenItems(prev => ({ ...prev, [itemId]: !prev[itemId] })); };
@@ -980,6 +970,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   }, [lastDraftSavedAt]);
 
   const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every((value, index) => value === b[index]);
+  const updateLayoutPrefs = useCallback((updates: Partial<BuilderLayoutPrefs>) => {
+    setLayoutPrefs((prev) => ({ ...prev, ...updates }));
+  }, []);
 
   const builderSuggestions = useMemo(() => {
     const templateMatches = rankItemsByQuery(
@@ -1851,6 +1844,40 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
 
   useEffect(() => {
     if (!workflow?.id || typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(layoutPrefsKey);
+      if (!raw) {
+        setLayoutPrefs({
+          inspectorDock: 'right',
+          inspectorCollapsed: false,
+          showMiniMap: true,
+          showCanvasControls: true,
+        });
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      setLayoutPrefs({
+        inspectorDock: parsed?.inspectorDock === 'left' ? 'left' : 'right',
+        inspectorCollapsed: Boolean(parsed?.inspectorCollapsed),
+        showMiniMap: parsed?.showMiniMap !== false,
+        showCanvasControls: parsed?.showCanvasControls !== false,
+      });
+    } catch (error) {
+      console.warn('[WorkflowBuilder] Failed to restore layout prefs:', error);
+    }
+  }, [layoutPrefsKey, workflow?.id]);
+
+  useEffect(() => {
+    if (!workflow?.id || typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(layoutPrefsKey, JSON.stringify(layoutPrefs));
+    } catch (error) {
+      console.warn('[WorkflowBuilder] Failed to persist layout prefs:', error);
+    }
+  }, [layoutPrefs, layoutPrefsKey, workflow?.id]);
+
+  useEffect(() => {
+    if (!workflow?.id || typeof window === 'undefined') return;
     if (draftRestoreAttempted.current) return;
     try {
       const raw = window.localStorage.getItem(workflowBuilderDraftKey);
@@ -2429,8 +2456,75 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         </div>
         </div>
 
-        <div className="flex-1 relative min-h-0">
-          <ReactFlow 
+        <div className="flex-1 relative min-h-0 flex flex-col">
+          <div className="shrink-0 border-b border-white/10 bg-[#0a1120]/95 backdrop-blur-xl px-3 py-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/5 p-1">
+                <button onClick={() => setBuilderMode('guided')} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap", builderMode === 'guided' ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>Guided</button>
+                <button onClick={() => setBuilderMode('advanced')} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap", builderMode === 'advanced' ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>Advanced</button>
+              </div>
+              <button onClick={() => setInspectorTab('validation')} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border", validationErrorCount > 0 ? "border-status-error/30 bg-status-error/10 text-status-error" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+                {validationErrorCount} Errors · {validationWarningCount} Warnings
+              </button>
+              <div className={cn("rounded-2xl border px-3 py-2", saveStatus === 'conflict' ? "border-status-error/30 bg-status-error/10 text-status-error" : saveStatus === 'saving' ? "border-amber-500/20 bg-amber-500/10 text-amber-300" : saveStatus === 'saved' ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/5 text-white/45")}>
+                <p className="text-[8px] font-black uppercase tracking-[0.18em]">Save</p>
+                <p className="text-[9px] font-bold leading-none">{saveStatus === 'conflict' ? 'Conflict' : saveStatus === 'saving' ? 'Saving' : saveStatus === 'saved' ? 'Saved' : 'Idle'}</p>
+              </div>
+              <button onClick={() => setFocusMode((prev) => !prev)} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border", focusMode ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+                {focusMode ? 'Exit Focus' : 'Focus Mode'}
+              </button>
+              <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/5 p-1">
+                <button onClick={() => updateLayoutPrefs({ inspectorDock: 'left' })} className={cn("rounded-xl px-3 py-2 text-[9px] font-black uppercase transition-all", layoutPrefs.inspectorDock === 'left' ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>Dock Left</button>
+                <button onClick={() => updateLayoutPrefs({ inspectorDock: 'right' })} className={cn("rounded-xl px-3 py-2 text-[9px] font-black uppercase transition-all", layoutPrefs.inspectorDock === 'right' ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>Dock Right</button>
+                <button onClick={() => updateLayoutPrefs({ inspectorCollapsed: !layoutPrefs.inspectorCollapsed })} className={cn("rounded-xl px-3 py-2 text-[9px] font-black uppercase transition-all", layoutPrefs.inspectorCollapsed ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>{layoutPrefs.inspectorCollapsed ? 'Expand Inspector' : 'Collapse Inspector'}</button>
+              </div>
+              <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/5 p-1">
+                <button onClick={() => updateLayoutPrefs({ showMiniMap: !layoutPrefs.showMiniMap })} className={cn("rounded-xl px-3 py-2 text-[9px] font-black uppercase transition-all", layoutPrefs.showMiniMap ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>{layoutPrefs.showMiniMap ? 'Hide MiniMap' : 'Show MiniMap'}</button>
+                <button onClick={() => updateLayoutPrefs({ showCanvasControls: !layoutPrefs.showCanvasControls })} className={cn("rounded-xl px-3 py-2 text-[9px] font-black uppercase transition-all", layoutPrefs.showCanvasControls ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>{layoutPrefs.showCanvasControls ? 'Hide Controls' : 'Show Controls'}</button>
+              </div>
+              <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/5 p-1">
+                <button onClick={() => zoomOut({ duration: 150 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">-</button>
+                <button onClick={() => fitView({ padding: 0.12, duration: 250 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">Fit</button>
+                <button onClick={() => zoomIn({ duration: 150 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">+</button>
+                <button onClick={() => setViewport({ x: 0, y: 0, zoom: 1 }, { duration: 150 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">Reset</button>
+              </div>
+              {selectedItemCount > 0 && (
+                <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+                  <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/55">
+                    {selectedNodeIds.length} Nodes · {selectedEdgeIds.length} Edges Selected
+                  </span>
+                  <button onClick={clearSelection} className="rounded-xl border border-white/10 bg-black/20 px-2 py-1 text-[8px] font-black uppercase text-white/45 hover:text-white transition-colors">
+                    Clear
+                  </button>
+                </div>
+              )}
+              {draftRestored && (
+                <button onClick={clearBuilderDraft} className="px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border border-theme-accent/20 bg-theme-accent/10 text-theme-accent hover:bg-theme-accent hover:text-white">
+                  Clear Draft
+                </button>
+              )}
+              <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Draft</p>
+                <p className="text-[9px] font-bold text-white/70 leading-none">{draftSavedAtLabel}</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Server</p>
+                <p className="text-[9px] font-bold text-white/70 leading-none">{savedAtLabel}</p>
+              </div>
+              <input
+                value={builderSearch}
+                onChange={(e) => setBuilderSearch(e.target.value)}
+                placeholder="Search templates, workflows, tasks"
+                className="min-w-[220px] flex-1 sm:flex-none sm:w-[280px] bg-black/40 border border-white/10 rounded-2xl px-4 py-2.5 text-[11px] text-white outline-none focus:border-theme-accent"
+              />
+              <div className="ml-auto flex flex-wrap gap-2">
+                <button data-testid="builder-add-task" onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2 bg-theme-accent text-white rounded-2xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap"><Plus size={12} /> Add Task</button>
+                <button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-2xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap"><Plus size={12} /> Add Condition</button>
+              </div>
+            </div>
+          </div>
+          <div className="relative flex-1 min-h-0">
+            <ReactFlow 
             nodes={nodes} 
             edges={edges} 
             onNodesChange={onNodesChange} 
@@ -2458,71 +2552,19 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             connectionMode={ConnectionMode.Loose} 
             connectionLineType={defaultEdgeStyle === 'straight' ? ConnectionLineType.Straight : defaultEdgeStyle === 'smoothstep' ? ConnectionLineType.SmoothStep : ConnectionLineType.Bezier} 
             className="react-flow-industrial"
-          >
-            <Background color="#1e293b" gap={30} size={1} />
-            <Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl overflow-hidden" />
-            <MiniMap
-              nodeColor={(node) => node.data?.interface === 'TRIGGER' ? '#22d3ee' : node.data?.interface === 'OUTCOME' ? '#fb7185' : node.type === 'diamond' ? '#f59e0b' : '#60a5fa'}
-              maskColor="rgba(3, 7, 18, 0.75)"
-              className="!bg-[#0a1120] !border !border-white/10 !rounded-2xl overflow-hidden"
-              pannable
-              zoomable
-            />
-          </ReactFlow>
-          <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center gap-2 p-2 bg-[#0a1120]/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:top-6">
-            <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-2xl p-1">
-              <button onClick={() => setBuilderMode('guided')} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap", builderMode === 'guided' ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>Guided</button>
-              <button onClick={() => setBuilderMode('advanced')} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap", builderMode === 'advanced' ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>Advanced</button>
-            </div>
-            <button onClick={() => setInspectorTab('validation')} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border", validationErrorCount > 0 ? "border-status-error/30 bg-status-error/10 text-status-error" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
-              {validationErrorCount} Errors · {validationWarningCount} Warnings
-            </button>
-            <div className={cn("rounded-2xl border px-3 py-2", saveStatus === 'conflict' ? "border-status-error/30 bg-status-error/10 text-status-error" : saveStatus === 'saving' ? "border-amber-500/20 bg-amber-500/10 text-amber-300" : saveStatus === 'saved' ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/5 text-white/45")}>
-              <p className="text-[8px] font-black uppercase tracking-[0.18em]">Save</p>
-              <p className="text-[9px] font-bold leading-none">{saveStatus === 'conflict' ? 'Conflict' : saveStatus === 'saving' ? 'Saving' : saveStatus === 'saved' ? 'Saved' : 'Idle'}</p>
-            </div>
-            <button onClick={() => setFocusMode((prev) => !prev)} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border", focusMode ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
-              {focusMode ? 'Exit Focus' : 'Focus Mode'}
-            </button>
-            <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/5 p-1">
-              <button onClick={() => zoomOut({ duration: 150 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">-</button>
-              <button onClick={() => fitView({ padding: 0.12, duration: 250 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">Fit</button>
-              <button onClick={() => zoomIn({ duration: 150 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">+</button>
-              <button onClick={() => setViewport({ x: 0, y: 0, zoom: 1 }, { duration: 150 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">Reset</button>
-            </div>
-            {selectedItemCount > 0 && (
-              <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
-                <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/55">
-                  {selectedNodeIds.length} Nodes · {selectedEdgeIds.length} Edges Selected
-                </span>
-                <button onClick={clearSelection} className="rounded-xl border border-white/10 bg-black/20 px-2 py-1 text-[8px] font-black uppercase text-white/45 hover:text-white transition-colors">
-                  Clear
-                </button>
-              </div>
-            )}
-            {draftRestored && (
-              <button onClick={clearBuilderDraft} className="px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border border-theme-accent/20 bg-theme-accent/10 text-theme-accent hover:bg-theme-accent hover:text-white">
-                Clear Draft
-              </button>
-            )}
-            <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Draft</p>
-              <p className="text-[9px] font-bold text-white/70 leading-none">{draftSavedAtLabel}</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Server</p>
-              <p className="text-[9px] font-bold text-white/70 leading-none">{savedAtLabel}</p>
-            </div>
-            <input
-              value={builderSearch}
-              onChange={(e) => setBuilderSearch(e.target.value)}
-              placeholder="Search templates, workflows, tasks"
-              className="min-w-[220px] flex-1 sm:flex-none sm:w-[280px] bg-black/40 border border-white/10 rounded-2xl px-4 py-2.5 text-[11px] text-white outline-none focus:border-theme-accent"
-            />
-            <div className="ml-auto flex flex-wrap gap-2">
-              <button data-testid="builder-add-task" onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2 bg-theme-accent text-white rounded-2xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap"><Plus size={12} /> Add Task</button>
-              <button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-2xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap"><Plus size={12} /> Add Condition</button>
-            </div>
+            >
+              <Background color="#1e293b" gap={30} size={1} />
+              {layoutPrefs.showCanvasControls && <Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl overflow-hidden" />}
+              {layoutPrefs.showMiniMap && (
+                <MiniMap
+                  nodeColor={(node) => node.data?.interface === 'TRIGGER' ? '#22d3ee' : node.data?.interface === 'OUTCOME' ? '#fb7185' : node.type === 'diamond' ? '#f59e0b' : '#60a5fa'}
+                  maskColor="rgba(3, 7, 18, 0.75)"
+                  className="!bg-[#0a1120] !border !border-white/10 !rounded-2xl overflow-hidden"
+                  pannable
+                  zoomable
+                />
+              )}
+            </ReactFlow>
           </div>
           {saveStatus === 'conflict' && saveConflict && (
             <div className="absolute top-[86px] left-4 right-4 z-30 rounded-2xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-[11px] font-bold text-status-error shadow-2xl sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
@@ -2538,7 +2580,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
       </div>
 
       {!focusMode && (
-        <div className="relative border-t xl:border-t-0 xl:border-l border-white/10 bg-[#09111d] flex flex-col z-[70] w-full xl:[width:var(--inspector-width)] xl:flex-none h-full min-h-0 overflow-hidden" style={{ '--inspector-width': `${inspectorWidth}px` } as React.CSSProperties}>
+        <div className={cn(
+          "relative border-t xl:border-t-0 xl:border-l border-white/10 bg-[#09111d] flex flex-col z-[70] w-full xl:flex-none h-full min-h-0 overflow-hidden",
+          layoutPrefs.inspectorDock === 'left' ? "xl:order-first" : "xl:order-last",
+          layoutPrefs.inspectorCollapsed ? "xl:w-[92px]" : "xl:[width:var(--inspector-width)]",
+        )} style={{ '--inspector-width': `${inspectorWidth}px` } as React.CSSProperties}>
         <div onMouseDown={handleMouseDown} className="hidden xl:block absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent z-50" />
         <div className="min-h-14 flex border-b border-white/10 bg-white/[0.02] overflow-x-auto">
           {[ 
@@ -2553,8 +2599,29 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             <button key={t.id} onClick={() => setInspectorTab(t.id as any)} className={cn("flex-1 min-w-[84px] flex flex-col items-center justify-center gap-0.5 border-b-2 px-2", inspectorTab === t.id ? 'border-theme-accent bg-theme-accent/10 text-white' : 'border-transparent text-white/20 hover:text-white transition-all')}>{t.icon}<span className="text-[8px] font-black uppercase whitespace-nowrap">{t.label}</span></button>
           ))}
           {selectedEdgeId && (<div className="flex-1 min-w-[84px] flex flex-col items-center justify-center gap-0.5 border-b-2 border-theme-accent bg-theme-accent/10 text-white px-2"><Link2 size={12} /><span className="text-[8px] font-black uppercase whitespace-nowrap">Edge</span></div>)}
+          <button onClick={() => updateLayoutPrefs({ inspectorCollapsed: !layoutPrefs.inspectorCollapsed })} className="px-3 text-[8px] font-black uppercase tracking-[0.18em] text-white/35 hover:text-white border-l border-white/10">
+            {layoutPrefs.inspectorCollapsed ? 'Open' : 'Collapse'}
+          </button>
         </div>
-        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar p-4 sm:p-6">
+        {layoutPrefs.inspectorCollapsed ? (
+          <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center p-4">
+            <div className="flex flex-col items-stretch gap-2 w-full">
+              <button onClick={() => updateLayoutPrefs({ inspectorCollapsed: false })} className="rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-3 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white">
+                Open Inspector
+              </button>
+              <button onClick={() => updateLayoutPrefs({ inspectorDock: layoutPrefs.inspectorDock === 'left' ? 'right' : 'left' })} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-white/45 hover:text-white">
+                Dock {layoutPrefs.inspectorDock === 'left' ? 'Right' : 'Left'}
+              </button>
+              <button onClick={() => updateLayoutPrefs({ showMiniMap: !layoutPrefs.showMiniMap })} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-white/45 hover:text-white">
+                {layoutPrefs.showMiniMap ? 'Hide' : 'Show'} MiniMap
+              </button>
+              <button onClick={() => updateLayoutPrefs({ showCanvasControls: !layoutPrefs.showCanvasControls })} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-white/45 hover:text-white">
+                {layoutPrefs.showCanvasControls ? 'Hide' : 'Show'} Controls
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar p-4 sm:p-6">
           {selectedTaskId && selectedTask ? (
             <div className="space-y-8 animate-apple-in">
               {selectedNodeIds.length > 1 && !selectedNodesAreProtected && (
@@ -3310,8 +3377,9 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             </div>
           )}
         </div>
-        </div>
       )}
+      </div>
+    )}
     </div>
   );
 };
