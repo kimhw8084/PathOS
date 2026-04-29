@@ -554,11 +554,16 @@ async def test_company_rollout_overview_search_inbox_and_governance_actions(api_
     assert create_response.status_code == 200, create_response.text
     workflow_id = create_response.json()["id"]
 
+    related_response = await api_client.post("/api/workflows", json=workflow_payload())
+    assert related_response.status_code == 200, related_response.text
+    related_workflow_id = related_response.json()["id"]
+
     payload = workflow_payload()
     payload["name"] = "Governance Search Workflow"
     payload["workspace"] = "Collaborative Workflows"
     payload["team"] = "Process Control"
     payload["org"] = "Metrology"
+    payload["related_workflow_ids"] = [related_workflow_id]
     payload["tasks"] = workflow_tasks()
     payload["edges"] = [
         {"source": "node-trigger", "target": "node-task", "label": ""},
@@ -566,6 +571,7 @@ async def test_company_rollout_overview_search_inbox_and_governance_actions(api_
     ]
     update_response = await api_client.put(f"/api/workflows/{workflow_id}", json=payload)
     assert update_response.status_code == 200, update_response.text
+    assert update_response.json()["related_workflow_ids"] == [related_workflow_id]
 
     search_response = await api_client.get("/api/workflows/global-search", params={"q": "governance search review"})
     assert search_response.status_code == 200, search_response.text

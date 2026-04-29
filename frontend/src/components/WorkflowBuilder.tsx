@@ -970,8 +970,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   );
   const selectedNodesAreProtected = selectedTasks.some((task) => task.interface === 'TRIGGER' || task.interface === 'OUTCOME');
   const selectedItemCount = selectedNodeIds.length + selectedEdgeIds.length;
-  const savedAtLabel = useMemo(() => lastSavedAt ? new Date(lastSavedAt).toLocaleString() : 'Not saved yet', [lastSavedAt]);
-  const draftSavedAtLabel = useMemo(() => lastDraftSavedAt ? new Date(lastDraftSavedAt).toLocaleString() : 'Waiting for local draft save', [lastDraftSavedAt]);
+  const savedAtLabel = useMemo(() => {
+    const parsed = parseIsoDate(lastSavedAt);
+    return parsed ? parsed.toLocaleString() : 'Not saved yet';
+  }, [lastSavedAt]);
+  const draftSavedAtLabel = useMemo(() => {
+    const parsed = parseIsoDate(lastDraftSavedAt);
+    return parsed ? parsed.toLocaleString() : 'Waiting for local draft save';
+  }, [lastDraftSavedAt]);
 
   const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every((value, index) => value === b[index]);
 
@@ -1212,13 +1218,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         return changedFields.length > 0 ? { id: String(task.node_id || task.id), name: task.name, changedFields } : null;
       })
       .filter(Boolean) as Array<{ id: string; name: string; changedFields: string[] }>;
-    const baselineEdges = new Map((baseline.edges || []).map((edge: any) => [String(edge.id || `${edge.source}::${edge.target}::${edge.label || ''}`), edge]));
-    const currentEdges = new Map(edges.map((edge) => [String(edge.id || `${edge.source}::${edge.target}::${edge.data?.label || ''}`), edge]));
-    const addedEdges = edges.filter((edge) => !baselineEdges.has(String(edge.id || `${edge.source}::${edge.target}::${edge.data?.label || ''}`)));
-    const removedEdges = (baseline.edges || []).filter((edge: any) => !currentEdges.has(String(edge.id || `${edge.source}::${edge.target}::${edge.label || ''}`)));
+    const edgeKey = (edge: any) => String(edge.id || `${edge.source}::${edge.target}`);
+    const baselineEdges = new Map((baseline.edges || []).map((edge: any) => [edgeKey(edge), edge]));
+    const currentEdges = new Map(edges.map((edge) => [edgeKey(edge), edge]));
+    const addedEdges = edges.filter((edge) => !baselineEdges.has(edgeKey(edge)));
+    const removedEdges = (baseline.edges || []).filter((edge: any) => !currentEdges.has(edgeKey(edge)));
     const changedEdges = edges
       .map((edge) => {
-        const baselineEdge = baselineEdges.get(String(edge.id || `${edge.source}::${edge.target}::${edge.data?.label || ''}`));
+        const baselineEdge = baselineEdges.get(edgeKey(edge));
         if (!baselineEdge) return null;
         const changedFields = ['source', 'target', 'label', 'edge_style', 'line_style', 'color'].filter((key) => {
           const currentValue = key === 'label' ? edge.data?.label : key === 'edge_style' ? edge.data?.edgeStyle : key === 'line_style' ? edge.data?.lineStyle : key === 'color' ? edge.data?.color : (edge as any)[key];
@@ -1274,14 +1281,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     const analysis = workflow?.analysis || {};
     const topRisks = ((analysis.task_diagnostic_summary || {}).top_risk_nodes || []).slice(0, 5);
     return {
-      reviewQueue: workflow?.review_requests?.filter((request: any) => request.status === 'open').length || 0,
+      reviewQueue: reviewRequests.filter((request) => request.status === 'open').length,
       unresolvedComments: workflowComments.filter((comment) => !comment.resolved).length,
       bottlenecks: (analysis.bottlenecks || []).slice(0, 3),
       topRisks,
       standardsFlags: (workflow?.governance?.standards_flags || []).slice(0, 5),
       auditEntries: auditTrail.length,
     };
-  }, [auditTrail.length, workflow, workflowComments]);
+  }, [auditTrail.length, reviewRequests, workflow, workflowComments]);
 
   const commentThreads = useMemo(() => {
     const byParent = new Map<string | undefined, WorkflowComment[]>();
@@ -2260,7 +2267,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
           return;
         }
         setSaveStatus('error');
-        throw error;
+        toast.error(error?.response?.data?.message || error?.message || 'Failed to save workflow.');
       });
     } catch (err) {
       setSaveStatus('error');
@@ -2501,6 +2508,16 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               <button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-2xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap"><Plus size={12} /> Add Condition</button>
             </div>
           </div>
+          {saveStatus === 'conflict' && saveConflict && (
+            <div className="absolute top-[86px] left-4 right-4 z-30 rounded-2xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-[11px] font-bold text-status-error shadow-2xl sm:left-1/2 sm:right-auto sm:-translate-x-1/2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span>{saveConflict.message || 'Save conflict detected. Reload the latest workflow before saving again.'}</span>
+                <button onClick={() => window.location.reload()} className="rounded-xl border border-status-error/20 bg-black/20 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-status-error">
+                  Reload Latest
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

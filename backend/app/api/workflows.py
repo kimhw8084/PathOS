@@ -243,6 +243,133 @@ def _rollback_preview(workflow: Workflow) -> dict:
     }
 
 
+def _workflow_quality_issues(workflow: Workflow) -> list[dict]:
+    issues: list[dict] = []
+    metadata_fields = {
+        "name": (workflow.name or "").strip(),
+        "description": (workflow.description or "").strip(),
+        "prc": (workflow.prc or "").strip(),
+        "workflow_type": (workflow.workflow_type or "").strip(),
+        "org": (workflow.org or "").strip(),
+        "team": (workflow.team or "").strip(),
+        "trigger_type": (workflow.trigger_type or "").strip(),
+        "trigger_description": (workflow.trigger_description or "").strip(),
+        "output_type": (workflow.output_type or "").strip(),
+        "output_description": (workflow.output_description or "").strip(),
+    }
+    required_fields = [
+        ("name", "Workflow name is required."),
+        ("description", "Workflow description is required."),
+        ("prc", "PRC is required."),
+        ("workflow_type", "Workflow type is required."),
+        ("org", "Organization is required."),
+        ("team", "Team is required."),
+        ("trigger_type", "Trigger type is required."),
+        ("trigger_description", "Trigger description is required."),
+        ("output_type", "Output type is required."),
+        ("output_description", "Output description is required."),
+    ]
+    for field, message in required_fields:
+        if len(metadata_fields[field]) == 0:
+            issues.append({"severity": "error", "code": f"workflow.{field}", "message": message})
+
+    if float(workflow.cadence_count or 0) <= 0:
+        issues.append({"severity": "error", "code": "workflow.cadence_count", "message": "Cadence count must be greater than zero."})
+    if not workflow.repeatability_check:
+        issues.append({"severity": "error", "code": "workflow.repeatability_check", "message": "Only repeatable, standard workflows should pass intake."})
+    if workflow.equipment_required and not (workflow.equipment_state or "").strip():
+        issues.append({"severity": "error", "code": "workflow.equipment_state", "message": "Equipment state is required when equipment is involved."})
+
+    access_control = workflow.access_control or {}
+    ownership = workflow.ownership or {}
+    if not (access_control.get("owner") or ownership.get("owner")):
+        issues.append({"severity": "warning", "code": "access.owner", "message": "Access control owner should be populated."})
+    if not (access_control.get("visibility") or "").strip():
+        issues.append({"severity": "warning", "code": "access.visibility", "message": "Access control visibility should be populated."})
+    workflow_type = (workflow.workflow_type or "").lower()
+    if "handoff" in workflow_type:
+        if not (ownership.get("owner") or "").strip():
+            issues.append({"severity": "error", "code": "workflow.handoff_owner", "message": "Shift handoff workflows require a named workflow owner."})
+        if len(_ensure_list((workflow.governance or {}).get("required_reviewer_roles"))) == 0:
+            issues.append({"severity": "error", "code": "workflow.handoff_review_roles", "message": "Shift handoff workflows require reviewer roles."})
+        if len(_ensure_list(ownership.get("smes"))) == 0:
+            issues.append({"severity": "warning", "code": "workflow.handoff_sme", "message": "Shift handoff workflows should identify at least one SME."})
+    if "automation" in workflow_type:
+        if not (ownership.get("automation_owner") or "").strip():
+            issues.append({"severity": "error", "code": "workflow.automation_owner", "message": "Automation study workflows require an automation owner."})
+        if not (workflow.quick_capture_notes or "").strip() and not (workflow.version_notes or "").strip():
+            issues.append({"severity": "warning", "code": "workflow.automation_context", "message": "Automation-oriented workflows should capture current-state notes or version rationale."})
+        if len(_ensure_list(workflow.review_requests)) == 0:
+            issues.append({"severity": "warning", "code": "workflow.automation_review_request", "message": "Automation-oriented workflows should start with at least one review request."})
+
+    tasks = [task for task in getattr(workflow, "tasks", []) or [] if not getattr(task, "is_deleted", False)]
+    for task in tasks:
+        node_id = str(getattr(task, "node_id", None) or getattr(task, "id", None))
+        if not (getattr(task, "name", "") or "").strip():
+            issues.append({"severity": "error", "code": "task.name", "message": "Task name is required.", "targetId": node_id})
+        if not (getattr(task, "description", "") or "").strip():
+            issues.append({"severity": "warning", "code": "task.description", "message": "Task description should be populated.", "targetId": node_id})
+        if getattr(task, "validation_needed", False) and not _ensure_list(getattr(task, "verification_steps", None)):
+            issues.append({"severity": "error", "code": "task.validation_step", "message": "Verification workflows require validation steps.", "targetId": node_id})
+
+    edges = _ensure_list(workflow.edges)
+    task_ids = {str(getattr(task, "node_id", None) or getattr(task, "id", None)) for task in tasks}
+    outgoing = {task_id: [] for task_id in task_ids}
+    incoming = {task_id: [] for task_id in task_ids}
+    for edge in edges:
+        source = str((edge or {}).get("source") or "")
+        target = str((edge or {}).get("target") or "")
+        if source not in task_ids or target not in task_ids:
+            continue
+        outgoing[source].append(edge)
+        incoming[target].append(edge)
+        if source == target:
+            issues.append({"severity": "error", "code": "edge.self_loop", "message": "Self-loop edges are not allowed.", "targetId": source})
+
+    trigger_task = next((task for task in tasks if getattr(task, "interface", None) == "TRIGGER"), None)
+    outcome_task = next((task for task in tasks if getattr(task, "interface", None) == "OUTCOME"), None)
+    if trigger_task and incoming.get(str(getattr(trigger_task, "node_id", None) or getattr(trigger_task, "id", None))):
+        issues.append({"severity": "error", "code": "graph.trigger_incoming", "message": "Trigger nodes cannot have incoming routes.", "targetId": str(getattr(trigger_task, "node_id", None) or getattr(trigger_task, "id", None))})
+    if outcome_task and outgoing.get(str(getattr(outcome_task, "node_id", None) or getattr(outcome_task, "id", None))):
+        issues.append({"severity": "error", "code": "graph.outcome_outgoing", "message": "Outcome nodes cannot have outgoing routes.", "targetId": str(getattr(outcome_task, "node_id", None) or getattr(outcome_task, "id", None))})
+
+    if len(task_ids) > 1:
+        adjacency = {task_id: set() for task_id in task_ids}
+        reverse_adjacency = {task_id: set() for task_id in task_ids}
+        for edge in edges:
+            source = str((edge or {}).get("source") or "")
+            target = str((edge or {}).get("target") or "")
+            if source in adjacency and target in adjacency:
+                adjacency[source].add(target)
+                reverse_adjacency[target].add(source)
+        start_nodes = [task_id for task_id in task_ids if len(reverse_adjacency.get(task_id, set())) == 0]
+        end_nodes = [task_id for task_id in task_ids if len(adjacency.get(task_id, set())) == 0]
+        reachable_from_start = set()
+        queue = list(start_nodes)
+        while queue:
+            current = queue.pop(0)
+            if current in reachable_from_start:
+                continue
+            reachable_from_start.add(current)
+            queue.extend(adjacency.get(current, set()))
+        reachable_to_end = set()
+        queue = list(end_nodes)
+        while queue:
+            current = queue.pop(0)
+            if current in reachable_to_end:
+                continue
+            reachable_to_end.add(current)
+            queue.extend(reverse_adjacency.get(current, set()))
+        disconnected_nodes = sorted(node_id for node_id in task_ids if node_id not in reachable_from_start or node_id not in reachable_to_end)
+        unreachable_nodes = sorted(node_id for node_id in task_ids if node_id not in reachable_from_start)
+        if disconnected_nodes:
+            issues.append({"severity": "error", "code": "graph.disconnected", "message": "Workflow contains disconnected nodes.", "targetId": disconnected_nodes[0]})
+        if unreachable_nodes:
+            issues.append({"severity": "error", "code": "graph.unreachable", "message": "Workflow contains unreachable nodes.", "targetId": unreachable_nodes[0]})
+
+    return issues
+
+
 def _clone_task_payload(task: Task) -> dict:
     payload = {
         c.name: getattr(task, c.name)
@@ -913,13 +1040,13 @@ async def update_workflow(workflow_id: int, workflow_data: dict = Body(...), db:
     workflow = result.scalar_one()
     # Recalculate ROI on the reloaded state
     await update_workflow_roi(workflow)
-    related_result = await db.execute(_workflow_query().where(Workflow.id != workflow.id, Workflow.is_deleted == False))
-    related_workflows = related_result.scalars().all()
-    workflow.related_workflow_ids = [
-        item.id for item in sorted(related_workflows, key=lambda item: _workflow_similarity(workflow, item), reverse=True)
-        if _workflow_similarity(workflow, item) > 0
-    ][:6]
-    attributes.flag_modified(workflow, "related_workflow_ids")
+    quality_issues = _workflow_quality_issues(workflow)
+    blocking_quality_issues = [issue for issue in quality_issues if issue.get("severity") == "error"]
+    if blocking_quality_issues:
+        raise HTTPException(
+            status_code=400,
+            detail=blocking_quality_issues[0].get("message") or "Workflow quality validation failed.",
+        )
     _append_activity(workflow, "workflow.updated", f"Workflow updated with {len(tasks_data or [])} authored tasks." if tasks_data is not None else "Workflow metadata updated.")
     analysis = workflow.analysis or {}
     if analysis.get("has_cycle"):
