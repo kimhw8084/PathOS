@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowLeft,
-  CirclePlus,
   Database,
   Layers,
   Link2,
@@ -167,6 +166,60 @@ const WorkflowNode = ({ data, selected }: NodeProps<DiagramNodeData>) => {
   );
 };
 
+const CanvasToolbar = ({ onFitView, onResetLayout, nodeCount, edgeCount, selectedCount }: {
+  onFitView: () => void;
+  onResetLayout: () => void;
+  nodeCount: number;
+  edgeCount: number;
+  selectedCount: number;
+}) => (
+  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
+    <div className="flex items-center gap-3">
+      <Workflow size={16} className="text-theme-accent" />
+      <div>
+        <h2 className="text-[12px] font-black uppercase tracking-[0.18em] text-white">Workflow Map</h2>
+        <p className="mt-1 text-[11px] font-bold text-white/45">Drag nodes, draw routes, and inspect the active path.</p>
+      </div>
+    </div>
+    <div className="flex flex-wrap items-center gap-2">
+      <Pill tone="neutral">{nodeCount} nodes</Pill>
+      <Pill tone="neutral">{edgeCount} routes</Pill>
+      <Pill tone={selectedCount > 0 ? 'accent' : 'neutral'}>{selectedCount} selected</Pill>
+      <button onClick={onFitView} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/60 transition-all hover:bg-white/10 hover:text-white">
+        <Workflow size={14} /> Fit View
+      </button>
+      <button onClick={onResetLayout} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/60 transition-all hover:bg-white/10 hover:text-white">
+        <Move3D size={14} /> Reset Layout
+      </button>
+    </div>
+  </div>
+);
+
+const CanvasLegend = ({ workflowType }: { workflowType: string }) => (
+  <div className="grid gap-3 md:grid-cols-3">
+    {[
+      { tone: 'accent' as const, title: 'Trigger', detail: 'The entry point that starts the workflow.' },
+      { tone: 'neutral' as const, title: 'Task', detail: 'Work steps, validations, and operations.' },
+      { tone: 'success' as const, title: 'Outcome', detail: 'The finish state or customer-visible result.' },
+    ].map((item) => (
+      <div key={item.title} className={`rounded-2xl border p-4 ${pillTone(item.tone)} bg-white/[0.02]`}>
+        <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/55">{item.title}</p>
+        <p className="mt-2 text-[11px] font-bold leading-relaxed text-white/65">{item.detail}</p>
+      </div>
+    ))}
+    <div className="rounded-2xl border border-white/10 bg-black/20 p-4 md:col-span-3">
+      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Current Workflow Mode</p>
+      <p className="mt-2 text-[11px] font-bold leading-relaxed text-white/65">
+        {workflowType || 'Unclassified'} workflows are displayed as a top-down path so non-technical users can read the sequence naturally, while experienced users can still inspect routes and validation rules.
+      </p>
+    </div>
+  </div>
+);
+
+const workflowNodeTypes = {
+  workflowNode: WorkflowNode,
+};
+
 const layoutGraph = (tasks: AnyRecord[], edges: AnyRecord[]) => {
   const nodeWidth = 300;
   const nodeHeight = 170;
@@ -295,6 +348,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [positionOverrides, setPositionOverrides] = useState<Record<string, { x: number; y: number }>>({});
+  const [flowInstance, setFlowInstance] = useState<any>(null);
 
   useEffect(() => {
     setDraft(buildDraft(workflow));
@@ -512,7 +566,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     () => draftIssues.filter((issue: WorkflowAuditIssue) => issue.targetId === selectedEdgeId),
     [draftIssues, selectedEdgeId]
   );
-  const memoizedNodeTypes = useMemo(() => ({ workflowNode: WorkflowNode }), []);
+  const selectedCount = Number(Boolean(selectedTaskId)) + Number(Boolean(selectedEdgeId));
+  const handleFitView = () => flowInstance?.fitView?.({ padding: 0.2, duration: 250 });
 
   const statusTone = blockingIssues.length > 0 ? 'danger' : warningIssues.length > 0 ? 'warning' : 'success';
   const statusLabel = blockingIssues.length > 0
@@ -581,30 +636,21 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
           <div className="flex-1 overflow-hidden px-6 py-6">
             <div className="grid h-full gap-6 xl:grid-cols-[1.45fr_0.95fr]">
               <section className="flex min-h-0 flex-col rounded-[1.75rem] border border-white/10 bg-white/[0.03]">
-                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <Workflow size={16} className="text-theme-accent" />
-                    <div>
-                      <h2 className="text-[12px] font-black uppercase tracking-[0.18em] text-white">Workflow Map</h2>
-                      <p className="mt-1 text-[11px] font-bold text-white/45">Drag nodes, draw routes, and inspect the active path.</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button onClick={() => setPositionOverrides({})} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/60 transition-all hover:bg-white/10 hover:text-white">
-                      <Move3D size={14} /> Reset Layout
-                    </button>
-                    <button onClick={addDisconnectedTask} className="inline-flex items-center gap-2 rounded-xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent transition-all hover:bg-theme-accent hover:text-white">
-                      <CirclePlus size={14} /> Add Node
-                    </button>
-                  </div>
-                </div>
+                <CanvasToolbar
+                  onFitView={handleFitView}
+                  onResetLayout={() => setPositionOverrides({})}
+                  nodeCount={nodes.length}
+                  edgeCount={edges.length}
+                  selectedCount={selectedCount}
+                />
 
                 <div className="relative min-h-[520px] flex-1">
                   <ReactFlow
                     nodes={nodes}
                     edges={edges}
-                    nodeTypes={memoizedNodeTypes}
+                    nodeTypes={workflowNodeTypes}
                     connectionMode={ConnectionMode.Loose}
+                    onInit={setFlowInstance}
                     fitView
                     fitViewOptions={{ padding: 0.2 }}
                     minZoom={0.3}
@@ -659,11 +705,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
                     />
                   </ReactFlow>
 
-                  <div className="pointer-events-none absolute left-4 top-4 max-w-[18rem] rounded-2xl border border-white/10 bg-black/40 px-4 py-3 backdrop-blur-xl">
-                    <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Canvas Guide</p>
-                    <p className="mt-2 text-[11px] font-bold leading-relaxed text-white/60">
-                      Connect nodes in edit mode. Select any node or route to inspect it on the right.
-                    </p>
+                  <div className="pointer-events-none absolute left-4 top-4 right-4 grid gap-3 xl:left-auto xl:right-4 xl:max-w-[22rem]">
+                    <CanvasLegend workflowType={definitionSummary.type} />
                   </div>
                 </div>
 
