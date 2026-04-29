@@ -20,7 +20,8 @@ import {
   ArrowRight,
   Maximize2,
   HelpCircle,
-  RefreshCw
+  RefreshCw,
+  Workflow
 } from 'lucide-react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import * as Popover from '@radix-ui/react-popover';
@@ -350,7 +351,7 @@ const EquipmentTooltip = ({ label, equipment, fontSize }: { label: string, equip
   );
 };
 
-const ActionMenu = ({ data, onSelect, onDelete, onRestore, onClone, onCreateVersion }: { data: any, onSelect: (wf: any) => void, onDelete: (id: number) => void, onRestore: (id: number) => void, onClone?: (wf: any) => void, onCreateVersion?: (wf: any) => void }) => (
+const ActionMenu = ({ data, onSelect, onDelete, onRestore, onClone, onCreateVersion, onOpenSummary }: { data: any, onSelect: (wf: any) => void, onDelete: (id: number) => void, onRestore: (id: number) => void, onClone?: (wf: any) => void, onCreateVersion?: (wf: any) => void, onOpenSummary?: (wf: any) => void }) => (
   <Popover.Root>
     <Popover.Trigger asChild>
       <button className="p-2 hover:bg-white/10 rounded-lg transition-all text-theme-muted hover:text-white">
@@ -361,8 +362,13 @@ const ActionMenu = ({ data, onSelect, onDelete, onRestore, onClone, onCreateVers
       <Popover.Content className="w-48 bg-theme-sidebar border border-theme-border rounded-xl shadow-2xl p-1 z-50 animate-apple-in backdrop-blur-xl" sideOffset={5} align="end">
         <div className="space-y-0.5">
           <button onClick={() => onSelect(data)} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg text-theme-secondary hover:text-white transition-all text-[11px] font-bold group text-left">
-            <Eye size={14} className="group-hover:text-theme-accent" /> View Logic
+            <Workflow size={14} className="group-hover:text-theme-accent" /> Open Builder
           </button>
+          {onOpenSummary && (
+            <button onClick={() => onOpenSummary(data)} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg text-theme-secondary hover:text-white transition-all text-[11px] font-bold group text-left">
+              <Eye size={14} className="group-hover:text-theme-accent" /> Open Summary
+            </button>
+          )}
           <button onClick={() => onClone?.(data)} className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 rounded-lg text-theme-secondary hover:text-white transition-all text-[11px] font-bold group text-left">
             <Copy size={14} className="group-hover:text-theme-accent" /> Clone Logic
           </button>
@@ -973,11 +979,11 @@ const WorkflowRegistry: React.FC<WorkflowRegistryProps> = ({ workflows, onSelect
                         <div className="flex justify-center items-center w-full h-full">
                           <div className="flex items-center gap-1">
                             {onOpenSummary && (
-                              <button onClick={() => onOpenSummary(w)} className="p-2 text-theme-muted hover:text-white transition-all" title="Open Summary">
-                                <Eye size={14} />
+                              <button onClick={() => onSelect(w)} className="p-2 text-theme-muted hover:text-white transition-all" title="Open Builder">
+                                <Workflow size={14} />
                               </button>
                             )}
-                            <ActionMenu data={w} onSelect={onSelect} onDelete={onDelete} onRestore={onRestore} onClone={onClone} onCreateVersion={onCreateVersion} />
+                            <ActionMenu data={w} onSelect={onSelect} onDelete={onDelete} onRestore={onRestore} onClone={onClone} onCreateVersion={onCreateVersion} onOpenSummary={onOpenSummary} />
                           </div>
                         </div>
                       </td>
