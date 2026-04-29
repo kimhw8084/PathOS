@@ -49,6 +49,15 @@
     scroll-behavior: smooth;
   }
 
+  button:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  [role="button"]:focus-visible {
+    outline: 2px solid rgba(59, 130, 246, 0.95);
+    outline-offset: 2px;
+  }
+
   h1, h2, h3, h4, h5, h6 {
     @apply tracking-tight;
   }

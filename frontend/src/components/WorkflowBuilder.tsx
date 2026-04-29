@@ -45,6 +45,7 @@ import {
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { SearchableSelect } from './IntakeGatekeeper';
+import { auditWorkflowDraft, summarizeAuditIssues, type WorkflowAuditIssue } from '../testing/workflowQuality';
 
 /**
  * Utility for tailwind class merging
@@ -52,6 +53,30 @@ import { SearchableSelect } from './IntakeGatekeeper';
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+type BuilderMode = 'guided' | 'advanced';
+
+const getWorkflowBuilderDraftKey = (workflowId?: string | number | null) => `pathos-workflow-builder-draft-${workflowId ?? 'new'}`;
+
+const buildFixSuggestion = (issue: WorkflowAuditIssue) => {
+  const code = issue.code || '';
+  if (code.includes('workflow.name')) return 'Open Workflow Definition and enter a more specific process name.';
+  if (code.includes('workflow.description')) return 'Add the current-state description in the Workflow Definition panel.';
+  if (code.includes('workflow.trigger') || code.includes('workflow.output')) return 'Set trigger and output metadata in the Workflow Definition panel.';
+  if (code.includes('task.name')) return 'Select the task node and rename it in the Overview tab.';
+  if (code.includes('task.description')) return 'Add a plain-language description to the selected task.';
+  if (code.includes('task.blocker')) return 'Fill all blocker fields or remove the incomplete blocker entry.';
+  if (code.includes('task.error')) return 'Complete the error type and recovery description or remove the incomplete error entry.';
+  if (code.includes('task.validation_step')) return 'Add a validation step description or remove the empty validation row.';
+  if (code.includes('edge.self_loop')) return 'Delete the self-loop or reconnect the edge to a different target.';
+  if (code.includes('edge.endpoint_missing') || code.includes('edge.endpoint_invalid')) return 'Reconnect the route to existing nodes.';
+  if (code.includes('graph.trigger_incoming')) return 'Remove any incoming edge into the trigger node.';
+  if (code.includes('graph.outcome_outgoing')) return 'Remove any outgoing edge from the outcome node.';
+  if (code.includes('graph.decision_route_count')) return 'Ensure the decision node has exactly two outgoing routes.';
+  if (code.includes('graph.decision_labels')) return 'Label the decision routes True and False.';
+  if (code.includes('graph.unreachable') || code.includes('graph.disconnected')) return 'Add routes so every node is connected to both the trigger and outcome path.';
+  return 'Open the matching node or workflow section and correct the missing field.';
+};
 
 interface TaskMedia {
   id: string;
@@ -722,16 +747,19 @@ const ConfirmDeleteOverlay: React.FC<{ onConfirm: () => void, onCancel: () => vo
   </div>
 );
 
-const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, onSave, onBack, onExit, setIsDirty }) => {
+const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, templates = [], relatedWorkflows = [], onSave, onBack, onExit, setIsDirty }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const { project, fitView } = useReactFlow();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
   const [inspectorTab, setInspectorTab] = useState<'overview' | 'data' | 'exceptions' | 'validation' | 'appendix'>('overview');
   const [inspectorWidth, setInspectorWidth] = useState(450);
   const [baseFontSize] = useState(14);
   const [defaultEdgeStyle, setDefaultEdgeStyle] = useState<'bezier' | 'smoothstep' | 'straight'>('smoothstep');
+  const [builderMode, setBuilderMode] = useState<BuilderMode>('guided');
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     inputs: false, outputs: false, manual_inputs: false, manual_outputs: false, blockers: false, errors: false, tribal: false, references: false, assets: false, instructions: false
   });
@@ -740,6 +768,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const [showGuide, setShowGuide] = useState(true);
   const [isMetadataEditMode, setIsMetadataEditMode] = useState(false);
   const [ownerPositionsCollapsed, setOwnerPositionsCollapsed] = useState(true);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const draftSaveTimer = useRef<number | null>(null);
+  const draftRestoreAttempted = useRef(false);
 
   const toggleSection = (section: string) => { setExpandedSections(prev => ({ ...prev, [section]: !prev[section] })); };
   const toggleItem = (itemId: string) => { setOpenItems(prev => ({ ...prev, [itemId]: !prev[itemId] })); };
@@ -766,6 +797,101 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   const [redoStack, setRedoStack] = useState<any[]>([]);
   const [clipboard, setClipboard] = useState<any>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  const [builderSearch, setBuilderSearch] = useState('');
+
+  const validationIssues = useMemo(() => auditWorkflowDraft({ metadata, tasks, edges }), [metadata, tasks, edges]);
+  const validationErrorCount = useMemo(() => validationIssues.filter(issue => issue.severity === 'error').length, [validationIssues]);
+  const validationWarningCount = useMemo(() => validationIssues.filter(issue => issue.severity === 'warning').length, [validationIssues]);
+  const validationSummary = useMemo(() => summarizeAuditIssues(validationIssues), [validationIssues]);
+  const blockingValidationIssues = useMemo(() => validationIssues.filter((issue) => new Set([
+    'graph.unreachable',
+    'graph.disconnected',
+    'graph.cycle',
+    'edge.endpoint_missing',
+    'edge.endpoint_invalid',
+    'edge.self_loop',
+    'graph.trigger_incoming',
+    'graph.outcome_outgoing',
+    'graph.decision_route_count',
+    'graph.decision_labels',
+    'workflow.trigger_missing',
+    'workflow.outcome_missing'
+  ]).has(issue.code)), [validationIssues]);
+  const workflowBuilderDraftKey = useMemo(() => getWorkflowBuilderDraftKey(workflow?.id), [workflow?.id]);
+  const workflowSourceStamp = useMemo(() => workflow?.updated_at || workflow?.updatedAt || workflow?.version || null, [workflow?.updated_at, workflow?.updatedAt, workflow?.version]);
+  const templateList = useMemo(() => (Array.isArray(templates) ? templates : []), [templates]);
+  const relatedWorkflowList = useMemo(() => (Array.isArray(relatedWorkflows) ? relatedWorkflows : []), [relatedWorkflows]);
+
+  const selectedTasks = useMemo(
+    () => tasks.filter((task) => selectedNodeIds.includes(String(task.node_id || task.id))),
+    [tasks, selectedNodeIds]
+  );
+  const selectedNodesAreProtected = selectedTasks.some((task) => task.interface === 'TRIGGER' || task.interface === 'OUTCOME');
+
+  const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every((value, index) => value === b[index]);
+
+  const builderSuggestions = useMemo(() => {
+    const trimmed = builderSearch.trim().toLowerCase();
+    const templateMatches = templateList.filter((template: any) => {
+      if (!trimmed) return true;
+      return [template?.label, template?.description, template?.workflow_type, template?.key].some((value) => String(value || '').toLowerCase().includes(trimmed));
+    }).slice(0, 6);
+    const workflowMatches = relatedWorkflowList.filter((item: any) => {
+      if (!trimmed) return true;
+      return [item?.name, item?.description, item?.workflow_type].some((value) => String(value || '').toLowerCase().includes(trimmed));
+    }).slice(0, 6);
+    const taskLibrary = tasks
+      .filter((task) => task.interface !== 'TRIGGER' && task.interface !== 'OUTCOME')
+      .filter((task) => !trimmed || [task.name, task.description, task.task_type].some((value) => String(value || '').toLowerCase().includes(trimmed)))
+      .slice(0, 6);
+    return { templateMatches, workflowMatches, taskLibrary };
+  }, [templateList, relatedWorkflowList, tasks, builderSearch]);
+
+  const focusAuditIssue = useCallback((issue: WorkflowAuditIssue) => {
+    if (issue.scope === 'workflow' || !issue.targetId) {
+      setSelectedTaskId(null);
+      setSelectedEdgeId(null);
+      setSelectedNodeIds([]);
+      setSelectedEdgeIds([]);
+      setInspectorTab('overview');
+      setIsMetadataEditMode(true);
+      return;
+    }
+    const targetNode = nodes.find((node) => node.id === issue.targetId);
+    const targetEdge = edges.find((edge) => edge.id === issue.targetId);
+    if (targetNode) {
+      setSelectedTaskId(targetNode.id);
+      setSelectedEdgeId(null);
+      setSelectedNodeIds([targetNode.id]);
+      setSelectedEdgeIds([]);
+      setInspectorTab(issue.code.includes('validation') ? 'validation' : 'overview');
+      return;
+    }
+    if (targetEdge) {
+      setSelectedEdgeId(targetEdge.id);
+      setSelectedTaskId(null);
+      setSelectedNodeIds([]);
+      setSelectedEdgeIds([targetEdge.id]);
+    }
+  }, [edges, nodes]);
+
+  const restoreDraft = useCallback((draft: any) => {
+    if (!draft) return;
+    setMetadata(draft.metadata || {});
+    setTasks(draft.tasks || []);
+    setNodes(draft.nodes || []);
+    setEdges(draft.edges || []);
+    setBuilderMode(draft.builderMode || 'guided');
+    setShowGuide(draft.showGuide ?? true);
+    setIsMetadataEditMode(draft.isMetadataEditMode ?? false);
+    setSelectedTaskId(draft.selectedTaskId || null);
+    setSelectedEdgeId(draft.selectedEdgeId || null);
+    setSelectedNodeIds(Array.isArray(draft.selectedNodeIds) ? draft.selectedNodeIds : []);
+    setSelectedEdgeIds(Array.isArray(draft.selectedEdgeIds) ? draft.selectedEdgeIds : []);
+    setDraftRestored(true);
+    toast.success('Builder draft restored');
+    window.requestAnimationFrame(() => fitView({ padding: 0.1, duration: 300 }));
+  }, [fitView]);
 
   const saveToHistory = useCallback(() => {
     // Optimization: Only save if state actually changed
@@ -943,6 +1069,76 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
   }, [nodes.length, fitView]);
 
   useEffect(() => {
+    draftRestoreAttempted.current = false;
+  }, [workflow?.id]);
+
+  useEffect(() => {
+    if (!workflow?.id || typeof window === 'undefined') return;
+    if (draftRestoreAttempted.current) return;
+    try {
+      const raw = window.localStorage.getItem(workflowBuilderDraftKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed?.workflowId !== workflow.id) return;
+      if (parsed?.workflowSourceStamp && workflowSourceStamp && parsed.workflowSourceStamp !== workflowSourceStamp) return;
+      draftRestoreAttempted.current = true;
+      restoreDraft(parsed);
+    } catch (error) {
+      console.warn('[WorkflowBuilder] Failed to restore draft:', error);
+    }
+  }, [workflow?.id, workflowBuilderDraftKey, workflowSourceStamp, restoreDraft]);
+
+  useEffect(() => {
+    if (!workflow?.id || typeof window === 'undefined') return;
+    if (draftSaveTimer.current) {
+      window.clearTimeout(draftSaveTimer.current);
+    }
+    draftSaveTimer.current = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(workflowBuilderDraftKey, JSON.stringify({
+          workflowId: workflow.id,
+          workflowSourceStamp,
+          metadata,
+          tasks,
+          edges,
+          nodes,
+          selectedTaskId,
+          selectedEdgeId,
+          selectedNodeIds,
+          selectedEdgeIds,
+          builderMode,
+          showGuide,
+          isMetadataEditMode
+        }));
+      } catch (error) {
+        console.warn('[WorkflowBuilder] Failed to persist draft:', error);
+      }
+    }, 450);
+
+    return () => {
+      if (draftSaveTimer.current) {
+        window.clearTimeout(draftSaveTimer.current);
+      }
+    };
+  }, [
+    workflow?.id,
+    workflowBuilderDraftKey,
+    workflowSourceStamp,
+    metadata,
+    tasks,
+    edges,
+    nodes,
+    selectedTaskId,
+    selectedEdgeId,
+    selectedNodeIds,
+    selectedEdgeIds,
+    builderMode,
+    showGuide,
+    isMetadataEditMode,
+    draftRestored,
+  ]);
+
+  useEffect(() => {
     if (!workflow) return;
     try {
       const seenNodeIds = new Set<string>();
@@ -1081,6 +1277,73 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, o
     setIsDirty?.(true);
   };
 
+  const updateSelectedTasks = useCallback((updates: Partial<TaskEntity>) => {
+    if (selectedNodeIds.length === 0) return;
+    saveToHistory();
+    setTasks(prev => prev.map((task) => {
+      if (!selectedNodeIds.includes(String(task.node_id || task.id)) || task.interface === 'TRIGGER' || task.interface === 'OUTCOME') return task;
+      const updated = { ...task, ...updates };
+      return updated;
+    }));
+    setNodes(prev => prev.map((node) => selectedNodeIds.includes(node.id) ? { ...node, data: { ...node.data, ...updates, label: (updates as any).name ?? node.data?.label } } : node));
+    setIsDirty?.(true);
+  }, [selectedNodeIds, saveToHistory, setIsDirty]);
+
+  const alignSelectedNodes = useCallback((mode: 'left' | 'top' | 'center' | 'horizontal' | 'vertical') => {
+    if (selectedNodeIds.length < 2) return;
+    const targetNodes = nodes.filter((node) => selectedNodeIds.includes(node.id));
+    if (targetNodes.length < 2) return;
+    saveToHistory();
+    const xs = targetNodes.map((node) => node.position.x);
+    const ys = targetNodes.map((node) => node.position.y);
+    const left = Math.min(...xs);
+    const top = Math.min(...ys);
+    const centerX = xs.reduce((sum, value) => sum + value, 0) / xs.length;
+    const sortedByX = [...targetNodes].sort((a, b) => a.position.x - b.position.x);
+    const sortedByY = [...targetNodes].sort((a, b) => a.position.y - b.position.y);
+    const horizontalStep = Math.max(240, (Math.max(...xs) - Math.min(...xs)) / Math.max(targetNodes.length - 1, 1));
+
+    setNodes(prev => prev.map((node) => {
+      if (!selectedNodeIds.includes(node.id)) return node;
+      const index = targetNodes.findIndex((selected) => selected.id === node.id);
+      if (mode === 'left') return { ...node, position: { ...node.position, x: left } };
+      if (mode === 'top') return { ...node, position: { ...node.position, y: top } };
+      if (mode === 'center') return { ...node, position: { ...node.position, x: centerX } };
+      if (mode === 'horizontal') return { ...node, position: { ...node.position, x: Math.round((sortedByX[index]?.position.x ?? node.position.x) / 10) * 10, y: top + index * 40 } };
+      return { ...node, position: { ...node.position, x: left + index * horizontalStep, y: Math.round((sortedByY[index]?.position.y ?? node.position.y) / 10) * 10 } };
+    }));
+    setIsDirty?.(true);
+  }, [nodes, saveToHistory, selectedNodeIds, setIsDirty, setNodes]);
+
+  const applyTemplateToMetadata = useCallback((template: any) => {
+    if (!template) return;
+    saveToHistory();
+    setMetadata((prev) => ({
+      ...prev,
+      name: template.label || prev.name,
+      description: template.description || prev.description,
+      workflow_type: template.workflow_type || prev.workflow_type,
+      prc: template.prc || prev.prc,
+      trigger_type: template.trigger_type || prev.trigger_type,
+      trigger_description: template.trigger_description || prev.trigger_description,
+      output_type: template.output_type || prev.output_type,
+      output_description: template.output_description || prev.output_description,
+      tool_family: Array.isArray(template.tool_family) ? template.tool_family : prev.tool_family,
+      applicable_tools: Array.isArray(template.applicable_tools) ? template.applicable_tools : prev.applicable_tools,
+    }));
+    setIsMetadataEditMode(true);
+    setShowGuide(true);
+    setBuilderMode('guided');
+    setIsDirty?.(true);
+  }, [saveToHistory, setIsDirty]);
+
+  const clearBuilderDraft = useCallback(() => {
+    if (typeof window === 'undefined' || !workflow?.id) return;
+    window.localStorage.removeItem(workflowBuilderDraftKey);
+    setDraftRestored(false);
+    toast.success('Builder draft cleared');
+  }, [workflow?.id, workflowBuilderDraftKey]);
+
   const onConnect = (params: Connection) => {
     if (!params.source || !params.target) return;
     saveToHistory();
@@ -1110,6 +1373,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
     setTasks(prev => [...prev, newTask]);
     setNodes(nds => [...nds, newNode]);
     setSelectedTaskId(id);
+    setSelectedNodeIds([id]);
+    setSelectedEdgeIds([]);
     setIsDirty?.(true);
   };
 
@@ -1144,6 +1409,10 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
           return;
         }
       }
+      if (blockingValidationIssues.length > 0) {
+        toast.error(summarizeAuditIssues(blockingValidationIssues));
+        return;
+      }
 
       const finalData = {
         ...metadata,
@@ -1157,7 +1426,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
           source: String(e.source), target: String(e.target), source_handle: String(e.sourceHandle || 'right-source'), target_handle: String(e.targetHandle || 'left-target'), label: String(e.data?.label || ''), edge_style: String(e.data?.edgeStyle || 'bezier'), color: String(e.data?.color || '#ffffff'), line_style: String(e.data?.lineStyle || 'solid') 
         }))
       };
-      onSave(finalData);
+      Promise.resolve(onSave(finalData)).then(() => {
+        if (typeof window !== 'undefined' && workflow?.id) {
+          window.localStorage.removeItem(workflowBuilderDraftKey);
+        }
+        setDraftRestored(false);
+      });
     } catch (err) {
       console.error("[WorkflowBuilder] Failed to prepare save data:", err);
     }
@@ -1190,6 +1464,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
       setTasks(prev => prev.filter(t => !ids.includes(t.id)));
       setNodes(nds => nds.filter(n => !ids.includes(n.id)));
       setEdges(eds => eds.filter(e => !ids.includes(e.source) && !ids.includes(e.target)));
+      setSelectedNodeIds(prev => prev.filter(id => !ids.includes(id)));
       setIsDirty?.(true);
     } else {
       saveToHistory();
@@ -1197,6 +1472,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
       setTasks(prev => prev.filter(t => !ids.includes(t.id)));
       setNodes(nds => nds.filter(n => !ids.includes(n.id)));
       setEdges(eds => eds.filter(e => !ids.includes(e.source) && !ids.includes(e.target)));
+      setSelectedNodeIds(prev => prev.filter(id => !ids.includes(id)));
       setIsDirty?.(true);
     }
   }, [saveToHistory, setTasks, setNodes, setEdges, setIsDirty]);
@@ -1309,9 +1585,19 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             onNodesDelete={onNodesDelete}
             nodeTypes={nodeTypes} 
             edgeTypes={edgeTypes} 
-            onNodeClick={(_, n) => { setSelectedTaskId(n.id); setSelectedEdgeId(null); setInspectorTab('overview'); }} 
-            onEdgeClick={(_, e) => { setSelectedEdgeId(e.id); setSelectedTaskId(null); }} 
-            onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); }} 
+            onSelectionChange={({ nodes: selectedFlowNodes, edges: selectedFlowEdges }) => {
+              const nodeIds = selectedFlowNodes.map((node) => node.id);
+              const edgeIds = selectedFlowEdges.map((edge) => edge.id);
+              if (!sameIds(nodeIds, selectedNodeIds)) setSelectedNodeIds(nodeIds);
+              if (!sameIds(edgeIds, selectedEdgeIds)) setSelectedEdgeIds(edgeIds);
+              const nextTaskId = nodeIds.length > 0 ? nodeIds[0] : null;
+              const nextEdgeId = edgeIds.length > 0 ? edgeIds[0] : null;
+              setSelectedTaskId((current) => current === nextTaskId ? current : nextTaskId);
+              setSelectedEdgeId((current) => current === nextEdgeId ? current : nextEdgeId);
+            }}
+            onNodeClick={(_, n) => { setSelectedTaskId(n.id); setSelectedEdgeId(null); setSelectedNodeIds([n.id]); setSelectedEdgeIds([]); setInspectorTab('overview'); }} 
+            onEdgeClick={(_, e) => { setSelectedEdgeId(e.id); setSelectedTaskId(null); setSelectedNodeIds([]); setSelectedEdgeIds([e.id]); }} 
+            onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); setSelectedNodeIds([]); setSelectedEdgeIds([]); }} 
             fitView 
             snapToGrid 
             snapGrid={[10, 10]} 
@@ -1322,9 +1608,29 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             <Background color="#1e293b" gap={30} size={1} />
             <Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl overflow-hidden" />
           </ReactFlow>
-          <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap gap-2 p-2 bg-[#0a1120]/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:top-6">
-            <button data-testid="builder-add-task" onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2 bg-theme-accent text-white rounded-xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap"><Plus size={12} /> Add Task</button>
-            <button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap"><Plus size={12} /> Add Condition</button>
+          <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center gap-2 p-2 bg-[#0a1120]/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:top-6">
+            <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-2xl p-1">
+              <button onClick={() => setBuilderMode('guided')} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap", builderMode === 'guided' ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>Guided</button>
+              <button onClick={() => setBuilderMode('advanced')} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap", builderMode === 'advanced' ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>Advanced</button>
+            </div>
+            <button onClick={() => setInspectorTab('validation')} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border", validationErrorCount > 0 ? "border-status-error/30 bg-status-error/10 text-status-error" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+              {validationErrorCount} Errors · {validationWarningCount} Warnings
+            </button>
+            {draftRestored && (
+              <button onClick={clearBuilderDraft} className="px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border border-theme-accent/20 bg-theme-accent/10 text-theme-accent hover:bg-theme-accent hover:text-white">
+                Clear Draft
+              </button>
+            )}
+            <input
+              value={builderSearch}
+              onChange={(e) => setBuilderSearch(e.target.value)}
+              placeholder="Search templates, workflows, tasks"
+              className="min-w-[220px] flex-1 sm:flex-none sm:w-[280px] bg-black/40 border border-white/10 rounded-2xl px-4 py-2.5 text-[11px] text-white outline-none focus:border-theme-accent"
+            />
+            <div className="ml-auto flex flex-wrap gap-2">
+              <button data-testid="builder-add-task" onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2 bg-theme-accent text-white rounded-2xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap"><Plus size={12} /> Add Task</button>
+              <button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-2xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap"><Plus size={12} /> Add Condition</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1346,6 +1652,33 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar p-4 sm:p-6">
           {selectedTaskId && selectedTask ? (
             <div className="space-y-8 animate-apple-in">
+              {selectedNodeIds.length > 1 && !selectedNodesAreProtected && (
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Bulk Edit</p>
+                      <p className="mt-1 text-[12px] font-bold text-white/55">{selectedNodeIds.length} nodes selected. Apply shared changes or align them as a group.</p>
+                    </div>
+                    <button onClick={() => { setSelectedNodeIds([]); setSelectedTaskId(null); }} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase text-white/45">Clear</button>
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+                    <input className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-[11px] text-white outline-none focus:border-theme-accent" placeholder="Bulk owner team" value={selectedTask.owning_team || ''} onChange={e => updateSelectedTasks({ owning_team: e.target.value })} />
+                    <select className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={selectedTask.task_type} onChange={e => updateSelectedTasks({ task_type: e.target.value })}>
+                      {taskTypes.map((type: any) => <option key={type} value={type}>{type}</option>)}
+                    </select>
+                    <button onClick={() => updateSelectedTasks({ validation_needed: !selectedTask.validation_needed })} className={cn("rounded-2xl border px-4 py-3 text-[10px] font-black uppercase transition-all", selectedTask.validation_needed ? "border-orange-500/30 bg-orange-500/10 text-orange-400" : "border-white/10 bg-white/5 text-white/45 hover:text-white")}>
+                      Toggle Validation
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => alignSelectedNodes('left')} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase text-white/50 hover:text-white">Align Left</button>
+                    <button onClick={() => alignSelectedNodes('top')} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase text-white/50 hover:text-white">Align Top</button>
+                    <button onClick={() => alignSelectedNodes('center')} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase text-white/50 hover:text-white">Center X</button>
+                    <button onClick={() => alignSelectedNodes('horizontal')} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase text-white/50 hover:text-white">Line Up</button>
+                    <button onClick={() => alignSelectedNodes('vertical')} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase text-white/50 hover:text-white">Stack</button>
+                  </div>
+                </div>
+              )}
               {inspectorTab === 'overview' && (
                 <div className="space-y-6">
                   <div className="space-y-2">
@@ -1683,7 +2016,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           <button onClick={() => updateTask(selectedTaskId, { validation_procedure_steps: [...(selectedTask.validation_procedure_steps || []), { id: Date.now().toString(), description: '', figures: [] }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-orange-500 transition-all rounded-2xl">+ Add Verification Step</button>
                         </div>
                       </div>
-                    )}                  </div>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    {validationIssues.map((issue) => (
+                      <button key={`${issue.code}-${issue.targetId || 'workflow'}`} onClick={() => focusAuditIssue(issue)} className={cn("w-full text-left rounded-2xl border p-4 transition-all", issue.severity === 'error' ? "border-status-error/20 bg-status-error/10 hover:bg-status-error/15" : "border-white/10 bg-black/20 hover:bg-white/5")}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={cn("text-[9px] font-black uppercase tracking-[0.18em]", issue.severity === 'error' ? "text-status-error" : "text-amber-400")}>{issue.scope}</span>
+                          <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/25">{issue.code}</span>
+                        </div>
+                        <p className="mt-2 text-[12px] font-bold text-white/75 leading-relaxed">{issue.message}</p>
+                        <p className="mt-2 text-[10px] text-white/35">{buildFixSuggestion(issue)}</p>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
               {inspectorTab === 'appendix' && (
@@ -1750,6 +2096,15 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   <button onClick={() => { setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); setIsDirty?.(true); }} className="text-status-error hover:bg-status-error/10 p-2 border border-status-error/20 rounded-2xl transition-all"><Trash size={16} /></button>
                 </div>
               </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
+                <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Route Inspection</p>
+                <div className="flex flex-wrap gap-2 text-[11px] font-bold text-white/65">
+                  <span className="rounded-2xl border border-white/10 bg-black/25 px-3 py-2">From: {nodes.find((node) => node.id === selectedEdge.source)?.data?.label || selectedEdge.source}</span>
+                  <span className="rounded-2xl border border-white/10 bg-black/25 px-3 py-2">To: {nodes.find((node) => node.id === selectedEdge.target)?.data?.label || selectedEdge.target}</span>
+                  <span className="rounded-2xl border border-white/10 bg-black/25 px-3 py-2">Style: {selectedEdge.data?.edgeStyle || 'bezier'}</span>
+                  <span className="rounded-2xl border border-white/10 bg-black/25 px-3 py-2">Line: {selectedEdge.data?.lineStyle || 'solid'}</span>
+                </div>
+              </div>
               <div className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Label</label>
@@ -1802,6 +2157,92 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </div>
                 </div>
               )}
+
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Quick Start Library</p>
+                      <p className="mt-1 text-[12px] font-bold text-white/55">Reuse approved metadata and workflow patterns.</p>
+                    </div>
+                    <Search size={14} className="text-white/25" />
+                  </div>
+                  <div className="flex gap-2">
+                    <input value={builderSearch} onChange={(e) => setBuilderSearch(e.target.value)} placeholder="Search templates or related workflows" className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-4 py-2.5 text-[11px] text-white outline-none focus:border-theme-accent" />
+                  </div>
+                  <div className="space-y-2">
+                    {(builderSuggestions.templateMatches || []).slice(0, 3).map((template: any) => (
+                      <div key={template.key || template.label} className="rounded-2xl border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-black uppercase text-white truncate">{template.label || template.key}</p>
+                          <p className="text-[10px] text-white/45 leading-relaxed mt-1">{template.description || template.workflow_type || 'Template starter'}</p>
+                        </div>
+                        <button onClick={() => applyTemplateToMetadata(template)} className="shrink-0 px-3 py-2 rounded-2xl bg-theme-accent text-white text-[9px] font-black uppercase whitespace-nowrap">Use</button>
+                      </div>
+                    ))}
+                    {(builderSuggestions.templateMatches || []).length === 0 && (
+                      <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-[11px] font-bold text-white/35">
+                        No matching templates. Start from the current workflow and use the metadata panel below.
+                      </div>
+                    )}
+                  </div>
+                  {(builderSuggestions.workflowMatches || []).length > 0 && (
+                    <div className="space-y-2 border-t border-white/5 pt-4">
+                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30">Related Workflows</p>
+                      {builderSuggestions.workflowMatches.slice(0, 3).map((item: any) => (
+                        <div key={item.id || item.name} className="rounded-2xl border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-black uppercase text-white truncate">{item.name || item.label || 'Related workflow'}</p>
+                            <p className="text-[10px] text-white/45 leading-relaxed mt-1">{item.description || item.workflow_type || 'Reusable workflow example'}</p>
+                          </div>
+                          <button onClick={() => applyTemplateToMetadata(item)} className="shrink-0 px-3 py-2 rounded-2xl bg-white/5 border border-white/10 text-white/50 text-[9px] font-black uppercase whitespace-nowrap">Borrow</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {builderSuggestions.taskLibrary.length > 0 && (
+                    <div className="space-y-2 border-t border-white/5 pt-4">
+                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30">Reusable Draft Tasks</p>
+                      {builderSuggestions.taskLibrary.map((task: any) => (
+                        <button key={task.id} onClick={() => { setSelectedTaskId(task.id); setSelectedNodeIds([task.id]); setInspectorTab('overview'); }} className="w-full rounded-2xl border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3 text-left hover:bg-white/5 transition-all">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-black uppercase text-white truncate">{task.name || 'Untitled task'}</p>
+                            <p className="text-[10px] text-white/45 leading-relaxed mt-1">{task.description || task.task_type || 'Draft task'}</p>
+                          </div>
+                          <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[8px] font-black uppercase text-white/40">Open</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Validation Health</p>
+                      <p className="mt-1 text-[12px] font-bold text-white/55">{validationSummary}</p>
+                    </div>
+                    <button onClick={() => setInspectorTab('validation')} className="shrink-0 px-3 py-2 rounded-2xl border border-white/10 bg-white/5 text-[9px] font-black uppercase text-white/60">Open</button>
+                  </div>
+                  <div className="space-y-2 max-h-[12rem] overflow-auto pr-1 custom-scrollbar">
+                    {validationIssues.slice(0, 4).map((issue) => (
+                      <button key={`${issue.code}-${issue.targetId || 'workflow'}`} onClick={() => focusAuditIssue(issue)} className={cn("w-full text-left rounded-2xl border p-3 transition-all", issue.severity === 'error' ? "border-status-error/20 bg-status-error/10 hover:bg-status-error/15" : "border-white/10 bg-black/20 hover:bg-white/5")}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={cn("text-[9px] font-black uppercase tracking-[0.18em]", issue.severity === 'error' ? "text-status-error" : "text-amber-400")}>{issue.severity}</span>
+                          <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/25">{issue.scope}</span>
+                        </div>
+                        <p className="mt-1 text-[11px] font-bold text-white/75 leading-relaxed">{issue.message}</p>
+                        <p className="mt-2 text-[10px] text-white/35">{buildFixSuggestion(issue)}</p>
+                      </button>
+                    ))}
+                    {validationIssues.length === 0 && (
+                      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[11px] font-bold text-emerald-300">
+                        The current draft is structurally clean.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
 
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
                 <div className="flex items-center gap-3">
