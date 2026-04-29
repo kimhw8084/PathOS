@@ -49,6 +49,8 @@ import {
   FileUp,
   GitBranch,
   Users,
+  MessageSquarePlus,
+  Satellite,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -63,7 +65,8 @@ function cn(...inputs: ClassValue[]) {
 }
 
 type BuilderMode = 'guided' | 'advanced';
-type InspectorTab = 'overview' | 'data' | 'exceptions' | 'validation' | 'appendix' | 'governance' | 'history';
+type InspectorTab = 'overview' | 'data' | 'exceptions' | 'validation' | 'appendix';
+type BuilderUtilityPane = 'comments' | 'history' | null;
 type BuilderDockSide = 'left' | 'right';
 
 interface BuilderLayoutPrefs {
@@ -196,8 +199,23 @@ const buildFixSuggestion = (issue: WorkflowAuditIssue) => {
   return 'Open the matching node or workflow section and correct the missing field.';
 };
 
-const BUILDER_PANEL = 'rounded-[28px] border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_-40px_rgba(0,0,0,0.85)]';
-const BUILDER_FIELD = 'w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[12px] text-white outline-none focus:border-theme-accent';
+const compactIssueTone = (severity: 'error' | 'warning') => (
+  severity === 'error'
+    ? 'border-status-error/20 bg-status-error/10 text-status-error'
+    : 'border-amber-500/20 bg-amber-500/10 text-amber-300'
+);
+
+const issueId = (issue: WorkflowAuditIssue) => `${issue.code}-${issue.targetId || 'workflow'}`;
+
+const issueMatchesField = (issue: WorkflowAuditIssue, fieldKey: string) => (
+  issue.code === fieldKey || issue.code.startsWith(`${fieldKey}.`)
+);
+
+const issueForTask = (issue: WorkflowAuditIssue, taskId: string) => issue.targetId === taskId;
+
+const BUILDER_RADIUS = 'rounded-xl';
+const BUILDER_PANEL = 'rounded-xl border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_-40px_rgba(0,0,0,0.85)]';
+const BUILDER_FIELD = 'w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5 text-[12px] text-white outline-none focus:border-theme-accent';
 const BUILDER_BUTTON = 'rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] transition-all';
 
 interface TaskMedia {
@@ -528,9 +546,9 @@ const ImagePasteField: React.FC<{
   return (
     <div className="space-y-2">
       {label && <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">{label}</label>}
-      <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 h-20">
+      <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 h-[4.5rem]">
         {figures.map((fig, idx) => (
-          <div key={idx} className="flex-shrink-0 w-24 h-full rounded-2xl border border-white/10 overflow-hidden relative group bg-black/40">
+          <div key={idx} className="flex-shrink-0 w-24 h-full rounded-xl border border-white/10 overflow-hidden relative group bg-black/40">
             <img src={fig} className="w-full h-full object-cover" />
             {!isLocked && (
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all p-2">
@@ -538,7 +556,7 @@ const ImagePasteField: React.FC<{
                   onClick={() => {
                     onPaste(figures.filter((_, i) => i !== idx));
                   }}
-                  className="w-full h-full bg-status-error/80 text-white rounded-2xl flex items-center justify-center hover:bg-status-error transition-colors"
+                  className="w-full h-full bg-status-error/80 text-white rounded-xl flex items-center justify-center hover:bg-status-error transition-colors"
                 >
                   <Trash size={12} />
                 </button>
@@ -551,14 +569,14 @@ const ImagePasteField: React.FC<{
           <div 
             onPaste={handlePaste}
             tabIndex={0}
-            className="flex-shrink-0 w-24 h-full border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-white/20 hover:text-white hover:border-theme-accent transition-all cursor-pointer outline-none focus:border-theme-accent bg-black/20"
+            className="flex-shrink-0 w-24 h-full border border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center text-white/20 hover:text-white hover:border-theme-accent transition-all cursor-pointer outline-none focus:border-theme-accent bg-black/20"
           >
             <Plus size={14} />
             <span className="text-[7px] font-black uppercase mt-1">Paste</span>
           </div>
         )}
         {isLocked && figures.length === 0 && (
-          <div className="flex-shrink-0 w-full h-full border border-white/5 rounded-2xl flex items-center justify-center text-white/5 italic text-[10px]">No Figures</div>
+          <div className="flex-shrink-0 w-full h-full border border-white/5 rounded-xl flex items-center justify-center text-white/5 italic text-[10px]">No Figures</div>
         )}
       </div>
     </div>
@@ -585,10 +603,10 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
   if (isTemplate) {
     return (
       <div className={cn(
-        "apple-glass !bg-[#0b1221]/96 !rounded-[28px] px-6 sm:px-7 py-5 sm:py-6 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center w-[clamp(180px,22vw,260px)] max-w-[90vw] h-auto hover:z-[1000]",
+        `apple-glass !bg-[#0b1221]/96 !${BUILDER_RADIUS} px-5 sm:px-6 py-4 sm:py-5 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center w-[clamp(180px,22vw,260px)] max-w-[90vw] h-auto hover:z-[1000]`,
         selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
       )}>
-        <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-[0.2em] border z-20 shadow-lg", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
+        <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-[0.2em] border z-20 shadow-lg", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
           {isTrigger ? "TRIGGER" : "OUTCOME"}
         </div>
         <div className="w-full relative flex justify-center">
@@ -616,33 +634,47 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
 
   return (
     <div className={cn(
-      "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-5 sm:px-7 py-5 sm:py-6 w-[clamp(320px,32vw,460px)] max-w-[92vw] shadow-2xl transition-all duration-300 relative border-2 h-auto min-h-[380px] hover:z-[1000]",
+      `apple-glass !bg-[#0f172a]/95 !${BUILDER_RADIUS} px-4 sm:px-5 py-4 sm:py-5 w-[clamp(300px,31vw,440px)] max-w-[92vw] shadow-2xl transition-all duration-300 relative border-2 h-auto min-h-[340px] hover:z-[1000]`,
       selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : 'border-white/10 hover:border-white/20',
       data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
     )}>
       {data.validation_needed && (
-        <div className="absolute -top-3 right-4 px-2 py-0.5 rounded-sm text-[10px] font-black uppercase tracking-[0.2em] bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
+        <div className="absolute -top-3 right-4 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-[0.2em] bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
           VALIDATION REQUIRED
         </div>
       )}
-      <div className="flex flex-col gap-5 h-full">
-        <div className="flex items-center justify-between">
-          <div className={cn("px-3 py-1 rounded-md text-[13px] font-black uppercase tracking-widest border", typeColor)}>
+      {data.commentSummary?.total > 0 && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            data.onOpenComments?.(data.id);
+          }}
+          className="absolute -top-3 right-4 flex items-center gap-1.5 rounded-full border border-white/10 bg-[#0b1221]/96 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/60 shadow-lg transition-colors hover:text-white"
+          title={`${data.commentSummary.open} open, ${data.commentSummary.resolved} resolved comments`}
+        >
+          <Satellite size={10} className="text-theme-accent" />
+          {data.commentSummary.total}
+        </button>
+      )}
+      <div className="flex flex-col gap-4 h-full">
+        <div className="flex items-center justify-between gap-2">
+          <div className={cn("px-3 py-1 rounded-lg text-[12px] font-black uppercase tracking-widest border", typeColor)}>
             {data.task_type || 'GENERAL'}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
             {data.occurrence > 1 && (
-              <div className="flex items-center gap-1.5 bg-blue-500 text-white px-3 py-1 rounded-lg text-[14px] font-black shadow-lg shadow-blue-500/20">
+              <div className="flex items-center gap-1 bg-blue-500 text-white px-2.5 py-1 rounded-lg text-[12px] font-black shadow-lg shadow-blue-500/20">
                 <RefreshCw size={14} /> {data.occurrence}
               </div>
             )}
             {data.blockerCount > 0 && (
-              <div className="flex items-center gap-1.5 bg-amber-500 text-white px-3 py-1 rounded-lg text-[14px] font-black shadow-lg shadow-amber-500/20">
+              <div className="flex items-center gap-1 bg-amber-500 text-white px-2.5 py-1 rounded-lg text-[12px] font-black shadow-lg shadow-amber-500/20">
                 <AlertCircle size={14} /> {data.blockerCount}
               </div>
             )}
             {data.errorCount > 0 && (
-              <div className="flex items-center gap-1.5 bg-status-error text-white px-3 py-1 rounded-lg text-[14px] font-black shadow-lg shadow-status-error/20">
+              <div className="flex items-center gap-1 bg-status-error text-white px-2.5 py-1 rounded-lg text-[12px] font-black shadow-lg shadow-status-error/20">
                 <X size={14} /> {data.errorCount}
               </div>
             )}
@@ -651,7 +683,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         
         <div className="space-y-1 relative">
           <h4
-            className="font-black text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-2 overflow-hidden min-h-[2.4em]"
+            className="font-black text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-2 overflow-hidden min-h-[2.2em]"
             style={{ fontSize: `${titleFontSize}px` }}
             title={data.label || 'Untitled Task'}
           >
@@ -659,33 +691,33 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
           </h4>
         </div>
 
-        <div className="flex flex-col gap-4 mt-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="bg-black/40 rounded-[22px] p-4 border border-white/5 flex flex-col items-center justify-center">
+        <div className="flex flex-col gap-3 mt-1.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="bg-black/40 rounded-xl p-3 border border-white/5 flex flex-col items-center justify-center">
                <span className="text-[11px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-1">Manual</span>
-               <span className="text-[32px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
+               <span className="text-[28px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
             </div>
-            <div className="bg-black/40 rounded-[22px] p-4 border border-white/5 flex flex-col items-center justify-center">
+            <div className="bg-black/40 rounded-xl p-3 border border-white/5 flex flex-col items-center justify-center">
                <span className="text-[11px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-1">Machine</span>
-               <span className="text-[32px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
+               <span className="text-[28px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-3 border-t border-white/5">
-             <div className="flex items-center gap-6 flex-1 justify-center min-w-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 py-2 border-t border-white/5">
+             <div className="flex items-center gap-4 flex-1 justify-center min-w-0">
                <div className="flex flex-col items-center">
                  <span className="text-[11px] font-black text-white/20 uppercase tracking-widest">Input</span>
-                 <span className="text-[20px] font-black text-white leading-none">{data.sourceCount || 0}</span>
+                 <span className="text-[18px] font-black text-white leading-none">{data.sourceCount || 0}</span>
                </div>
-               <div className="w-px h-8 bg-white/5" />
+               <div className="w-px h-7 bg-white/5" />
                <div className="flex flex-col items-center">
                  <span className="text-[11px] font-black text-white/20 uppercase tracking-widest">Output</span>
-                 <span className="text-[20px] font-black text-white leading-none">{data.outputCount || 0}</span>
+                 <span className="text-[18px] font-black text-white leading-none">{data.outputCount || 0}</span>
                </div>
              </div>
              <div className="text-right flex flex-col items-end">
                 <div className="flex items-center gap-2">
-                   <span className="text-[13px] font-black text-white/60 uppercase truncate max-w-[120px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
+                   <span className="text-[12px] font-black text-white/60 uppercase truncate max-w-[120px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
                    {(data.ownerPositions || []).length > 1 && (
                      <span className="text-[11px] font-black text-theme-accent">+{(data.ownerPositions || []).length - 1}</span>
                    )}
@@ -695,17 +727,32 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
                 )}
              </div>
           </div>
-          <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-white/5 min-h-[42px]">
+          <div className="flex flex-wrap gap-2 items-center pt-2.5 border-t border-white/5 min-h-[36px]">
              {visibleSystems.map((s: TaskSystem, i: number) => (
-               <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[12px] font-bold text-white/40 uppercase">{s.name}</span>
+               <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[11px] font-bold text-white/40 uppercase">{s.name}</span>
              ))}
              {hiddenSystemsCount > 0 && (
-               <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[12px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
+               <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[11px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
              )}
              {involvedSystems.length === 0 && (
                <span className="text-[11px] font-black text-white/10 uppercase tracking-widest">No Systems</span>
              )}
           </div>
+          {selected && (
+            <div className="flex flex-wrap gap-2 pt-1.5 border-t border-white/5">
+              <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-2 rounded-xl border border-theme-accent/20 bg-theme-accent/10 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent">
+                <MessageSquarePlus size={11} /> Comment
+              </button>
+              <button onClick={(event) => { event.stopPropagation(); data.onOpenHistory?.(); }} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-white/55">
+                <History size={11} /> Diff
+              </button>
+              {data.commentSummary?.total > 0 && (
+                <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-white/55">
+                  <Satellite size={11} /> {data.commentSummary.open} open
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -727,7 +774,7 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
   const titleFontSize = Math.max(22, baseFontSize + 8);
   return (
     <div className={cn("relative w-[clamp(220px,24vw,280px)] h-[clamp(220px,24vw,280px)] flex items-center justify-center transition-all duration-300 hover:z-[1000]", selected ? 'scale-105 z-50' : 'z-10')}>
-      <div className={cn("absolute w-[clamp(174px,17vw,198px)] h-[clamp(174px,17vw,198px)] rotate-45 border-2 transition-all duration-300 bg-[#0b1221]/96 rounded-[28px]", selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20', data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : '')} />
+      <div className={cn(`absolute w-[clamp(174px,17vw,198px)] h-[clamp(174px,17vw,198px)] rotate-45 border-2 transition-all duration-300 bg-[#0b1221]/96 !${BUILDER_RADIUS}`, selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20', data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,158,11,0.3)]' : '')} />
       
       {/* Handles at lower z-index than tooltip container */}
       <Handle type="target" position={Position.Left} id="left-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !left-0 shadow-lg z-10" />
@@ -739,7 +786,7 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
       <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !bottom-0 shadow-lg z-10" />
       <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !bottom-0 shadow-lg z-20 opacity-0" />
 
-      <div className="relative z-40 flex flex-col items-center justify-center p-8 w-full h-full pointer-events-none">
+      <div className="relative z-40 flex flex-col items-center justify-center p-7 w-full h-full pointer-events-none">
         <span
           className="max-w-[180px] text-center font-bold text-white leading-tight break-words line-clamp-3 transition-colors"
           style={{ fontSize: `${titleFontSize}px` }}
@@ -749,7 +796,7 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
         </span>
       </div>
     {data.validation_needed && (
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[120px] px-1.5 py-0.5 rounded-sm text-[6px] font-black uppercase bg-orange-500 border border-orange-400 text-white z-30 shadow-lg animate-pulse">VALID</div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[120px] px-1.5 py-0.5 rounded-md text-[6px] font-black uppercase bg-orange-500 border border-orange-400 text-white z-30 shadow-lg animate-pulse">VALID</div>
     )}
   </div>
 );
@@ -891,6 +938,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   const [reviewRequests, setReviewRequests] = useState<ReviewRequestDraft[]>([]);
   const [commentDraft, setCommentDraft] = useState<WorkflowComment>(createWorkflowComment());
   const [replyTargetCommentId, setReplyTargetCommentId] = useState<string | null>(null);
+  const [utilityPane, setUtilityPane] = useState<BuilderUtilityPane>(null);
+  const [utilityPaneTaskId, setUtilityPaneTaskId] = useState<string | null>(null);
+  const [historyCompareMode, setHistoryCompareMode] = useState<'saved' | 'approved' | 'selected'>('saved');
+  const [historyCompareVersionId, setHistoryCompareVersionId] = useState<string>('');
   const [importDraft, setImportDraft] = useState('');
   const [showImportPanel, setShowImportPanel] = useState(false);
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
@@ -949,6 +1000,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     'workflow.trigger_missing',
     'workflow.outcome_missing'
   ]).has(issue.code)), [validationIssues]);
+  const issuesForField = useCallback((fieldKey: string, taskId?: string | null) => (
+    validationIssues.filter((issue) => issueMatchesField(issue, fieldKey) && (!taskId || issueForTask(issue, taskId)))
+  ), [validationIssues]);
   const workflowBuilderDraftKey = useMemo(() => getWorkflowBuilderDraftKey(workflow?.id), [workflow?.id]);
   const workflowSourceStamp = useMemo(() => workflow?.updated_at || workflow?.updatedAt || workflow?.version || null, [workflow?.updated_at, workflow?.updatedAt, workflow?.version]);
   const templateList = useMemo(() => (Array.isArray(templates) ? templates : []), [templates]);
@@ -1269,6 +1323,44 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     }];
   }, [metadata.version, relatedWorkflowList, workflow]);
 
+  const historyComparisonWorkflow = useMemo(() => {
+    if (historyCompareMode === 'saved') return null;
+    if (historyCompareMode === 'selected' && historyCompareVersionId) {
+      return relatedWorkflowList.find((item: any) => String(item.id) === String(historyCompareVersionId)) || null;
+    }
+    if (historyCompareMode === 'approved') {
+      return relatedWorkflowList.find((item: any) => {
+        const state = String(item?.approval_state || item?.review_state || '').toLowerCase();
+        return ['approved', 'certified'].includes(state) && String(item?.id) !== String(workflow?.id);
+      }) || null;
+    }
+    return null;
+  }, [historyCompareMode, historyCompareVersionId, relatedWorkflowList, workflow?.id]);
+
+  const historyComparisonSnapshot = useMemo(() => {
+    if (!historyComparisonWorkflow) return initialSnapshotRef.current || {};
+    return {
+      metadata: {
+        name: historyComparisonWorkflow?.name || '',
+        version: historyComparisonWorkflow?.version || 1,
+        description: historyComparisonWorkflow?.description || historyComparisonWorkflow?.forensic_description || '',
+        prc: historyComparisonWorkflow?.prc || '',
+        workflow_type: historyComparisonWorkflow?.workflow_type || '',
+        tool_family: Array.isArray(historyComparisonWorkflow?.tool_family) ? historyComparisonWorkflow.tool_family : (historyComparisonWorkflow?.tool_family ? String(historyComparisonWorkflow.tool_family).split(', ') : []),
+        applicable_tools: Array.isArray(historyComparisonWorkflow?.applicable_tools) ? historyComparisonWorkflow.applicable_tools : (historyComparisonWorkflow?.tool_id ? (typeof historyComparisonWorkflow.tool_id === 'string' ? historyComparisonWorkflow.tool_id.split(', ') : [historyComparisonWorkflow.tool_id]) : []),
+        trigger_type: historyComparisonWorkflow?.trigger_type || '',
+        trigger_description: historyComparisonWorkflow?.trigger_description || '',
+        output_type: historyComparisonWorkflow?.output_type || '',
+        output_description: historyComparisonWorkflow?.output_description || '',
+        cadence_count: historyComparisonWorkflow?.cadence_count || 1,
+        cadence_unit: historyComparisonWorkflow?.cadence_unit || 'week',
+        repeatability_check: historyComparisonWorkflow?.repeatability_check ?? true,
+      },
+      tasks: Array.isArray(historyComparisonWorkflow?.tasks) ? historyComparisonWorkflow.tasks : [],
+      edges: Array.isArray(historyComparisonWorkflow?.edges) ? historyComparisonWorkflow.edges : [],
+    };
+  }, [historyComparisonWorkflow]);
+
   const auditTrail = useMemo(() => workflow?.activity_timeline || [], [workflow?.activity_timeline]);
   const frictionSignals = useMemo(() => {
     const analysis = workflow?.analysis || {};
@@ -1298,10 +1390,69 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     }));
   }, [workflowComments]);
 
+  const commentCountsByTaskId = useMemo(() => {
+    const counts = new Map<string, { open: number; resolved: number; total: number }>();
+    workflowComments.forEach((comment) => {
+      if (comment.scope !== 'task' || !comment.scope_id) return;
+      const key = String(comment.scope_id);
+      const current = counts.get(key) || { open: 0, resolved: 0, total: 0 };
+      current.total += 1;
+      if (comment.resolved) current.resolved += 1;
+      else current.open += 1;
+      counts.set(key, current);
+    });
+    return counts;
+  }, [workflowComments]);
+
   const replyTargetComment = useMemo(
     () => workflowComments.find((comment) => comment.id === replyTargetCommentId) || null,
     [replyTargetCommentId, workflowComments]
   );
+
+  const openCommentsForTask = useCallback((taskId?: string | null) => {
+    const nextTaskId = taskId || selectedTaskId || null;
+    setUtilityPane('comments');
+    setUtilityPaneTaskId(nextTaskId);
+    setSelectedTaskId(nextTaskId);
+    setSelectedEdgeId(null);
+    if (nextTaskId) {
+      setSelectedNodeIds([nextTaskId]);
+      setSelectedEdgeIds([]);
+    }
+    setCommentDraft(createWorkflowComment('task', nextTaskId || ''));
+    setReplyTargetCommentId(null);
+  }, [selectedTaskId]);
+
+  const openHistoryPane = useCallback(() => {
+    setUtilityPane('history');
+    setUtilityPaneTaskId(null);
+  }, []);
+
+  const closeUtilityPane = useCallback(() => {
+    setUtilityPane(null);
+    setUtilityPaneTaskId(null);
+  }, []);
+
+  useEffect(() => {
+    setNodes((prev) => prev.map((node) => ({
+      ...node,
+      data: {
+        ...node.data,
+        commentSummary: commentCountsByTaskId.get(node.id) || { open: 0, resolved: 0, total: 0 },
+        onOpenComments: openCommentsForTask,
+        onOpenHistory: openHistoryPane,
+      },
+    })));
+  }, [commentCountsByTaskId, openCommentsForTask, openHistoryPane, setNodes]);
+
+  useEffect(() => {
+    if (historyCompareMode === 'selected') return;
+    if (historyCompareMode === 'approved' && historyComparisonWorkflow) return;
+    if (historyCompareMode === 'saved') return;
+    if (versionHistory.length === 0) return;
+    const fallbackVersion = versionHistory.find((version) => !version.isCurrent) || versionHistory[0];
+    setHistoryCompareVersionId(String(fallbackVersion?.id || ''));
+  }, [historyCompareMode, historyComparisonWorkflow, versionHistory]);
 
   const exportWorkflowDraft = useCallback(() => {
     const payload = {
@@ -1355,21 +1506,22 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       toast.error('Comment message is required.');
       return;
     }
+    const commentScopeTaskId = utilityPane === 'comments' ? utilityPaneTaskId : selectedTaskId;
     const nextComment = {
       ...commentDraft,
       id: commentDraft.id || `comment-${Date.now()}`,
       created_at: commentDraft.created_at || new Date().toISOString(),
       scope: commentDraft.scope || 'workflow',
-      scope_id: commentDraft.scope_id || selectedTaskId || undefined,
+      scope_id: commentDraft.scope_id || commentScopeTaskId || undefined,
       parent_id: replyTargetCommentId || commentDraft.parent_id,
     };
     saveToHistory();
     setWorkflowComments((prev) => [nextComment, ...prev]);
-    setCommentDraft(createWorkflowComment(selectedTaskId ? 'task' : 'workflow', selectedTaskId || ''));
+    setCommentDraft(createWorkflowComment(commentScopeTaskId ? 'task' : 'workflow', commentScopeTaskId || ''));
     setReplyTargetCommentId(null);
     setIsDirty?.(true);
     toast.success('Comment added');
-  }, [commentDraft, replyTargetCommentId, saveToHistory, selectedTaskId, setIsDirty]);
+  }, [commentDraft, replyTargetCommentId, saveToHistory, selectedTaskId, setIsDirty, utilityPane, utilityPaneTaskId]);
 
   const toggleCommentResolved = useCallback((commentId: string) => {
     saveToHistory();
@@ -1422,9 +1574,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   }, [onGovernanceAction]);
 
   const renderWorkflowOpsSurface = () => (
-    <div className="space-y-8 animate-apple-in pb-12">
+    <div className="space-y-6 animate-apple-in pb-10">
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div className={cn(BUILDER_PANEL, "p-5 space-y-4")}>
+        <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Diff and Version History</p>
@@ -1432,12 +1584,39 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
             </div>
             <History size={16} className="text-theme-accent" />
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {(['saved', 'approved', 'selected'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setHistoryCompareMode(mode)}
+                className={cn("rounded-xl border px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] transition-all", historyCompareMode === mode ? "border-theme-accent/20 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/45 hover:text-white")}
+              >
+                {mode === 'saved' ? 'Saved' : mode === 'approved' ? 'Approved' : 'Chosen'}
+              </button>
+            ))}
+            {historyCompareMode === 'selected' && (
+              <select
+                className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[8px] font-black uppercase text-white outline-none"
+                value={historyCompareVersionId}
+                onChange={(e) => setHistoryCompareVersionId(e.target.value)}
+              >
+                {versionHistory.filter((version) => !version.isCurrent).map((version) => (
+                  <option key={`${version.id}-${version.version}`} value={version.id}>
+                    v{version.version} {version.state}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[10px] font-bold text-white/55">
+            Comparing against {historyCompareMode === 'saved' ? 'the last saved builder snapshot' : historyCompareMode === 'approved' ? 'the latest approved or certified version' : `v${historyComparisonSnapshot?.metadata?.version || historyCompareVersionId || 'selected'}`}.
+          </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
               <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Metadata Changes</p>
               <p className="mt-2 text-[22px] font-black text-theme-accent">{workflowDiff.changedMetadata.length}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
               <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Route Changes</p>
               <p className="mt-2 text-[22px] font-black text-emerald-300">{workflowDiff.addedEdges.length + workflowDiff.removedEdges.length}</p>
             </div>
@@ -1483,7 +1662,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
           )}
         </div>
 
-        <div className={cn(BUILDER_PANEL, "p-5 space-y-4")}>
+        <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Approvals and Review</p>
@@ -1504,7 +1683,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
             </div>
             <div className="space-y-2 max-h-[11rem] overflow-auto pr-1 custom-scrollbar">
               {reviewRequests.map((request) => (
-                <div key={request.id} className="rounded-[22px] border border-white/10 bg-black/20 p-3 space-y-3">
+                <div key={request.id} className="rounded-xl border border-white/10 bg-black/20 p-3 space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <input className="w-full max-w-[12rem] rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-black text-white outline-none focus:border-theme-accent" value={request.role} onChange={(e) => updateReviewRequest(request.id, { role: e.target.value })} placeholder="Reviewer role" />
                     <button onClick={() => deleteReviewRequest(request.id)} className="rounded-2xl border border-status-error/20 bg-status-error/10 px-2 py-1 text-[8px] font-black uppercase text-status-error">Remove</button>
@@ -1528,7 +1707,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div className={cn(BUILDER_PANEL, "p-5 space-y-4")}>
+        <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Comments and Annotations</p>
@@ -1550,7 +1729,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
             <button onClick={addWorkflowComment} className="rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">Add Comment</button>
           </div>
           {replyTargetCommentId && (
-            <div className="rounded-[22px] border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[11px] font-bold text-theme-accent flex items-center justify-between gap-3">
+            <div className="rounded-xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[11px] font-bold text-theme-accent flex items-center justify-between gap-3">
               <span>Replying to {replyTargetComment?.author || replyTargetComment?.scope || 'selected comment'}</span>
               <button onClick={() => setReplyTargetCommentId(null)} className="rounded-xl border border-white/10 bg-black/20 px-2 py-1 text-[8px] font-black uppercase text-white/55">Clear</button>
             </div>
@@ -1558,7 +1737,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
           <div className="space-y-3 max-h-[16rem] overflow-auto pr-1 custom-scrollbar">
             {commentThreads.map(({ comment, replies }) => (
               <div key={comment.id} className="space-y-2">
-                <button onClick={() => setSelectedCommentId(comment.id)} className={cn("w-full rounded-[22px] border p-4 text-left transition-all", selectedCommentId === comment.id ? "border-theme-accent/30 bg-theme-accent/10" : "border-white/10 bg-black/20 hover:bg-white/[0.05]")}>
+                <button onClick={() => setSelectedCommentId(comment.id)} className={cn("w-full rounded-xl border p-4 text-left transition-all", selectedCommentId === comment.id ? "border-theme-accent/30 bg-theme-accent/10" : "border-white/10 bg-black/20 hover:bg-white/[0.05]")}>
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{comment.author}</p>
                     <span className={cn("rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em]", comment.resolved ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-amber-500/20 bg-amber-500/10 text-amber-300")}>{comment.resolved ? 'Resolved' : comment.review_state || 'Open'}</span>
@@ -1591,7 +1770,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
           </div>
         </div>
 
-        <div className={cn(BUILDER_PANEL, "p-5 space-y-4")}>
+        <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Access, Ownership, and Reuse</p>
@@ -1662,7 +1841,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_0.9fr] gap-4">
-        <div className={cn(BUILDER_PANEL, "p-5 space-y-4")}>
+        <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Audit Trail and Usage Friction</p>
@@ -1671,18 +1850,18 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
             <GitBranch size={16} className="text-theme-accent" />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
               <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Audit Entries</p>
               <p className="mt-2 text-[22px] font-black text-theme-accent">{frictionSignals.auditEntries}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
               <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Open Comments</p>
               <p className="mt-2 text-[22px] font-black text-amber-300">{frictionSignals.unresolvedComments}</p>
             </div>
           </div>
           <div className="space-y-2 max-h-[14rem] overflow-auto pr-1 custom-scrollbar">
             {auditTrail.map((entry: any) => (
-              <div key={entry.id || `${entry.type}-${entry.created_at}`} className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              <div key={entry.id || `${entry.type}-${entry.created_at}`} className="rounded-xl border border-white/10 bg-black/20 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{entry.type}</p>
                   <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">{entry.actor || 'system'}</p>
@@ -1694,7 +1873,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {(frictionSignals.bottlenecks || []).map((item: any) => (
-              <div key={item.node_id || item.task_name} className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              <div key={item.node_id || item.task_name} className="rounded-xl border border-white/10 bg-black/20 p-3">
                 <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">{item.task_name || 'Bottleneck'}</p>
                 <p className="mt-2 text-[16px] font-black text-rose-300">{Number(item.total_burden_minutes || 0).toFixed(1)}m</p>
                 <p className="mt-1 text-[10px] font-bold text-white/45">{item.blocker_count || 0} blockers / {item.error_count || 0} errors</p>
@@ -1704,7 +1883,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Import and Export</p>
@@ -1716,7 +1895,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
             </div>
           </div>
           {showImportPanel && (
-            <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
+            <div className="space-y-3 rounded-xl border border-white/10 bg-black/20 p-4">
               <textarea className="min-h-[12rem] w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-mono text-white/70 outline-none focus:border-theme-accent resize-none" value={importDraft} onChange={(e) => setImportDraft(e.target.value)} placeholder="Paste workflow JSON here..." />
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[10px] font-bold text-white/45">Import replaces the current builder draft state.</p>
@@ -1725,11 +1904,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
               <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Review Queue</p>
               <p className="mt-2 text-[22px] font-black text-white">{frictionSignals.reviewQueue}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
               <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Standards Flags</p>
               <p className="mt-2 text-[22px] font-black text-violet-300">{frictionSignals.standardsFlags.length}</p>
             </div>
@@ -2092,6 +2271,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
         data: {
           ...t, label: t.name, task_type: t.task_type || 'GENERAL', manual_time: t.manual_time_minutes || 0, automation_time: t.automation_time_minutes || 0, occurrence: t.occurrence || 1, involved_systems: t.involved_systems, owningTeam: t.owning_team, ownerPositions: t.owner_positions, sourceCount: (t.source_data_list || []).length, outputCount: (t.output_data_list || []).length, interface: t.interface, validation_needed: t.validation_needed, blockerCount: (t.blockers || []).length, errorCount: (t.errors || []).length, description: t.description || '', id: String(t.node_id), baseFontSize: 14
+          , commentSummary: { open: 0, resolved: 0, total: 0 }, onOpenComments: openCommentsForTask, onOpenHistory: openHistoryPane
         },
       }));
       const initialEdges: Edge[] = (workflow?.edges || []).map((e: any, idx: number) => {
@@ -2297,6 +2477,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         if (typeof window !== 'undefined' && workflow?.id) {
           window.localStorage.removeItem(workflowBuilderDraftKey);
         }
+        initialSnapshotRef.current = JSON.parse(JSON.stringify({
+          metadata,
+          tasks: tasks.map((task) => ({ ...task })),
+          edges: edges.map((edge) => ({ ...edge })),
+        }));
         setDraftRestored(false);
         const now = new Date().toISOString();
         setLastSavedAt(now);
@@ -2473,6 +2658,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               <button onClick={() => setFocusMode((prev) => !prev)} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border", focusMode ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
                 {focusMode ? 'Exit Focus' : 'Focus Mode'}
               </button>
+              <button onClick={() => openCommentsForTask(selectedTaskId)} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border", utilityPane === 'comments' ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+                Comments
+              </button>
+              <button onClick={openHistoryPane} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border", utilityPane === 'history' ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+                History
+              </button>
               <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/5 p-1">
                 <button onClick={() => updateLayoutPrefs({ inspectorDock: 'left' })} className={cn("rounded-xl px-3 py-2 text-[9px] font-black uppercase transition-all", layoutPrefs.inspectorDock === 'left' ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>Dock Left</button>
                 <button onClick={() => updateLayoutPrefs({ inspectorDock: 'right' })} className={cn("rounded-xl px-3 py-2 text-[9px] font-black uppercase transition-all", layoutPrefs.inspectorDock === 'right' ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>Dock Right</button>
@@ -2523,6 +2714,26 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               </div>
             </div>
           </div>
+          {utilityPane && (
+            <div className="shrink-0 border-b border-white/10 bg-[#09111d]/96 backdrop-blur-xl px-4 sm:px-6 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">{utilityPane === 'comments' ? 'Comments' : 'Version History'}</p>
+                  <p className="mt-1 text-[11px] font-bold text-white/55 leading-relaxed">
+                    {utilityPane === 'comments'
+                      ? 'Add notes, reply to threads, and keep task-level feedback attached to the right node.'
+                      : 'Compare the working draft against the last saved version, approved version, or a chosen version.'}
+                  </p>
+                </div>
+                <button onClick={closeUtilityPane} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white transition-all">
+                  Close
+                </button>
+              </div>
+              <div className="mt-3">
+                {renderWorkflowOpsSurface()}
+              </div>
+            </div>
+          )}
           <div className="relative flex-1 min-h-0">
             <ReactFlow 
             nodes={nodes} 
@@ -2593,9 +2804,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             { id: 'exceptions', label: 'Exceptions', icon: <AlertCircle size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' }, 
             { id: 'validation', label: 'Validation', icon: <Zap size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' }, 
             { id: 'appendix', label: 'Appendix', icon: <Paperclip size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' },
-            { id: 'governance', label: 'Governance', icon: <ShieldCheck size={12} /> },
-            { id: 'history', label: 'History', icon: <History size={12} /> },
-          ].filter(t => !t.hidden && (selectedTaskId || ['overview', 'governance', 'history'].includes(t.id))).map(t => (
+          ].filter(t => !t.hidden && (selectedTaskId || t.id === 'overview')).map(t => (
             <button key={t.id} onClick={() => setInspectorTab(t.id as any)} className={cn("flex-1 min-w-[84px] flex flex-col items-center justify-center gap-0.5 border-b-2 px-2", inspectorTab === t.id ? 'border-theme-accent bg-theme-accent/10 text-white' : 'border-transparent text-white/20 hover:text-white transition-all')}>{t.icon}<span className="text-[8px] font-black uppercase whitespace-nowrap">{t.label}</span></button>
           ))}
           {selectedEdgeId && (<div className="flex-1 min-w-[84px] flex flex-col items-center justify-center gap-0.5 border-b-2 border-theme-accent bg-theme-accent/10 text-white px-2"><Link2 size={12} /><span className="text-[8px] font-black uppercase whitespace-nowrap">Edge</span></div>)}
@@ -2623,7 +2832,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar p-4 sm:p-6">
           {selectedTaskId && selectedTask ? (
-            <div className="space-y-8 animate-apple-in">
+            <div className="space-y-6 animate-apple-in">
               {selectedNodeIds.length > 1 && !selectedNodesAreProtected && (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-4">
                   <div className="flex items-start justify-between gap-3">
@@ -2663,6 +2872,15 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       onChange={e => updateTask(selectedTaskId, { name: e.target.value })} 
                       disabled={isProtected}
                     />
+                    {issuesForField('task.name', selectedTaskId).length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {issuesForField('task.name', selectedTaskId).map((issue) => (
+                          <span key={issueId(issue)} className={cn("rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>
+                            {issue.message}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   
                   <div className="space-y-2">
@@ -2673,6 +2891,15 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       onChange={e => updateTask(selectedTaskId, { description: e.target.value })} 
                       disabled={isProtected}
                     />
+                    {issuesForField('task.description', selectedTaskId).length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {issuesForField('task.description', selectedTaskId).map((issue) => (
+                          <span key={issueId(issue)} className={cn("rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>
+                            {issue.message}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   {!isProtected && selectedTask.task_type !== 'LOOP' && (
@@ -2680,16 +2907,39 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       <div className="space-y-2">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task Logic Type</label>
                         <select className="w-full bg-white/5 border border-white/10 rounded-xl px-3 h-11 text-[11px] font-black text-white outline-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>{taskTypes.map((t:any) => <option key={t} value={t}>{t}</option>)}</select>
+                        {issuesForField('task.task_type', selectedTaskId).length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {issuesForField('task.task_type', selectedTaskId).map((issue) => (
+                              <span key={issueId(issue)} className={cn("rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>
+                                {issue.message}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest px-1 text-center block">TAT Manual (m)</label>
                           <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[14px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
+                          {issuesForField('task.manual_time_minutes', selectedTaskId).length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {issuesForField('task.manual_time_minutes', selectedTaskId).map((issue) => (
+                                <span key={issueId(issue)} className={cn("rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-purple-400 uppercase tracking-widest px-1 text-center block">TAT Machine (m)</label>
                           <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[14px] font-black text-white outline-none focus:border-purple-400 text-center" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
+                          {issuesForField('task.automation_time_minutes', selectedTaskId).length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {issuesForField('task.automation_time_minutes', selectedTaskId).map((issue) => (
+                                <span key={issueId(issue)} className={cn("rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -2779,7 +3029,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 </div>
               )}
               {inspectorTab === 'data' && (
-                <div className="space-y-8 animate-apple-in">
+                <div className="space-y-6 animate-apple-in">
                   <CollapsibleSection title="Task Inputs" isOpen={expandedSections.inputs} toggle={() => toggleSection('inputs')} count={selectedTask.source_data_list.length}>
                     <div className="space-y-3 pt-4">
                       {selectedTask.source_data_list.map((sd) => (
@@ -2848,7 +3098,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 </div>
               )}
               {inspectorTab === 'exceptions' && (
-                <div className="space-y-8">
+                <div className="space-y-6">
                   <CollapsibleSection title="Operational Roadblocks" isOpen={expandedSections.blockers} toggle={() => toggleSection('blockers')} count={selectedTask.blockers.length}>
                     <div className="space-y-3 pt-4">
                       {selectedTask.blockers.map((b) => (
@@ -2936,12 +3186,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               )}
 
               {inspectorTab === 'validation' && (
-                <div className="space-y-8 animate-apple-in">
-                  <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-6">
-                    <div className="flex items-center justify-between">
+                <div className="space-y-6 animate-apple-in">
+                  <div className="p-5 bg-white/[0.02] border border-white/5 rounded-xl space-y-4">
+                    <div className="flex items-center justify-between gap-3">
                       <div className="space-y-1">
                         <h3 className="text-[14px] font-black text-white uppercase tracking-tight">Post-Task Validation</h3>
-                        <p className="text-[10px] text-white/40 font-bold uppercase">Manual verification required?</p>
+                        <p className="text-[10px] text-white/40 font-bold uppercase">Validation state is reflected inline on the affected fields and sections.</p>
                       </div>
                       <button 
                         onClick={() => updateTask(selectedTaskId, { validation_needed: !selectedTask.validation_needed })} 
@@ -2952,40 +3202,46 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     </div>
 
                     {selectedTask.validation_needed && (
-                      <div className="space-y-6 animate-apple-in pt-6 border-t border-white/5">
-                        <div className="space-y-4">
-                          {(selectedTask.validation_procedure_steps || []).map((step, idx) => (
-                            <NestedCollapsible key={step.id} title={`Verification Step ${idx + 1}`} isOpen={openItems[step.id]} toggle={() => toggleItem(step.id)} onDelete={() => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.filter(x => x.id !== step.id) })}>
-                              <div className="space-y-4">
-                                <div className="space-y-1">
-                                  <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Description *</label>
-                                  <textarea 
-                                    className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[12px] text-white/80 h-24 resize-none outline-none focus:border-orange-500" 
-                                    value={step.description} 
-                                    onChange={e => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.map(x => x.id === step.id ? { ...x, description: e.target.value } : x) })} 
-                                    placeholder="Describe the verification action..."
-                                  />
-                                </div>
-                                <ImagePasteField figures={step.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.map(x => x.id === step.id ? { ...x, figures: figs } : x) })} label="Evidence Figures (Ctrl+V)" />
+                      <div className="space-y-4 animate-apple-in pt-4 border-t border-white/5">
+                        {(selectedTask.validation_procedure_steps || []).map((step, idx) => (
+                          <NestedCollapsible key={step.id} title={`Verification Step ${idx + 1}`} isOpen={openItems[step.id]} toggle={() => toggleItem(step.id)} onDelete={() => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.filter(x => x.id !== step.id) })}>
+                            <div className="space-y-4">
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Description *</label>
+                                <textarea 
+                                  className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-[12px] text-white/80 h-24 resize-none outline-none focus:border-orange-500" 
+                                  value={step.description} 
+                                  onChange={e => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.map(x => x.id === step.id ? { ...x, description: e.target.value } : x) })} 
+                                  placeholder="Describe the verification action..."
+                                />
+                                {!step.description && issuesForField('task.validation_step', selectedTaskId).length > 0 && (
+                                  <p className={cn("mt-2 rounded-xl border px-3 py-2 text-[10px] font-bold leading-relaxed", compactIssueTone('error'))}>
+                                    Validation step description is required.
+                                  </p>
+                                )}
                               </div>
-                            </NestedCollapsible>
-                          ))}
-                          <button onClick={() => updateTask(selectedTaskId, { validation_procedure_steps: [...(selectedTask.validation_procedure_steps || []), { id: Date.now().toString(), description: '', figures: [] }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-orange-500 transition-all rounded-2xl">+ Add Verification Step</button>
-                        </div>
+                              <ImagePasteField figures={step.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.map(x => x.id === step.id ? { ...x, figures: figs } : x) })} label="Evidence Figures (Ctrl+V)" />
+                            </div>
+                          </NestedCollapsible>
+                        ))}
+                        <button onClick={() => updateTask(selectedTaskId, { validation_procedure_steps: [...(selectedTask.validation_procedure_steps || []), { id: Date.now().toString(), description: '', figures: [] }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-orange-500 transition-all rounded-2xl">+ Add Verification Step</button>
                       </div>
                     )}
                   </div>
-                  <div className="space-y-3">
-                    {validationIssues.map((issue) => (
-                      <button key={`${issue.code}-${issue.targetId || 'workflow'}`} onClick={() => focusAuditIssue(issue)} className={cn("w-full text-left rounded-2xl border p-4 transition-all", issue.severity === 'error' ? "border-status-error/20 bg-status-error/10 hover:bg-status-error/15" : "border-white/10 bg-black/20 hover:bg-white/5")}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className={cn("text-[9px] font-black uppercase tracking-[0.18em]", issue.severity === 'error' ? "text-status-error" : "text-amber-400")}>{issue.scope}</span>
-                          <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/25">{issue.code}</span>
-                        </div>
-                        <p className="mt-2 text-[12px] font-bold text-white/75 leading-relaxed">{issue.message}</p>
-                        <p className="mt-2 text-[10px] text-white/35">{buildFixSuggestion(issue)}</p>
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Inline validation map</p>
+                      <button onClick={() => blockingValidationIssues[0] && focusAuditIssue(blockingValidationIssues[0])} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-white/45 hover:text-white">
+                        Jump to first issue
                       </button>
-                    ))}
+                    </div>
+                    <p className="text-[11px] font-bold text-white/55 leading-relaxed">
+                      The issue list has been removed from this tab. Errors and warnings are now attached directly to the relevant workflow field or section.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full border border-status-error/20 bg-status-error/10 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-status-error">{validationErrorCount} errors</span>
+                      <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">{validationWarningCount} warnings</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -3043,7 +3299,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </CollapsibleSection>
                 </div>
               )}
-              {(inspectorTab === 'governance' || inspectorTab === 'history') && renderWorkflowOpsSurface()}
             </div>
           ) : selectedEdgeId && selectedEdge ? (
             <div className="p-6 space-y-10 animate-apple-in">
@@ -3093,10 +3348,9 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </div>
                 </div>
               </div>
-              {(inspectorTab === 'governance' || inspectorTab === 'history') && renderWorkflowOpsSurface()}
             </div>
           ) : (
-            <div className="space-y-8 animate-apple-in pb-20">
+            <div className="space-y-6 animate-apple-in pb-16">
               {showGuide && (
                 <div className={cn(BUILDER_PANEL, "p-5")}>
                   <div className="flex items-start justify-between gap-4">
@@ -3111,7 +3365,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           'Click nodes, edges, or fields to edit',
                           'Fix validation issues before commit',
                         ].map((step, index) => (
-                          <div key={step} className="rounded-[22px] border border-white/10 bg-black/20 px-3 py-3">
+                          <div key={step} className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
                             <p className="text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent">Step {index + 1}</p>
                             <p className="mt-1 text-[11px] font-bold leading-relaxed text-white/65">{step}</p>
                           </div>
@@ -3129,8 +3383,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 </div>
               )}
 
-              {(inspectorTab === 'governance' || inspectorTab === 'history') && renderWorkflowOpsSurface()}
-
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 <div className={cn(BUILDER_PANEL, "p-5 space-y-4")}>
                   <div className="flex items-center justify-between gap-3">
@@ -3145,7 +3397,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </div>
                   <div className="space-y-2">
                     {(builderSuggestions.templateMatches || []).slice(0, 3).map((template: any) => (
-                      <div key={template.key || template.label} className="rounded-[22px] border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
+                      <div key={template.key || template.label} className="rounded-xl border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-[11px] font-black uppercase text-white truncate">{template.label || template.key}</p>
                           <p className="text-[10px] text-white/45 leading-relaxed mt-1">{template.description || template.workflow_type || 'Template starter'}</p>
@@ -3154,7 +3406,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       </div>
                     ))}
                     {(builderSuggestions.templateMatches || []).length === 0 && (
-                      <div className="rounded-[22px] border border-dashed border-white/10 bg-black/20 p-4 text-[11px] font-bold text-white/35">
+                      <div className="rounded-xl border border-dashed border-white/10 bg-black/20 p-4 text-[11px] font-bold text-white/35">
                         No matching templates. Start from the current workflow and use the metadata panel below.
                       </div>
                     )}
@@ -3163,7 +3415,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <div className="space-y-2 border-t border-white/5 pt-4">
                       <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30">Related Workflows</p>
                       {builderSuggestions.workflowMatches.slice(0, 3).map((item: any) => (
-                        <div key={item.id || item.name} className="rounded-[22px] border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
+                        <div key={item.id || item.name} className="rounded-xl border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-[11px] font-black uppercase text-white truncate">{item.name || item.label || 'Related workflow'}</p>
                             <p className="text-[10px] text-white/45 leading-relaxed mt-1">{item.description || item.workflow_type || 'Reusable workflow example'}</p>
@@ -3177,7 +3429,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <div className="space-y-2 border-t border-white/5 pt-4">
                       <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30">Current Draft Tasks</p>
                       {builderSuggestions.taskLibrary.map((task: any) => (
-                        <button key={task.id} onClick={() => { setSelectedTaskId(task.id); setSelectedNodeIds([task.id]); setInspectorTab('overview'); }} className="w-full rounded-[22px] border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3 text-left hover:bg-white/5 transition-all">
+                        <button key={task.id} onClick={() => { setSelectedTaskId(task.id); setSelectedNodeIds([task.id]); setInspectorTab('overview'); }} className="w-full rounded-xl border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3 text-left hover:bg-white/5 transition-all">
                           <div className="min-w-0">
                             <p className="text-[11px] font-black uppercase text-white truncate">{task.name || 'Untitled task'}</p>
                             <p className="text-[10px] text-white/45 leading-relaxed mt-1">{task.description || task.task_type || 'Draft task'}</p>
@@ -3198,13 +3450,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <button onClick={() => setInspectorTab('validation')} className={cn(BUILDER_BUTTON, "shrink-0 border border-white/10 bg-white/5 text-white/60")}>Open</button>
                   </div>
                   {blockingValidationIssues.length > 0 && (
-                    <div className="rounded-[22px] border border-status-error/20 bg-status-error/10 px-4 py-3 text-[11px] font-bold text-status-error">
+                    <div className="rounded-xl border border-status-error/20 bg-status-error/10 px-4 py-3 text-[11px] font-bold text-status-error">
                       Fix the blocking issues before saving. Select any item below to jump to the affected field or node.
                     </div>
                   )}
                   <div className="space-y-2 max-h-[12rem] overflow-auto pr-1 custom-scrollbar">
                     {validationIssues.slice(0, 6).map((issue) => (
-                      <button key={`${issue.code}-${issue.targetId || 'workflow'}`} onClick={() => focusAuditIssue(issue)} className={cn("w-full text-left rounded-[22px] border p-3 transition-all", issue.severity === 'error' ? "border-status-error/20 bg-status-error/10 hover:bg-status-error/15" : "border-white/10 bg-black/20 hover:bg-white/5")}>
+                      <button key={`${issue.code}-${issue.targetId || 'workflow'}`} onClick={() => focusAuditIssue(issue)} className={cn("w-full text-left rounded-xl border p-3 transition-all", issue.severity === 'error' ? "border-status-error/20 bg-status-error/10 hover:bg-status-error/15" : "border-white/10 bg-black/20 hover:bg-white/5")}>
                         <div className="flex items-center justify-between gap-2">
                           <span className={cn("text-[9px] font-black uppercase tracking-[0.18em]", issue.severity === 'error' ? "text-status-error" : "text-amber-400")}>{issue.severity}</span>
                           <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/25">{issue.scope}</span>
@@ -3238,13 +3490,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 </div>
               </div>
               
-              <div className={cn("space-y-8 transition-all", !isMetadataEditMode && "opacity-80 pointer-events-none")}>
+              <div className={cn("space-y-6 transition-all", !isMetadataEditMode && "opacity-80 pointer-events-none")}>
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-theme-accent font-black px-1">
                     <Cpu size={14} />
                     <span className="text-[10px] tracking-[0.2em] uppercase">Overview</span>
                   </div>
-                  <div className={cn(BUILDER_PANEL, "space-y-6 !bg-white/[0.02] border-white/5 p-6")}>
+                  <div className={cn(BUILDER_PANEL, "space-y-5 !bg-white/[0.02] border-white/5 p-5")}>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center px-1">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Workflow Name</label>
@@ -3256,6 +3508,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         value={metadata.name} 
                         onChange={e => { saveToHistory(); setMetadata({...metadata, name: e.target.value}); }} 
                       />
+                      {issuesForField('workflow.name').length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {issuesForField('workflow.name').map((issue) => (
+                            <span key={issueId(issue)} className={cn("rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -3269,6 +3528,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         value={metadata.description} 
                         onChange={e => { saveToHistory(); setMetadata({...metadata, description: e.target.value}); }} 
                       />
+                      {issuesForField('workflow.description').length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {issuesForField('workflow.description').map((issue) => (
+                            <span key={issueId(issue)} className={cn("rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -3336,7 +3602,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <Zap size={14} />
                     <span className="text-[10px] tracking-[0.2em] uppercase">Trigger & Output</span>
                   </div>
-                  <div className={cn(BUILDER_PANEL, "space-y-6 !bg-white/[0.02] border-white/5 p-6")}>
+                  <div className={cn(BUILDER_PANEL, "space-y-5 !bg-white/[0.02] border-white/5 p-5")}>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       <SearchableSelect 
                         label="Trigger Type"
@@ -3361,6 +3627,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           value={metadata.trigger_description} 
                           onChange={e => { saveToHistory(); setMetadata({...metadata, trigger_description: e.target.value}); }} 
                         />
+                        {issuesForField('workflow.trigger_description').length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {issuesForField('workflow.trigger_description').map((issue) => (
+                              <span key={issueId(issue)} className={cn("rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-2">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Output Description</label>
@@ -3369,6 +3642,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           value={metadata.output_description} 
                           onChange={e => { saveToHistory(); setMetadata({...metadata, output_description: e.target.value}); }} 
                         />
+                        {issuesForField('workflow.output_description').length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {issuesForField('workflow.output_description').map((issue) => (
+                              <span key={issueId(issue)} className={cn("rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
