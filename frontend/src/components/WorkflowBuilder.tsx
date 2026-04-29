@@ -309,7 +309,7 @@ const NestedCollapsible: React.FC<{
 }> = ({ title, isOpen, toggle, children, onDelete, badge, isLocked }) => {
   const [isConfirming, setIsConfirming] = useState(false);
   return (
-    <div className="bg-white/[0.02] border border-white/5 rounded-xl overflow-hidden group/item animate-apple-in mt-2">
+    <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden group/item animate-apple-in mt-2">
       <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/5 transition-colors" onClick={toggle}>
         <div className="flex items-center gap-3 min-w-0 flex-1">
           {isOpen ? <ChevronUp size={12} className="text-white/20" /> : <ChevronDown size={12} className="text-white/20" />}
@@ -322,10 +322,10 @@ const NestedCollapsible: React.FC<{
         {onDelete && !isLocked && (
           <div className="flex items-center gap-2">
             {isConfirming ? (
-              <div className="flex items-center gap-1 bg-status-error/20 rounded-lg p-1 animate-apple-in">
+              <div className="flex items-center gap-1 bg-status-error/20 rounded-2xl p-1 animate-apple-in">
                 <button 
                   onClick={(e) => { e.stopPropagation(); setIsConfirming(false); onDelete(); }}
-                  className="px-2 py-1 bg-status-error text-white text-[8px] font-black uppercase rounded-md"
+                  className="px-2 py-1 bg-status-error text-white text-[8px] font-black uppercase rounded-xl"
                 >
                   Confirm
                 </button>
@@ -339,7 +339,7 @@ const NestedCollapsible: React.FC<{
             ) : (
               <button 
                 onClick={(e) => { e.stopPropagation(); setIsConfirming(true); }} 
-                className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-status-error/20 text-white/20 hover:text-status-error transition-all rounded-lg"
+                className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-status-error/20 text-white/20 hover:text-status-error transition-all rounded-xl"
               >
                 <Trash size={12} />
               </button>
@@ -710,14 +710,14 @@ const nodeTypes = { matrix: MatrixNode, diamond: DiamondNode };
 const edgeTypes = { custom: CustomEdge };
 
 const ConfirmDeleteOverlay: React.FC<{ onConfirm: () => void, onCancel: () => void, label: string }> = ({ onConfirm, onCancel, label }) => (
-  <div className="bg-status-error/10 border border-status-error/30 rounded-xl p-4 flex flex-col gap-3 animate-apple-in">
+  <div className="bg-status-error/10 border border-status-error/30 rounded-2xl p-4 flex flex-col gap-3 animate-apple-in">
     <div className="flex items-center gap-3">
       <AlertCircle size={14} className="text-status-error" />
       <span className="text-[10px] font-black text-white uppercase tracking-tight">{label}</span>
     </div>
     <div className="flex gap-2">
-      <button onClick={(e) => { e.stopPropagation(); onConfirm(); }} className="flex-1 py-2 bg-status-error text-white text-[9px] font-black uppercase rounded-lg shadow-lg shadow-status-error/20 hover:bg-status-error/80 transition-colors">Confirm Delete</button>
-      <button onClick={(e) => { e.stopPropagation(); onCancel(); }} className="flex-1 py-2 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-lg hover:bg-white/10 transition-colors">Cancel</button>
+      <button onClick={(e) => { e.stopPropagation(); onConfirm(); }} className="flex-1 py-2 bg-status-error text-white text-[9px] font-black uppercase rounded-2xl shadow-lg shadow-status-error/20 hover:bg-status-error/80 transition-colors">Confirm Delete</button>
+      <button onClick={(e) => { e.stopPropagation(); onCancel(); }} className="flex-1 py-2 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-2xl hover:bg-white/10 transition-colors">Cancel</button>
     </div>
   </div>
 );
@@ -1247,7 +1247,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             });
                             setIsOutputPickerOpen(false);
                           }}
-                          className="px-4 py-2 bg-theme-accent text-white text-[9px] font-black uppercase rounded-lg opacity-0 group-hover:opacity-100 hover:scale-105 transition-all"
+                          className="px-4 py-2 bg-theme-accent text-white text-[9px] font-black uppercase rounded-2xl opacity-0 group-hover:opacity-100 hover:scale-105 transition-all"
                         >
                           Select Output
                         </button>
@@ -1264,7 +1264,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 relative overflow-hidden">
         <div className="min-h-16 border-b border-white/10 bg-[#0a1120]/80 backdrop-blur-xl flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 relative z-[100]">
           <div className="flex items-center gap-4 min-w-0">
             <button onClick={() => onBack(metadata)} className="p-2.5 hover:bg-white/5 rounded-xl transition-colors text-white/40 hover:text-white"><ChevronLeft size={20} /></button>
@@ -1275,11 +1275,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             </div>
           </div>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
-          <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 mr-2 h-[38px] items-center">
+          <div className="flex bg-white/5 border border-white/10 rounded-2xl p-0.5 mr-2 h-[38px] items-center">
             <button onClick={undo} disabled={history.length === 0} className="px-3 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all border-r border-white/5"><RefreshCw size={14} className="-scale-x-100" /></button>
             <button onClick={redo} disabled={redoStack.length === 0} className="px-3 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all"><RefreshCw size={14} /></button>
           </div>
-          <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 mr-2 h-[38px] items-center">
+          <div className="flex bg-white/5 border border-white/10 rounded-2xl p-0.5 mr-2 h-[38px] items-center">
             {(['bezier', 'smoothstep', 'straight'] as const).map(s => (
               <button 
                 key={s} 
@@ -1293,13 +1293,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               </button>
             ))}
           </div>
-          <button onClick={() => handleLayout(nodes, edges)} className="flex items-center gap-2 px-4 h-[38px] bg-white/5 border border-white/10 rounded-xl text-[10px] font-black text-white uppercase hover:bg-white/10 transition-all"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
-          <button data-testid="builder-commit" onClick={handleSave} className="flex items-center gap-2 px-6 h-[38px] bg-theme-accent text-white rounded-xl text-[10px] font-black uppercase shadow-xl shadow-theme-accent/20 hover:scale-[1.02] transition-all"><Save size={14} /> Commit Changes</button>
+          <button onClick={() => handleLayout(nodes, edges)} className="flex items-center gap-2 px-4 h-[38px] bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black text-white uppercase hover:bg-white/10 transition-all"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
+          <button data-testid="builder-commit" onClick={handleSave} className="flex items-center gap-2 px-6 h-[38px] bg-theme-accent text-white rounded-2xl text-[10px] font-black uppercase shadow-xl shadow-theme-accent/20 hover:scale-[1.02] transition-all"><Save size={14} /> Commit Changes</button>
           <button onClick={onExit} className="p-2 text-white/20 hover:text-status-error"><X size={20} /></button>
         </div>
         </div>
 
-        <div className="flex-1 relative min-h-[56vh] xl:min-h-0">
+        <div className="flex-1 relative min-h-0">
           <ReactFlow 
             nodes={nodes} 
             edges={edges} 
@@ -1329,8 +1329,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         </div>
       </div>
 
-      <div className="relative border-t xl:border-t-0 xl:border-l border-white/10 bg-[#0a1120] flex flex-col z-[70] w-full xl:[width:var(--inspector-width)] xl:flex-none max-h-[58vh] xl:max-h-none" style={{ '--inspector-width': `${inspectorWidth}px` } as React.CSSProperties}>
-        <div onMouseDown={handleMouseDown} className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent z-50" />
+      <div className="relative border-t xl:border-t-0 xl:border-l border-white/10 bg-[#0a1120] flex flex-col z-[70] w-full xl:[width:var(--inspector-width)] xl:flex-none h-full min-h-0 overflow-hidden" style={{ '--inspector-width': `${inspectorWidth}px` } as React.CSSProperties}>
+        <div onMouseDown={handleMouseDown} className="hidden xl:block absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent z-50" />
         <div className="min-h-14 flex border-b border-white/10 bg-white/[0.02] overflow-x-auto">
           {[ 
             { id: 'overview', label: 'Overview', icon: <Activity size={12} /> }, 
@@ -1343,7 +1343,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
           ))}
           {selectedEdgeId && (<div className="flex-1 min-w-[84px] flex flex-col items-center justify-center gap-0.5 border-b-2 border-theme-accent bg-theme-accent/10 text-white px-2"><Link2 size={12} /><span className="text-[8px] font-black uppercase whitespace-nowrap">Edge</span></div>)}
         </div>
-        <div className="flex-1 overflow-auto custom-scrollbar p-4 sm:p-6">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar p-4 sm:p-6">
           {selectedTaskId && selectedTask ? (
             <div className="space-y-8 animate-apple-in">
               {inspectorTab === 'overview' && (
@@ -1377,7 +1377,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         <select className="w-full bg-white/5 border border-white/10 rounded-xl px-3 h-11 text-[11px] font-black text-white outline-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>{taskTypes.map((t:any) => <option key={t} value={t}>{t}</option>)}</select>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-xl">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest px-1 text-center block">TAT Manual (m)</label>
                           <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[14px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
@@ -1407,7 +1407,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         </div>
                       </div>
                       {!ownerPositionsCollapsed && (
-                        <div className="p-4 space-y-3 border border-white/10 bg-black/40 rounded-xl animate-apple-in -mt-2">
+                        <div className="p-4 space-y-3 border border-white/10 bg-black/40 rounded-2xl animate-apple-in -mt-2">
                           {(selectedTask.owner_positions || []).map((pos, idx) => (
                             <div key={idx} className="flex gap-2 group/pos animate-apple-in">
                               <div className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[11px] font-bold text-white flex items-center justify-between">
@@ -1433,7 +1433,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             if (newTitle && newTitle.trim()) {
                               updateTask(selectedTaskId, { owner_positions: [...(selectedTask.owner_positions || []), newTitle.trim()] });
                             }
-                          }} className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-lg text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all">+ Add Position</button>
+                          }} className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-2xl text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all">+ Add Position</button>
                         </div>
                       )}
 
@@ -1462,7 +1462,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               </div>
                             </NestedCollapsible>
                           ))}
-                          <button onClick={() => updateTask(selectedTaskId, { involved_systems: [...(selectedTask.involved_systems || []), { id: Date.now().toString(), name: '', usage: '', figures: [], link: '' }] })} className="w-full py-2.5 bg-white/5 border border-dashed border-white/10 rounded-xl text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all">+ Add System Dependency</button>
+                          <button onClick={() => updateTask(selectedTaskId, { involved_systems: [...(selectedTask.involved_systems || []), { id: Date.now().toString(), name: '', usage: '', figures: [], link: '' }] })} className="w-full py-2.5 bg-white/5 border border-dashed border-white/10 rounded-2xl text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all">+ Add System Dependency</button>
                         </div>
                       </div>
                     </>
@@ -1479,7 +1479,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       ) : (
                         <button 
                           onClick={() => setConfirmingDelete(selectedTaskId)} 
-                          className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-xl text-[10px] font-black uppercase hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2"
+                          className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-2xl text-[10px] font-black uppercase hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2"
                         >
                           <Trash size={12} /> Permanent Deletion
                         </button>
@@ -1521,8 +1521,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         </NestedCollapsible>
                       ))}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <button onClick={() => updateTask(selectedTaskId, { source_data_list: [...selectedTask.source_data_list, { id: Date.now().toString(), name: '', description: '', figures: [], link: '', data_example: '' }] })} className="py-3 bg-white/5 border border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Manual Input</button>
-                        <button onClick={() => setIsOutputPickerOpen(true)} className="py-3 bg-theme-accent/10 border border-theme-accent/20 text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all rounded-xl flex items-center justify-center gap-2"><Search size={12} /> Registry Search</button>
+                        <button onClick={() => updateTask(selectedTaskId, { source_data_list: [...selectedTask.source_data_list, { id: Date.now().toString(), name: '', description: '', figures: [], link: '', data_example: '' }] })} className="py-3 bg-white/5 border border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-2xl flex items-center justify-center gap-2"><Plus size={12} /> Add Manual Input</button>
+                        <button onClick={() => setIsOutputPickerOpen(true)} className="py-3 bg-theme-accent/10 border border-theme-accent/20 text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all rounded-2xl flex items-center justify-center gap-2"><Search size={12} /> Registry Search</button>
                       </div>
                     </div>
                   </CollapsibleSection>
@@ -1552,7 +1552,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
-                      <button onClick={() => updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '', figures: [], link: '', data_example: '' }] })} className="w-full py-3 bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Output Artifact</button>
+                      <button onClick={() => updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '', figures: [], link: '', data_example: '' }] })} className="w-full py-3 bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-2xl flex items-center justify-center gap-2"><Plus size={12} /> Add Output Artifact</button>
                     </div>
                   </CollapsibleSection>
                 </div>
@@ -1585,7 +1585,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
-                      <button onClick={() => updateTask(selectedTaskId, { blockers: [...selectedTask.blockers, { id: Date.now().toString(), blocking_entity: '', reason: '', average_delay_minutes: 0, frequency: 1 }] })} className="w-full py-3 bg-amber-500/10 border border-amber-500/20 text-[10px] font-black uppercase text-amber-500 hover:bg-amber-500/20 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Roadblock</button>
+                      <button onClick={() => updateTask(selectedTaskId, { blockers: [...selectedTask.blockers, { id: Date.now().toString(), blocking_entity: '', reason: '', average_delay_minutes: 0, frequency: 1 }] })} className="w-full py-3 bg-amber-500/10 border border-amber-500/20 text-[10px] font-black uppercase text-amber-500 hover:bg-amber-500/20 transition-all rounded-2xl flex items-center justify-center gap-2"><Plus size={12} /> Add Roadblock</button>
                     </div>
                   </CollapsibleSection>
 
@@ -1630,7 +1630,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
-                      <button onClick={() => updateTask(selectedTaskId, { errors: [...selectedTask.errors, { id: Date.now().toString(), error_type: '', description: '', recovery_time_minutes: 0, frequency: 1 }] })} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-[10px] font-black uppercase text-status-error hover:bg-status-error/20 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Human Error</button>
+                      <button onClick={() => updateTask(selectedTaskId, { errors: [...selectedTask.errors, { id: Date.now().toString(), error_type: '', description: '', recovery_time_minutes: 0, frequency: 1 }] })} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-[10px] font-black uppercase text-status-error hover:bg-status-error/20 transition-all rounded-2xl flex items-center justify-center gap-2"><Plus size={12} /> Add Human Error</button>
                     </div>
                   </CollapsibleSection>
 
@@ -1680,7 +1680,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               </div>
                             </NestedCollapsible>
                           ))}
-                          <button onClick={() => updateTask(selectedTaskId, { validation_procedure_steps: [...(selectedTask.validation_procedure_steps || []), { id: Date.now().toString(), description: '', figures: [] }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-orange-500 transition-all rounded-xl">+ Add Verification Step</button>
+                          <button onClick={() => updateTask(selectedTaskId, { validation_procedure_steps: [...(selectedTask.validation_procedure_steps || []), { id: Date.now().toString(), description: '', figures: [] }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-orange-500 transition-all rounded-2xl">+ Add Verification Step</button>
                         </div>
                       </div>
                     )}                  </div>
@@ -1707,7 +1707,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
-                      <button onClick={() => updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, { id: Date.now().toString(), label: '', url: '' }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white transition-all rounded-xl mt-2">+ Add Reference Link</button>
+                      <button onClick={() => updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, { id: Date.now().toString(), label: '', url: '' }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white transition-all rounded-2xl mt-2">+ Add Reference Link</button>
                     </div>
                   </CollapsibleSection>
 
@@ -1735,7 +1735,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
-                      <button onClick={() => updateTask(selectedTaskId, { instructions: [...selectedTask.instructions, { id: Date.now().toString(), description: '', figures: [], links: [] }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white transition-all rounded-xl">+ Add Instruction Step</button>
+                      <button onClick={() => updateTask(selectedTaskId, { instructions: [...selectedTask.instructions, { id: Date.now().toString(), description: '', figures: [], links: [] }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white transition-all rounded-2xl">+ Add Instruction Step</button>
                     </div>
                   </CollapsibleSection>
                 </div>
@@ -1746,28 +1746,28 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
                 <div className="flex items-center gap-3"><Link2 size={16} className="text-theme-accent" /><span className="text-[14px] font-black text-white uppercase tracking-widest">Edge Configuration</span></div>
                 <div className="flex gap-2">
-                  <button onClick={() => swapEdgeDirection(selectedEdgeId)} title="Swap Direction" className="text-white/40 hover:text-white p-2 bg-white/5 border border-white/10 rounded-md transition-all"><LucideWorkflow size={16} className="rotate-90" /></button>
-                  <button onClick={() => { setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); setIsDirty?.(true); }} className="text-status-error hover:bg-status-error/10 p-2 border border-status-error/20 rounded-md transition-all"><Trash size={16} /></button>
+                  <button onClick={() => swapEdgeDirection(selectedEdgeId)} title="Swap Direction" className="text-white/40 hover:text-white p-2 bg-white/5 border border-white/10 rounded-2xl transition-all"><LucideWorkflow size={16} className="rotate-90" /></button>
+                  <button onClick={() => { setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); setIsDirty?.(true); }} className="text-status-error hover:bg-status-error/10 p-2 border border-status-error/20 rounded-2xl transition-all"><Trash size={16} /></button>
                 </div>
               </div>
               <div className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Label</label>
-                  <input className="w-full bg-white/5 border border-white/10 rounded-md px-4 py-3 text-[13px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedEdge.data?.label || ''} onChange={e => updateEdge(selectedEdgeId, { label: e.target.value })} />
+                  <input className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-[13px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedEdge.data?.label || ''} onChange={e => updateEdge(selectedEdgeId, { label: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Style</label>
-                  <div className="flex bg-white/5 p-1 rounded-md border border-white/10">
+                  <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10">
                     {(['smoothstep', 'bezier', 'straight'] as const).map((s) => (
-                      <button key={s} onClick={() => updateEdge(selectedEdgeId, { edgeStyle: s })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-md transition-all", (selectedEdge.data?.edgeStyle || 'bezier') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
+                      <button key={s} onClick={() => updateEdge(selectedEdgeId, { edgeStyle: s })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-2xl transition-all", (selectedEdge.data?.edgeStyle || 'bezier') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
                     ))}
                   </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Line Style</label>
-                  <div className="flex bg-white/5 p-1 rounded-md border border-white/10">
+                  <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10">
                     {(['solid', 'dashed'] as const).map((s) => (
-                      <button key={s} onClick={() => updateEdge(selectedEdgeId, { lineStyle: s })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-md transition-all", (selectedEdge.data?.lineStyle || 'solid') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
+                      <button key={s} onClick={() => updateEdge(selectedEdgeId, { lineStyle: s })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-2xl transition-all", (selectedEdge.data?.lineStyle || 'solid') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
                     ))}
                   </div>
                 </div>
@@ -1795,7 +1795,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <button
                       data-testid="builder-guide-dismiss"
                       onClick={() => setShowGuide(false)}
-                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/60 transition-all hover:bg-white/10 hover:text-white"
+                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/60 transition-all hover:bg-white/10 hover:text-white"
                     >
                       Dismiss
                     </button>
@@ -1812,7 +1812,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   <span className="text-[9px] text-white/20 font-black uppercase tracking-widest">v{metadata.version}</span>
                   <button 
                     onClick={() => setIsMetadataEditMode(!isMetadataEditMode)}
-                    className={cn("px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all", isMetadataEditMode ? "bg-theme-accent text-white" : "bg-white/5 text-white/40 hover:text-white")}
+                    className={cn("px-4 py-1.5 rounded-2xl text-[9px] font-black uppercase transition-all", isMetadataEditMode ? "bg-theme-accent text-white" : "bg-white/5 text-white/40 hover:text-white")}
                   >
                     {isMetadataEditMode ? "Finish Editing" : "Edit Definition"}
                   </button>

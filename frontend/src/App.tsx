@@ -792,7 +792,7 @@ const PathOSApp: React.FC = () => {
       <Route path="/workflows/builder/:workflowId" element={
                 selectedWorkflow ? (
                   <Suspense fallback={<RouteLoading label="Loading Workflow Builder" />}>
-                    <div className="min-h-[calc(100dvh-140px)]">
+                    <div className="h-[calc(100dvh-140px)] overflow-hidden">
                       <WorkflowBuilder 
                         key={selectedWorkflow.id}
                         workflow={selectedWorkflow}
