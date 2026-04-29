@@ -1080,7 +1080,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
 
   const saveToHistory = useCallback(() => {
     // Optimization: Only save if state actually changed
-    const currentState = JSON.stringify({ nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds });
+    const currentState = JSON.stringify({ nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, reviewRequests });
     const lastHistory = history.length > 0 ? JSON.stringify(history[history.length - 1]) : null;
     if (currentState === lastHistory) return;
 
@@ -1304,6 +1304,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       replies: sortByTime(byParent.get(comment.id) || []),
     }));
   }, [workflowComments]);
+
+  const replyTargetComment = useMemo(
+    () => workflowComments.find((comment) => comment.id === replyTargetCommentId) || null,
+    [replyTargetCommentId, workflowComments]
+  );
 
   const exportWorkflowDraft = useCallback(() => {
     const payload = {
@@ -1553,7 +1558,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
           </div>
           {replyTargetCommentId && (
             <div className="rounded-[22px] border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[11px] font-bold text-theme-accent flex items-center justify-between gap-3">
-              <span>Replying to {replyTargetCommentId}</span>
+              <span>Replying to {replyTargetComment?.author || replyTargetComment?.scope || 'selected comment'}</span>
               <button onClick={() => setReplyTargetCommentId(null)} className="rounded-xl border border-white/10 bg-black/20 px-2 py-1 text-[8px] font-black uppercase text-white/55">Clear</button>
             </div>
           )}
@@ -1638,15 +1643,26 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
           <div className="space-y-2 border-t border-white/5 pt-4">
             <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Suggested Reuse</p>
             <div className="space-y-2 max-h-[12rem] overflow-auto pr-1 custom-scrollbar">
-              {(builderSuggestions.workflowMatches.length > 0 ? builderSuggestions.workflowMatches : relatedWorkflowList).slice(0, 6).map((item: any) => (
-                <div key={`suggested-${item.id}`} className="w-full rounded-2xl border border-white/10 bg-black/15 px-4 py-3 text-left">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{item.name}</p>
-                    <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Suggested</span>
-                  </div>
-                  <p className="mt-1 text-[11px] font-bold text-white/55">{item.workflow_type || item.description || 'Reusable component'}</p>
-                </div>
-              ))}
+                  {(builderSuggestions.workflowMatches.length > 0 ? builderSuggestions.workflowMatches : relatedWorkflowList).slice(0, 6).map((item: any) => (
+                    <div key={`suggested-${item.id}`} className="w-full rounded-2xl border border-white/10 bg-black/15 px-4 py-3 text-left">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{item.name}</p>
+                        <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Suggested</span>
+                      </div>
+                      <p className="mt-1 text-[11px] font-bold text-white/55">{item.workflow_type || item.description || 'Reusable component'}</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {relatedWorkflowIds.includes(Number(item.id)) ? (
+                          <span className="rounded-full border border-theme-accent/20 bg-theme-accent/10 px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent">
+                            Linked
+                          </span>
+                        ) : (
+                          <button onClick={() => updateRelatedWorkflowIds(Number(item.id))} className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white">
+                            Link Workflow
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
             </div>
           </div>
         </div>
@@ -3092,7 +3108,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   )}
                   {builderSuggestions.taskLibrary.length > 0 && (
                     <div className="space-y-2 border-t border-white/5 pt-4">
-                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30">Reusable Draft Tasks</p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30">Current Draft Tasks</p>
                       {builderSuggestions.taskLibrary.map((task: any) => (
                         <button key={task.id} onClick={() => { setSelectedTaskId(task.id); setSelectedNodeIds([task.id]); setInspectorTab('overview'); }} className="w-full rounded-[22px] border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3 text-left hover:bg-white/5 transition-all">
                           <div className="min-w-0">
