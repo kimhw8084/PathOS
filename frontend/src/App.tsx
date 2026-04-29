@@ -95,7 +95,7 @@ const ConfirmationDialog = ({ isOpen, onConfirm, onCancel, title, message }: {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-apple-in">
-      <div className="apple-glass w-[400px] p-8 border border-white/10 rounded-3xl shadow-2xl flex flex-col gap-6 text-center">
+      <div className="apple-glass w-[min(92vw,400px)] p-6 sm:p-8 border border-white/10 rounded-3xl shadow-2xl flex flex-col gap-6 text-center">
         <div className="w-16 h-16 bg-status-warning/10 rounded-full flex items-center justify-center mx-auto border border-status-warning/20">
           <AlertTriangle size={32} className="text-status-warning" />
         </div>
@@ -220,23 +220,27 @@ const GlobalHeader = ({
   const activeReports = reports.filter(r => !r.acknowledged);
 
   return (
-    <header className="h-14 bg-theme-header backdrop-blur-xl border-b border-theme-border flex items-center justify-between px-6 z-20 sticky top-0">
-      <div className="flex items-center gap-6">
-        <h2 className="text-hint text-theme-muted flex items-center gap-2">PathOS <span className="opacity-30">/</span> <span className="text-white font-black uppercase tracking-[0.1em]">{getTabLabel(currentTab)}</span></h2>
+    <header className="min-h-14 bg-theme-header backdrop-blur-xl border-b border-theme-border flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 z-20 sticky top-0">
+      <div className="flex items-center gap-3 min-w-0">
+        <h2 className="text-hint text-theme-muted flex items-center gap-2 min-w-0">
+          <span className="shrink-0">PathOS</span>
+          <span className="opacity-30 shrink-0">/</span>
+          <span className="text-white font-black uppercase tracking-[0.1em] truncate max-w-[42vw] sm:max-w-[28vw]">{getTabLabel(currentTab)}</span>
+        </h2>
         <ConnectionStatus />
       </div>
       
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2.5 px-3.5 py-1.5 bg-white/[0.03] backdrop-blur-md rounded-full border border-theme-border">
+      <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+        <div className="flex items-center gap-2.5 px-3.5 py-1.5 bg-white/[0.03] backdrop-blur-md rounded-full border border-theme-border max-w-full">
           <div className="w-7 h-7 rounded-full bg-theme-accent/15 border border-theme-accent/25 flex items-center justify-center text-[10px] font-black text-theme-accent">
             {currentUser?.avatar_initials || currentUser?.full_name?.split(' ').map((part: string) => part[0]).join('').slice(0, 2) || 'CU'}
           </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white">{currentUser?.full_name || 'Company User'}</span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white truncate max-w-[34vw] sm:max-w-[16rem]">{currentUser?.full_name || 'Company User'}</span>
             <span className="text-[9px] font-bold text-white/45">{currentUser?.team || 'No team'} • {inboxCount} inbox • {activeSessionCount} live</span>
           </div>
         </div>
-        <button onClick={onOpenCollaboration} className="flex items-center gap-2 px-4 py-1.5 rounded-full border bg-white/[0.03] border-theme-border text-theme-secondary hover:bg-white/[0.06] hover:text-white transition-all">
+        <button onClick={onOpenCollaboration} className="flex items-center gap-2 px-4 py-1.5 rounded-full border bg-white/[0.03] border-theme-border text-theme-secondary hover:bg-white/[0.06] hover:text-white transition-all whitespace-nowrap">
           <Users size={14} />
           <span className="text-[11px] font-black uppercase tracking-widest">Collaboration</span>
         </button>
@@ -785,10 +789,10 @@ const PathOSApp: React.FC = () => {
                   </Suspense>
                 ) : <div className="flex items-center justify-center h-full text-theme-muted uppercase font-black tracking-widest gap-4 animate-pulse"><Layers size={32} /> Loading Workflow Summary...</div>
               } />
-              <Route path="/workflows/builder/:workflowId" element={
+      <Route path="/workflows/builder/:workflowId" element={
                 selectedWorkflow ? (
                   <Suspense fallback={<RouteLoading label="Loading Workflow Builder" />}>
-                    <div className="h-[calc(100vh-140px)]">
+                    <div className="min-h-[calc(100dvh-140px)]">
                       <WorkflowBuilder 
                         key={selectedWorkflow.id}
                         workflow={selectedWorkflow}

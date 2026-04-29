@@ -439,7 +439,7 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
   if (isTemplate) {
     return (
       <div className={cn(
-        "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-8 py-6 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center min-w-[200px] h-auto hover:z-[1000]",
+        "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-6 sm:px-8 py-5 sm:py-6 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center w-[clamp(180px,22vw,260px)] max-w-[90vw] h-auto hover:z-[1000]",
         selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
       )}>
         <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-[0.2em] border z-20 shadow-lg", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
@@ -452,7 +452,7 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
           >
             {data.label}
             {!dragging && (
-              <div className="absolute top-full left-0 w-[800px] bg-[#0f172a]/95 border-t-2 border-white/20 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden text-left">
+              <div className="absolute top-full left-0 bg-[#0f172a]/95 border-t-2 border-white/20 p-5 sm:p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden text-left" style={{ width: 'min(90vw, 42rem)' }}>
                  <div className={cn("absolute top-0 left-0 w-full h-1", isTrigger ? "bg-cyan-500" : "bg-rose-500")} />
                  <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 2}px` }}>
                    {data.label}
@@ -483,7 +483,7 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
 
   return (
     <div className={cn(
-      "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-7 py-6 w-[460px] shadow-2xl transition-all duration-300 relative border-2 h-auto min-h-[380px] hover:z-[1000]",
+      "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-5 sm:px-7 py-5 sm:py-6 w-[clamp(320px,32vw,460px)] max-w-[92vw] shadow-2xl transition-all duration-300 relative border-2 h-auto min-h-[380px] hover:z-[1000]",
       selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : 'border-white/10 hover:border-white/20',
       data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
     )}>
@@ -523,7 +523,7 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
           >
             {data.label || "Untitled Task"}
             {!dragging && (
-              <div className="absolute top-full left-0 w-[800px] bg-[#0f172a]/95 border-t-2 border-theme-accent/50 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden text-left">
+              <div className="absolute top-full left-0 bg-[#0f172a]/95 border-t-2 border-theme-accent/50 p-5 sm:p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden text-left" style={{ width: 'min(90vw, 42rem)' }}>
                  <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 2}px` }}>{data.label}</p>
                  <p className="text-white/80 font-medium leading-relaxed italic text-left" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
               </div>
@@ -532,7 +532,7 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
         </div>
 
         <div className="flex flex-col gap-4 mt-2">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="bg-black/40 rounded-xl p-4 border border-white/5 flex flex-col items-center justify-center">
                <span className="text-[11px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-1">Manual</span>
                <span className="text-[32px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
@@ -543,8 +543,8 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
             </div>
           </div>
 
-          <div className="flex items-center justify-between py-3 border-t border-white/5">
-             <div className="flex items-center gap-6 flex-1 justify-center">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-3 border-t border-white/5">
+             <div className="flex items-center gap-6 flex-1 justify-center min-w-0">
                <div className="flex flex-col items-center">
                  <span className="text-[11px] font-black text-white/20 uppercase tracking-widest">Input</span>
                  <span className="text-[20px] font-black text-white leading-none">{data.sourceCount || 0}</span>
@@ -599,8 +599,8 @@ const DiamondNode = ({ data, selected, dragging }: { data: any, selected: boolea
   const titleFontSize = Math.max(24, baseFontSize + 10);
   const descFontSize = Math.max(12, titleFontSize - 3);
   return (
-    <div className={cn("relative w-[280px] h-[280px] flex items-center justify-center transition-all duration-300 hover:z-[1000]", selected ? 'scale-105 z-50' : 'z-10')}>
-      <div className={cn("absolute w-[197.99px] h-[197.99px] rotate-45 border-2 transition-all duration-300 bg-[#0f172a]/95 rounded-2xl", selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20', data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : '')} />
+    <div className={cn("relative w-[clamp(220px,24vw,280px)] h-[clamp(220px,24vw,280px)] flex items-center justify-center transition-all duration-300 hover:z-[1000]", selected ? 'scale-105 z-50' : 'z-10')}>
+      <div className={cn("absolute w-[clamp(174px,17vw,198px)] h-[clamp(174px,17vw,198px)] rotate-45 border-2 transition-all duration-300 bg-[#0f172a]/95 rounded-2xl", selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20', data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : '')} />
       
       {/* Handles at lower z-index than tooltip container */}
       <Handle type="target" position={Position.Left} id="left-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !left-0 shadow-lg z-10" />
@@ -619,7 +619,7 @@ const DiamondNode = ({ data, selected, dragging }: { data: any, selected: boolea
         >
           {data.label || "Condition"}
           {!dragging && (
-            <div className="absolute top-[85%] left-0 w-[800px] bg-[#0f172a]/95 border-t-2 border-amber-400/50 p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 text-left">
+            <div className="absolute top-[85%] left-0 bg-[#0f172a]/95 border-t-2 border-amber-400/50 p-5 sm:p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 text-left" style={{ width: 'min(90vw, 42rem)' }}>
                <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight" style={{ fontSize: `${titleFontSize - 4}px` }}>{data.label || 'Condition'}</p>
                <p className="text-white/80 font-medium leading-relaxed italic" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
             </div>
@@ -1202,12 +1202,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
   }, [saveToHistory, setTasks, setNodes, setEdges, setIsDirty]);
 
   return (
-    <div className="flex h-full w-full bg-[#050914] overflow-hidden">
+    <div className="flex h-full min-h-0 w-full bg-[#050914] overflow-hidden">
       {/* Existing Output Picker Modal */}
       {isOutputPickerOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-8 bg-black/80 backdrop-blur-sm animate-apple-in">
-          <div className="w-full max-w-4xl bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[80vh] overflow-hidden">
-            <div className="p-6 border-b border-white/10 flex items-center justify-between">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-8 bg-black/80 backdrop-blur-sm animate-apple-in">
+          <div className="w-[min(96vw,64rem)] bg-[#0f172a] border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[88vh] overflow-hidden">
+            <div className="p-4 sm:p-6 border-b border-white/10 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <Database className="text-theme-accent" size={20} />
                 <h3 className="text-[18px] font-black text-white uppercase tracking-tight">Select Existing Output</h3>
@@ -1264,17 +1264,17 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col min-w-0 relative">
-        <div className="h-16 border-b border-white/10 bg-[#0a1120]/80 backdrop-blur-xl flex items-center justify-between px-6 relative z-[100]">
-          <div className="flex items-center gap-4">
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
+        <div className="min-h-16 border-b border-white/10 bg-[#0a1120]/80 backdrop-blur-xl flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 relative z-[100]">
+          <div className="flex items-center gap-4 min-w-0">
             <button onClick={() => onBack(metadata)} className="p-2.5 hover:bg-white/5 rounded-xl transition-colors text-white/40 hover:text-white"><ChevronLeft size={20} /></button>
-            <div className="flex flex-col">
+            <div className="flex flex-col min-w-0">
               <span className="text-[10px] font-black text-theme-accent uppercase tracking-widest mb-1">Workflow Builder</span>
-              <h1 className="text-[14px] font-black text-white uppercase truncate max-w-[300px]">{workflow?.name}</h1>
+              <h1 className="text-[14px] font-black text-white uppercase truncate max-w-[55vw] sm:max-w-[300px]">{workflow?.name}</h1>
               <span className="text-[9px] font-black uppercase tracking-[0.24em] text-theme-accent/80">Repository Definition Surface</span>
             </div>
           </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
           <div className="flex bg-white/5 border border-white/10 rounded-xl p-0.5 mr-2 h-[38px] items-center">
             <button onClick={undo} disabled={history.length === 0} className="px-3 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all border-r border-white/5"><RefreshCw size={14} className="-scale-x-100" /></button>
             <button onClick={redo} disabled={redoStack.length === 0} className="px-3 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all"><RefreshCw size={14} /></button>
@@ -1299,7 +1299,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         </div>
         </div>
 
-        <div className="flex-1 relative">
+        <div className="flex-1 relative min-h-[56vh] xl:min-h-0">
           <ReactFlow 
             nodes={nodes} 
             edges={edges} 
@@ -1322,13 +1322,16 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             <Background color="#1e293b" gap={30} size={1} />
             <Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl overflow-hidden" />
           </ReactFlow>
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-20 flex gap-1 p-1 bg-[#0a1120]/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl"><button data-testid="builder-add-task" onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2 bg-theme-accent text-white rounded-xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all"><Plus size={12} /> Add Task</button><button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all"><Plus size={12} /> Add Condition</button></div>
+          <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap gap-2 p-2 bg-[#0a1120]/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:top-6">
+            <button data-testid="builder-add-task" onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2 bg-theme-accent text-white rounded-xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap"><Plus size={12} /> Add Task</button>
+            <button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap"><Plus size={12} /> Add Condition</button>
+          </div>
         </div>
       </div>
 
-      <div className="relative border-l border-white/10 bg-[#0a1120] flex flex-col z-[70]" style={{ width: `${inspectorWidth}px` }}>
+      <div className="relative border-t xl:border-t-0 xl:border-l border-white/10 bg-[#0a1120] flex flex-col z-[70] w-full xl:[width:var(--inspector-width)] xl:flex-none max-h-[58vh] xl:max-h-none" style={{ '--inspector-width': `${inspectorWidth}px` } as React.CSSProperties}>
         <div onMouseDown={handleMouseDown} className="absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent z-50" />
-        <div className="h-14 flex border-b border-white/10 bg-white/[0.02]">
+        <div className="min-h-14 flex border-b border-white/10 bg-white/[0.02] overflow-x-auto">
           {[ 
             { id: 'overview', label: 'Overview', icon: <Activity size={12} /> }, 
             { id: 'data', label: 'Data', icon: <Database size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' }, 
@@ -1336,11 +1339,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             { id: 'validation', label: 'Validation', icon: <Zap size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' }, 
             { id: 'appendix', label: 'Appendix', icon: <Paperclip size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' } 
           ].filter(t => !t.hidden && (selectedTaskId || t.id === 'overview')).map(t => (
-            <button key={t.id} onClick={() => setInspectorTab(t.id as any)} className={cn("flex-1 flex flex-col items-center justify-center gap-0.5 border-b-2", inspectorTab === t.id ? 'border-theme-accent bg-theme-accent/10 text-white' : 'border-transparent text-white/20 hover:text-white transition-all')}>{t.icon}<span className="text-[8px] font-black uppercase">{t.label}</span></button>
+            <button key={t.id} onClick={() => setInspectorTab(t.id as any)} className={cn("flex-1 min-w-[84px] flex flex-col items-center justify-center gap-0.5 border-b-2 px-2", inspectorTab === t.id ? 'border-theme-accent bg-theme-accent/10 text-white' : 'border-transparent text-white/20 hover:text-white transition-all')}>{t.icon}<span className="text-[8px] font-black uppercase whitespace-nowrap">{t.label}</span></button>
           ))}
-          {selectedEdgeId && (<div className="flex-1 flex flex-col items-center justify-center gap-0.5 border-b-2 border-theme-accent bg-theme-accent/10 text-white"><Link2 size={12} /><span className="text-[8px] font-black uppercase">Edge</span></div>)}
+          {selectedEdgeId && (<div className="flex-1 min-w-[84px] flex flex-col items-center justify-center gap-0.5 border-b-2 border-theme-accent bg-theme-accent/10 text-white px-2"><Link2 size={12} /><span className="text-[8px] font-black uppercase whitespace-nowrap">Edge</span></div>)}
         </div>
-        <div className="flex-1 overflow-auto custom-scrollbar p-6">
+        <div className="flex-1 overflow-auto custom-scrollbar p-4 sm:p-6">
           {selectedTaskId && selectedTask ? (
             <div className="space-y-8 animate-apple-in">
               {inspectorTab === 'overview' && (
@@ -1374,7 +1377,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         <select className="w-full bg-white/5 border border-white/10 rounded-xl px-3 h-11 text-[11px] font-black text-white outline-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>{taskTypes.map((t:any) => <option key={t} value={t}>{t}</option>)}</select>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-xl">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-white/[0.02] border border-white/5 rounded-xl">
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest px-1 text-center block">TAT Manual (m)</label>
                           <input type="number" className="w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-[14px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
@@ -1385,7 +1388,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4 items-end">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owner Team</label>
                           <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-11 text-[12px] font-bold text-white outline-none focus:border-theme-accent placeholder:text-white/10" value={selectedTask.owning_team} onChange={e => updateTask(selectedTaskId, { owning_team: e.target.value })} placeholder="Team Name" />
@@ -1517,7 +1520,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <button onClick={() => updateTask(selectedTaskId, { source_data_list: [...selectedTask.source_data_list, { id: Date.now().toString(), name: '', description: '', figures: [], link: '', data_example: '' }] })} className="py-3 bg-white/5 border border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-xl flex items-center justify-center gap-2"><Plus size={12} /> Add Manual Input</button>
                         <button onClick={() => setIsOutputPickerOpen(true)} className="py-3 bg-theme-accent/10 border border-theme-accent/20 text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all rounded-xl flex items-center justify-center gap-2"><Search size={12} /> Registry Search</button>
                       </div>
@@ -1849,7 +1852,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       />
                     </div>
 
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                       <SearchableSelect 
                         label="PRC"
                         options={(taxonomy.find(t => t.category === 'PRC') as any)?.cached_values || []}
@@ -1888,7 +1891,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       <SearchableSelect 
                         label="Tool Family"
                         options={(taxonomy.find(t => t.category === 'ToolType') as any)?.cached_values || []}
@@ -1915,7 +1918,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <span className="text-[10px] tracking-[0.2em] uppercase">Trigger & Output</span>
                   </div>
                   <div className="apple-card space-y-6 !bg-white/[0.02] border-white/5 p-6 rounded-2xl">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       <SearchableSelect 
                         label="Trigger Type"
                         options={(taxonomy.find(t => t.category === 'TriggerType') as any)?.cached_values || []}
