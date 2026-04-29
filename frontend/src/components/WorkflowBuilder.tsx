@@ -5,6 +5,7 @@ import ReactFlow, {
   Position, 
   Background, 
   Controls, 
+  MiniMap,
   addEdge, 
   useNodesState, 
   useEdgesState,
@@ -78,6 +79,15 @@ interface WorkflowComment {
   resolved: boolean;
 }
 
+interface ReviewRequestDraft {
+  id: string;
+  role: string;
+  requested_by: string;
+  status: string;
+  due_at: string;
+  note: string;
+}
+
 interface AccessControlState {
   visibility: string;
   viewers: string[];
@@ -108,7 +118,21 @@ const createWorkflowComment = (scope: WorkflowComment['scope'] = 'workflow', sco
   resolved: false,
 });
 
+const createReviewRequestDraft = (): ReviewRequestDraft => ({
+  id: `review-${Date.now()}`,
+  role: '',
+  requested_by: 'system_user',
+  status: 'open',
+  due_at: '',
+  note: '',
+});
+
 const normalizeStringList = (value: unknown) => Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : [];
+const parseIsoDate = (value: unknown) => {
+  if (!value) return null;
+  const parsed = new Date(String(value));
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
 
 const scoreTextMatch = (value: unknown, query: string) => {
   const haystack = String(value ?? '').toLowerCase();
@@ -840,7 +864,7 @@ const ConfirmDeleteOverlay: React.FC<{ onConfirm: () => void, onCancel: () => vo
 const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, templates = [], relatedWorkflows = [], rollbackPreview, onSave, onBack, onExit, onCreateRollbackDraft, onGovernanceAction, setIsDirty }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const { project, fitView } = useReactFlow();
+  const { project, fitView, zoomIn, zoomOut, setViewport } = useReactFlow();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
@@ -875,10 +899,17 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     reviewers: [],
   });
   const [relatedWorkflowIds, setRelatedWorkflowIds] = useState<number[]>([]);
+  const [reviewRequests, setReviewRequests] = useState<ReviewRequestDraft[]>([]);
   const [commentDraft, setCommentDraft] = useState<WorkflowComment>(createWorkflowComment());
+  const [replyTargetCommentId, setReplyTargetCommentId] = useState<string | null>(null);
   const [importDraft, setImportDraft] = useState('');
   const [showImportPanel, setShowImportPanel] = useState(false);
   const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'conflict' | 'error'>('idle');
+  const [saveConflict, setSaveConflict] = useState<any>(null);
+  const [focusMode, setFocusMode] = useState(false);
   const draftSaveTimer = useRef<number | null>(null);
   const draftRestoreAttempted = useRef(false);
   const initialSnapshotRef = useRef<any>(null);
@@ -939,6 +970,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   );
   const selectedNodesAreProtected = selectedTasks.some((task) => task.interface === 'TRIGGER' || task.interface === 'OUTCOME');
   const selectedItemCount = selectedNodeIds.length + selectedEdgeIds.length;
+  const savedAtLabel = useMemo(() => lastSavedAt ? new Date(lastSavedAt).toLocaleString() : 'Not saved yet', [lastSavedAt]);
+  const draftSavedAtLabel = useMemo(() => lastDraftSavedAt ? new Date(lastDraftSavedAt).toLocaleString() : 'Waiting for local draft save', [lastDraftSavedAt]);
 
   const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every((value, index) => value === b[index]);
 
@@ -1030,9 +1063,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     setAccessControl(draft.accessControl || accessControl);
     setOwnership(draft.ownership || ownership);
     setRelatedWorkflowIds(Array.isArray(draft.relatedWorkflowIds) ? draft.relatedWorkflowIds : []);
+    setReviewRequests(Array.isArray(draft.reviewRequests) ? draft.reviewRequests : []);
     if (draft.commentDraft) setCommentDraft(draft.commentDraft);
     if (typeof draft.importDraft === 'string') setImportDraft(draft.importDraft);
     setDraftRestored(true);
+    setSaveStatus('saved');
     toast.success('Builder draft restored');
     window.requestAnimationFrame(() => fitView({ padding: 0.1, duration: 300 }));
   }, [accessControl, fitView, ownership]);
@@ -1052,9 +1087,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       accessControl: JSON.parse(JSON.stringify(accessControl)),
       ownership: JSON.parse(JSON.stringify(ownership)),
       relatedWorkflowIds: JSON.parse(JSON.stringify(relatedWorkflowIds)),
+      reviewRequests: JSON.parse(JSON.stringify(reviewRequests)),
     }]);
     setRedoStack([]);
-  }, [nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, history]);
+  }, [nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, reviewRequests, history]);
 
   const undo = useCallback(() => {
     if (history.length === 0) return;
@@ -1068,6 +1104,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       accessControl: JSON.parse(JSON.stringify(accessControl)),
       ownership: JSON.parse(JSON.stringify(ownership)),
       relatedWorkflowIds: JSON.parse(JSON.stringify(relatedWorkflowIds)),
+      reviewRequests: JSON.parse(JSON.stringify(reviewRequests)),
     }]);
     
     setNodes(lastState.nodes);
@@ -1078,8 +1115,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     setAccessControl(lastState.accessControl || accessControl);
     setOwnership(lastState.ownership || ownership);
     setRelatedWorkflowIds(lastState.relatedWorkflowIds || []);
+    setReviewRequests(lastState.reviewRequests || []);
     setHistory(prev => prev.slice(0, -1));
-  }, [history, nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, setNodes, setEdges]);
+  }, [history, nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, reviewRequests, setNodes, setEdges]);
 
   const redo = useCallback(() => {
     if (redoStack.length === 0) return;
@@ -1093,6 +1131,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       accessControl: JSON.parse(JSON.stringify(accessControl)),
       ownership: JSON.parse(JSON.stringify(ownership)),
       relatedWorkflowIds: JSON.parse(JSON.stringify(relatedWorkflowIds)),
+      reviewRequests: JSON.parse(JSON.stringify(reviewRequests)),
     }]);
     
     setNodes(nextState.nodes);
@@ -1103,8 +1142,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     setAccessControl(nextState.accessControl || accessControl);
     setOwnership(nextState.ownership || ownership);
     setRelatedWorkflowIds(nextState.relatedWorkflowIds || []);
+    setReviewRequests(nextState.reviewRequests || []);
     setRedoStack(prev => prev.slice(0, -1));
-  }, [redoStack, nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, setNodes, setEdges]);
+  }, [redoStack, nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, reviewRequests, setNodes, setEdges]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1159,22 +1199,45 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   const workflowDiff = useMemo(() => {
     const baseline = initialSnapshotRef.current || {};
     const baselineMetadata = baseline.metadata || {};
-    const baselineTaskNames = new Set((baseline.tasks || []).map((task: any) => String(task.name || '').trim()).filter(Boolean));
-    const currentTaskNames = new Set(tasks.map((task) => String(task.name || '').trim()).filter(Boolean));
-    const addedTasks = tasks.filter((task) => !baselineTaskNames.has(String(task.name || '').trim())).map((task) => task.name);
-    const removedTasks = (baseline.tasks || []).filter((task: any) => !currentTaskNames.has(String(task.name || '').trim())).map((task: any) => task.name);
-    const baselineEdges = new Set((baseline.edges || []).map((edge: any) => `${edge.source}::${edge.target}::${edge.label || ''}`));
-    const currentEdges = new Set(edges.map((edge) => `${edge.source}::${edge.target}::${edge.data?.label || ''}`));
-    const addedEdges = edges.filter((edge) => !baselineEdges.has(`${edge.source}::${edge.target}::${edge.data?.label || ''}`));
-    const removedEdges = (baseline.edges || []).filter((edge: any) => !currentEdges.has(`${edge.source}::${edge.target}::${edge.label || ''}`));
+    const baselineTasks = new Map((baseline.tasks || []).map((task: any) => [String(task.node_id || task.id), task]));
+    const currentTasks = new Map(tasks.map((task) => [String(task.node_id || task.id), task]));
+    const addedTasks = tasks.filter((task) => !baselineTasks.has(String(task.node_id || task.id)));
+    const removedTasks = (baseline.tasks || []).filter((task: any) => !currentTasks.has(String(task.node_id || task.id)));
+    const changedTasks = tasks
+      .map((task) => {
+        const baselineTask = baselineTasks.get(String(task.node_id || task.id));
+        if (!baselineTask) return null;
+        const comparisons = ['name', 'description', 'task_type', 'manual_time_minutes', 'automation_time_minutes', 'machine_wait_time_minutes', 'occurrence', 'owning_team', 'validation_needed'];
+        const changedFields = comparisons.filter((key) => JSON.stringify((task as any)[key]) !== JSON.stringify((baselineTask as any)[key]));
+        return changedFields.length > 0 ? { id: String(task.node_id || task.id), name: task.name, changedFields } : null;
+      })
+      .filter(Boolean) as Array<{ id: string; name: string; changedFields: string[] }>;
+    const baselineEdges = new Map((baseline.edges || []).map((edge: any) => [String(edge.id || `${edge.source}::${edge.target}::${edge.label || ''}`), edge]));
+    const currentEdges = new Map(edges.map((edge) => [String(edge.id || `${edge.source}::${edge.target}::${edge.data?.label || ''}`), edge]));
+    const addedEdges = edges.filter((edge) => !baselineEdges.has(String(edge.id || `${edge.source}::${edge.target}::${edge.data?.label || ''}`)));
+    const removedEdges = (baseline.edges || []).filter((edge: any) => !currentEdges.has(String(edge.id || `${edge.source}::${edge.target}::${edge.label || ''}`)));
+    const changedEdges = edges
+      .map((edge) => {
+        const baselineEdge = baselineEdges.get(String(edge.id || `${edge.source}::${edge.target}::${edge.data?.label || ''}`));
+        if (!baselineEdge) return null;
+        const changedFields = ['source', 'target', 'label', 'edge_style', 'line_style', 'color'].filter((key) => {
+          const currentValue = key === 'label' ? edge.data?.label : key === 'edge_style' ? edge.data?.edgeStyle : key === 'line_style' ? edge.data?.lineStyle : key === 'color' ? edge.data?.color : (edge as any)[key];
+          const baselineValue = (baselineEdge as any)[key];
+          return JSON.stringify(currentValue) !== JSON.stringify(baselineValue);
+        });
+        return changedFields.length > 0 ? { id: String(edge.id), changedFields } : null;
+      })
+      .filter(Boolean) as Array<{ id: string; changedFields: string[] }>;
     const changedMetadata = Object.entries(metadata)
       .filter(([key, value]) => JSON.stringify(value) !== JSON.stringify((baselineMetadata as any)[key]))
       .map(([key]) => key);
     return {
       addedTasks,
       removedTasks,
+      changedTasks,
       addedEdges,
       removedEdges,
+      changedEdges,
       changedMetadata,
     };
   }, [edges, metadata, tasks]);
@@ -1220,6 +1283,21 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     };
   }, [auditTrail.length, workflow, workflowComments]);
 
+  const commentThreads = useMemo(() => {
+    const byParent = new Map<string | undefined, WorkflowComment[]>();
+    workflowComments.forEach((comment) => {
+      const key = comment.parent_id || undefined;
+      const list = byParent.get(key) || [];
+      list.push(comment);
+      byParent.set(key, list);
+    });
+    const sortByTime = (items: WorkflowComment[]) => [...items].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    return sortByTime(byParent.get(undefined) || []).map((comment) => ({
+      comment,
+      replies: sortByTime(byParent.get(comment.id) || []),
+    }));
+  }, [workflowComments]);
+
   const exportWorkflowDraft = useCallback(() => {
     const payload = {
       metadata,
@@ -1229,6 +1307,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       accessControl,
       ownership,
       relatedWorkflowIds,
+      reviewRequests,
       builderMode,
       versionHistory,
     };
@@ -1240,7 +1319,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     anchor.click();
     window.URL.revokeObjectURL(url);
     toast.success('Workflow draft exported');
-  }, [accessControl, builderMode, edges, metadata, ownership, relatedWorkflowIds, tasks, versionHistory, workflow?.name, workflowComments]);
+  }, [accessControl, builderMode, edges, metadata, ownership, relatedWorkflowIds, reviewRequests, tasks, versionHistory, workflow?.name, workflowComments]);
 
   const importWorkflowDraft = useCallback(() => {
     if (!importDraft.trim()) {
@@ -1256,6 +1335,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       if (parsed.accessControl) setAccessControl(parsed.accessControl);
       if (parsed.ownership) setOwnership(parsed.ownership);
       if (Array.isArray(parsed.relatedWorkflowIds)) setRelatedWorkflowIds(parsed.relatedWorkflowIds);
+      if (Array.isArray(parsed.reviewRequests)) setReviewRequests(parsed.reviewRequests);
       if (parsed.builderMode) setBuilderMode(parsed.builderMode);
       setShowGuide(false);
       setIsDirty?.(true);
@@ -1276,13 +1356,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       created_at: commentDraft.created_at || new Date().toISOString(),
       scope: commentDraft.scope || 'workflow',
       scope_id: commentDraft.scope_id || selectedTaskId || undefined,
+      parent_id: replyTargetCommentId || commentDraft.parent_id,
     };
     saveToHistory();
     setWorkflowComments((prev) => [nextComment, ...prev]);
     setCommentDraft(createWorkflowComment(selectedTaskId ? 'task' : 'workflow', selectedTaskId || ''));
+    setReplyTargetCommentId(null);
     setIsDirty?.(true);
     toast.success('Comment added');
-  }, [commentDraft, saveToHistory, selectedTaskId, setIsDirty]);
+  }, [commentDraft, replyTargetCommentId, saveToHistory, selectedTaskId, setIsDirty]);
 
   const toggleCommentResolved = useCallback((commentId: string) => {
     saveToHistory();
@@ -1305,6 +1387,24 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   const updateOwnership = useCallback((updates: Partial<OwnershipState>) => {
     saveToHistory();
     setOwnership((prev) => ({ ...prev, ...updates }));
+    setIsDirty?.(true);
+  }, [saveToHistory, setIsDirty]);
+
+  const addReviewRequest = useCallback(() => {
+    saveToHistory();
+    setReviewRequests((prev) => [createReviewRequestDraft(), ...prev]);
+    setIsDirty?.(true);
+  }, [saveToHistory, setIsDirty]);
+
+  const updateReviewRequest = useCallback((id: string, updates: Partial<ReviewRequestDraft>) => {
+    saveToHistory();
+    setReviewRequests((prev) => prev.map((request) => request.id === id ? { ...request, ...updates } : request));
+    setIsDirty?.(true);
+  }, [saveToHistory, setIsDirty]);
+
+  const deleteReviewRequest = useCallback((id: string) => {
+    saveToHistory();
+    setReviewRequests((prev) => prev.filter((request) => request.id !== id));
     setIsDirty?.(true);
   }, [saveToHistory, setIsDirty]);
 
@@ -1343,14 +1443,24 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
                 This draft is aligned with the current baseline snapshot.
               </div>
             )}
-            {workflowDiff.addedTasks.slice(0, 4).map((taskName: string) => (
-              <div key={`added-${taskName}`} className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[11px] font-bold text-emerald-200">
-                Added task: {taskName}
+            {workflowDiff.addedTasks.slice(0, 4).map((task: any) => (
+              <div key={`added-${task.node_id || task.id}`} className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[11px] font-bold text-emerald-200">
+                Added task: {task.name}
               </div>
             ))}
-            {workflowDiff.removedTasks.slice(0, 4).map((taskName: string) => (
-              <div key={`removed-${taskName}`} className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-[11px] font-bold text-rose-200">
-                Removed task: {taskName}
+            {workflowDiff.changedTasks.slice(0, 4).map((task: any) => (
+              <div key={`changed-${task.id}`} className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-[11px] font-bold text-amber-200">
+                Updated task: {task.name} ({task.changedFields.join(', ')})
+              </div>
+            ))}
+            {workflowDiff.removedTasks.slice(0, 4).map((task: any) => (
+              <div key={`removed-${task.node_id || task.id}`} className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-[11px] font-bold text-rose-200">
+                Removed task: {task.name}
+              </div>
+            ))}
+            {workflowDiff.changedEdges.slice(0, 4).map((edge: any) => (
+              <div key={`edge-${edge.id}`} className="rounded-2xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-[11px] font-bold text-sky-200">
+                Updated route: {edge.changedFields.join(', ')}
               </div>
             ))}
           </div>
@@ -1383,18 +1493,30 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
             <button onClick={() => runGovernanceAction('certify')} className="rounded-2xl border border-violet-500/20 bg-violet-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-violet-300 hover:bg-violet-500 hover:text-white transition-all">Certify</button>
           </div>
           <div className="space-y-2">
-            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Open Review Requests</p>
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Review Request Editor</p>
+              <button onClick={addReviewRequest} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">Add Request</button>
+            </div>
             <div className="space-y-2 max-h-[11rem] overflow-auto pr-1 custom-scrollbar">
-              {(workflow?.review_requests || []).map((request: any) => (
-                <div key={request.id} className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              {reviewRequests.map((request) => (
+                <div key={request.id} className="rounded-[22px] border border-white/10 bg-black/20 p-3 space-y-3">
                   <div className="flex items-center justify-between gap-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{request.role || request.requested_from || 'Review Request'}</p>
-                    <span className={cn("rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em]", request.status === 'approved' ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-amber-500/20 bg-amber-500/10 text-amber-300")}>{request.status || 'open'}</span>
+                    <input className="w-full max-w-[12rem] rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-black text-white outline-none focus:border-theme-accent" value={request.role} onChange={(e) => updateReviewRequest(request.id, { role: e.target.value })} placeholder="Reviewer role" />
+                    <button onClick={() => deleteReviewRequest(request.id)} className="rounded-2xl border border-status-error/20 bg-status-error/10 px-2 py-1 text-[8px] font-black uppercase text-status-error">Remove</button>
                   </div>
-                  <p className="mt-1 text-[11px] font-bold text-white/55">{request.note || 'Needs reviewer action.'}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <input className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-bold text-white outline-none focus:border-theme-accent" value={request.requested_by} onChange={(e) => updateReviewRequest(request.id, { requested_by: e.target.value })} placeholder="Requested by" />
+                    <input className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-bold text-white outline-none focus:border-theme-accent" value={request.due_at} onChange={(e) => updateReviewRequest(request.id, { due_at: e.target.value })} placeholder="Due date" />
+                    <select className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-black text-white outline-none focus:border-theme-accent" value={request.status} onChange={(e) => updateReviewRequest(request.id, { status: e.target.value })}>
+                      <option value="open">Open</option>
+                      <option value="approved">Approved</option>
+                      <option value="changes_requested">Changes Requested</option>
+                    </select>
+                  </div>
+                  <textarea className="w-full rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-bold text-white/70 outline-none focus:border-theme-accent resize-none min-h-[4.5rem]" value={request.note} onChange={(e) => updateReviewRequest(request.id, { note: e.target.value })} placeholder="Request note" />
                 </div>
               ))}
-              {(workflow?.review_requests || []).length === 0 && <p className="text-[11px] font-bold text-white/40">No pending review requests on this workflow.</p>}
+              {reviewRequests.length === 0 && <p className="text-[11px] font-bold text-white/40">No review requests configured yet.</p>}
             </div>
           </div>
         </div>
@@ -1422,19 +1544,43 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
             <input className="flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-bold text-white/70 outline-none focus:border-theme-accent" value={commentDraft.assignee || ''} onChange={(e) => setCommentDraft((prev) => ({ ...prev, assignee: e.target.value }))} placeholder="Optional assignee" />
             <button onClick={addWorkflowComment} className="rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">Add Comment</button>
           </div>
-          <div className="space-y-2 max-h-[16rem] overflow-auto pr-1 custom-scrollbar">
-            {workflowComments.map((comment) => (
-              <button key={comment.id} onClick={() => setSelectedCommentId(comment.id)} className={cn("w-full rounded-2xl border p-4 text-left transition-all", selectedCommentId === comment.id ? "border-theme-accent/30 bg-theme-accent/10" : "border-white/10 bg-black/20 hover:bg-white/[0.05]")}>
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{comment.author}</p>
-                  <span className={cn("rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em]", comment.resolved ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-amber-500/20 bg-amber-500/10 text-amber-300")}>{comment.resolved ? 'Resolved' : comment.review_state || 'Open'}</span>
-                </div>
-                <p className="mt-2 text-[11px] font-bold text-white/70 leading-relaxed">{comment.message}</p>
-                <div className="mt-3 flex items-center justify-between gap-3">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">{comment.scope}{comment.scope_id ? ` • ${comment.scope_id}` : ''}</p>
-                  <button onClick={() => toggleCommentResolved(comment.id)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">{comment.resolved ? 'Reopen' : 'Resolve'}</button>
-                </div>
-              </button>
+          {replyTargetCommentId && (
+            <div className="rounded-[22px] border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[11px] font-bold text-theme-accent flex items-center justify-between gap-3">
+              <span>Replying to {replyTargetCommentId}</span>
+              <button onClick={() => setReplyTargetCommentId(null)} className="rounded-xl border border-white/10 bg-black/20 px-2 py-1 text-[8px] font-black uppercase text-white/55">Clear</button>
+            </div>
+          )}
+          <div className="space-y-3 max-h-[16rem] overflow-auto pr-1 custom-scrollbar">
+            {commentThreads.map(({ comment, replies }) => (
+              <div key={comment.id} className="space-y-2">
+                <button onClick={() => setSelectedCommentId(comment.id)} className={cn("w-full rounded-[22px] border p-4 text-left transition-all", selectedCommentId === comment.id ? "border-theme-accent/30 bg-theme-accent/10" : "border-white/10 bg-black/20 hover:bg-white/[0.05]")}>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{comment.author}</p>
+                    <span className={cn("rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em]", comment.resolved ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-amber-500/20 bg-amber-500/10 text-amber-300")}>{comment.resolved ? 'Resolved' : comment.review_state || 'Open'}</span>
+                  </div>
+                  <p className="mt-2 text-[11px] font-bold text-white/70 leading-relaxed">{comment.message}</p>
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">{comment.scope}{comment.scope_id ? ` • ${comment.scope_id}` : ''}</p>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setReplyTargetCommentId(comment.id)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">Reply</button>
+                      <button onClick={() => toggleCommentResolved(comment.id)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">{comment.resolved ? 'Reopen' : 'Resolve'}</button>
+                    </div>
+                  </div>
+                </button>
+                {replies.length > 0 && (
+                  <div className="ml-4 space-y-2 border-l border-white/10 pl-3">
+                    {replies.map((reply) => (
+                      <button key={reply.id} onClick={() => setSelectedCommentId(reply.id)} className={cn("w-full rounded-[20px] border p-3 text-left transition-all", selectedCommentId === reply.id ? "border-theme-accent/30 bg-theme-accent/10" : "border-white/10 bg-black/15 hover:bg-white/[0.04]")}>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/80">{reply.author}</p>
+                          <span className={cn("rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em]", reply.resolved ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-amber-500/20 bg-amber-500/10 text-amber-300")}>{reply.resolved ? 'Resolved' : reply.review_state || 'Open'}</span>
+                        </div>
+                        <p className="mt-2 text-[10px] font-bold text-white/65 leading-relaxed">{reply.message}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
             {workflowComments.length === 0 && <p className="text-[11px] font-bold text-white/40">No annotations have been added yet.</p>}
           </div>
@@ -1471,7 +1617,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
           <div className="space-y-2">
             <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Reusable Linked Workflows</p>
             <div className="space-y-2 max-h-[12rem] overflow-auto pr-1 custom-scrollbar">
-              {(builderSuggestions.workflowMatches.length > 0 ? builderSuggestions.workflowMatches : relatedWorkflowList).slice(0, 6).map((item: any) => (
+              {relatedWorkflowList.slice(0, 6).map((item: any) => (
                 <button key={item.id} onClick={() => updateRelatedWorkflowIds(Number(item.id))} className={cn("w-full rounded-2xl border px-4 py-3 text-left transition-all", relatedWorkflowIds.includes(Number(item.id)) ? "border-theme-accent/30 bg-theme-accent/10" : "border-white/10 bg-black/20 hover:bg-white/[0.05]")}>
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{item.name}</p>
@@ -1479,6 +1625,20 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
                   </div>
                   <p className="mt-1 text-[11px] font-bold text-white/55">{item.workflow_type || item.description || 'Reusable component'}</p>
                 </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2 border-t border-white/5 pt-4">
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Suggested Reuse</p>
+            <div className="space-y-2 max-h-[12rem] overflow-auto pr-1 custom-scrollbar">
+              {(builderSuggestions.workflowMatches.length > 0 ? builderSuggestions.workflowMatches : relatedWorkflowList).slice(0, 6).map((item: any) => (
+                <div key={`suggested-${item.id}`} className="w-full rounded-2xl border border-white/10 bg-black/15 px-4 py-3 text-left">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{item.name}</p>
+                    <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Suggested</span>
+                  </div>
+                  <p className="mt-1 text-[11px] font-bold text-white/55">{item.workflow_type || item.description || 'Reusable component'}</p>
+                </div>
               ))}
             </div>
           </div>
@@ -1707,9 +1867,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
           accessControl,
           ownership,
           relatedWorkflowIds,
+          reviewRequests,
           commentDraft,
           importDraft,
         }));
+        setLastDraftSavedAt(new Date().toISOString());
+        setSaveStatus((current) => current === 'saving' ? current : 'saved');
       } catch (error) {
         console.warn('[WorkflowBuilder] Failed to persist draft:', error);
       }
@@ -1739,6 +1902,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     accessControl,
     ownership,
     relatedWorkflowIds,
+    reviewRequests,
     commentDraft,
     importDraft,
     draftRestored,
@@ -1767,6 +1931,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         repeatability_check: workflow?.repeatability_check ?? true
       };
       setMetadata(initialMetadata);
+      setLastSavedAt(workflow?.updated_at || workflow?.updatedAt || null);
       setWorkflowComments(Array.isArray(workflow?.comments) ? workflow.comments : []);
       setAccessControl({
         visibility: workflow?.access_control?.visibility || 'private',
@@ -1783,14 +1948,25 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         reviewers: normalizeStringList(workflow?.ownership?.reviewers),
       });
       setRelatedWorkflowIds(normalizeStringList(workflow?.related_workflow_ids).map((value) => Number(value)).filter((value) => Number.isFinite(value)));
+      setReviewRequests(Array.isArray(workflow?.review_requests) ? workflow.review_requests.map((request: any) => ({
+        id: String(request.id || `review-${Date.now()}`),
+        role: String(request.role || request.requested_from || ''),
+        requested_by: String(request.requested_by || request.requested_from || workflow?.created_by || 'system_user'),
+        status: String(request.status || 'open'),
+        due_at: String(request.due_at || request.review_due_at || ''),
+        note: String(request.note || request.message || ''),
+      })) : []);
       setCommentDraft(createWorkflowComment());
       setImportDraft('');
       initialSnapshotRef.current = JSON.parse(JSON.stringify({
         metadata: initialMetadata,
         comments: Array.isArray(workflow?.comments) ? workflow.comments : [],
+        tasks: Array.isArray(workflow?.tasks) ? workflow.tasks : [],
+        edges: Array.isArray(workflow?.edges) ? workflow.edges : [],
         accessControl: workflow?.access_control || {},
         ownership: workflow?.ownership || {},
         relatedWorkflowIds: workflow?.related_workflow_ids || [],
+        reviewRequests: Array.isArray(workflow?.review_requests) ? workflow.review_requests : [],
         version: workflow?.version || 1,
         updated_at: workflow?.updated_at || workflow?.updatedAt || null,
       }));
@@ -2014,6 +2190,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
   const handleSave = () => {
     if (tasks.length === 0) return;
     try {
+      setSaveStatus('saving');
+      setSaveConflict(null);
       const nodeIds = tasks.map((task) => String(task.node_id || task.id)).filter(Boolean);
       if (nodeIds.length > 1) {
         const adjacency = new Map<string, Set<string>>();
@@ -2049,10 +2227,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
 
       const finalData = {
         ...metadata,
+        expected_updated_at: workflow?.updated_at || workflow?.updatedAt || null,
         comments: workflowComments,
         access_control: accessControl,
         ownership,
         related_workflow_ids: relatedWorkflowIds,
+        review_requests: reviewRequests,
         tasks: tasks.map(t => {
           const node = nodes.find(n => String(n.id) === String(t.node_id));
           return { 
@@ -2068,8 +2248,22 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
           window.localStorage.removeItem(workflowBuilderDraftKey);
         }
         setDraftRestored(false);
+        const now = new Date().toISOString();
+        setLastSavedAt(now);
+        setSaveStatus('saved');
+        setLastDraftSavedAt(now);
+      }).catch((error) => {
+        if (error?.response?.status === 409) {
+          setSaveConflict(error.response.data || error.response);
+          setSaveStatus('conflict');
+          toast.error(error.response.data?.message || 'Save conflict detected. Reload the latest workflow before saving again.');
+          return;
+        }
+        setSaveStatus('error');
+        throw error;
       });
     } catch (err) {
+      setSaveStatus('error');
       console.error("[WorkflowBuilder] Failed to prepare save data:", err);
     }
   };
@@ -2244,6 +2438,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
           >
             <Background color="#1e293b" gap={30} size={1} />
             <Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl overflow-hidden" />
+            <MiniMap
+              nodeColor={(node) => node.data?.interface === 'TRIGGER' ? '#22d3ee' : node.data?.interface === 'OUTCOME' ? '#fb7185' : node.type === 'diamond' ? '#f59e0b' : '#60a5fa'}
+              maskColor="rgba(3, 7, 18, 0.75)"
+              className="!bg-[#0a1120] !border !border-white/10 !rounded-2xl overflow-hidden"
+              pannable
+              zoomable
+            />
           </ReactFlow>
           <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center gap-2 p-2 bg-[#0a1120]/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:top-6">
             <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-2xl p-1">
@@ -2253,6 +2454,19 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             <button onClick={() => setInspectorTab('validation')} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border", validationErrorCount > 0 ? "border-status-error/30 bg-status-error/10 text-status-error" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
               {validationErrorCount} Errors · {validationWarningCount} Warnings
             </button>
+            <div className={cn("rounded-2xl border px-3 py-2", saveStatus === 'conflict' ? "border-status-error/30 bg-status-error/10 text-status-error" : saveStatus === 'saving' ? "border-amber-500/20 bg-amber-500/10 text-amber-300" : saveStatus === 'saved' ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/5 text-white/45")}>
+              <p className="text-[8px] font-black uppercase tracking-[0.18em]">Save</p>
+              <p className="text-[9px] font-bold leading-none">{saveStatus === 'conflict' ? 'Conflict' : saveStatus === 'saving' ? 'Saving' : saveStatus === 'saved' ? 'Saved' : 'Idle'}</p>
+            </div>
+            <button onClick={() => setFocusMode((prev) => !prev)} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border", focusMode ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+              {focusMode ? 'Exit Focus' : 'Focus Mode'}
+            </button>
+            <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/5 p-1">
+              <button onClick={() => zoomOut({ duration: 150 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">-</button>
+              <button onClick={() => fitView({ padding: 0.12, duration: 250 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">Fit</button>
+              <button onClick={() => zoomIn({ duration: 150 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">+</button>
+              <button onClick={() => setViewport({ x: 0, y: 0, zoom: 1 }, { duration: 150 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">Reset</button>
+            </div>
             {selectedItemCount > 0 && (
               <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
                 <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/55">
@@ -2268,6 +2482,14 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 Clear Draft
               </button>
             )}
+            <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Draft</p>
+              <p className="text-[9px] font-bold text-white/70 leading-none">{draftSavedAtLabel}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Server</p>
+              <p className="text-[9px] font-bold text-white/70 leading-none">{savedAtLabel}</p>
+            </div>
             <input
               value={builderSearch}
               onChange={(e) => setBuilderSearch(e.target.value)}
@@ -2282,7 +2504,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         </div>
       </div>
 
-      <div className="relative border-t xl:border-t-0 xl:border-l border-white/10 bg-[#09111d] flex flex-col z-[70] w-full xl:[width:var(--inspector-width)] xl:flex-none h-full min-h-0 overflow-hidden" style={{ '--inspector-width': `${inspectorWidth}px` } as React.CSSProperties}>
+      {!focusMode && (
+        <div className="relative border-t xl:border-t-0 xl:border-l border-white/10 bg-[#09111d] flex flex-col z-[70] w-full xl:[width:var(--inspector-width)] xl:flex-none h-full min-h-0 overflow-hidden" style={{ '--inspector-width': `${inspectorWidth}px` } as React.CSSProperties}>
         <div onMouseDown={handleMouseDown} className="hidden xl:block absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent z-50" />
         <div className="min-h-14 flex border-b border-white/10 bg-white/[0.02] overflow-x-auto">
           {[ 
@@ -3054,7 +3277,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             </div>
           )}
         </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 };
