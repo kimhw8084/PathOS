@@ -40,7 +40,14 @@ import {
   Search,
   Paperclip,
   Cpu,
-  Edit3
+  Edit3,
+  MessageSquare,
+  History,
+  ShieldCheck,
+  FileDown,
+  FileUp,
+  GitBranch,
+  Users,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -55,8 +62,86 @@ function cn(...inputs: ClassValue[]) {
 }
 
 type BuilderMode = 'guided' | 'advanced';
+type InspectorTab = 'overview' | 'data' | 'exceptions' | 'validation' | 'appendix' | 'governance' | 'history';
+
+interface WorkflowComment {
+  id: string;
+  scope: 'workflow' | 'task' | 'section';
+  scope_id?: string;
+  author: string;
+  message: string;
+  mentions: string[];
+  parent_id?: string;
+  assignee?: string;
+  review_state: string;
+  created_at?: string;
+  resolved: boolean;
+}
+
+interface AccessControlState {
+  visibility: string;
+  viewers: string[];
+  editors: string[];
+  mention_groups: string[];
+  owner: string;
+}
+
+interface OwnershipState {
+  owner: string;
+  smes: string[];
+  backup_owners: string[];
+  automation_owner?: string;
+  reviewers: string[];
+}
 
 const getWorkflowBuilderDraftKey = (workflowId?: string | number | null) => `pathos-workflow-builder-draft-${workflowId ?? 'new'}`;
+
+const createWorkflowComment = (scope: WorkflowComment['scope'] = 'workflow', scopeId = ''): WorkflowComment => ({
+  id: `comment-${Date.now()}`,
+  scope,
+  scope_id: scopeId || undefined,
+  author: 'system_user',
+  message: '',
+  mentions: [],
+  review_state: 'open',
+  created_at: new Date().toISOString(),
+  resolved: false,
+});
+
+const normalizeStringList = (value: unknown) => Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : [];
+
+const scoreTextMatch = (value: unknown, query: string) => {
+  const haystack = String(value ?? '').toLowerCase();
+  if (!query) return 0;
+  if (!haystack) return 0;
+  if (haystack === query) return 100;
+  if (haystack.startsWith(query)) return 80;
+  if (haystack.includes(query)) return 55;
+  const tokens = query.split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return 0;
+  const matchedTokens = tokens.filter((token) => haystack.includes(token)).length;
+  return matchedTokens > 0 ? matchedTokens * 12 : 0;
+};
+
+const rankItemsByQuery = <T,>(
+  items: T[],
+  query: string,
+  fields: Array<(item: T) => unknown>,
+  limit = 6,
+) => {
+  const trimmed = query.trim().toLowerCase();
+  return [...items]
+    .map((item) => ({
+      item,
+      score: trimmed
+        ? Math.max(...fields.map((field) => scoreTextMatch(field(item), trimmed)))
+        : 1,
+    }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(({ item }) => item);
+};
 
 const buildFixSuggestion = (issue: WorkflowAuditIssue) => {
   const code = issue.code || '';
@@ -77,6 +162,10 @@ const buildFixSuggestion = (issue: WorkflowAuditIssue) => {
   if (code.includes('graph.unreachable') || code.includes('graph.disconnected')) return 'Add routes so every node is connected to both the trigger and outcome path.';
   return 'Open the matching node or workflow section and correct the missing field.';
 };
+
+const BUILDER_PANEL = 'rounded-[28px] border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_-40px_rgba(0,0,0,0.85)]';
+const BUILDER_FIELD = 'w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[12px] text-white outline-none focus:border-theme-accent';
+const BUILDER_BUTTON = 'rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] transition-all';
 
 interface TaskMedia {
   id: string;
@@ -172,12 +261,12 @@ const ManagedListSection: React.FC<{
     <CollapsibleSection title={title} count={items.length} isOpen={isOpen} toggle={toggle} icon={icon}>
       <div className="space-y-3 pt-4">
         {items.map((item, idx) => (
-          <div key={idx} className="bg-white/[0.02] border border-white/5 rounded-xl p-3 group relative">
+          <div key={idx} className="bg-white/[0.02] border border-white/5 rounded-2xl p-3 group relative">
             {editingIdx === idx ? (
               <div className="space-y-2 animate-apple-in">
                 <textarea 
                   autoFocus
-                  className="w-full bg-black/40 border border-theme-accent rounded-lg p-3 text-[12px] text-white outline-none min-h-[80px]"
+                  className={cn(BUILDER_FIELD, "min-h-[80px]")}
                   value={editVal}
                   onChange={e => setEditVal(e.target.value)}
                 />
@@ -191,13 +280,13 @@ const ManagedListSection: React.FC<{
                         setEditingIdx(null);
                       }
                     }}
-                    className="flex-1 py-1.5 bg-theme-accent text-white text-[9px] font-black uppercase rounded-lg"
+                    className="flex-1 py-2 bg-theme-accent text-white text-[9px] font-black uppercase rounded-2xl"
                   >
                     Save Changes
                   </button>
                   <button 
                     onClick={() => setEditingIdx(null)}
-                    className="px-4 py-1.5 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-lg"
+                    className="px-4 py-2 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-2xl"
                   >
                     Cancel
                   </button>
@@ -225,10 +314,10 @@ const ManagedListSection: React.FC<{
           </div>
         ))}
         {editingIdx === -1 ? (
-          <div className="bg-white/[0.02] border border-theme-accent rounded-xl p-3 space-y-2 animate-apple-in">
+          <div className="bg-white/[0.02] border border-theme-accent rounded-2xl p-3 space-y-2 animate-apple-in">
             <textarea 
               autoFocus
-              className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-[12px] text-white outline-none min-h-[80px] focus:border-theme-accent"
+              className={cn(BUILDER_FIELD, "min-h-[80px]")}
               value={editVal}
               onChange={e => setEditVal(e.target.value)}
               placeholder={placeholder || "Enter details..."}
@@ -242,13 +331,13 @@ const ManagedListSection: React.FC<{
                     setEditVal('');
                   }
                 }}
-                className="flex-1 py-1.5 bg-theme-accent text-white text-[9px] font-black uppercase rounded-lg"
+                className="flex-1 py-2 bg-theme-accent text-white text-[9px] font-black uppercase rounded-2xl"
               >
                 Add Entry
               </button>
               <button 
                 onClick={() => { setEditingIdx(null); setEditVal(''); }}
-                className="px-4 py-1.5 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-lg"
+                className="px-4 py-2 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-2xl"
               >
                 Cancel
               </button>
@@ -257,7 +346,7 @@ const ManagedListSection: React.FC<{
         ) : (
           <button 
             onClick={() => { setEditingIdx(-1); setEditVal(''); }}
-            className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-theme-accent transition-all rounded-xl"
+            className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-theme-accent transition-all rounded-2xl"
           >
             + Add {title.replace(/s$/, '')}
           </button>
@@ -297,6 +386,7 @@ interface WorkflowBuilderProps {
   onBack: (metadata: any) => void;
   onExit: () => void;
   onCreateRollbackDraft?: () => void;
+  onGovernanceAction?: (action: string, requestId?: string) => void;
   setIsDirty?: (dirty: boolean) => void;
 }
 
@@ -334,7 +424,7 @@ const NestedCollapsible: React.FC<{
 }> = ({ title, isOpen, toggle, children, onDelete, badge, isLocked }) => {
   const [isConfirming, setIsConfirming] = useState(false);
   return (
-    <div className="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden group/item animate-apple-in mt-2">
+    <div className="bg-white/[0.02] border border-white/5 rounded-[24px] overflow-hidden group/item animate-apple-in mt-2">
       <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/5 transition-colors" onClick={toggle}>
         <div className="flex items-center gap-3 min-w-0 flex-1">
           {isOpen ? <ChevronUp size={12} className="text-white/20" /> : <ChevronDown size={12} className="text-white/20" />}
@@ -347,10 +437,10 @@ const NestedCollapsible: React.FC<{
         {onDelete && !isLocked && (
           <div className="flex items-center gap-2">
             {isConfirming ? (
-              <div className="flex items-center gap-1 bg-status-error/20 rounded-2xl p-1 animate-apple-in">
+              <div className="flex items-center gap-1 bg-status-error/20 rounded-[24px] p-1 animate-apple-in">
                 <button 
                   onClick={(e) => { e.stopPropagation(); setIsConfirming(false); onDelete(); }}
-                  className="px-2 py-1 bg-status-error text-white text-[8px] font-black uppercase rounded-xl"
+                  className="px-2 py-1 bg-status-error text-white text-[8px] font-black uppercase rounded-2xl"
                 >
                   Confirm
                 </button>
@@ -364,7 +454,7 @@ const NestedCollapsible: React.FC<{
             ) : (
               <button 
                 onClick={(e) => { e.stopPropagation(); setIsConfirming(true); }} 
-                className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-status-error/20 text-white/20 hover:text-status-error transition-all rounded-xl"
+                className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-status-error/20 text-white/20 hover:text-status-error transition-all rounded-2xl"
               >
                 <Trash size={12} />
               </button>
@@ -407,7 +497,7 @@ const ImagePasteField: React.FC<{
       {label && <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">{label}</label>}
       <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 h-20">
         {figures.map((fig, idx) => (
-          <div key={idx} className="flex-shrink-0 w-24 h-full rounded-xl border border-white/10 overflow-hidden relative group bg-black/40">
+          <div key={idx} className="flex-shrink-0 w-24 h-full rounded-2xl border border-white/10 overflow-hidden relative group bg-black/40">
             <img src={fig} className="w-full h-full object-cover" />
             {!isLocked && (
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all p-2">
@@ -415,7 +505,7 @@ const ImagePasteField: React.FC<{
                   onClick={() => {
                     onPaste(figures.filter((_, i) => i !== idx));
                   }}
-                  className="w-full h-full bg-status-error/80 text-white rounded-lg flex items-center justify-center hover:bg-status-error transition-colors"
+                  className="w-full h-full bg-status-error/80 text-white rounded-2xl flex items-center justify-center hover:bg-status-error transition-colors"
                 >
                   <Trash size={12} />
                 </button>
@@ -428,14 +518,14 @@ const ImagePasteField: React.FC<{
           <div 
             onPaste={handlePaste}
             tabIndex={0}
-            className="flex-shrink-0 w-24 h-full border border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center text-white/20 hover:text-white hover:border-theme-accent transition-all cursor-pointer outline-none focus:border-theme-accent bg-black/20"
+            className="flex-shrink-0 w-24 h-full border border-dashed border-white/10 rounded-2xl flex flex-col items-center justify-center text-white/20 hover:text-white hover:border-theme-accent transition-all cursor-pointer outline-none focus:border-theme-accent bg-black/20"
           >
             <Plus size={14} />
             <span className="text-[7px] font-black uppercase mt-1">Paste</span>
           </div>
         )}
         {isLocked && figures.length === 0 && (
-          <div className="flex-shrink-0 w-full h-full border border-white/5 rounded-xl flex items-center justify-center text-white/5 italic text-[10px]">No Figures</div>
+          <div className="flex-shrink-0 w-full h-full border border-white/5 rounded-2xl flex items-center justify-center text-white/5 italic text-[10px]">No Figures</div>
         )}
       </div>
     </div>
@@ -458,13 +548,13 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
   const isOutcome = data.interface === 'OUTCOME';
   const isTemplate = isTrigger || isOutcome;
   const baseFontSize = data.baseFontSize || 14;
-  const titleFontSize = Math.max(24, baseFontSize + 10);
+  const titleFontSize = Math.max(22, baseFontSize + 8);
   const descFontSize = Math.max(12, titleFontSize - 6);
 
   if (isTemplate) {
     return (
       <div className={cn(
-        "apple-glass !bg-[#0f172a]/95 !rounded-2xl px-6 sm:px-8 py-5 sm:py-6 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center w-[clamp(180px,22vw,260px)] max-w-[90vw] h-auto hover:z-[1000]",
+        "apple-glass !bg-[#0b1221]/96 !rounded-[28px] px-6 sm:px-7 py-5 sm:py-6 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center w-[clamp(180px,22vw,260px)] max-w-[90vw] h-auto hover:z-[1000]",
         selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
       )}>
         <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded-sm text-[8px] font-black uppercase tracking-[0.2em] border z-20 shadow-lg", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
@@ -477,7 +567,7 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
           >
             {data.label}
             {!dragging && (
-              <div className="absolute top-full left-0 bg-[#0f172a]/95 border-t-2 border-white/20 p-5 sm:p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden text-left" style={{ width: 'min(90vw, 42rem)' }}>
+              <div className="absolute top-full left-0 bg-[#0b1221]/96 border-t-2 border-white/20 p-5 sm:p-6 rounded-[24px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 overflow-hidden text-left" style={{ width: 'min(90vw, 42rem)' }}>
                  <div className={cn("absolute top-0 left-0 w-full h-1", isTrigger ? "bg-cyan-500" : "bg-rose-500")} />
                  <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight text-left" style={{ fontSize: `${titleFontSize + 2}px` }}>
                    {data.label}
@@ -558,11 +648,11 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
 
         <div className="flex flex-col gap-4 mt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="bg-black/40 rounded-xl p-4 border border-white/5 flex flex-col items-center justify-center">
+            <div className="bg-black/40 rounded-[22px] p-4 border border-white/5 flex flex-col items-center justify-center">
                <span className="text-[11px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-1">Manual</span>
                <span className="text-[32px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
             </div>
-            <div className="bg-black/40 rounded-xl p-4 border border-white/5 flex flex-col items-center justify-center">
+            <div className="bg-black/40 rounded-[22px] p-4 border border-white/5 flex flex-col items-center justify-center">
                <span className="text-[11px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-1">Machine</span>
                <span className="text-[32px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
             </div>
@@ -594,10 +684,10 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
           </div>
           <div className="flex flex-wrap gap-2 items-center pt-3 border-t border-white/5 min-h-[42px]">
              {visibleSystems.map((s: TaskSystem, i: number) => (
-               <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-[12px] font-bold text-white/40 uppercase">{s.name}</span>
+               <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[12px] font-bold text-white/40 uppercase">{s.name}</span>
              ))}
              {hiddenSystemsCount > 0 && (
-               <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-[12px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
+               <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[12px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
              )}
              {involvedSystems.length === 0 && (
                <span className="text-[11px] font-black text-white/10 uppercase tracking-widest">No Systems</span>
@@ -621,11 +711,11 @@ const MatrixNode = ({ data, selected, dragging }: { data: any, selected: boolean
 
 const DiamondNode = ({ data, selected, dragging }: { data: any, selected: boolean, dragging?: boolean }) => {
   const baseFontSize = data.baseFontSize || 14;
-  const titleFontSize = Math.max(24, baseFontSize + 10);
-  const descFontSize = Math.max(12, titleFontSize - 3);
+  const titleFontSize = Math.max(22, baseFontSize + 8);
+  const descFontSize = Math.max(12, titleFontSize - 4);
   return (
     <div className={cn("relative w-[clamp(220px,24vw,280px)] h-[clamp(220px,24vw,280px)] flex items-center justify-center transition-all duration-300 hover:z-[1000]", selected ? 'scale-105 z-50' : 'z-10')}>
-      <div className={cn("absolute w-[clamp(174px,17vw,198px)] h-[clamp(174px,17vw,198px)] rotate-45 border-2 transition-all duration-300 bg-[#0f172a]/95 rounded-2xl", selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20', data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : '')} />
+      <div className={cn("absolute w-[clamp(174px,17vw,198px)] h-[clamp(174px,17vw,198px)] rotate-45 border-2 transition-all duration-300 bg-[#0b1221]/96 rounded-[28px]", selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20', data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.3)]' : '')} />
       
       {/* Handles at lower z-index than tooltip container */}
       <Handle type="target" position={Position.Left} id="left-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !left-0 shadow-lg z-10" />
@@ -644,7 +734,7 @@ const DiamondNode = ({ data, selected, dragging }: { data: any, selected: boolea
         >
           {data.label || "Condition"}
           {!dragging && (
-            <div className="absolute top-[85%] left-0 bg-[#0f172a]/95 border-t-2 border-amber-400/50 p-5 sm:p-6 rounded-xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 text-left" style={{ width: 'min(90vw, 42rem)' }}>
+            <div className="absolute top-[85%] left-0 bg-[#0b1221]/96 border-t-2 border-amber-400/50 p-5 sm:p-6 rounded-[24px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.8)] opacity-0 invisible group-hover/title:opacity-100 group-hover/title:visible transition-all duration-200 z-[1000] backdrop-blur-3xl pointer-events-none translate-y-4 group-hover/title:translate-y-2 border-x border-b border-white/10 text-left" style={{ width: 'min(90vw, 42rem)' }}>
                <p className="font-black text-white uppercase mb-4 border-b border-white/10 pb-3 leading-tight tracking-tight" style={{ fontSize: `${titleFontSize - 4}px` }}>{data.label || 'Condition'}</p>
                <p className="text-white/80 font-medium leading-relaxed italic" style={{ fontSize: `${descFontSize}px` }}>{data.description || 'No description provided.'}</p>
             </div>
@@ -747,7 +837,7 @@ const ConfirmDeleteOverlay: React.FC<{ onConfirm: () => void, onCancel: () => vo
   </div>
 );
 
-const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, templates = [], relatedWorkflows = [], onSave, onBack, onExit, setIsDirty }) => {
+const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, templates = [], relatedWorkflows = [], rollbackPreview, onSave, onBack, onExit, onCreateRollbackDraft, onGovernanceAction, setIsDirty }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const { project, fitView } = useReactFlow();
@@ -755,7 +845,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
-  const [inspectorTab, setInspectorTab] = useState<'overview' | 'data' | 'exceptions' | 'validation' | 'appendix'>('overview');
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('overview');
   const [inspectorWidth, setInspectorWidth] = useState(450);
   const [baseFontSize] = useState(14);
   const [defaultEdgeStyle, setDefaultEdgeStyle] = useState<'bezier' | 'smoothstep' | 'straight'>('smoothstep');
@@ -769,8 +859,29 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   const [isMetadataEditMode, setIsMetadataEditMode] = useState(false);
   const [ownerPositionsCollapsed, setOwnerPositionsCollapsed] = useState(true);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [workflowComments, setWorkflowComments] = useState<WorkflowComment[]>([]);
+  const [accessControl, setAccessControl] = useState<AccessControlState>({
+    visibility: 'private',
+    viewers: [],
+    editors: [],
+    mention_groups: [],
+    owner: 'system_user',
+  });
+  const [ownership, setOwnership] = useState<OwnershipState>({
+    owner: 'system_user',
+    smes: [],
+    backup_owners: [],
+    automation_owner: '',
+    reviewers: [],
+  });
+  const [relatedWorkflowIds, setRelatedWorkflowIds] = useState<number[]>([]);
+  const [commentDraft, setCommentDraft] = useState<WorkflowComment>(createWorkflowComment());
+  const [importDraft, setImportDraft] = useState('');
+  const [showImportPanel, setShowImportPanel] = useState(false);
+  const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
   const draftSaveTimer = useRef<number | null>(null);
   const draftRestoreAttempted = useRef(false);
+  const initialSnapshotRef = useRef<any>(null);
 
   const toggleSection = (section: string) => { setExpandedSections(prev => ({ ...prev, [section]: !prev[section] })); };
   const toggleItem = (itemId: string) => { setOpenItems(prev => ({ ...prev, [itemId]: !prev[itemId] })); };
@@ -827,25 +938,52 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     [tasks, selectedNodeIds]
   );
   const selectedNodesAreProtected = selectedTasks.some((task) => task.interface === 'TRIGGER' || task.interface === 'OUTCOME');
+  const selectedItemCount = selectedNodeIds.length + selectedEdgeIds.length;
 
   const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every((value, index) => value === b[index]);
 
   const builderSuggestions = useMemo(() => {
-    const trimmed = builderSearch.trim().toLowerCase();
-    const templateMatches = templateList.filter((template: any) => {
-      if (!trimmed) return true;
-      return [template?.label, template?.description, template?.workflow_type, template?.key].some((value) => String(value || '').toLowerCase().includes(trimmed));
-    }).slice(0, 6);
-    const workflowMatches = relatedWorkflowList.filter((item: any) => {
-      if (!trimmed) return true;
-      return [item?.name, item?.description, item?.workflow_type].some((value) => String(value || '').toLowerCase().includes(trimmed));
-    }).slice(0, 6);
-    const taskLibrary = tasks
-      .filter((task) => task.interface !== 'TRIGGER' && task.interface !== 'OUTCOME')
-      .filter((task) => !trimmed || [task.name, task.description, task.task_type].some((value) => String(value || '').toLowerCase().includes(trimmed)))
-      .slice(0, 6);
+    const templateMatches = rankItemsByQuery(
+      templateList,
+      builderSearch,
+      [
+        (template: any) => template?.label,
+        (template: any) => template?.description,
+        (template: any) => template?.workflow_type,
+        (template: any) => template?.key,
+      ],
+      6,
+    );
+    const workflowMatches = rankItemsByQuery(
+      relatedWorkflowList,
+      builderSearch,
+      [
+        (item: any) => item?.name,
+        (item: any) => item?.description,
+        (item: any) => item?.workflow_type,
+      ],
+      6,
+    );
+    const taskLibrary = rankItemsByQuery(
+      tasks.filter((task) => task.interface !== 'TRIGGER' && task.interface !== 'OUTCOME'),
+      builderSearch,
+      [
+        (task) => task.name,
+        (task) => task.description,
+        (task) => task.task_type,
+        (task) => task.owning_team,
+      ],
+      6,
+    );
     return { templateMatches, workflowMatches, taskLibrary };
   }, [templateList, relatedWorkflowList, tasks, builderSearch]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedTaskId(null);
+    setSelectedEdgeId(null);
+    setSelectedNodeIds([]);
+    setSelectedEdgeIds([]);
+  }, []);
 
   const focusAuditIssue = useCallback((issue: WorkflowAuditIssue) => {
     if (issue.scope === 'workflow' || !issue.targetId) {
@@ -888,44 +1026,85 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     setSelectedEdgeId(draft.selectedEdgeId || null);
     setSelectedNodeIds(Array.isArray(draft.selectedNodeIds) ? draft.selectedNodeIds : []);
     setSelectedEdgeIds(Array.isArray(draft.selectedEdgeIds) ? draft.selectedEdgeIds : []);
+    setWorkflowComments(Array.isArray(draft.workflowComments) ? draft.workflowComments : []);
+    setAccessControl(draft.accessControl || accessControl);
+    setOwnership(draft.ownership || ownership);
+    setRelatedWorkflowIds(Array.isArray(draft.relatedWorkflowIds) ? draft.relatedWorkflowIds : []);
+    if (draft.commentDraft) setCommentDraft(draft.commentDraft);
+    if (typeof draft.importDraft === 'string') setImportDraft(draft.importDraft);
     setDraftRestored(true);
     toast.success('Builder draft restored');
     window.requestAnimationFrame(() => fitView({ padding: 0.1, duration: 300 }));
-  }, [fitView]);
+  }, [accessControl, fitView, ownership]);
 
   const saveToHistory = useCallback(() => {
     // Optimization: Only save if state actually changed
-    const currentState = JSON.stringify({ nodes, edges, tasks, metadata });
+    const currentState = JSON.stringify({ nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds });
     const lastHistory = history.length > 0 ? JSON.stringify(history[history.length - 1]) : null;
     if (currentState === lastHistory) return;
 
-    setHistory(prev => [...prev.slice(-49), { nodes: JSON.parse(JSON.stringify(nodes)), edges: JSON.parse(JSON.stringify(edges)), tasks: JSON.parse(JSON.stringify(tasks)), metadata: JSON.parse(JSON.stringify(metadata)) }]);
+    setHistory(prev => [...prev.slice(-49), {
+      nodes: JSON.parse(JSON.stringify(nodes)),
+      edges: JSON.parse(JSON.stringify(edges)),
+      tasks: JSON.parse(JSON.stringify(tasks)),
+      metadata: JSON.parse(JSON.stringify(metadata)),
+      workflowComments: JSON.parse(JSON.stringify(workflowComments)),
+      accessControl: JSON.parse(JSON.stringify(accessControl)),
+      ownership: JSON.parse(JSON.stringify(ownership)),
+      relatedWorkflowIds: JSON.parse(JSON.stringify(relatedWorkflowIds)),
+    }]);
     setRedoStack([]);
-  }, [nodes, edges, tasks, metadata, history]);
+  }, [nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, history]);
 
   const undo = useCallback(() => {
     if (history.length === 0) return;
     const lastState = history[history.length - 1];
-    setRedoStack(prev => [...prev, { nodes: JSON.parse(JSON.stringify(nodes)), edges: JSON.parse(JSON.stringify(edges)), tasks: JSON.parse(JSON.stringify(tasks)), metadata: JSON.parse(JSON.stringify(metadata)) }]);
+    setRedoStack(prev => [...prev, {
+      nodes: JSON.parse(JSON.stringify(nodes)),
+      edges: JSON.parse(JSON.stringify(edges)),
+      tasks: JSON.parse(JSON.stringify(tasks)),
+      metadata: JSON.parse(JSON.stringify(metadata)),
+      workflowComments: JSON.parse(JSON.stringify(workflowComments)),
+      accessControl: JSON.parse(JSON.stringify(accessControl)),
+      ownership: JSON.parse(JSON.stringify(ownership)),
+      relatedWorkflowIds: JSON.parse(JSON.stringify(relatedWorkflowIds)),
+    }]);
     
     setNodes(lastState.nodes);
     setEdges(lastState.edges);
     setTasks(lastState.tasks);
     setMetadata(lastState.metadata);
+    setWorkflowComments(lastState.workflowComments || []);
+    setAccessControl(lastState.accessControl || accessControl);
+    setOwnership(lastState.ownership || ownership);
+    setRelatedWorkflowIds(lastState.relatedWorkflowIds || []);
     setHistory(prev => prev.slice(0, -1));
-  }, [history, nodes, edges, tasks, metadata, setNodes, setEdges]);
+  }, [history, nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, setNodes, setEdges]);
 
   const redo = useCallback(() => {
     if (redoStack.length === 0) return;
     const nextState = redoStack[redoStack.length - 1];
-    setHistory(prev => [...prev, { nodes: JSON.parse(JSON.stringify(nodes)), edges: JSON.parse(JSON.stringify(edges)), tasks: JSON.parse(JSON.stringify(tasks)), metadata: JSON.parse(JSON.stringify(metadata)) }]);
+    setHistory(prev => [...prev, {
+      nodes: JSON.parse(JSON.stringify(nodes)),
+      edges: JSON.parse(JSON.stringify(edges)),
+      tasks: JSON.parse(JSON.stringify(tasks)),
+      metadata: JSON.parse(JSON.stringify(metadata)),
+      workflowComments: JSON.parse(JSON.stringify(workflowComments)),
+      accessControl: JSON.parse(JSON.stringify(accessControl)),
+      ownership: JSON.parse(JSON.stringify(ownership)),
+      relatedWorkflowIds: JSON.parse(JSON.stringify(relatedWorkflowIds)),
+    }]);
     
     setNodes(nextState.nodes);
     setEdges(nextState.edges);
     setTasks(nextState.tasks);
     setMetadata(nextState.metadata);
+    setWorkflowComments(nextState.workflowComments || []);
+    setAccessControl(nextState.accessControl || accessControl);
+    setOwnership(nextState.ownership || ownership);
+    setRelatedWorkflowIds(nextState.relatedWorkflowIds || []);
     setRedoStack(prev => prev.slice(0, -1));
-  }, [redoStack, nodes, edges, tasks, metadata, setNodes, setEdges]);
+  }, [redoStack, nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, setNodes, setEdges]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -976,6 +1155,421 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   const selectedTask = useMemo(() => tasks.find(t => String(t.id) === String(selectedTaskId)), [tasks, selectedTaskId]);
   const selectedEdge = useMemo(() => edges.find(e => String(e.id) === String(selectedEdgeId)), [edges, selectedEdgeId]);
   const isProtected = selectedTask?.interface === 'TRIGGER' || selectedTask?.interface === 'OUTCOME';
+
+  const workflowDiff = useMemo(() => {
+    const baseline = initialSnapshotRef.current || {};
+    const baselineMetadata = baseline.metadata || {};
+    const baselineTaskNames = new Set((baseline.tasks || []).map((task: any) => String(task.name || '').trim()).filter(Boolean));
+    const currentTaskNames = new Set(tasks.map((task) => String(task.name || '').trim()).filter(Boolean));
+    const addedTasks = tasks.filter((task) => !baselineTaskNames.has(String(task.name || '').trim())).map((task) => task.name);
+    const removedTasks = (baseline.tasks || []).filter((task: any) => !currentTaskNames.has(String(task.name || '').trim())).map((task: any) => task.name);
+    const baselineEdges = new Set((baseline.edges || []).map((edge: any) => `${edge.source}::${edge.target}::${edge.label || ''}`));
+    const currentEdges = new Set(edges.map((edge) => `${edge.source}::${edge.target}::${edge.data?.label || ''}`));
+    const addedEdges = edges.filter((edge) => !baselineEdges.has(`${edge.source}::${edge.target}::${edge.data?.label || ''}`));
+    const removedEdges = (baseline.edges || []).filter((edge: any) => !currentEdges.has(`${edge.source}::${edge.target}::${edge.label || ''}`));
+    const changedMetadata = Object.entries(metadata)
+      .filter(([key, value]) => JSON.stringify(value) !== JSON.stringify((baselineMetadata as any)[key]))
+      .map(([key]) => key);
+    return {
+      addedTasks,
+      removedTasks,
+      addedEdges,
+      removedEdges,
+      changedMetadata,
+    };
+  }, [edges, metadata, tasks]);
+
+  const versionHistory = useMemo(() => {
+    const currentVersion = workflow?.version || metadata.version || 1;
+    const relatedVersions = [workflow, ...relatedWorkflowList]
+      .filter(Boolean)
+      .filter((item: any) => {
+        if (!workflow?.version_group) return item?.id === workflow?.id || String(item?.name || '').toLowerCase() === String(workflow?.name || '').toLowerCase();
+        return item?.version_group === workflow.version_group || item?.parent_workflow_id === workflow?.id || item?.id === workflow?.id;
+      })
+      .map((item: any) => ({
+        id: item.id,
+        version: item.version || currentVersion,
+        name: item.name,
+        state: item.approval_state || item.review_state || 'Draft',
+        updated_at: item.updated_at || item.created_at || null,
+        isCurrent: item.id === workflow?.id,
+      }))
+      .sort((a: any, b: any) => Number(b.version) - Number(a.version));
+    return relatedVersions.length > 0 ? relatedVersions : [{
+      id: workflow?.id,
+      version: currentVersion,
+      name: workflow?.name,
+      state: workflow?.approval_state || 'Draft',
+      updated_at: workflow?.updated_at || null,
+      isCurrent: true,
+    }];
+  }, [metadata.version, relatedWorkflowList, workflow]);
+
+  const auditTrail = useMemo(() => workflow?.activity_timeline || [], [workflow?.activity_timeline]);
+  const frictionSignals = useMemo(() => {
+    const analysis = workflow?.analysis || {};
+    const topRisks = ((analysis.task_diagnostic_summary || {}).top_risk_nodes || []).slice(0, 5);
+    return {
+      reviewQueue: workflow?.review_requests?.filter((request: any) => request.status === 'open').length || 0,
+      unresolvedComments: workflowComments.filter((comment) => !comment.resolved).length,
+      bottlenecks: (analysis.bottlenecks || []).slice(0, 3),
+      topRisks,
+      standardsFlags: (workflow?.governance?.standards_flags || []).slice(0, 5),
+      auditEntries: auditTrail.length,
+    };
+  }, [auditTrail.length, workflow, workflowComments]);
+
+  const exportWorkflowDraft = useCallback(() => {
+    const payload = {
+      metadata,
+      tasks,
+      edges,
+      workflowComments,
+      accessControl,
+      ownership,
+      relatedWorkflowIds,
+      builderMode,
+      versionHistory,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${String(metadata.name || workflow?.name || 'workflow-builder').toLowerCase().replace(/\s+/g, '-')}.json`;
+    anchor.click();
+    window.URL.revokeObjectURL(url);
+    toast.success('Workflow draft exported');
+  }, [accessControl, builderMode, edges, metadata, ownership, relatedWorkflowIds, tasks, versionHistory, workflow?.name, workflowComments]);
+
+  const importWorkflowDraft = useCallback(() => {
+    if (!importDraft.trim()) {
+      toast.error('Paste a workflow JSON payload first.');
+      return;
+    }
+    try {
+      const parsed = JSON.parse(importDraft);
+      if (parsed.metadata) setMetadata(parsed.metadata);
+      if (Array.isArray(parsed.tasks)) setTasks(parsed.tasks);
+      if (Array.isArray(parsed.edges)) setEdges(parsed.edges);
+      if (Array.isArray(parsed.workflowComments)) setWorkflowComments(parsed.workflowComments);
+      if (parsed.accessControl) setAccessControl(parsed.accessControl);
+      if (parsed.ownership) setOwnership(parsed.ownership);
+      if (Array.isArray(parsed.relatedWorkflowIds)) setRelatedWorkflowIds(parsed.relatedWorkflowIds);
+      if (parsed.builderMode) setBuilderMode(parsed.builderMode);
+      setShowGuide(false);
+      setIsDirty?.(true);
+      toast.success('Workflow draft imported');
+    } catch (error) {
+      toast.error('Invalid workflow JSON payload.');
+    }
+  }, [importDraft, setEdges, setIsDirty]);
+
+  const addWorkflowComment = useCallback(() => {
+    if (!commentDraft.message.trim()) {
+      toast.error('Comment message is required.');
+      return;
+    }
+    const nextComment = {
+      ...commentDraft,
+      id: commentDraft.id || `comment-${Date.now()}`,
+      created_at: commentDraft.created_at || new Date().toISOString(),
+      scope: commentDraft.scope || 'workflow',
+      scope_id: commentDraft.scope_id || selectedTaskId || undefined,
+    };
+    saveToHistory();
+    setWorkflowComments((prev) => [nextComment, ...prev]);
+    setCommentDraft(createWorkflowComment(selectedTaskId ? 'task' : 'workflow', selectedTaskId || ''));
+    setIsDirty?.(true);
+    toast.success('Comment added');
+  }, [commentDraft, saveToHistory, selectedTaskId, setIsDirty]);
+
+  const toggleCommentResolved = useCallback((commentId: string) => {
+    saveToHistory();
+    setWorkflowComments((prev) => prev.map((comment) => comment.id === commentId ? { ...comment, resolved: !comment.resolved } : comment));
+    setIsDirty?.(true);
+  }, [saveToHistory, setIsDirty]);
+
+  const updateRelatedWorkflowIds = useCallback((workflowId: number) => {
+    saveToHistory();
+    setRelatedWorkflowIds((prev) => prev.includes(workflowId) ? prev.filter((id) => id !== workflowId) : [...prev, workflowId]);
+    setIsDirty?.(true);
+  }, [saveToHistory, setIsDirty]);
+
+  const updateAccessControl = useCallback((updates: Partial<AccessControlState>) => {
+    saveToHistory();
+    setAccessControl((prev) => ({ ...prev, ...updates }));
+    setIsDirty?.(true);
+  }, [saveToHistory, setIsDirty]);
+
+  const updateOwnership = useCallback((updates: Partial<OwnershipState>) => {
+    saveToHistory();
+    setOwnership((prev) => ({ ...prev, ...updates }));
+    setIsDirty?.(true);
+  }, [saveToHistory, setIsDirty]);
+
+  const runGovernanceAction = useCallback((action: string, requestId?: string) => {
+    if (typeof (onGovernanceAction) !== 'function') {
+      toast.error('Governance actions are unavailable in this view.');
+      return;
+    }
+    onGovernanceAction(action, requestId);
+  }, [onGovernanceAction]);
+
+  const renderWorkflowOpsSurface = () => (
+    <div className="space-y-8 animate-apple-in pb-12">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className={cn(BUILDER_PANEL, "p-5 space-y-4")}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Diff and Version History</p>
+              <p className="mt-1 text-[12px] font-bold text-white/55">Compare this draft to the baseline and review the version line.</p>
+            </div>
+            <History size={16} className="text-theme-accent" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Metadata Changes</p>
+              <p className="mt-2 text-[22px] font-black text-theme-accent">{workflowDiff.changedMetadata.length}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Route Changes</p>
+              <p className="mt-2 text-[22px] font-black text-emerald-300">{workflowDiff.addedEdges.length + workflowDiff.removedEdges.length}</p>
+            </div>
+          </div>
+          <div className="space-y-2 max-h-[12rem] overflow-auto pr-1 custom-scrollbar">
+            {workflowDiff.addedTasks.length === 0 && workflowDiff.removedTasks.length === 0 && workflowDiff.changedMetadata.length === 0 && (
+              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[11px] font-bold text-emerald-300">
+                This draft is aligned with the current baseline snapshot.
+              </div>
+            )}
+            {workflowDiff.addedTasks.slice(0, 4).map((taskName: string) => (
+              <div key={`added-${taskName}`} className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[11px] font-bold text-emerald-200">
+                Added task: {taskName}
+              </div>
+            ))}
+            {workflowDiff.removedTasks.slice(0, 4).map((taskName: string) => (
+              <div key={`removed-${taskName}`} className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-[11px] font-bold text-rose-200">
+                Removed task: {taskName}
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {versionHistory.map((version) => (
+              <span key={`${version.id}-${version.version}`} className={cn("rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em]", version.isCurrent ? "border-theme-accent/20 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/55")}>
+                v{version.version} {version.isCurrent ? 'Current' : version.state}
+              </span>
+            ))}
+          </div>
+          {rollbackPreview?.available && onCreateRollbackDraft && (
+            <button onClick={onCreateRollbackDraft} className="w-full rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">
+              Create Rollback Draft
+            </button>
+          )}
+        </div>
+
+        <div className={cn(BUILDER_PANEL, "p-5 space-y-4")}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Approvals and Review</p>
+              <p className="mt-1 text-[12px] font-bold text-white/55">Publish, request changes, or certify without leaving the builder.</p>
+            </div>
+            <ShieldCheck size={16} className="text-theme-accent" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={() => runGovernanceAction('approve_review')} className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300 hover:bg-emerald-500 hover:text-white transition-all">Approve Review</button>
+            <button onClick={() => runGovernanceAction('request_changes')} className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-amber-300 hover:bg-amber-500 hover:text-white transition-all">Request Changes</button>
+            <button onClick={() => runGovernanceAction('approve_workflow')} className="rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">Approve Workflow</button>
+            <button onClick={() => runGovernanceAction('certify')} className="rounded-2xl border border-violet-500/20 bg-violet-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-violet-300 hover:bg-violet-500 hover:text-white transition-all">Certify</button>
+          </div>
+          <div className="space-y-2">
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Open Review Requests</p>
+            <div className="space-y-2 max-h-[11rem] overflow-auto pr-1 custom-scrollbar">
+              {(workflow?.review_requests || []).map((request: any) => (
+                <div key={request.id} className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{request.role || request.requested_from || 'Review Request'}</p>
+                    <span className={cn("rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em]", request.status === 'approved' ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-amber-500/20 bg-amber-500/10 text-amber-300")}>{request.status || 'open'}</span>
+                  </div>
+                  <p className="mt-1 text-[11px] font-bold text-white/55">{request.note || 'Needs reviewer action.'}</p>
+                </div>
+              ))}
+              {(workflow?.review_requests || []).length === 0 && <p className="text-[11px] font-bold text-white/40">No pending review requests on this workflow.</p>}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <div className={cn(BUILDER_PANEL, "p-5 space-y-4")}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Comments and Annotations</p>
+              <p className="mt-1 text-[12px] font-bold text-white/55">Capture review context and keep the reason for change visible.</p>
+            </div>
+            <MessageSquare size={16} className="text-theme-accent" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <select className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={commentDraft.scope} onChange={(e) => setCommentDraft((prev) => ({ ...prev, scope: e.target.value as WorkflowComment['scope'] }))}>
+              <option value="workflow">Workflow</option>
+              <option value="task">Task</option>
+              <option value="section">Section</option>
+            </select>
+            <input className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={commentDraft.scope_id || ''} onChange={(e) => setCommentDraft((prev) => ({ ...prev, scope_id: e.target.value }))} placeholder={selectedTaskId ? selectedTask?.name || 'Selected task' : 'Scope id'} />
+          </div>
+          <textarea className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[12px] font-bold text-white/80 outline-none focus:border-theme-accent min-h-[7rem] resize-none" value={commentDraft.message} onChange={(e) => setCommentDraft((prev) => ({ ...prev, message: e.target.value }))} placeholder="Write a clear review note or annotation..." />
+          <div className="flex items-center justify-between gap-3">
+            <input className="flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-bold text-white/70 outline-none focus:border-theme-accent" value={commentDraft.assignee || ''} onChange={(e) => setCommentDraft((prev) => ({ ...prev, assignee: e.target.value }))} placeholder="Optional assignee" />
+            <button onClick={addWorkflowComment} className="rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">Add Comment</button>
+          </div>
+          <div className="space-y-2 max-h-[16rem] overflow-auto pr-1 custom-scrollbar">
+            {workflowComments.map((comment) => (
+              <button key={comment.id} onClick={() => setSelectedCommentId(comment.id)} className={cn("w-full rounded-2xl border p-4 text-left transition-all", selectedCommentId === comment.id ? "border-theme-accent/30 bg-theme-accent/10" : "border-white/10 bg-black/20 hover:bg-white/[0.05]")}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{comment.author}</p>
+                  <span className={cn("rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em]", comment.resolved ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-amber-500/20 bg-amber-500/10 text-amber-300")}>{comment.resolved ? 'Resolved' : comment.review_state || 'Open'}</span>
+                </div>
+                <p className="mt-2 text-[11px] font-bold text-white/70 leading-relaxed">{comment.message}</p>
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">{comment.scope}{comment.scope_id ? ` • ${comment.scope_id}` : ''}</p>
+                  <button onClick={() => toggleCommentResolved(comment.id)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">{comment.resolved ? 'Reopen' : 'Resolve'}</button>
+                </div>
+              </button>
+            ))}
+            {workflowComments.length === 0 && <p className="text-[11px] font-bold text-white/40">No annotations have been added yet.</p>}
+          </div>
+        </div>
+
+        <div className={cn(BUILDER_PANEL, "p-5 space-y-4")}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Access, Ownership, and Reuse</p>
+              <p className="mt-1 text-[12px] font-bold text-white/55">Standardize who owns the workflow and what can be reused.</p>
+            </div>
+            <Users size={16} className="text-theme-accent" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <select className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={accessControl.visibility} onChange={(e) => updateAccessControl({ visibility: e.target.value })}>
+              <option value="private">Private</option>
+              <option value="workspace">Workspace</option>
+              <option value="org">Org</option>
+            </select>
+            <input className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={accessControl.owner} onChange={(e) => updateAccessControl({ owner: e.target.value })} placeholder="Access owner" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <textarea className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-bold text-white/70 outline-none focus:border-theme-accent min-h-[5.5rem] resize-none" value={accessControl.editors.join('\n')} onChange={(e) => updateAccessControl({ editors: e.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })} placeholder="Editors, one per line" />
+            <textarea className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-bold text-white/70 outline-none focus:border-theme-accent min-h-[5.5rem] resize-none" value={accessControl.viewers.join('\n')} onChange={(e) => updateAccessControl({ viewers: e.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })} placeholder="Viewers, one per line" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <textarea className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-bold text-white/70 outline-none focus:border-theme-accent min-h-[5.5rem] resize-none" value={ownership.smes.join('\n')} onChange={(e) => updateOwnership({ smes: e.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })} placeholder="SMEs, one per line" />
+            <textarea className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-bold text-white/70 outline-none focus:border-theme-accent min-h-[5.5rem] resize-none" value={ownership.reviewers.join('\n')} onChange={(e) => updateOwnership({ reviewers: e.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })} placeholder="Reviewers, one per line" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={ownership.owner} onChange={(e) => updateOwnership({ owner: e.target.value })} placeholder="Workflow owner" />
+            <input className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={ownership.automation_owner || ''} onChange={(e) => updateOwnership({ automation_owner: e.target.value })} placeholder="Automation owner" />
+          </div>
+          <div className="space-y-2">
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Reusable Linked Workflows</p>
+            <div className="space-y-2 max-h-[12rem] overflow-auto pr-1 custom-scrollbar">
+              {(builderSuggestions.workflowMatches.length > 0 ? builderSuggestions.workflowMatches : relatedWorkflowList).slice(0, 6).map((item: any) => (
+                <button key={item.id} onClick={() => updateRelatedWorkflowIds(Number(item.id))} className={cn("w-full rounded-2xl border px-4 py-3 text-left transition-all", relatedWorkflowIds.includes(Number(item.id)) ? "border-theme-accent/30 bg-theme-accent/10" : "border-white/10 bg-black/20 hover:bg-white/[0.05]")}>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{item.name}</p>
+                    <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">{relatedWorkflowIds.includes(Number(item.id)) ? 'Linked' : 'Link'}</span>
+                  </div>
+                  <p className="mt-1 text-[11px] font-bold text-white/55">{item.workflow_type || item.description || 'Reusable component'}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_0.9fr] gap-4">
+        <div className={cn(BUILDER_PANEL, "p-5 space-y-4")}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Audit Trail and Usage Friction</p>
+              <p className="mt-1 text-[12px] font-bold text-white/55">Keep the review record visible and surface the most likely adoption blockers.</p>
+            </div>
+            <GitBranch size={16} className="text-theme-accent" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Audit Entries</p>
+              <p className="mt-2 text-[22px] font-black text-theme-accent">{frictionSignals.auditEntries}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Open Comments</p>
+              <p className="mt-2 text-[22px] font-black text-amber-300">{frictionSignals.unresolvedComments}</p>
+            </div>
+          </div>
+          <div className="space-y-2 max-h-[14rem] overflow-auto pr-1 custom-scrollbar">
+            {auditTrail.map((entry: any) => (
+              <div key={entry.id || `${entry.type}-${entry.created_at}`} className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{entry.type}</p>
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">{entry.actor || 'system'}</p>
+                </div>
+                <p className="mt-1 text-[11px] font-bold text-white/55">{entry.message}</p>
+              </div>
+            ))}
+            {auditTrail.length === 0 && <p className="text-[11px] font-bold text-white/40">No activity has been captured yet.</p>}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {(frictionSignals.bottlenecks || []).map((item: any) => (
+              <div key={item.node_id || item.task_name} className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">{item.task_name || 'Bottleneck'}</p>
+                <p className="mt-2 text-[16px] font-black text-rose-300">{Number(item.total_burden_minutes || 0).toFixed(1)}m</p>
+                <p className="mt-1 text-[10px] font-bold text-white/45">{item.blocker_count || 0} blockers / {item.error_count || 0} errors</p>
+              </div>
+            ))}
+            {((frictionSignals.bottlenecks || []).length === 0) && <p className="text-[11px] font-bold text-white/40">No major friction points are reported in the current analysis.</p>}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Import and Export</p>
+              <p className="mt-1 text-[12px] font-bold text-white/55">Move workflow definitions in and out as JSON.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={exportWorkflowDraft} className="rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all flex items-center gap-2"><FileDown size={12} /> Export</button>
+              <button onClick={() => setShowImportPanel((prev) => !prev)} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white transition-all flex items-center gap-2"><FileUp size={12} /> Import</button>
+            </div>
+          </div>
+          {showImportPanel && (
+            <div className="space-y-3 rounded-2xl border border-white/10 bg-black/20 p-4">
+              <textarea className="min-h-[12rem] w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-mono text-white/70 outline-none focus:border-theme-accent resize-none" value={importDraft} onChange={(e) => setImportDraft(e.target.value)} placeholder="Paste workflow JSON here..." />
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[10px] font-bold text-white/45">Import replaces the current builder draft state.</p>
+                <button onClick={importWorkflowDraft} className="rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">Apply Import</button>
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Review Queue</p>
+              <p className="mt-2 text-[22px] font-black text-white">{frictionSignals.reviewQueue}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Standards Flags</p>
+              <p className="mt-2 text-[22px] font-black text-violet-300">{frictionSignals.standardsFlags.length}</p>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {frictionSignals.standardsFlags.map((flag: string) => (
+              <div key={flag} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-[11px] font-bold text-white/60">
+                {flag}
+              </div>
+            ))}
+            {frictionSignals.standardsFlags.length === 0 && <p className="text-[11px] font-bold text-white/40">No standards flags are attached yet.</p>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   const taskTypes = useMemo(() => {
     const fromTaxonomy = taxonomy.find(t => t.category === 'TASK_TYPE');
@@ -1108,7 +1702,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
           selectedEdgeIds,
           builderMode,
           showGuide,
-          isMetadataEditMode
+          isMetadataEditMode,
+          workflowComments,
+          accessControl,
+          ownership,
+          relatedWorkflowIds,
+          commentDraft,
+          importDraft,
         }));
       } catch (error) {
         console.warn('[WorkflowBuilder] Failed to persist draft:', error);
@@ -1135,6 +1735,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     builderMode,
     showGuide,
     isMetadataEditMode,
+    workflowComments,
+    accessControl,
+    ownership,
+    relatedWorkflowIds,
+    commentDraft,
+    importDraft,
     draftRestored,
   ]);
 
@@ -1161,6 +1767,33 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         repeatability_check: workflow?.repeatability_check ?? true
       };
       setMetadata(initialMetadata);
+      setWorkflowComments(Array.isArray(workflow?.comments) ? workflow.comments : []);
+      setAccessControl({
+        visibility: workflow?.access_control?.visibility || 'private',
+        viewers: normalizeStringList(workflow?.access_control?.viewers),
+        editors: normalizeStringList(workflow?.access_control?.editors),
+        mention_groups: normalizeStringList(workflow?.access_control?.mention_groups),
+        owner: workflow?.access_control?.owner || workflow?.ownership?.owner || workflow?.created_by || 'system_user',
+      });
+      setOwnership({
+        owner: workflow?.ownership?.owner || workflow?.created_by || workflow?.access_control?.owner || 'system_user',
+        smes: normalizeStringList(workflow?.ownership?.smes),
+        backup_owners: normalizeStringList(workflow?.ownership?.backup_owners),
+        automation_owner: workflow?.ownership?.automation_owner || '',
+        reviewers: normalizeStringList(workflow?.ownership?.reviewers),
+      });
+      setRelatedWorkflowIds(normalizeStringList(workflow?.related_workflow_ids).map((value) => Number(value)).filter((value) => Number.isFinite(value)));
+      setCommentDraft(createWorkflowComment());
+      setImportDraft('');
+      initialSnapshotRef.current = JSON.parse(JSON.stringify({
+        metadata: initialMetadata,
+        comments: Array.isArray(workflow?.comments) ? workflow.comments : [],
+        accessControl: workflow?.access_control || {},
+        ownership: workflow?.ownership || {},
+        relatedWorkflowIds: workflow?.related_workflow_ids || [],
+        version: workflow?.version || 1,
+        updated_at: workflow?.updated_at || workflow?.updatedAt || null,
+      }));
 
       let initializedTasks = (workflow?.tasks || []).map((t: any) => {
         let stableId = t.node_id ? String(t.node_id) : String(t.id);
@@ -1416,6 +2049,10 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
 
       const finalData = {
         ...metadata,
+        comments: workflowComments,
+        access_control: accessControl,
+        ownership,
+        related_workflow_ids: relatedWorkflowIds,
         tasks: tasks.map(t => {
           const node = nodes.find(n => String(n.id) === String(t.node_id));
           return { 
@@ -1541,7 +2178,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
       )}
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative overflow-hidden">
-        <div className="min-h-16 border-b border-white/10 bg-[#0a1120]/80 backdrop-blur-xl flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 relative z-[100]">
+        <div className={cn("min-h-16 border-b border-white/10 bg-[#0a1120]/92 backdrop-blur-xl flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 relative z-[100]")}>
           <div className="flex items-center gap-4 min-w-0">
             <button onClick={() => onBack(metadata)} className="p-2.5 hover:bg-white/5 rounded-xl transition-colors text-white/40 hover:text-white"><ChevronLeft size={20} /></button>
             <div className="flex flex-col min-w-0">
@@ -1551,11 +2188,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             </div>
           </div>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
-          <div className="flex bg-white/5 border border-white/10 rounded-2xl p-0.5 mr-2 h-[38px] items-center">
+          <div className="flex bg-white/5 border border-white/10 rounded-[24px] p-0.5 mr-2 h-[38px] items-center">
             <button onClick={undo} disabled={history.length === 0} className="px-3 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all border-r border-white/5"><RefreshCw size={14} className="-scale-x-100" /></button>
             <button onClick={redo} disabled={redoStack.length === 0} className="px-3 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all"><RefreshCw size={14} /></button>
           </div>
-          <div className="flex bg-white/5 border border-white/10 rounded-2xl p-0.5 mr-2 h-[38px] items-center">
+          <div className="flex bg-white/5 border border-white/10 rounded-[24px] p-0.5 mr-2 h-[38px] items-center">
             {(['bezier', 'smoothstep', 'straight'] as const).map(s => (
               <button 
                 key={s} 
@@ -1569,8 +2206,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               </button>
             ))}
           </div>
-          <button onClick={() => handleLayout(nodes, edges)} className="flex items-center gap-2 px-4 h-[38px] bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black text-white uppercase hover:bg-white/10 transition-all"><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
-          <button data-testid="builder-commit" onClick={handleSave} className="flex items-center gap-2 px-6 h-[38px] bg-theme-accent text-white rounded-2xl text-[10px] font-black uppercase shadow-xl shadow-theme-accent/20 hover:scale-[1.02] transition-all"><Save size={14} /> Commit Changes</button>
+          <button onClick={() => handleLayout(nodes, edges)} className={cn(BUILDER_BUTTON, "flex items-center gap-2 px-4 h-[38px] bg-white/5 border border-white/10 text-white uppercase hover:bg-white/10 transition-all")}><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
+          <button data-testid="builder-commit" onClick={handleSave} className={cn(BUILDER_BUTTON, "flex items-center gap-2 px-6 h-[38px] bg-theme-accent text-white shadow-xl shadow-theme-accent/20 hover:scale-[1.02]")}><Save size={14} /> Commit Changes</button>
           <button onClick={onExit} className="p-2 text-white/20 hover:text-status-error"><X size={20} /></button>
         </div>
         </div>
@@ -1597,12 +2234,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             }}
             onNodeClick={(_, n) => { setSelectedTaskId(n.id); setSelectedEdgeId(null); setSelectedNodeIds([n.id]); setSelectedEdgeIds([]); setInspectorTab('overview'); }} 
             onEdgeClick={(_, e) => { setSelectedEdgeId(e.id); setSelectedTaskId(null); setSelectedNodeIds([]); setSelectedEdgeIds([e.id]); }} 
-            onPaneClick={() => { setSelectedTaskId(null); setSelectedEdgeId(null); setSelectedNodeIds([]); setSelectedEdgeIds([]); }} 
+            onPaneClick={clearSelection} 
             fitView 
             snapToGrid 
             snapGrid={[10, 10]} 
             connectionMode={ConnectionMode.Loose} 
-            connectionLineType={ConnectionLineType.Bezier} 
+            connectionLineType={defaultEdgeStyle === 'straight' ? ConnectionLineType.Straight : defaultEdgeStyle === 'smoothstep' ? ConnectionLineType.SmoothStep : ConnectionLineType.Bezier} 
             className="react-flow-industrial"
           >
             <Background color="#1e293b" gap={30} size={1} />
@@ -1616,6 +2253,16 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             <button onClick={() => setInspectorTab('validation')} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border", validationErrorCount > 0 ? "border-status-error/30 bg-status-error/10 text-status-error" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
               {validationErrorCount} Errors · {validationWarningCount} Warnings
             </button>
+            {selectedItemCount > 0 && (
+              <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+                <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/55">
+                  {selectedNodeIds.length} Nodes · {selectedEdgeIds.length} Edges Selected
+                </span>
+                <button onClick={clearSelection} className="rounded-xl border border-white/10 bg-black/20 px-2 py-1 text-[8px] font-black uppercase text-white/45 hover:text-white transition-colors">
+                  Clear
+                </button>
+              </div>
+            )}
             {draftRestored && (
               <button onClick={clearBuilderDraft} className="px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border border-theme-accent/20 bg-theme-accent/10 text-theme-accent hover:bg-theme-accent hover:text-white">
                 Clear Draft
@@ -1635,7 +2282,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         </div>
       </div>
 
-      <div className="relative border-t xl:border-t-0 xl:border-l border-white/10 bg-[#0a1120] flex flex-col z-[70] w-full xl:[width:var(--inspector-width)] xl:flex-none h-full min-h-0 overflow-hidden" style={{ '--inspector-width': `${inspectorWidth}px` } as React.CSSProperties}>
+      <div className="relative border-t xl:border-t-0 xl:border-l border-white/10 bg-[#09111d] flex flex-col z-[70] w-full xl:[width:var(--inspector-width)] xl:flex-none h-full min-h-0 overflow-hidden" style={{ '--inspector-width': `${inspectorWidth}px` } as React.CSSProperties}>
         <div onMouseDown={handleMouseDown} className="hidden xl:block absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent z-50" />
         <div className="min-h-14 flex border-b border-white/10 bg-white/[0.02] overflow-x-auto">
           {[ 
@@ -1643,8 +2290,10 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             { id: 'data', label: 'Data', icon: <Database size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' }, 
             { id: 'exceptions', label: 'Exceptions', icon: <AlertCircle size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' }, 
             { id: 'validation', label: 'Validation', icon: <Zap size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' }, 
-            { id: 'appendix', label: 'Appendix', icon: <Paperclip size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' } 
-          ].filter(t => !t.hidden && (selectedTaskId || t.id === 'overview')).map(t => (
+            { id: 'appendix', label: 'Appendix', icon: <Paperclip size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' },
+            { id: 'governance', label: 'Governance', icon: <ShieldCheck size={12} /> },
+            { id: 'history', label: 'History', icon: <History size={12} /> },
+          ].filter(t => !t.hidden && (selectedTaskId || ['overview', 'governance', 'history'].includes(t.id))).map(t => (
             <button key={t.id} onClick={() => setInspectorTab(t.id as any)} className={cn("flex-1 min-w-[84px] flex flex-col items-center justify-center gap-0.5 border-b-2 px-2", inspectorTab === t.id ? 'border-theme-accent bg-theme-accent/10 text-white' : 'border-transparent text-white/20 hover:text-white transition-all')}>{t.icon}<span className="text-[8px] font-black uppercase whitespace-nowrap">{t.label}</span></button>
           ))}
           {selectedEdgeId && (<div className="flex-1 min-w-[84px] flex flex-col items-center justify-center gap-0.5 border-b-2 border-theme-accent bg-theme-accent/10 text-white px-2"><Link2 size={12} /><span className="text-[8px] font-black uppercase whitespace-nowrap">Edge</span></div>)}
@@ -1724,49 +2373,34 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owner Team</label>
-                          <input className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-11 text-[12px] font-bold text-white outline-none focus:border-theme-accent placeholder:text-white/10" value={selectedTask.owning_team} onChange={e => updateTask(selectedTaskId, { owning_team: e.target.value })} placeholder="Team Name" />
+                          <input className={BUILDER_FIELD.replace('py-3', 'h-11 py-2.5')} value={selectedTask.owning_team} onChange={e => updateTask(selectedTaskId, { owning_team: e.target.value })} placeholder="Team Name" />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owner Positions</label>
-                          <button 
-                            onClick={() => setOwnerPositionsCollapsed(!ownerPositionsCollapsed)}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 h-11 flex items-center justify-between hover:bg-white/10 transition-colors"
-                          >
-                            <span className="text-[12px] font-bold text-white truncate">
-                              {selectedTask.owner_positions?.length || 0} Positions
-                            </span>
-                            {ownerPositionsCollapsed ? <ChevronDown size={14} className="text-white/20" /> : <ChevronUp size={14} className="text-white/20" />}
-                          </button>
+                          <div className="rounded-2xl border border-white/10 bg-black/30 p-2">
+                            <button
+                              onClick={() => setOwnerPositionsCollapsed(!ownerPositionsCollapsed)}
+                              className="w-full rounded-2xl border border-white/10 bg-white/[0.03] px-4 h-11 flex items-center justify-between hover:bg-white/10 transition-colors"
+                            >
+                              <span className="text-[12px] font-bold text-white truncate">
+                                {selectedTask.owner_positions?.length || 0} Positions
+                              </span>
+                              {ownerPositionsCollapsed ? <ChevronDown size={14} className="text-white/20" /> : <ChevronUp size={14} className="text-white/20" />}
+                            </button>
+                          </div>
                         </div>
                       </div>
                       {!ownerPositionsCollapsed && (
-                        <div className="p-4 space-y-3 border border-white/10 bg-black/40 rounded-2xl animate-apple-in -mt-2">
-                          {(selectedTask.owner_positions || []).map((pos, idx) => (
-                            <div key={idx} className="flex gap-2 group/pos animate-apple-in">
-                              <div className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[11px] font-bold text-white flex items-center justify-between">
-                                <span className="truncate">{pos || 'Untitled Position'}</span>
-                                <div className="flex items-center gap-1 opacity-0 group-hover/pos:opacity-100 transition-opacity">
-                                  <button onClick={() => {
-                                    const newTitle = prompt('Edit Position Title:', pos);
-                                    if (newTitle !== null && newTitle.trim()) {
-                                      updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.map((p, i) => i === idx ? newTitle.trim() : p) });
-                                    }
-                                  }} className="p-1.5 hover:bg-theme-accent/20 text-white/40 hover:text-theme-accent rounded-md transition-all"><Edit3 size={12} /></button>
-                                  <button onClick={() => {
-                                    if (confirm('Permanently remove this owner position?')) {
-                                      updateTask(selectedTaskId, { owner_positions: selectedTask.owner_positions?.filter((_, i) => i !== idx) });
-                                    }
-                                  }} className="p-1.5 hover:bg-status-error/20 text-white/40 hover:text-status-error rounded-md transition-all"><Trash size={12} /></button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                          <button onClick={() => {
-                            const newTitle = prompt('New Position Title:');
-                            if (newTitle && newTitle.trim()) {
-                              updateTask(selectedTaskId, { owner_positions: [...(selectedTask.owner_positions || []), newTitle.trim()] });
-                            }
-                          }} className="w-full py-2 bg-theme-accent/10 border border-theme-accent/30 rounded-2xl text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all">+ Add Position</button>
+                        <div className="animate-apple-in -mt-2">
+                          <ManagedListSection
+                            title="Position Entries"
+                            items={selectedTask.owner_positions || []}
+                            onUpdate={(items) => updateTask(selectedTaskId, { owner_positions: items })}
+                            placeholder="Add a role title, responsibility, or backup assignment..."
+                            icon={<Users size={12} className="text-theme-accent" />}
+                            isOpen={!ownerPositionsCollapsed}
+                            toggle={() => setOwnerPositionsCollapsed((prev) => !prev)}
+                          />
                         </div>
                       )}
 
@@ -2086,6 +2720,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </CollapsibleSection>
                 </div>
               )}
+              {(inspectorTab === 'governance' || inspectorTab === 'history') && renderWorkflowOpsSurface()}
             </div>
           ) : selectedEdgeId && selectedEdge ? (
             <div className="p-6 space-y-10 animate-apple-in">
@@ -2135,22 +2770,35 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </div>
                 </div>
               </div>
+              {(inspectorTab === 'governance' || inspectorTab === 'history') && renderWorkflowOpsSurface()}
             </div>
           ) : (
             <div className="space-y-8 animate-apple-in pb-20">
               {showGuide && (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className={cn(BUILDER_PANEL, "p-5")}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Builder Guide</p>
                       <p className="mt-2 text-[12px] font-bold leading-relaxed text-white/60">
-                        Edit the workflow definition here, then use the canvas to inspect nodes, routes, and protected trigger/output entities.
+                        1. Choose a template or start from the current workflow. 2. Click a node to edit its details. 3. Commit once validation is clean.
                       </p>
+                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {[
+                          'Start with templates or related workflows',
+                          'Click nodes, edges, or fields to edit',
+                          'Fix validation issues before commit',
+                        ].map((step, index) => (
+                          <div key={step} className="rounded-[22px] border border-white/10 bg-black/20 px-3 py-3">
+                            <p className="text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent">Step {index + 1}</p>
+                            <p className="mt-1 text-[11px] font-bold leading-relaxed text-white/65">{step}</p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <button
                       data-testid="builder-guide-dismiss"
                       onClick={() => setShowGuide(false)}
-                    className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/60 transition-all hover:bg-white/10 hover:text-white"
+                    className={cn(BUILDER_BUTTON, "border border-white/10 bg-white/5 px-4 py-2 text-white/60 hover:bg-white/10 hover:text-white")}
                     >
                       Dismiss
                     </button>
@@ -2158,8 +2806,10 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 </div>
               )}
 
+              {(inspectorTab === 'governance' || inspectorTab === 'history') && renderWorkflowOpsSurface()}
+
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+                <div className={cn(BUILDER_PANEL, "p-5 space-y-4")}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Quick Start Library</p>
@@ -2168,20 +2818,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <Search size={14} className="text-white/25" />
                   </div>
                   <div className="flex gap-2">
-                    <input value={builderSearch} onChange={(e) => setBuilderSearch(e.target.value)} placeholder="Search templates or related workflows" className="flex-1 bg-black/40 border border-white/10 rounded-2xl px-4 py-2.5 text-[11px] text-white outline-none focus:border-theme-accent" />
+                    <input value={builderSearch} onChange={(e) => setBuilderSearch(e.target.value)} placeholder="Search templates or related workflows" className={cn(BUILDER_FIELD, "flex-1 py-2.5")} />
                   </div>
                   <div className="space-y-2">
                     {(builderSuggestions.templateMatches || []).slice(0, 3).map((template: any) => (
-                      <div key={template.key || template.label} className="rounded-2xl border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
+                      <div key={template.key || template.label} className="rounded-[22px] border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-[11px] font-black uppercase text-white truncate">{template.label || template.key}</p>
                           <p className="text-[10px] text-white/45 leading-relaxed mt-1">{template.description || template.workflow_type || 'Template starter'}</p>
                         </div>
-                        <button onClick={() => applyTemplateToMetadata(template)} className="shrink-0 px-3 py-2 rounded-2xl bg-theme-accent text-white text-[9px] font-black uppercase whitespace-nowrap">Use</button>
+                        <button onClick={() => applyTemplateToMetadata(template)} className={cn(BUILDER_BUTTON, "shrink-0 bg-theme-accent text-white whitespace-nowrap")}>Use</button>
                       </div>
                     ))}
                     {(builderSuggestions.templateMatches || []).length === 0 && (
-                      <div className="rounded-2xl border border-dashed border-white/10 bg-black/20 p-4 text-[11px] font-bold text-white/35">
+                      <div className="rounded-[22px] border border-dashed border-white/10 bg-black/20 p-4 text-[11px] font-bold text-white/35">
                         No matching templates. Start from the current workflow and use the metadata panel below.
                       </div>
                     )}
@@ -2190,12 +2840,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <div className="space-y-2 border-t border-white/5 pt-4">
                       <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30">Related Workflows</p>
                       {builderSuggestions.workflowMatches.slice(0, 3).map((item: any) => (
-                        <div key={item.id || item.name} className="rounded-2xl border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
+                        <div key={item.id || item.name} className="rounded-[22px] border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-[11px] font-black uppercase text-white truncate">{item.name || item.label || 'Related workflow'}</p>
                             <p className="text-[10px] text-white/45 leading-relaxed mt-1">{item.description || item.workflow_type || 'Reusable workflow example'}</p>
                           </div>
-                          <button onClick={() => applyTemplateToMetadata(item)} className="shrink-0 px-3 py-2 rounded-2xl bg-white/5 border border-white/10 text-white/50 text-[9px] font-black uppercase whitespace-nowrap">Borrow</button>
+                          <button onClick={() => applyTemplateToMetadata(item)} className={cn(BUILDER_BUTTON, "shrink-0 bg-white/5 border border-white/10 text-white/50 whitespace-nowrap")}>Borrow</button>
                         </div>
                       ))}
                     </div>
@@ -2204,7 +2854,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <div className="space-y-2 border-t border-white/5 pt-4">
                       <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30">Reusable Draft Tasks</p>
                       {builderSuggestions.taskLibrary.map((task: any) => (
-                        <button key={task.id} onClick={() => { setSelectedTaskId(task.id); setSelectedNodeIds([task.id]); setInspectorTab('overview'); }} className="w-full rounded-2xl border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3 text-left hover:bg-white/5 transition-all">
+                        <button key={task.id} onClick={() => { setSelectedTaskId(task.id); setSelectedNodeIds([task.id]); setInspectorTab('overview'); }} className="w-full rounded-[22px] border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3 text-left hover:bg-white/5 transition-all">
                           <div className="min-w-0">
                             <p className="text-[11px] font-black uppercase text-white truncate">{task.name || 'Untitled task'}</p>
                             <p className="text-[10px] text-white/45 leading-relaxed mt-1">{task.description || task.task_type || 'Draft task'}</p>
@@ -2216,17 +2866,22 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   )}
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+                <div className={cn(BUILDER_PANEL, "p-5 space-y-4")}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Validation Health</p>
                       <p className="mt-1 text-[12px] font-bold text-white/55">{validationSummary}</p>
                     </div>
-                    <button onClick={() => setInspectorTab('validation')} className="shrink-0 px-3 py-2 rounded-2xl border border-white/10 bg-white/5 text-[9px] font-black uppercase text-white/60">Open</button>
+                    <button onClick={() => setInspectorTab('validation')} className={cn(BUILDER_BUTTON, "shrink-0 border border-white/10 bg-white/5 text-white/60")}>Open</button>
                   </div>
+                  {blockingValidationIssues.length > 0 && (
+                    <div className="rounded-[22px] border border-status-error/20 bg-status-error/10 px-4 py-3 text-[11px] font-bold text-status-error">
+                      Fix the blocking issues before saving. Select any item below to jump to the affected field or node.
+                    </div>
+                  )}
                   <div className="space-y-2 max-h-[12rem] overflow-auto pr-1 custom-scrollbar">
-                    {validationIssues.slice(0, 4).map((issue) => (
-                      <button key={`${issue.code}-${issue.targetId || 'workflow'}`} onClick={() => focusAuditIssue(issue)} className={cn("w-full text-left rounded-2xl border p-3 transition-all", issue.severity === 'error' ? "border-status-error/20 bg-status-error/10 hover:bg-status-error/15" : "border-white/10 bg-black/20 hover:bg-white/5")}>
+                    {validationIssues.slice(0, 6).map((issue) => (
+                      <button key={`${issue.code}-${issue.targetId || 'workflow'}`} onClick={() => focusAuditIssue(issue)} className={cn("w-full text-left rounded-[22px] border p-3 transition-all", issue.severity === 'error' ? "border-status-error/20 bg-status-error/10 hover:bg-status-error/15" : "border-white/10 bg-black/20 hover:bg-white/5")}>
                         <div className="flex items-center justify-between gap-2">
                           <span className={cn("text-[9px] font-black uppercase tracking-[0.18em]", issue.severity === 'error' ? "text-status-error" : "text-amber-400")}>{issue.severity}</span>
                           <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/25">{issue.scope}</span>
@@ -2266,7 +2921,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <Cpu size={14} />
                     <span className="text-[10px] tracking-[0.2em] uppercase">Overview</span>
                   </div>
-                  <div className="apple-card space-y-6 !bg-white/[0.02] border-white/5 p-6 rounded-2xl">
+                  <div className={cn(BUILDER_PANEL, "space-y-6 !bg-white/[0.02] border-white/5 p-6")}>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center px-1">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Workflow Name</label>
@@ -2274,7 +2929,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       </div>
                       <input 
                         data-testid="builder-workflow-name"
-                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[14px] font-black text-white uppercase focus:border-theme-accent outline-none" 
+                        className={cn(BUILDER_FIELD, "text-[14px] font-black uppercase")} 
                         value={metadata.name} 
                         onChange={e => { saveToHistory(); setMetadata({...metadata, name: e.target.value}); }} 
                       />
@@ -2287,7 +2942,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       </div>
                       <textarea 
                         data-testid="builder-workflow-description"
-                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 h-32 resize-none focus:border-theme-accent outline-none leading-relaxed" 
+                        className={cn(BUILDER_FIELD, "text-[12px] font-bold text-white/80 h-32 resize-none leading-relaxed")} 
                         value={metadata.description} 
                         onChange={e => { saveToHistory(); setMetadata({...metadata, description: e.target.value}); }} 
                       />
@@ -2358,7 +3013,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <Zap size={14} />
                     <span className="text-[10px] tracking-[0.2em] uppercase">Trigger & Output</span>
                   </div>
-                  <div className="apple-card space-y-6 !bg-white/[0.02] border-white/5 p-6 rounded-2xl">
+                  <div className={cn(BUILDER_PANEL, "space-y-6 !bg-white/[0.02] border-white/5 p-6")}>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       <SearchableSelect 
                         label="Trigger Type"
@@ -2379,7 +3034,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       <div className="space-y-2">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Trigger Description</label>
                         <textarea 
-                          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[11px] font-bold text-white/80 h-24 resize-none focus:border-theme-accent outline-none leading-relaxed" 
+                          className={cn(BUILDER_FIELD, "text-[11px] font-bold text-white/80 h-24 resize-none leading-relaxed")} 
                           value={metadata.trigger_description} 
                           onChange={e => { saveToHistory(); setMetadata({...metadata, trigger_description: e.target.value}); }} 
                         />
@@ -2387,7 +3042,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       <div className="space-y-2">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Output Description</label>
                         <textarea 
-                          className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[11px] font-bold text-white/80 h-24 resize-none focus:border-theme-accent outline-none leading-relaxed" 
+                          className={cn(BUILDER_FIELD, "text-[11px] font-bold text-white/80 h-24 resize-none leading-relaxed")} 
                           value={metadata.output_description} 
                           onChange={e => { saveToHistory(); setMetadata({...metadata, output_description: e.target.value}); }} 
                         />

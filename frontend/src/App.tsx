@@ -792,7 +792,7 @@ const PathOSApp: React.FC = () => {
       <Route path="/workflows/builder/:workflowId" element={
                 selectedWorkflow ? (
                   <Suspense fallback={<RouteLoading label="Loading Workflow Builder" />}>
-                    <div className="h-[calc(100dvh-140px)] overflow-hidden">
+                    <div className="h-[calc(100dvh-140px)] min-h-0 overflow-hidden">
                       <WorkflowBuilder 
                         key={selectedWorkflow.id}
                         workflow={selectedWorkflow}
@@ -801,19 +801,20 @@ const PathOSApp: React.FC = () => {
                         relatedWorkflows={workflowDiscovery.related || []}
                         insights={workflowInsights}
                         policyOverlay={workflowPolicyOverlay}
-                        rollbackPreview={workflowRollbackPreview}
-                        runtimeConfig={runtimeConfig}
-                        onSave={(data: any) => workflowsApi.update(selectedWorkflow.id, data).then((updated) => {
-                          toast.success("Configuration Saved");
-                          queryClient.invalidateQueries({ queryKey: ['workflows'] });
-                          setSelectedWorkflow(updated);
-                          setIsDirty(false);
-                          return updated;
-                        })} 
-                        onBack={(currentData?: any) => {
-                          if (currentData) {
-                            setSelectedWorkflow({ ...selectedWorkflow, ...currentData });
-                          }
+                      rollbackPreview={workflowRollbackPreview}
+                      runtimeConfig={runtimeConfig}
+                      onSave={(data: any) => workflowsApi.update(selectedWorkflow.id, data).then((updated) => {
+                        toast.success("Configuration Saved");
+                        queryClient.invalidateQueries({ queryKey: ['workflows'] });
+                        setSelectedWorkflow(updated);
+                        setIsDirty(false);
+                        return updated;
+                      })} 
+                      onGovernanceAction={(action: string, requestId?: string) => governanceActionMutation.mutate({ workflowId: selectedWorkflow.id, action, requestId })}
+                      onBack={(currentData?: any) => {
+                        if (currentData) {
+                          setSelectedWorkflow({ ...selectedWorkflow, ...currentData });
+                        }
                           navigate(`/workflows/intake/${selectedWorkflow.id}`);
                         }}
                         onExit={() => handleNavigateRequest('/workflows')}
