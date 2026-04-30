@@ -105,6 +105,11 @@ const createWorkflowComment = (scope: WorkflowComment['scope'] = 'workflow', sco
 });
 
 const normalizeStringList = (value: unknown) => Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : [];
+const normalizeDefinitionList = (value: unknown) => {
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+  if (typeof value === 'string') return value.split(/\n|;/).map((item) => item.trim()).filter(Boolean);
+  return [];
+};
 const parseIsoDate = (value: unknown) => {
   if (!value) return null;
   const parsed = new Date(String(value));
@@ -322,7 +327,9 @@ const ManagedListSection: React.FC<{
 interface WorkflowMetadata {
   name: string;
   version: number;
-  description: string;
+  purpose_statement: string;
+  pre_requisites: string[];
+  inline_examples: Record<string, string>;
   prc: string;
   workflow_type: string;
   tool_family: string[];
@@ -800,7 +807,7 @@ const ConfirmDeleteOverlay: React.FC<{ onConfirm: () => void, onCancel: () => vo
   </div>
 );
 
-const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedWorkflows = [], rollbackPreview, onSave, onBack, onExit, onCreateRollbackDraft, setIsDirty }) => {
+const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedWorkflows = [], rollbackPreview, runtimeConfig, onSave, onBack, onExit, onCreateRollbackDraft, setIsDirty }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const { project, fitView } = useReactFlow();
@@ -848,6 +855,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   const [historyCompareMode, setHistoryCompareMode] = useState<'saved' | 'approved' | 'selected'>('saved');
   const [historyCompareVersionId, setHistoryCompareVersionId] = useState<string>('');
   const [importDraft, setImportDraft] = useState('');
+  const [definitionPrereqDraft, setDefinitionPrereqDraft] = useState('');
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'conflict' | 'error'>('idle');
@@ -860,10 +868,66 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   const toggleSection = (section: string) => { setExpandedSections(prev => ({ ...prev, [section]: !prev[section] })); };
   const toggleItem = (itemId: string) => { setOpenItems(prev => ({ ...prev, [itemId]: !prev[itemId] })); };
 
+  const workflowDefinitionProfile = useMemo(() => {
+    const profile = workflow?.standards_profile;
+    if (!profile || typeof profile !== 'object') return {};
+    const definition = (profile as Record<string, any>).definition;
+    return definition && typeof definition === 'object' ? definition : {};
+  }, [workflow?.standards_profile]);
+
+  const definitionSettings = useMemo(() => {
+    const settings = runtimeConfig?.workflow_definition || runtimeConfig?.workflow_defaults?.definition || runtimeConfig?.features?.workflow_definition || {};
+    const fieldVisibility = {
+      purpose_statement: settings?.field_visibility?.purpose_statement ?? true,
+      pre_requisites: settings?.field_visibility?.pre_requisites ?? true,
+      prc: settings?.field_visibility?.prc ?? true,
+      workflow_type: settings?.field_visibility?.workflow_type ?? true,
+      cadence: settings?.field_visibility?.cadence ?? true,
+      tool_family: settings?.field_visibility?.tool_family ?? true,
+      applicable_tools: settings?.field_visibility?.applicable_tools ?? true,
+      trigger_type: settings?.field_visibility?.trigger_type ?? true,
+      trigger_description: settings?.field_visibility?.trigger_description ?? true,
+      output_type: settings?.field_visibility?.output_type ?? true,
+      output_description: settings?.field_visibility?.output_description ?? true,
+      inline_examples: settings?.field_visibility?.inline_examples ?? true,
+    };
+    const fieldLabels = {
+      purpose_statement: settings?.field_labels?.purpose_statement || 'Purpose Statement',
+      pre_requisites: settings?.field_labels?.pre_requisites || 'Pre-Requisites',
+      prc: settings?.field_labels?.prc || 'PRC',
+      workflow_type: settings?.field_labels?.workflow_type || 'Workflow Type',
+      cadence: settings?.field_labels?.cadence || 'Cadence',
+      tool_family: settings?.field_labels?.tool_family || 'Tool Family',
+      applicable_tools: settings?.field_labels?.applicable_tools || 'Applicable Tools',
+      trigger_type: settings?.field_labels?.trigger_type || 'Trigger Type',
+      trigger_description: settings?.field_labels?.trigger_description || 'Trigger Details',
+      output_type: settings?.field_labels?.output_type || 'Output Type',
+      output_description: settings?.field_labels?.output_description || 'Output Details',
+    };
+    const fieldExamples = {
+      purpose_statement: settings?.field_examples?.purpose_statement || 'Example: Verify incoming material and record the result before release.',
+      pre_requisites: settings?.field_examples?.pre_requisites || 'Example: Access to the source queue, owner approval, and the current SOP.',
+      prc: settings?.field_examples?.prc || 'Example: PRC-2',
+      workflow_type: settings?.field_examples?.workflow_type || 'Example: Inspection',
+      cadence: settings?.field_examples?.cadence || 'Example: 3 checks per week',
+      tool_family: settings?.field_examples?.tool_family || 'Example: MES, LIMS',
+      applicable_tools: settings?.field_examples?.applicable_tools || 'Example: SAP QM, Spotfire',
+      trigger_type: settings?.field_examples?.trigger_type || 'Example: Scheduled shift start',
+      trigger_description: settings?.field_examples?.trigger_description || 'Example: The workflow begins at the start of the production shift.',
+      output_type: settings?.field_examples?.output_type || 'Example: Inspection report',
+      output_description: settings?.field_examples?.output_description || 'Example: A completed report ready for review or handoff.',
+    };
+    return { fieldVisibility, fieldLabels, fieldExamples };
+  }, [runtimeConfig]);
+
   const [metadata, setMetadata] = useState<WorkflowMetadata>({
     name: workflow?.name || '',
     version: workflow?.version || 1,
-    description: workflow?.description || workflow?.forensic_description || '',
+    purpose_statement: (workflowDefinitionProfile as any).purpose_statement || workflow?.description || workflow?.forensic_description || '',
+    pre_requisites: normalizeDefinitionList((workflowDefinitionProfile as any).pre_requisites || workflow?.quick_capture_notes || []),
+    inline_examples: (workflowDefinitionProfile as any).inline_examples && typeof (workflowDefinitionProfile as any).inline_examples === 'object'
+      ? { ...(workflowDefinitionProfile as any).inline_examples }
+      : {},
     prc: workflow?.prc || '',
     workflow_type: workflow?.workflow_type || '',
     tool_family: Array.isArray(workflow?.tool_family) ? workflow.tool_family : (workflow?.tool_family ? workflow.tool_family.split(', ') : []),
@@ -883,7 +947,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   const [clipboard, setClipboard] = useState<any>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
 
-  const validationIssues = useMemo(() => auditWorkflowDraft({ metadata, tasks, edges }), [metadata, tasks, edges]);
+  const auditMetadata = useMemo(() => ({
+    ...metadata,
+    description: metadata.purpose_statement,
+  }), [metadata]);
+
+  const validationIssues = useMemo(() => auditWorkflowDraft({ metadata: auditMetadata, tasks, edges }), [auditMetadata, tasks, edges]);
   const validationErrorCount = useMemo(() => validationIssues.filter(issue => issue.severity === 'error').length, [validationIssues]);
   const validationWarningCount = useMemo(() => validationIssues.filter(issue => issue.severity === 'warning').length, [validationIssues]);
   const blockingValidationIssues = useMemo(() => validationIssues.filter((issue) => new Set([
@@ -964,7 +1033,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
 
   const restoreDraft = useCallback((draft: any) => {
     if (!draft) return;
-    setMetadata(draft.metadata || {});
+    const restoredMetadata = draft.metadata || {};
+    setMetadata({
+      ...restoredMetadata,
+      purpose_statement: restoredMetadata.purpose_statement || restoredMetadata.description || '',
+      pre_requisites: normalizeDefinitionList(restoredMetadata.pre_requisites || []),
+      inline_examples: restoredMetadata.inline_examples && typeof restoredMetadata.inline_examples === 'object'
+        ? { ...restoredMetadata.inline_examples }
+        : {},
+    });
     setTasks(draft.tasks || []);
     setNodes(draft.nodes || []);
     setEdges(draft.edges || []);
@@ -977,6 +1054,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
     setAccessControl(draft.accessControl || accessControl);
     setOwnership(draft.ownership || ownership);
     setRelatedWorkflowIds(Array.isArray(draft.relatedWorkflowIds) ? draft.relatedWorkflowIds : []);
+    setDefinitionPrereqDraft('');
     if (draft.commentDraft) setCommentDraft(draft.commentDraft);
     if (typeof draft.importDraft === 'string') setImportDraft(draft.importDraft);
     setDraftRestored(true);
@@ -1758,7 +1836,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
       const initialMetadata = {
         name: workflow?.name || '',
         version: workflow?.version || 1,
-        description: workflow?.description || workflow?.forensic_description || '',
+        purpose_statement: (workflowDefinitionProfile as any).purpose_statement || workflow?.description || workflow?.forensic_description || '',
+        pre_requisites: normalizeDefinitionList((workflowDefinitionProfile as any).pre_requisites || workflow?.quick_capture_notes || []),
+        inline_examples: (workflowDefinitionProfile as any).inline_examples && typeof (workflowDefinitionProfile as any).inline_examples === 'object'
+          ? { ...(workflowDefinitionProfile as any).inline_examples }
+          : {},
         prc: workflow?.prc || '',
         workflow_type: workflow?.workflow_type || '',
         tool_family: Array.isArray(workflow?.tool_family) ? workflow.tool_family : (workflow?.tool_family ? workflow.tool_family.split(', ') : []),
@@ -1790,6 +1872,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
       });
       setRelatedWorkflowIds(normalizeStringList(workflow?.related_workflow_ids).map((value) => Number(value)).filter((value) => Number.isFinite(value)));
       setCommentDraft(createWorkflowComment());
+      setDefinitionPrereqDraft('');
       setImportDraft('');
       initialSnapshotRef.current = JSON.parse(JSON.stringify({
         metadata: initialMetadata,
@@ -2038,11 +2121,21 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
 
       const finalData = {
         ...metadata,
+        description: metadata.purpose_statement,
         expected_updated_at: workflow?.updated_at || workflow?.updatedAt || null,
         comments: workflowComments,
         access_control: accessControl,
         ownership,
         related_workflow_ids: relatedWorkflowIds,
+        standards_profile: {
+          ...(workflow?.standards_profile || {}),
+          definition: {
+            purpose_statement: metadata.purpose_statement,
+            pre_requisites: metadata.pre_requisites,
+            inline_examples: metadata.inline_examples,
+            field_settings: definitionSettings,
+          },
+        },
         tasks: tasks.map(t => {
           const node = nodes.find(n => String(n.id) === String(t.node_id));
           return { 
@@ -2315,6 +2408,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             onNodeClick={(_, n) => { setSelectedTaskId(n.id); setSelectedEdgeId(null); setSelectedNodeIds([n.id]); setSelectedEdgeIds([]); setInspectorTab('overview'); }} 
             onEdgeClick={(_, e) => { setSelectedEdgeId(e.id); setSelectedTaskId(null); setSelectedNodeIds([]); setSelectedEdgeIds([e.id]); }} 
             onPaneClick={clearSelection} 
+            deleteKeyCode={null}
             fitView 
             snapToGrid 
             snapGrid={[10, 10]} 
@@ -2924,13 +3018,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 </div>
               </div>
               
-              <div className={cn("space-y-4 transition-all", !isMetadataEditMode && "opacity-80 pointer-events-none")}>
-                <div className="space-y-3">
+              <div className={cn("space-y-3 transition-all", !isMetadataEditMode && "opacity-80 pointer-events-none")}>
+                <div className="space-y-2">
                   <div className="flex items-center gap-2 text-theme-accent font-black px-1">
                     <Cpu size={14} />
                     <span className="text-[10px] tracking-[0.2em] uppercase">Overview</span>
                   </div>
-                  <div className={cn(BUILDER_PANEL, "space-y-4 !bg-white/[0.02] border-white/5 p-4")}>
+                  <div className={cn(BUILDER_PANEL, "space-y-3 !bg-white/[0.02] border-white/5 p-3")}>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center px-1">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Workflow Name</label>
@@ -2938,7 +3032,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       </div>
                       <input 
                         data-testid="builder-workflow-name"
-                        className={cn(BUILDER_FIELD, "text-[14px] font-black uppercase")} 
+                        className={cn(BUILDER_FIELD, "text-[14px] font-black uppercase h-10")} 
                         value={metadata.name} 
                         onChange={e => { saveToHistory(); setMetadata({...metadata, name: e.target.value}); }} 
                       />
@@ -2951,116 +3045,213 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center px-1">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Description</label>
-                        <span className="text-[8px] text-white/10 font-mono">{metadata.description.length} / 500</span>
+                    {definitionSettings.fieldVisibility.purpose_statement && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center px-1">
+                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">{definitionSettings.fieldLabels.purpose_statement}</label>
+                          <span className="text-[8px] text-white/10 font-mono">{metadata.purpose_statement.length} / 500</span>
+                        </div>
+                        <textarea 
+                          data-testid="builder-workflow-description"
+                          className={cn(BUILDER_FIELD, "text-[12px] font-bold text-white/80 h-28 resize-none leading-relaxed")} 
+                          value={metadata.purpose_statement} 
+                          onChange={e => { saveToHistory(); setMetadata({...metadata, purpose_statement: e.target.value}); }} 
+                        />
+                        {definitionSettings.fieldVisibility.inline_examples && (
+                          <p className="px-1 text-[10px] font-bold leading-relaxed text-white/35">
+                            {definitionSettings.fieldExamples.purpose_statement}
+                          </p>
+                        )}
+                        {issuesForField('workflow.description').length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {issuesForField('workflow.description').map((issue) => (
+                              <span key={issueId(issue)} className={cn("rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <textarea 
-                        data-testid="builder-workflow-description"
-                        className={cn(BUILDER_FIELD, "text-[12px] font-bold text-white/80 h-32 resize-none leading-relaxed")} 
-                        value={metadata.description} 
-                        onChange={e => { saveToHistory(); setMetadata({...metadata, description: e.target.value}); }} 
-                      />
-                      {issuesForField('workflow.description').length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {issuesForField('workflow.description').map((issue) => (
-                            <span key={issueId(issue)} className={cn("rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
-                          ))}
+                    )}
+
+                    {definitionSettings.fieldVisibility.pre_requisites && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between px-1">
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">{definitionSettings.fieldLabels.pre_requisites}</label>
+                        <span className="text-[8px] text-white/10 font-mono">{metadata.pre_requisites.length}</span>
+                      </div>
+                      <div className="space-y-2 rounded-lg border border-white/5 bg-black/20 p-2">
+                        {metadata.pre_requisites.length === 0 ? (
+                          <p className="px-1 py-1 text-[10px] font-bold text-white/30 leading-relaxed">
+                            {definitionSettings.fieldExamples.pre_requisites}
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {metadata.pre_requisites.map((item, index) => (
+                              <div key={`${item}-${index}`} className="flex items-center gap-2">
+                                <input
+                                  className={cn(BUILDER_FIELD, "h-9 text-[11px]")}
+                                  value={item}
+                                  onChange={e => {
+                                    const next = [...metadata.pre_requisites];
+                                    next[index] = e.target.value;
+                                    setMetadata({ ...metadata, pre_requisites: next });
+                                  }}
+                                  placeholder={`Prerequisite ${index + 1}`}
+                                />
+                                <button
+                                  onClick={() => setMetadata({ ...metadata, pre_requisites: metadata.pre_requisites.filter((_, idx) => idx !== index) })}
+                                  className="h-9 shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 text-[9px] font-black uppercase text-white/40 hover:text-white"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <input
+                            className={cn(BUILDER_FIELD, "h-9 text-[11px]")}
+                            placeholder="Add prerequisite..."
+                            value={definitionPrereqDraft}
+                            onChange={e => setDefinitionPrereqDraft(e.target.value)}
+                          />
+                          <button
+                            onClick={() => {
+                              const next = definitionPrereqDraft.trim();
+                              if (!next) return;
+                              setMetadata({
+                                ...metadata,
+                                pre_requisites: [...metadata.pre_requisites, next],
+                              });
+                              setDefinitionPrereqDraft('');
+                            }}
+                            className="h-9 shrink-0 rounded-lg border border-theme-accent/20 bg-theme-accent/10 px-3 text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    )}
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
+                      {definitionSettings.fieldVisibility.prc && (
+                        <SearchableSelect 
+                          label={definitionSettings.fieldLabels.prc}
+                          options={(taxonomy.find(t => t.category === 'PRC') as any)?.cached_values || []}
+                          value={metadata.prc}
+                          onChange={val => { saveToHistory(); setMetadata({...metadata, prc: val}); }}
+                          placeholder="SELECT PRC..."
+                        />
+                      )}
+                      {definitionSettings.fieldVisibility.workflow_type && (
+                        <SearchableSelect 
+                          label={definitionSettings.fieldLabels.workflow_type}
+                          options={(taxonomy.find(t => t.category === 'WORKFLOW_TYPE') as any)?.cached_values || []}
+                          value={metadata.workflow_type}
+                          onChange={val => { saveToHistory(); setMetadata({...metadata, workflow_type: val}); }}
+                          placeholder="SELECT TYPE..."
+                        />
+                      )}
+                      {definitionSettings.fieldVisibility.cadence && (
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">{definitionSettings.fieldLabels.cadence}</label>
+                          <div className="flex items-center gap-1 bg-black/40 border border-white/10 rounded-lg p-1 h-[44px]">
+                            <input 
+                              type="number" 
+                              step="0.1"
+                              className="w-12 bg-black/40 font-black text-[11px] text-white text-center py-2 rounded-lg outline-none" 
+                              value={metadata.cadence_count} 
+                              onChange={e => { saveToHistory(); setMetadata({...metadata, cadence_count: parseFloat(e.target.value) || 1}); }} 
+                            />
+                            <select 
+                              className="flex-1 bg-transparent text-white font-black text-[9px] uppercase outline-none cursor-pointer"
+                              value={metadata.cadence_unit}
+                              onChange={e => { saveToHistory(); setMetadata({...metadata, cadence_unit: e.target.value}); }}
+                            >
+                              <option value="day">DAILY</option>
+                              <option value="week">WEEKLY</option>
+                              <option value="month">MONTHLY</option>
+                              <option value="year">YEARLY</option>
+                            </select>
+                          </div>
+                          {definitionSettings.fieldVisibility.inline_examples && (
+                            <p className="px-1 text-[9px] font-bold text-white/30 leading-relaxed">{definitionSettings.fieldExamples.cadence}</p>
+                          )}
                         </div>
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                      <SearchableSelect 
-                        label="PRC"
-                        options={(taxonomy.find(t => t.category === 'PRC') as any)?.cached_values || []}
-                        value={metadata.prc}
-                        onChange={val => { saveToHistory(); setMetadata({...metadata, prc: val}); }}
-                        placeholder="SELECT PRC..."
-                      />
-                      <SearchableSelect 
-                        label="Type"
-                        options={(taxonomy.find(t => t.category === 'WORKFLOW_TYPE') as any)?.cached_values || []}
-                        value={metadata.workflow_type}
-                        onChange={val => { saveToHistory(); setMetadata({...metadata, workflow_type: val}); }}
-                        placeholder="SELECT TYPE..."
-                      />
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Occurrence</label>
-                        <div className="flex items-center gap-1 bg-black/40 border border-white/10 rounded-lg p-1 h-[44px]">
-                          <input 
-                            type="number" 
-                            step="0.1"
-                            className="w-12 bg-black/40 font-black text-[11px] text-white text-center py-2 rounded-lg outline-none" 
-                            value={metadata.cadence_count} 
-                            onChange={e => { saveToHistory(); setMetadata({...metadata, cadence_count: parseFloat(e.target.value) || 1}); }} 
+                    {(definitionSettings.fieldVisibility.tool_family || definitionSettings.fieldVisibility.applicable_tools) && (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                        {definitionSettings.fieldVisibility.tool_family && (
+                          <SearchableSelect 
+                            label={definitionSettings.fieldLabels.tool_family}
+                            options={(taxonomy.find(t => t.category === 'ToolType') as any)?.cached_values || []}
+                            value={metadata.tool_family}
+                            onChange={vals => { saveToHistory(); setMetadata({...metadata, tool_family: vals}); }}
+                            placeholder="SELECT FAMILIES..."
+                            isMulti
                           />
-                          <select 
-                            className="flex-1 bg-transparent text-white font-black text-[9px] uppercase outline-none cursor-pointer"
-                            value={metadata.cadence_unit}
-                            onChange={e => { saveToHistory(); setMetadata({...metadata, cadence_unit: e.target.value}); }}
-                          >
-                            <option value="day">DAILY</option>
-                            <option value="week">WEEKLY</option>
-                            <option value="month">MONTHLY</option>
-                            <option value="year">YEARLY</option>
-                          </select>
-                        </div>
+                        )}
+                        {definitionSettings.fieldVisibility.applicable_tools && (
+                          <SearchableSelect 
+                            label={definitionSettings.fieldLabels.applicable_tools}
+                            options={(taxonomy.find(t => t.category === 'TOOL_ID') as any)?.cached_values || []}
+                            value={metadata.applicable_tools}
+                            onChange={vals => { saveToHistory(); setMetadata({...metadata, applicable_tools: vals}); }}
+                            placeholder="SELECT TOOLS..."
+                            isMulti
+                          />
+                        )}
+                        {definitionSettings.fieldVisibility.inline_examples && (
+                          <p className="col-span-full px-1 text-[9px] font-bold text-white/30 leading-relaxed">{definitionSettings.fieldExamples.tool_family}</p>
+                        )}
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                      <SearchableSelect 
-                        label="Tool Family"
-                        options={(taxonomy.find(t => t.category === 'ToolType') as any)?.cached_values || []}
-                        value={metadata.tool_family}
-                        onChange={vals => { saveToHistory(); setMetadata({...metadata, tool_family: vals}); }}
-                        placeholder="SELECT FAMILIES..."
-                        isMulti
-                      />
-                      <SearchableSelect 
-                        label="Applicable Tools"
-                        options={(taxonomy.find(t => t.category === 'TOOL_ID') as any)?.cached_values || []}
-                        value={metadata.applicable_tools}
-                        onChange={vals => { saveToHistory(); setMetadata({...metadata, applicable_tools: vals}); }}
-                        placeholder="SELECT TOOLS..."
-                        isMulti
-                      />
-                    </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-2">
                   <div className="flex items-center gap-2 text-theme-accent font-black px-1">
                     <Zap size={14} />
                     <span className="text-[10px] tracking-[0.2em] uppercase">Trigger & Output</span>
                   </div>
-                  <div className={cn(BUILDER_PANEL, "space-y-4 !bg-white/[0.02] border-white/5 p-4")}>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                      <SearchableSelect 
-                        label="Trigger Type"
-                        options={(taxonomy.find(t => t.category === 'TriggerType') as any)?.cached_values || []}
-                        value={metadata.trigger_type}
-                        onChange={val => { saveToHistory(); setMetadata({...metadata, trigger_type: val}); }}
-                        placeholder="SELECT TRIGGER..."
-                      />
-                      <SearchableSelect 
-                        label="Output Type"
-                        options={(taxonomy.find(t => t.category === 'OutputType') as any)?.cached_values || []}
-                        value={metadata.output_type}
-                        onChange={val => { saveToHistory(); setMetadata({...metadata, output_type: val}); }}
-                        placeholder="SELECT OUTPUT..."
-                      />
+                  <div className={cn(BUILDER_PANEL, "space-y-3 !bg-white/[0.02] border-white/5 p-3")}>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                      {definitionSettings.fieldVisibility.trigger_type && (
+                        <SearchableSelect 
+                          label={definitionSettings.fieldLabels.trigger_type}
+                          options={(taxonomy.find(t => t.category === 'TriggerType') as any)?.cached_values || []}
+                          value={metadata.trigger_type}
+                          onChange={val => { saveToHistory(); setMetadata({...metadata, trigger_type: val}); }}
+                          placeholder="SELECT TRIGGER..."
+                        />
+                      )}
+                      {definitionSettings.fieldVisibility.output_type && (
+                        <SearchableSelect 
+                          label={definitionSettings.fieldLabels.output_type}
+                          options={(taxonomy.find(t => t.category === 'OutputType') as any)?.cached_values || []}
+                          value={metadata.output_type}
+                          onChange={val => { saveToHistory(); setMetadata({...metadata, output_type: val}); }}
+                          placeholder="SELECT OUTPUT..."
+                        />
+                      )}
                     </div>
                     <div className="grid grid-cols-1 gap-4 border-t border-white/5 pt-4">
                       <div className="space-y-2">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Trigger Description</label>
-                        <textarea 
-                          className={cn(BUILDER_FIELD, "text-[11px] font-bold text-white/80 h-24 resize-none leading-relaxed")} 
-                          value={metadata.trigger_description} 
-                          onChange={e => { saveToHistory(); setMetadata({...metadata, trigger_description: e.target.value}); }} 
-                        />
+                        {definitionSettings.fieldVisibility.trigger_description && (
+                          <>
+                            <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">{definitionSettings.fieldLabels.trigger_description}</label>
+                            <textarea 
+                              className={cn(BUILDER_FIELD, "text-[11px] font-bold text-white/80 h-20 resize-none leading-relaxed")} 
+                              value={metadata.trigger_description} 
+                              onChange={e => { saveToHistory(); setMetadata({...metadata, trigger_description: e.target.value}); }} 
+                            />
+                            {definitionSettings.fieldVisibility.inline_examples && (
+                              <p className="px-1 text-[9px] font-bold text-white/30 leading-relaxed">{definitionSettings.fieldExamples.trigger_description}</p>
+                            )}
+                          </>
+                        )}
                         {issuesForField('workflow.trigger_description').length > 0 && (
                           <div className="flex flex-wrap gap-2">
                             {issuesForField('workflow.trigger_description').map((issue) => (
@@ -3070,12 +3261,19 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         )}
                       </div>
                       <div className="space-y-2">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Output Description</label>
-                        <textarea 
-                          className={cn(BUILDER_FIELD, "text-[11px] font-bold text-white/80 h-24 resize-none leading-relaxed")} 
-                          value={metadata.output_description} 
-                          onChange={e => { saveToHistory(); setMetadata({...metadata, output_description: e.target.value}); }} 
-                        />
+                        {definitionSettings.fieldVisibility.output_description && (
+                          <>
+                            <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">{definitionSettings.fieldLabels.output_description}</label>
+                            <textarea 
+                              className={cn(BUILDER_FIELD, "text-[11px] font-bold text-white/80 h-20 resize-none leading-relaxed")} 
+                              value={metadata.output_description} 
+                              onChange={e => { saveToHistory(); setMetadata({...metadata, output_description: e.target.value}); }} 
+                            />
+                            {definitionSettings.fieldVisibility.inline_examples && (
+                              <p className="px-1 text-[9px] font-bold text-white/30 leading-relaxed">{definitionSettings.fieldExamples.output_description}</p>
+                            )}
+                          </>
+                        )}
                         {issuesForField('workflow.output_description').length > 0 && (
                           <div className="flex flex-wrap gap-2">
                             {issuesForField('workflow.output_description').map((issue) => (
