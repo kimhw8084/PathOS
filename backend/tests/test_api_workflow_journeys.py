@@ -49,9 +49,6 @@ def workflow_payload():
         "tool_family": "Overlay",
         "tool_id": "OVL-12",
         "repeatability_check": True,
-        "equipment_required": True,
-        "equipment_state": "Ready",
-        "cleanroom_required": False,
         "ownership": {
             "owner": "Haewon Kim",
             "smes": ["Metrology SME"],
@@ -329,10 +326,6 @@ async def test_workflow_templates_insights_and_discovery(api_client: AsyncClient
         assert response.status_code == 200, response.text
         created_ids.append(response.json()["id"])
 
-    templates_response = await api_client.get("/api/workflows/templates")
-    assert templates_response.status_code == 200, templates_response.text
-    assert len(templates_response.json()) >= 2
-
     insights_response = await api_client.get("/api/workflows/insights/overview")
     assert insights_response.status_code == 200, insights_response.text
     insights = insights_response.json()
@@ -345,23 +338,6 @@ async def test_workflow_templates_insights_and_discovery(api_client: AsyncClient
     discovery = discovery_response.json()
     assert discovery["related"]
     assert any(item["prc"] == "PRC-OL" for item in discovery["duplicates"])
-
-    assist_response = await api_client.post(
-        "/api/workflows/draft-assist",
-        json={
-            "name": "Overlay shift handoff",
-            "description": "Review and hand off overlay state between shifts.",
-            "quick_capture_notes": "Need validation, exception capture, and a handoff checklist.",
-            "tool_family": ["Overlay"],
-        },
-    )
-    assert assist_response.status_code == 200, assist_response.text
-    assist = assist_response.json()
-    assert assist["confidence"] >= 42
-    assert assist["suggested_fields"]["workflow_type"] in {"Shift Handoff", "Verification"}
-    assert assist["draft_outline"]
-    assert "executive_summary" in assist
-
 
 @pytest.mark.asyncio
 async def test_president_insights_include_candidates_benefits_and_standards(api_client: AsyncClient):

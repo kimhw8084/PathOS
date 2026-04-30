@@ -37,9 +37,6 @@ const buildConnectedWorkflow = (): WorkflowRecord => ({
   cadence_count: 1,
   cadence_unit: 'week',
   repeatability_check: true,
-  equipment_required: true,
-  equipment_state: 'Ready',
-  cleanroom_required: false,
   total_roi_saved_hours: 0.3,
   created_at: '2026-04-25T00:00:00Z',
   updated_at: '2026-04-25T00:00:00Z',
@@ -345,8 +342,6 @@ test.describe('workflow browser journeys', () => {
     await chooseOption(page, 'intake-output-type', 'report');
     await page.getByTestId('intake-trigger-description').fill('Every shift at 7 AM');
     await page.getByTestId('intake-output-description').fill('A recorded verification report.');
-    await page.getByTestId('intake-equipment-toggle').click();
-    await chooseOption(page, 'intake-equipment-state', 'run');
     await chooseOption(page, 'intake-tool-family', 'overlay');
     await chooseOption(page, 'intake-applicable-tools', 'ovl-12');
 

@@ -2,13 +2,14 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   ShieldAlert, Zap, ArrowRight, ChevronLeft, 
   Layers,
-  Cpu, Search, Check, X, ChevronDown, Sparkles
+  Cpu, Search, Check, X, ChevronDown
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { settingsApi, workflowsApi } from '../api/client';
+import { settingsApi } from '../api/client';
 import { useBuganizer } from './ErrorFortress';
 import { auditIntakePayload, hasAuditErrors, summarizeAuditIssues } from '../testing/workflowQuality';
+import { deriveToolPropagation, normalizeDefinitionList } from '../utils/workflowDefinition';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -21,7 +22,6 @@ interface IntakeGatekeeperProps {
   taxonomy: any[];
   initialData?: any;
   workflows?: any[];
-  templates?: any[];
   runtimeConfig?: any;
 }
 
@@ -205,28 +205,19 @@ export const SearchableSelect = ({
   );
 };
 
-const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel, onRestart, taxonomy, initialData, workflows = [], templates = [], runtimeConfig }) => {
+const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel, onRestart, taxonomy, initialData, workflows = [], runtimeConfig }) => {
   const { reportBug } = useBuganizer();
   const [systemParams, setSystemParams] = useState<any[]>([]);
   const [isRegular, setIsRegular] = useState<boolean | null>(initialData ? (initialData.repeatability_check ?? true) : null);
   const [showErrors, setShowErrors] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
-  const [draftAssist, setDraftAssist] = useState<any>(null);
-  const [draftAssistLoading, setDraftAssistLoading] = useState(false);
   const workspaceOptions = runtimeConfig?.organization?.workspace_options || ['Personal Drafts', 'Submitted Requests', 'Collaborative Workflows', 'Standard Operations'];
-  const collaboratorDirectory = runtimeConfig?.organization?.mention_directory || ['Primary Owner', 'Automation Team', 'Process SME'];
-  const mentionGroups = runtimeConfig?.organization?.mention_groups || ['Automation Team', 'Process SME'];
-  const lifecycleOptions = runtimeConfig?.organization?.lifecycle_options || ['Draft', 'In Review', 'Changes Requested', 'Approved', 'Active'];
-  const reviewerRoleOptions = runtimeConfig?.organization?.reviewer_role_options || ['Process SME', 'Automation Team', 'Process Owner'];
-  const workflowDefaults = runtimeConfig?.workflow_defaults || {};
   const parameterKeys = runtimeConfig?.parameters?.keys || {};
-  const defaultOwner = workflowDefaults?.ownership?.owner || runtimeConfig?.current_member?.full_name || 'system_user';
 
   const buildInitialFormData = (data?: any) => ({
     name: data?.name || '',
     description: data?.description || data?.forensic_description || '',
     workspace: data?.workspace || runtimeConfig?.organization?.default_workspace || 'Personal Drafts',
-    version_notes: data?.version_notes || '',
     parent_workflow_id: data?.parent_workflow_id || null,
     version_base_snapshot: data?.version_base_snapshot || null,
     prc: data?.prc || '',
@@ -237,46 +228,15 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
     trigger_description: data?.trigger_description || '',
     output_type: data?.output_type || '',
     output_description: data?.output_description || '',
-    equipment_required: data?.equipment_required || false,
-    equipment_state: data?.equipment_state || '',
-    cleanroom_required: data?.cleanroom_required || false,
     cadence_count: data?.cadence_count || 1.0,
     cadence_unit: data?.cadence_unit || 'week',
-    tool_family: data?.tool_family ? (typeof data.tool_family === 'string' ? data.tool_family.split(', ') : data.tool_family) : [] as string[],
-    applicable_tools: Array.isArray(data?.applicable_tools) ? data.applicable_tools : (data?.tool_id ? (typeof data.tool_id === 'string' ? data.tool_id.split(', ') : data.tool_id) : [] as string[]),
+    tool_family: data?.tool_family ? (typeof data.tool_family === 'string' ? data.tool_family.split(', ').map((item: string) => item.trim()).filter(Boolean) : data.tool_family) : [] as string[],
+    applicable_tools: (Array.isArray(data?.tool_family) ? data.tool_family.length > 0 : Boolean(data?.tool_family))
+      ? (Array.isArray(data?.applicable_tools) ? data.applicable_tools : (data?.tool_id ? (typeof data.tool_id === 'string' ? data.tool_id.split(', ') : data.tool_id) : [] as string[]))
+      : [],
     repeatability_check: data?.repeatability_check ?? true,
     quick_capture_notes: data?.quick_capture_notes || '',
-    template_key: data?.template_key || '',
-    ownership: data?.ownership || {
-      owner: data?.access_control?.owner || defaultOwner,
-      smes: [],
-      backup_owners: [],
-      automation_owner: '',
-      reviewers: [],
-    },
-    governance: data?.governance || {
-      lifecycle_stage: 'Draft',
-      review_state: data?.review_state || 'Draft',
-      approval_state: data?.approval_state || 'Draft',
-      required_reviewer_roles: data?.required_reviewer_roles || [],
-      standards_flags: [],
-      stale_after_days: workflowDefaults?.governance?.stale_after_days || 90,
-      review_due_at: '',
-      last_reviewed_at: '',
-    },
-    review_requests: data?.review_requests || [],
-    activity_timeline: data?.activity_timeline || [],
-    notification_feed: data?.notification_feed || [],
     related_workflow_ids: data?.related_workflow_ids || [],
-    standards_profile: data?.standards_profile || {},
-    access_control: data?.access_control || {
-      visibility: data?.workspace === 'Collaborative Workflows' ? 'workspace' : data?.workspace === 'Standard Operations' ? 'org' : 'private',
-      viewers: [],
-      editors: [],
-      mention_groups: [],
-      owner: defaultOwner
-    },
-    comments: data?.comments || []
   });
   
   const [formData, setFormData] = useState(buildInitialFormData(initialData));
@@ -296,7 +256,14 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
     if (!raw) return;
     try {
       const parsed = JSON.parse(raw);
-      setFormData(prev => ({ ...prev, ...parsed.formData }));
+      setFormData(prev => {
+        const next = { ...prev, ...parsed.formData };
+        next.tool_family = Array.isArray(next.tool_family) ? next.tool_family : normalizeDefinitionList(next.tool_family);
+        next.applicable_tools = normalizeDefinitionList(next.tool_family).length === 0
+          ? []
+          : normalizeDefinitionList(next.applicable_tools);
+        return next;
+      });
       setIsRegular(parsed.isRegular ?? true);
       setDraftRestored(true);
     } catch {
@@ -324,15 +291,15 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
     return taxonomy.filter(t => t.category === 'ToolType').map(t => t.label);
   }, [parameterKeys.hardware_family, systemParams, taxonomy]);
 
-  const toolIds = useMemo(() => {
-    const param = systemParams.find(p => p.key === (parameterKeys.tool_id || 'TOOL_ID'));
-    return (param?.is_dynamic ? param.cached_values : param?.manual_values) || [];
-  }, [parameterKeys.tool_id, systemParams]);
-
   const prcValues = useMemo(() => {
     const param = systemParams.find(p => p.key === (parameterKeys.prc || 'PRC'));
     return (param?.is_dynamic ? param.cached_values : param?.manual_values) || [];
   }, [parameterKeys.prc, systemParams]);
+
+  const toolIds = useMemo(() => {
+    const param = systemParams.find(p => p.key === (parameterKeys.tool_id || 'TOOL_ID'));
+    return (param?.is_dynamic ? param.cached_values : param?.manual_values) || [];
+  }, [parameterKeys.tool_id, systemParams]);
 
   const workflowTypes = useMemo(() => {
     const param = systemParams.find(p => p.key === (parameterKeys.workflow_type || 'WORKFLOW_TYPE'));
@@ -359,101 +326,35 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
       .slice(0, 5);
   }, [formData.name, formData.prc, formData.workflow_type, formData.tool_family, workflows]);
 
-  const suggestedTemplate = useMemo(() => {
-    if (!Array.isArray(templates)) return undefined;
-    return templates.find((template: any) =>
-      template.workflow_type === formData.workflow_type ||
-      (formData.name && template.label.toLowerCase().includes(formData.name.toLowerCase()))
-    );
-  }, [formData.workflow_type, formData.name, templates]);
+  const toolPropagationSource = useMemo(
+    () => [...(Array.isArray(workflows) ? workflows : []), initialData].filter(Boolean),
+    [initialData, workflows]
+  );
 
-  const requestDraftAssist = async () => {
-    setDraftAssistLoading(true);
-    try {
-      const assist = await workflowsApi.draftAssist({
-        name: formData.name,
-        description: formData.description,
-        quick_capture_notes: formData.quick_capture_notes,
-        prc: formData.prc,
-        workflow_type: formData.workflow_type,
-        tool_family: formData.tool_family,
-        applicable_tools: formData.applicable_tools,
-      });
-      setDraftAssist(assist);
-    } catch (error: any) {
-      reportBug(error?.response?.data?.detail || 'Draft assistant failed to analyze the workflow intake.', 'frontend', 'warning', {
-        type: 'INTAKE_DRAFT_ASSIST_FAILURE',
-      });
-    } finally {
-      setDraftAssistLoading(false);
-    }
-  };
-
-  const applyTemplate = (template: any) => {
-    setFormData(prev => ({
-      ...prev,
-      template_key: template.key,
-      workflow_type: prev.workflow_type || template.workflow_type || '',
-      governance: {
-        ...prev.governance,
-        required_reviewer_roles: template.required_reviewer_roles || prev.governance.required_reviewer_roles,
-        standards_flags: template.standards_flags || prev.governance.standards_flags,
-      },
-      review_requests: (template.required_reviewer_roles || []).map((role: string) => ({
-        id: `${template.key}-${role}`.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        role,
-        requested_by: prev.ownership.owner || prev.access_control.owner,
-        status: 'open',
-        due_at: '',
-        note: `Requested from intake template ${template.label}.`,
-      })),
-    }));
-  };
+  const toolPropagation = useMemo(
+    () => deriveToolPropagation(toolPropagationSource, formData.tool_family, formData.applicable_tools),
+    [toolPropagationSource, formData.tool_family, formData.applicable_tools]
+  );
+  const applicableToolOptions = toolPropagation.availableTools.length > 0 ? toolPropagation.availableTools : toolIds;
+  const selectedApplicableTools = useMemo(() => {
+    if (formData.tool_family.length === 0) return [];
+    return normalizeDefinitionList(formData.applicable_tools).filter((tool) => applicableToolOptions.includes(tool));
+  }, [applicableToolOptions, formData.applicable_tools, formData.tool_family.length]);
 
   const adoptSimilarWorkflow = (workflow: any) => {
+    const familySource = normalizeDefinitionList(workflow.tool_family);
+    const toolSource = normalizeDefinitionList(workflow.applicable_tools || workflow.tool_id);
+    const propagation = deriveToolPropagation([workflow, ...workflows], familySource, toolSource);
     setFormData(prev => ({
       ...prev,
       prc: prev.prc || workflow.prc || '',
       workflow_type: prev.workflow_type || workflow.workflow_type || '',
-      tool_family: prev.tool_family.length > 0 ? prev.tool_family : (typeof workflow.tool_family === 'string' ? workflow.tool_family.split(',').map((item: string) => item.trim()).filter(Boolean) : (workflow.tool_family || [])),
-      applicable_tools: prev.applicable_tools.length > 0 ? prev.applicable_tools : (typeof workflow.tool_id === 'string' ? workflow.tool_id.split(',').map((item: string) => item.trim()).filter(Boolean) : (workflow.applicable_tools || [])),
-      ownership: {
-        ...prev.ownership,
-        owner: prev.ownership.owner || workflow.ownership?.owner || workflow.access_control?.owner || prev.access_control.owner,
-        smes: prev.ownership.smes.length > 0 ? prev.ownership.smes : (workflow.ownership?.smes || []),
-        reviewers: prev.ownership.reviewers.length > 0 ? prev.ownership.reviewers : (workflow.ownership?.reviewers || []),
-        automation_owner: prev.ownership.automation_owner || workflow.ownership?.automation_owner || '',
-      },
-      governance: {
-        ...prev.governance,
-        required_reviewer_roles: prev.governance.required_reviewer_roles.length > 0 ? prev.governance.required_reviewer_roles : (workflow.governance?.required_reviewer_roles || workflow.required_reviewer_roles || []),
-        standards_flags: prev.governance.standards_flags.length > 0 ? prev.governance.standards_flags : (workflow.governance?.standards_flags || []),
-      },
+      tool_family: prev.tool_family.length > 0 ? prev.tool_family : familySource,
+      applicable_tools: prev.applicable_tools.length > 0
+        ? prev.applicable_tools.filter((tool: string) => propagation.availableTools.includes(tool))
+        : propagation.selectedTools,
       related_workflow_ids: Array.from(new Set([...(prev.related_workflow_ids || []), workflow.id])).slice(0, 8),
     }));
-  };
-
-  const applyDraftAssist = () => {
-    if (!draftAssist) return;
-    const suggestedFields = draftAssist.suggested_fields || {};
-    setFormData(prev => ({
-      ...prev,
-      name: prev.name || draftAssist.generated_name || prev.name,
-      prc: prev.prc || suggestedFields.prc || '',
-      workflow_type: prev.workflow_type || suggestedFields.workflow_type || '',
-      trigger_type: prev.trigger_type || suggestedFields.trigger_type || '',
-      output_type: prev.output_type || suggestedFields.output_type || '',
-      tool_family: prev.tool_family.length > 0 ? prev.tool_family : (suggestedFields.tool_family || []),
-      governance: {
-        ...prev.governance,
-        required_reviewer_roles: prev.governance.required_reviewer_roles.length > 0 ? prev.governance.required_reviewer_roles : (suggestedFields.required_reviewer_roles || []),
-        standards_flags: prev.governance.standards_flags.length > 0 ? prev.governance.standards_flags : (suggestedFields.standards_flags || []),
-      },
-      related_workflow_ids: Array.from(new Set([...(prev.related_workflow_ids || []), ...((draftAssist.reuse_candidates || []).map((item: any) => item.id))])).slice(0, 8),
-    }));
-    if (draftAssist.recommended_template) {
-      applyTemplate(draftAssist.recommended_template);
-    }
   };
 
   const handleFinalize = () => {
@@ -483,6 +384,9 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
     ];
     
     const missing = requiredFields.filter(f => {
+      if (f === 'applicable_tools') {
+        return formData.tool_family.length > 0 && formData.applicable_tools.length === 0;
+      }
       const val = formData[f as keyof typeof formData];
       if (Array.isArray(val)) return val.length === 0;
       return !val;
@@ -530,49 +434,15 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
       output_type: '',
       output_description: '',
       workspace: runtimeConfig?.organization?.default_workspace || 'Personal Drafts',
-      version_notes: '',
       parent_workflow_id: null,
       version_base_snapshot: null,
-      equipment_required: false,
-      equipment_state: '',
-      cleanroom_required: false,
       cadence_count: 1.0,
       cadence_unit: 'week',
       tool_family: [],
       applicable_tools: [],
       repeatability_check: true,
-      access_control: {
-        visibility: workflowDefaults?.access_control?.visibility || 'private',
-        viewers: [],
-        editors: [],
-        mention_groups: [],
-        owner: defaultOwner
-      },
       quick_capture_notes: '',
-      template_key: '',
-      ownership: {
-        owner: defaultOwner,
-        smes: [],
-        backup_owners: [],
-        automation_owner: '',
-        reviewers: [],
-      },
-      governance: {
-        lifecycle_stage: 'Draft',
-        review_state: 'Draft',
-        approval_state: 'Draft',
-        required_reviewer_roles: [],
-        standards_flags: [],
-        stale_after_days: workflowDefaults?.governance?.stale_after_days || 90,
-        review_due_at: '',
-        last_reviewed_at: '',
-      },
-      review_requests: [],
-      activity_timeline: [],
-      notification_feed: [],
       related_workflow_ids: [],
-      standards_profile: {},
-      comments: []
     });
     if (typeof window !== 'undefined') window.localStorage.removeItem(draftStorageKey);
     if (onRestart) onRestart();
@@ -623,19 +493,6 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
           </section>
         )}
 
-        {suggestedTemplate && (
-          <section className="apple-card !bg-theme-accent/5 border-theme-accent/20 p-5 flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <p className="text-[9px] font-black uppercase tracking-[0.25em] text-theme-accent">Suggested Template</p>
-              <p className="text-[12px] font-bold text-white/80">{suggestedTemplate.label}</p>
-              <p className="text-[11px] font-bold text-white/55">{suggestedTemplate.description}</p>
-            </div>
-            <button onClick={() => applyTemplate(suggestedTemplate)} className="px-4 py-2 rounded-xl border border-theme-accent/30 bg-theme-accent/10 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">
-              Apply Template
-            </button>
-          </section>
-        )}
-
         {matchingWorkflows.length > 0 && (
           <section className="apple-card !bg-white/[0.02] border-white/10 p-5 space-y-4">
             <div>
@@ -660,93 +517,38 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
           </section>
         )}
 
-        <section className="apple-card !bg-violet-500/5 border-violet-500/20 p-5 space-y-4">
-          <div className="flex items-start justify-between gap-4">
+        <section className="apple-card !bg-white/[0.02] border-white/10 p-5 space-y-3">
+          <div className="flex items-center justify-between gap-3">
             <div className="space-y-1">
-              <p className="text-[9px] font-black uppercase tracking-[0.25em] text-violet-300">AI-Assisted Drafting</p>
-              <p className="text-[12px] font-bold text-white/80">Use the current notes, description, and reuse signals to draft a better workflow definition without bypassing the existing gate checks.</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.25em] text-theme-accent">Tool Propagation</p>
+              <p className="text-[12px] font-bold text-white/70">Tool family selection drives the available tools. Clearing families clears the tools.</p>
             </div>
-            <button
-              onClick={requestDraftAssist}
-              disabled={draftAssistLoading || !(formData.name || formData.description || formData.quick_capture_notes)}
-              className="px-4 py-2 rounded-xl border border-violet-400/30 bg-violet-400/10 text-[10px] font-black uppercase tracking-[0.18em] text-violet-200 hover:bg-violet-400 hover:text-white transition-all disabled:opacity-30 flex items-center gap-2"
-            >
-              <Sparkles size={14} />
-              {draftAssistLoading ? 'Analyzing…' : 'Generate Assist'}
-            </button>
+            <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/45">
+              {toolPropagation.families.length === 0
+                ? 'Select a family first'
+                : toolPropagation.availableTools.length > 0
+                  ? `${toolPropagation.availableTools.length} propagated tools`
+                  : `${applicableToolOptions.length} registry tools`}
+            </div>
           </div>
-
-          {draftAssist && (
-            <div className="grid xl:grid-cols-[1.1fr_0.9fr] gap-4">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">Draft Confidence</p>
-                    <p className="mt-1 text-[12px] font-bold text-white/55">{draftAssist.executive_summary}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[24px] font-black text-violet-300">{draftAssist.confidence}%</p>
-                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/25">Assist Confidence</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    ['Workflow Type', draftAssist.suggested_fields?.workflow_type],
-                    ['PRC', draftAssist.suggested_fields?.prc],
-                    ['Trigger', draftAssist.suggested_fields?.trigger_type],
-                    ['Output', draftAssist.suggested_fields?.output_type],
-                  ].map(([label, value]) => (
-                    <div key={label} className="rounded-xl border border-white/10 bg-black/20 p-3">
-                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">{label}</p>
-                      <p className="mt-2 text-[12px] font-black text-white">{value || 'No recommendation yet'}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="space-y-2">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Draft Outline</p>
-                  <div className="space-y-2">
-                    {(draftAssist.draft_outline || []).map((item: any) => (
-                      <div key={`${item.step}-${item.title}`} className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{item.step}. {item.title}</p>
-                        <p className="mt-1 text-[11px] font-bold text-white/55">{item.task_type || 'Operational Step'}{item.phase_name ? ` • ${item.phase_name}` : ''}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <button
-                  onClick={applyDraftAssist}
-                  className="px-4 py-3 rounded-2xl border border-theme-accent/30 bg-theme-accent/10 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all"
-                >
-                  Apply Assist Recommendations
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Missing Questions</p>
-                  <div className="mt-3 space-y-2">
-                    {(draftAssist.missing_questions || []).map((item: string) => (
-                      <div key={item} className="rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-[11px] font-bold text-white/70">{item}</div>
-                    ))}
-                    {!(draftAssist.missing_questions || []).length && (
-                      <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3 text-[11px] font-bold text-white/55">The draft is already carrying enough context for a strong first-pass workflow intake.</div>
-                    )}
-                  </div>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Reuse Candidates</p>
-                  <div className="mt-3 space-y-2">
-                    {(draftAssist.reuse_patterns || []).map((item: any) => (
-                      <div key={`${item.workflow_id}-${item.name}`} className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{item.name}</p>
-                        <p className="mt-1 text-[11px] font-bold text-white/55">{item.why}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {toolPropagation.familyChips.length > 0 ? (
+              toolPropagation.familyChips.map((chip) => (
+                <span key={chip.family} className="rounded-full border border-theme-accent/20 bg-theme-accent/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent">
+                  {chip.family} <span className="text-white/40">({chip.toolCount})</span>
+                </span>
+              ))
+            ) : (
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
+                No tool family selected
+              </span>
+            )}
+            {selectedApplicableTools.map((tool) => (
+              <span key={tool} className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">
+                {tool}
+              </span>
+            ))}
+          </div>
         </section>
 
         {/* Validation Questionnaire Inline */}
@@ -816,7 +618,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
 
               <div className="space-y-4">
                 <div className="flex justify-between items-center px-1">
-                  <label className={cn("text-[10px] font-black uppercase tracking-[0.2em]", showErrors && !formData.description ? "text-status-error" : "text-white/40")}>Description</label>
+                  <label className={cn("text-[10px] font-black uppercase tracking-[0.2em]", showErrors && !formData.description ? "text-status-error" : "text-white/40")}>Purpose Statement</label>
                   <span className="text-[9px] text-white/20 font-mono">{formData.description.length} / 500</span>
                 </div>
                 <textarea 
@@ -825,7 +627,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                     "w-full bg-[#1e293b]/50 border rounded-xl px-4 py-3 text-[14px] font-bold text-white/80 focus:border-theme-accent outline-none transition-all placeholder:text-white/5 h-28 resize-none leading-relaxed",
                     showErrors && !formData.description ? "border-status-error/50 bg-status-error/5" : "border-white/10"
                   )} 
-                  placeholder="Provide a detailed operational purpose statement..." 
+                  placeholder="Provide the operational purpose statement..." 
                   maxLength={500}
                   value={formData.description} 
                   onChange={e => setFormData({...formData, description: e.target.value})} 
@@ -852,14 +654,7 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                   testId="intake-workspace"
                   options={workspaceOptions}
                   value={formData.workspace}
-                  onChange={val => setFormData({
-                    ...formData,
-                    workspace: val,
-                    access_control: {
-                      ...formData.access_control,
-                      visibility: val === 'Collaborative Workflows' ? 'workspace' : val === 'Standard Operations' ? 'org' : 'private'
-                    }
-                  })}
+                  onChange={val => setFormData({ ...formData, workspace: val })}
                   placeholder="SELECT WORKSPACE..."
                 />
                 <SearchableSelect 
@@ -929,46 +724,16 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
               </div>
 
               <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[9px] text-white/40 font-black uppercase tracking-[0.2em] px-1">Version Notes</label>
-                  <textarea
-                    data-testid="intake-version-notes"
-                    className="w-full bg-[#1e293b]/50 border border-white/10 rounded-xl px-4 py-3 text-[12px] font-bold text-white/80 outline-none h-24 resize-none focus:border-theme-accent transition-all"
-                    value={formData.version_notes}
-                    onChange={e => setFormData({...formData, version_notes: e.target.value})}
-                    placeholder="Describe why this draft or version is being created..."
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <button data-testid="intake-equipment-toggle" onClick={() => setFormData({...formData, equipment_required: !formData.equipment_required})} className={cn("border rounded-xl px-4 py-3 text-left transition-all", formData.equipment_required ? "border-theme-accent bg-theme-accent/10 text-white" : "border-white/10 bg-[#1e293b]/40 text-white/50")}>
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em]">Equipment Involved</p>
-                    <p className="text-[12px] font-bold mt-2">{formData.equipment_required ? 'Enabled' : 'Not Required'}</p>
-                  </button>
-                  <button data-testid="intake-cleanroom-toggle" onClick={() => setFormData({...formData, cleanroom_required: !formData.cleanroom_required})} className={cn("border rounded-xl px-4 py-3 text-left transition-all", formData.cleanroom_required ? "border-theme-accent bg-theme-accent/10 text-white" : "border-white/10 bg-[#1e293b]/40 text-white/50")}>
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em]">Cleanroom</p>
-                    <p className="text-[12px] font-bold mt-2">{formData.cleanroom_required ? 'Required' : 'No'}</p>
-                  </button>
-                  <div className="col-span-2">
-                    <SearchableSelect
-                      label="Equipment State"
-                      testId="intake-equipment-state"
-                      options={['Idle', 'Local', 'Run', 'Down']}
-                      value={formData.equipment_state}
-                      onChange={val => setFormData({...formData, equipment_state: val})}
-                      placeholder="SELECT STATE..."
-                      disabled={!formData.equipment_required}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
                 <SearchableSelect 
                   label="Tool Family"
                   testId="intake-tool-family"
                   options={hardwareFamilies}
                   value={formData.tool_family}
-                  onChange={vals => setFormData({...formData, tool_family: vals})}
+                  onChange={(vals) => {
+                    const nextFamilies = Array.isArray(vals) ? vals : [];
+                    const nextPropagation = deriveToolPropagation(toolPropagationSource, nextFamilies, formData.applicable_tools);
+                    setFormData({ ...formData, tool_family: nextFamilies, applicable_tools: nextFamilies.length === 0 ? [] : nextPropagation.selectedTools });
+                  }}
                   placeholder="SELECT FAMILIES..."
                   isMulti
                   error={showErrors && formData.tool_family.length === 0}
@@ -976,12 +741,16 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
                 <SearchableSelect 
                   label="Applicable Tools"
                   testId="intake-applicable-tools"
-                  options={toolIds}
-                  value={formData.applicable_tools}
-                  onChange={vals => setFormData({...formData, applicable_tools: vals})}
-                  placeholder="SELECT TOOLS..."
+                  options={applicableToolOptions}
+                  value={selectedApplicableTools}
+                  onChange={(vals) => {
+                    const nextTools = Array.isArray(vals) ? vals : [];
+                    setFormData({ ...formData, applicable_tools: nextTools.filter((tool) => applicableToolOptions.includes(tool)) });
+                  }}
+                  placeholder={formData.tool_family.length === 0 ? "SELECT A FAMILY FIRST..." : "SELECT TOOLS..."}
                   isMulti
-                  error={showErrors && formData.applicable_tools.length === 0}
+                  error={showErrors && formData.tool_family.length > 0 && formData.applicable_tools.length === 0}
+                  disabled={formData.tool_family.length === 0}
                 />
               </div>
             </div>
@@ -1055,94 +824,6 @@ const IntakeGatekeeper: React.FC<IntakeGatekeeperProps> = ({ onSuccess, onCancel
               </div>
 	            </div>
 	          </section>
-
-            <section className="space-y-4">
-              <div className="flex items-center gap-3 text-theme-accent font-black px-1">
-                <ShieldAlert size={16} />
-                <span className="text-[11px] tracking-[0.2em] uppercase">Collaboration Controls</span>
-              </div>
-              <div className="apple-card space-y-6 !bg-[#111827]/40 border-white/10 p-6">
-                <div className="grid grid-cols-3 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[9px] text-white/40 font-black uppercase tracking-[0.2em] px-1">Workflow Owner</label>
-                    <input
-                      className="w-full bg-[#1e293b]/50 border border-white/10 rounded-lg px-4 py-3 text-[12px] font-black text-white outline-none focus:border-theme-accent transition-all"
-                      value={formData.ownership.owner}
-                      onChange={e => setFormData({...formData, ownership: { ...formData.ownership, owner: e.target.value }, access_control: { ...formData.access_control, owner: e.target.value }})}
-                    />
-                  </div>
-                  <SearchableSelect
-                    label="Visibility"
-                    testId="intake-visibility"
-                    options={['private', 'workspace', 'org']}
-                    value={formData.access_control.visibility}
-                    onChange={val => setFormData({...formData, access_control: { ...formData.access_control, visibility: val }})}
-                  />
-                  <SearchableSelect
-                    label="Editors"
-                    testId="intake-editors"
-                    options={collaboratorDirectory}
-                    value={formData.access_control.editors}
-                    onChange={vals => setFormData({...formData, access_control: { ...formData.access_control, editors: vals }})}
-                    isMulti
-                    placeholder="SELECT EDITORS..."
-                  />
-                  <SearchableSelect
-                    label="Mention Groups"
-                    testId="intake-mention-groups"
-                    options={mentionGroups}
-                    value={formData.access_control.mention_groups}
-                    onChange={vals => setFormData({...formData, access_control: { ...formData.access_control, mention_groups: vals }})}
-                    isMulti
-                    placeholder="SELECT GROUPS..."
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-6">
-                  <SearchableSelect
-                    label="SMEs"
-                    options={collaboratorDirectory}
-                    value={formData.ownership.smes}
-                    onChange={vals => setFormData({...formData, ownership: { ...formData.ownership, smes: vals }})}
-                    isMulti
-                    placeholder="SELECT SMEs..."
-                  />
-                  <SearchableSelect
-                    label="Review Roles"
-                    options={reviewerRoleOptions}
-                    value={formData.governance.required_reviewer_roles}
-                    onChange={vals => setFormData({...formData, governance: { ...formData.governance, required_reviewer_roles: vals }})}
-                    isMulti
-                    placeholder="SELECT ROLES..."
-                  />
-                  <SearchableSelect
-                    label="Lifecycle"
-                    options={lifecycleOptions}
-                    value={formData.governance.lifecycle_stage}
-                    onChange={val => setFormData({...formData, governance: { ...formData.governance, lifecycle_stage: val, review_state: val === 'Approved' ? 'Approved' : formData.governance.review_state }})}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[9px] text-white/40 font-black uppercase tracking-[0.2em] px-1">Review Due</label>
-                    <input
-                      type="date"
-                      className="w-full bg-[#1e293b]/50 border border-white/10 rounded-lg px-4 py-3 text-[12px] font-black text-white outline-none focus:border-theme-accent transition-all"
-                      value={formData.governance.review_due_at}
-                      onChange={e => setFormData({...formData, governance: { ...formData.governance, review_due_at: e.target.value }})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] text-white/40 font-black uppercase tracking-[0.2em] px-1">Stale After (Days)</label>
-                    <input
-                      type="number"
-                      className="w-full bg-[#1e293b]/50 border border-white/10 rounded-lg px-4 py-3 text-[12px] font-black text-white outline-none focus:border-theme-accent transition-all"
-                      value={formData.governance.stale_after_days}
-                      onChange={e => setFormData({...formData, governance: { ...formData.governance, stale_after_days: parseInt(e.target.value || '90', 10) || 90 }})}
-                    />
-                  </div>
-                </div>
-              </div>
-            </section>
 
 	          <div className="pt-8 border-t border-white/10 flex flex-col items-center gap-4">
             <div className="flex items-center gap-3">

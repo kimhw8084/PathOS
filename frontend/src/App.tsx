@@ -318,7 +318,6 @@ const PathOSApp: React.FC = () => {
   const { data: projects = [] } = useQuery({ queryKey: ['projects'], queryFn: projectsApi.list });
   const { data: workflowInsights = {} } = useQuery({ queryKey: ['workflow-insights'], queryFn: workflowsApi.insights });
   const { data: presidentInsights = {} } = useQuery({ queryKey: ['workflow-president-insights'], queryFn: workflowsApi.presidentInsights });
-  const { data: workflowTemplates = [] } = useQuery({ queryKey: ['workflow-templates'], queryFn: workflowsApi.templates });
   const { data: standardsLibrary = [] } = useQuery({ queryKey: ['workflow-standards-library'], queryFn: workflowsApi.standardsLibrary });
   const { data: adminOverview = { configs: [], members: [], saved_views: [], active_member: null } } = useQuery({ queryKey: ['settings-admin-overview'], queryFn: settingsApi.adminOverview });
   const currentUser = runtimeConfig?.current_member || adminOverview?.active_member || null;
@@ -696,7 +695,6 @@ const PathOSApp: React.FC = () => {
                       initialData={intakeSeed} 
                       taxonomy={taxonomy} 
                       workflows={workflows.filter((w: any) => !w.is_deleted)}
-                      templates={workflowTemplates}
                       runtimeConfig={runtimeConfig}
                       onSuccess={(data) => { 
                         createMutation.mutate(data); 
@@ -715,7 +713,6 @@ const PathOSApp: React.FC = () => {
                       initialData={selectedWorkflow} 
                       taxonomy={taxonomy} 
                       workflows={workflows.filter((w: any) => !w.is_deleted)}
-                      templates={workflowTemplates}
                       runtimeConfig={runtimeConfig}
                       onSuccess={(data) => { 
                         if (selectedWorkflow?.id) { 
@@ -797,7 +794,6 @@ const PathOSApp: React.FC = () => {
                         key={selectedWorkflow.id}
                         workflow={selectedWorkflow}
                         taxonomy={taxonomy}
-                        templates={workflowTemplates}
                         relatedWorkflows={workflowDiscovery.related || []}
                         insights={workflowInsights}
                         policyOverlay={workflowPolicyOverlay}

@@ -50,6 +50,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { SearchableSelect } from './IntakeGatekeeper';
 import { auditWorkflowDraft, summarizeAuditIssues, type WorkflowAuditIssue } from '../testing/workflowQuality';
+import { deriveToolPropagation, normalizeDefinitionList } from '../utils/workflowDefinition';
 
 /**
  * Utility for tailwind class merging
@@ -105,11 +106,6 @@ const createWorkflowComment = (scope: WorkflowComment['scope'] = 'workflow', sco
 });
 
 const normalizeStringList = (value: unknown) => Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : [];
-const normalizeDefinitionList = (value: unknown) => {
-  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
-  if (typeof value === 'string') return value.split(/\n|;/).map((item) => item.trim()).filter(Boolean);
-  return [];
-};
 const parseIsoDate = (value: unknown) => {
   if (!value) return null;
   const parsed = new Date(String(value));
@@ -346,7 +342,6 @@ interface WorkflowMetadata {
 interface WorkflowBuilderProps {
   workflow: any;
   taxonomy: any[];
-  templates?: any[];
   relatedWorkflows?: any[];
   insights?: any;
   policyOverlay?: any;
@@ -930,8 +925,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
       : {},
     prc: workflow?.prc || '',
     workflow_type: workflow?.workflow_type || '',
-    tool_family: Array.isArray(workflow?.tool_family) ? workflow.tool_family : (workflow?.tool_family ? workflow.tool_family.split(', ') : []),
-    applicable_tools: Array.isArray(workflow?.applicable_tools) ? workflow.applicable_tools : (workflow?.tool_id ? (typeof workflow.tool_id === 'string' ? workflow.tool_id.split(', ') : [workflow.tool_id]) : []),
+    tool_family: normalizeDefinitionList(workflow?.tool_family),
+    applicable_tools: normalizeDefinitionList(workflow?.tool_family).length > 0
+      ? (Array.isArray(workflow?.applicable_tools) ? workflow.applicable_tools : normalizeDefinitionList(workflow?.tool_id))
+      : [],
     trigger_type: workflow?.trigger_type || '',
     trigger_description: workflow?.trigger_description || '',
     output_type: workflow?.output_type || '',
@@ -975,6 +972,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   const workflowBuilderDraftKey = useMemo(() => getWorkflowBuilderDraftKey(workflow?.id), [workflow?.id]);
   const workflowSourceStamp = useMemo(() => workflow?.updated_at || workflow?.updatedAt || workflow?.version || null, [workflow?.updated_at, workflow?.updatedAt, workflow?.version]);
   const relatedWorkflowList = useMemo(() => (Array.isArray(relatedWorkflows) ? relatedWorkflows : []), [relatedWorkflows]);
+  const definitionToolPropagationSource = useMemo(
+    () => [workflow, ...relatedWorkflowList].filter(Boolean),
+    [relatedWorkflowList, workflow]
+  );
+  const definitionToolPropagation = useMemo(
+    () => deriveToolPropagation(definitionToolPropagationSource, metadata.tool_family, metadata.applicable_tools),
+    [definitionToolPropagationSource, metadata.tool_family, metadata.applicable_tools]
+  );
 
   const selectedTasks = useMemo(
     () => tasks.filter((task) => selectedNodeIds.includes(String(task.node_id || task.id))),
@@ -1034,6 +1039,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   const restoreDraft = useCallback((draft: any) => {
     if (!draft) return;
     const restoredMetadata = draft.metadata || {};
+    const restoredToolFamilies = normalizeDefinitionList(restoredMetadata.tool_family);
     setMetadata({
       ...restoredMetadata,
       purpose_statement: restoredMetadata.purpose_statement || restoredMetadata.description || '',
@@ -1041,6 +1047,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
       inline_examples: restoredMetadata.inline_examples && typeof restoredMetadata.inline_examples === 'object'
         ? { ...restoredMetadata.inline_examples }
         : {},
+      tool_family: restoredToolFamilies,
+      applicable_tools: restoredToolFamilies.length === 0 ? [] : normalizeDefinitionList(restoredMetadata.applicable_tools || []),
     });
     setTasks(draft.tasks || []);
     setNodes(draft.nodes || []);
@@ -1232,8 +1240,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
         description: historyComparisonWorkflow?.description || historyComparisonWorkflow?.forensic_description || '',
         prc: historyComparisonWorkflow?.prc || '',
         workflow_type: historyComparisonWorkflow?.workflow_type || '',
-        tool_family: Array.isArray(historyComparisonWorkflow?.tool_family) ? historyComparisonWorkflow.tool_family : (historyComparisonWorkflow?.tool_family ? String(historyComparisonWorkflow.tool_family).split(', ') : []),
-        applicable_tools: Array.isArray(historyComparisonWorkflow?.applicable_tools) ? historyComparisonWorkflow.applicable_tools : (historyComparisonWorkflow?.tool_id ? (typeof historyComparisonWorkflow.tool_id === 'string' ? historyComparisonWorkflow.tool_id.split(', ') : [historyComparisonWorkflow.tool_id]) : []),
+        tool_family: normalizeDefinitionList(historyComparisonWorkflow?.tool_family),
+        applicable_tools: normalizeDefinitionList(historyComparisonWorkflow?.tool_family).length > 0
+          ? (Array.isArray(historyComparisonWorkflow?.applicable_tools) ? historyComparisonWorkflow.applicable_tools : normalizeDefinitionList(historyComparisonWorkflow?.tool_id))
+          : [],
         trigger_type: historyComparisonWorkflow?.trigger_type || '',
         trigger_description: historyComparisonWorkflow?.trigger_description || '',
         output_type: historyComparisonWorkflow?.output_type || '',
@@ -1843,8 +1853,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
           : {},
         prc: workflow?.prc || '',
         workflow_type: workflow?.workflow_type || '',
-        tool_family: Array.isArray(workflow?.tool_family) ? workflow.tool_family : (workflow?.tool_family ? workflow.tool_family.split(', ') : []),
-        applicable_tools: Array.isArray(workflow?.applicable_tools) ? workflow.applicable_tools : (workflow?.tool_id ? (typeof workflow.tool_id === 'string' ? workflow.tool_id.split(', ') : [workflow.tool_id]) : []),
+        tool_family: normalizeDefinitionList(workflow?.tool_family),
+        applicable_tools: normalizeDefinitionList(workflow?.tool_family).length > 0
+          ? (Array.isArray(workflow?.applicable_tools) ? workflow.applicable_tools : normalizeDefinitionList(workflow?.tool_id))
+          : [],
         trigger_type: workflow?.trigger_type || '',
         trigger_description: workflow?.trigger_description || '',
         output_type: workflow?.output_type || '',
@@ -3182,13 +3194,40 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     </div>
 
                     {(definitionSettings.fieldVisibility.tool_family || definitionSettings.fieldVisibility.applicable_tools) && (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-white/5 bg-black/20 px-3 py-2">
+                          <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Propagation</span>
+                          {definitionToolPropagation.familyChips.length > 0 ? (
+                            definitionToolPropagation.familyChips.map((chip) => (
+                              <span key={chip.family} className="rounded-full border border-theme-accent/20 bg-theme-accent/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent">
+                                {chip.family} <span className="text-white/35">({chip.toolCount})</span>
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-[9px] font-bold text-white/35">Select a tool family to reveal applicable tools.</span>
+                          )}
+                          {definitionToolPropagation.availableTools.length > 0 && (
+                            <span className="ml-auto text-[9px] font-black uppercase tracking-[0.18em] text-emerald-300">
+                              {definitionToolPropagation.availableTools.length} tools available
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                         {definitionSettings.fieldVisibility.tool_family && (
                           <SearchableSelect 
                             label={definitionSettings.fieldLabels.tool_family}
                             options={(taxonomy.find(t => t.category === 'ToolType') as any)?.cached_values || []}
                             value={metadata.tool_family}
-                            onChange={vals => { saveToHistory(); setMetadata({...metadata, tool_family: vals}); }}
+                            onChange={vals => {
+                              saveToHistory();
+                              const nextFamilies = Array.isArray(vals) ? vals : [];
+                              const nextPropagation = deriveToolPropagation(definitionToolPropagationSource, nextFamilies, metadata.applicable_tools);
+                              setMetadata({
+                                ...metadata,
+                                tool_family: nextFamilies,
+                                applicable_tools: nextFamilies.length === 0 ? [] : nextPropagation.selectedTools,
+                              });
+                            }}
                             placeholder="SELECT FAMILIES..."
                             isMulti
                           />
@@ -3196,15 +3235,38 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         {definitionSettings.fieldVisibility.applicable_tools && (
                           <SearchableSelect 
                             label={definitionSettings.fieldLabels.applicable_tools}
-                            options={(taxonomy.find(t => t.category === 'TOOL_ID') as any)?.cached_values || []}
-                            value={metadata.applicable_tools}
-                            onChange={vals => { saveToHistory(); setMetadata({...metadata, applicable_tools: vals}); }}
-                            placeholder="SELECT TOOLS..."
+                            options={definitionToolPropagation.availableTools}
+                            value={metadata.tool_family.length === 0 ? [] : definitionToolPropagation.selectedTools}
+                            onChange={vals => {
+                              saveToHistory();
+                              const nextTools = Array.isArray(vals) ? vals : [];
+                              setMetadata({
+                                ...metadata,
+                                applicable_tools: nextTools.filter((tool) => definitionToolPropagation.availableTools.includes(tool)),
+                              });
+                            }}
+                            placeholder={metadata.tool_family.length === 0 ? "SELECT FAMILIES FIRST..." : "SELECT TOOLS..."}
                             isMulti
+                            disabled={metadata.tool_family.length === 0}
                           />
                         )}
+                        </div>
+                        {issuesForField('workflow.tool_family').length > 0 && (
+                          <div className="flex flex-wrap gap-2 px-1">
+                            {issuesForField('workflow.tool_family').map((issue) => (
+                              <span key={issueId(issue)} className={cn("rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                            ))}
+                          </div>
+                        )}
+                        {issuesForField('workflow.applicable_tools').length > 0 && (
+                          <div className="flex flex-wrap gap-2 px-1">
+                            {issuesForField('workflow.applicable_tools').map((issue) => (
+                              <span key={issueId(issue)} className={cn("rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                            ))}
+                          </div>
+                        )}
                         {definitionSettings.fieldVisibility.inline_examples && (
-                          <p className="col-span-full px-1 text-[9px] font-bold text-white/30 leading-relaxed">{definitionSettings.fieldExamples.tool_family}</p>
+                          <p className="px-1 text-[9px] font-bold text-white/30 leading-relaxed">{definitionSettings.fieldExamples.tool_family}</p>
                         )}
                       </div>
                     )}

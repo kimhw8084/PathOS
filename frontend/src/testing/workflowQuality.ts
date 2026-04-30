@@ -160,12 +160,11 @@ export const auditIntakePayload = (payload: GenericRecord) => {
   if (toolFamilies.length === 0) {
     pushIssue(issues, 'error', 'workflow', 'workflow.tool_family', 'At least one tool family is required.');
   }
-  if (applicableTools.length === 0) {
+  if (toolFamilies.length > 0 && applicableTools.length === 0) {
     pushIssue(issues, 'error', 'workflow', 'workflow.applicable_tools', 'At least one applicable tool is required.');
   }
-
-  if (payload?.equipment_required && !hasValue(payload?.equipment_state)) {
-    pushIssue(issues, 'error', 'workflow', 'workflow.equipment_state', 'Equipment state is required when equipment is involved.');
+  if (toolFamilies.length === 0 && applicableTools.length > 0) {
+    pushIssue(issues, 'error', 'workflow', 'workflow.applicable_tools', 'Applicable tools must remain empty until a tool family is selected.');
   }
 
   if (payload?.repeatability_check !== true) {
@@ -209,8 +208,8 @@ export const auditIntakePayload = (payload: GenericRecord) => {
     if (!hasValue(ownership?.automation_owner)) {
       pushIssue(issues, 'error', 'workflow', 'workflow.automation_owner', 'Automation study workflows require an automation owner.');
     }
-    if (!hasValue(payload?.quick_capture_notes) && !hasValue(payload?.version_notes)) {
-      pushIssue(issues, 'warning', 'workflow', 'workflow.automation_context', 'Automation-oriented workflows should capture current-state notes or version rationale.');
+    if (!hasValue(payload?.quick_capture_notes)) {
+      pushIssue(issues, 'warning', 'workflow', 'workflow.automation_context', 'Automation-oriented workflows should capture current-state notes.');
     }
     if (asArray(payload?.review_requests).length === 0) {
       pushIssue(issues, 'warning', 'workflow', 'workflow.automation_review_request', 'Automation-oriented workflows should start with at least one review request.');

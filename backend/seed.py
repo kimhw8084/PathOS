@@ -57,9 +57,6 @@ WORKFLOW_TEMPLATES = [
         "output_type": "Checklist",
         "output_description": "Signed handoff summary with risks and pending actions.",
         "repeatability_check": True,
-        "equipment_required": True,
-        "equipment_state": "Idle",
-        "cleanroom_required": True,
         "quick_capture_notes": "Use as the standard handoff pattern across tool families.",
         "template_key": "metrology-shift-handoff",
         "ownership": {
@@ -188,9 +185,6 @@ WORKFLOW_TEMPLATES = [
         "output_type": "Recommendation",
         "output_description": "Automation-ready workflow definition with ROI and risks.",
         "repeatability_check": True,
-        "equipment_required": True,
-        "equipment_state": "Run",
-        "cleanroom_required": False,
         "quick_capture_notes": "Strong candidate for automation because manual triage is repetitive and exception-heavy.",
         "template_key": "automation-candidate-study",
         "ownership": {
@@ -330,9 +324,6 @@ WORKFLOW_TEMPLATES = [
         "output_type": "Resolution",
         "output_description": "Reticle alert resolved or escalated with documented root cause.",
         "repeatability_check": True,
-        "equipment_required": True,
-        "equipment_state": "Down",
-        "cleanroom_required": False,
         "quick_capture_notes": "Still rough and should surface stale/review signals.",
         "ownership": {
             "owner": "Yield Engineering",

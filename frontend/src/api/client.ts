@@ -38,8 +38,6 @@ export const workflowsApi = {
   governanceCenter: () => apiClient.get('/workflows/governance-center').then(res => res.data),
   insights: () => apiClient.get('/workflows/insights/overview').then(res => res.data),
   presidentInsights: () => apiClient.get('/workflows/insights/president').then(res => res.data),
-  templates: () => apiClient.get('/workflows/templates').then(res => res.data),
-  draftAssist: (data: any) => apiClient.post('/workflows/draft-assist', data).then(res => res.data),
   standardsLibrary: () => apiClient.get('/workflows/standards/library').then(res => res.data),
   discovery: (id: number) => apiClient.get(`/workflows/discovery/${id}`).then(res => res.data),
   policyOverlay: (id: number) => apiClient.get(`/workflows/policy-overlays/${id}`).then(res => res.data),

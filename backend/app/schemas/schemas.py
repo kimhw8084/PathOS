@@ -346,9 +346,6 @@ class WorkflowBase(BaseModel):
     output_type: str
     output_description: str
     repeatability_check: bool = True
-    equipment_required: bool = False
-    equipment_state: Optional[str] = None
-    cleanroom_required: bool = False
     flow_summary: Optional[str] = None
     edges: Optional[List[Any]] = []
     access_control: Optional[AccessControlSchema] = None

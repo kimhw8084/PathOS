@@ -23,8 +23,6 @@ const buildValidMetadata = () => ({
   tool_family: ['Overlay'],
   applicable_tools: ['OVL-12'],
   repeatability_check: true,
-  equipment_required: true,
-  equipment_state: 'Qualified',
   access_control: {
     visibility: 'team',
     owner: 'Haewon Kim',
@@ -116,16 +114,14 @@ test('auditIntakePayload accepts a complete intake payload', () => {
   assert.equal(hasAuditErrors(issues), false);
 });
 
-test('auditIntakePayload flags repeatability and missing equipment state', () => {
+test('auditIntakePayload flags repeatability failures', () => {
   const payload = {
     ...buildValidMetadata(),
     repeatability_check: false,
-    equipment_state: '',
   };
   const issues = auditIntakePayload(payload);
   assert.equal(hasAuditErrors(issues), true);
   assert(issues.some((issue) => issue.code === 'workflow.repeatability_check'));
-  assert(issues.some((issue) => issue.code === 'workflow.equipment_state'));
 });
 
 test('auditIntakePayload flags missing org or team', () => {
@@ -145,7 +141,6 @@ test('auditIntakePayload enforces workflow-class governance rules', () => {
     ...buildValidMetadata(),
     workflow_type: 'Automation Study',
     quick_capture_notes: '',
-    version_notes: '',
     ownership: {
       owner: 'Haewon Kim',
       smes: [],

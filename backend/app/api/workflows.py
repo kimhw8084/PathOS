@@ -13,12 +13,8 @@ from ..core.audit import log_audit
 from ..core.metrics import update_workflow_roi
 from ..core.workflow_analysis import serialize_workflow_snapshot, STANDARD_LIBRARY
 from ..core.workflow_portfolio import build_portfolio_insights
-from ..runtime_defaults import get_keyword_hints, get_workflow_templates
 
 router = APIRouter()
-
-WORKFLOW_TEMPLATES = get_workflow_templates()
-KEYWORD_HINTS = get_keyword_hints()
 
 
 def _workflow_query():
@@ -207,10 +203,6 @@ def _workflow_policy_overlay(workflow: Workflow, executions: list[WorkflowExecut
     ownership = workflow.ownership or {}
     active_sites = sorted({execution.site for execution in executions if getattr(execution, "site", None)})
     rules = []
-    if workflow.cleanroom_required:
-        rules.append({"scope": "site", "title": "Cleanroom Handling", "detail": "Execution evidence should include cleanroom-safe attachments and validation signoff.", "severity": "warning"})
-    if workflow.equipment_required:
-        rules.append({"scope": "department", "title": "Equipment State Required", "detail": f"Workflow requires equipment state `{workflow.equipment_state or 'Defined'}` before execution or automation handoff.", "severity": "warning"})
     if workflow.workflow_type in {"Automation Study", "Verification", "Shift Handoff"}:
         rules.append({"scope": "workflow-class", "title": "Workflow-Class Review Standard", "detail": "This workflow class requires reviewer-role coverage and measurable validation artifacts.", "severity": "accent"})
     if not ownership.get("automation_owner"):
@@ -238,7 +230,7 @@ def _rollback_preview(workflow: Workflow) -> dict:
         "guardrails": [
             "Rollback creates a new draft instead of overwriting the active workflow.",
             "The current workflow remains intact for audit and comparison.",
-            "Review version notes and diff signals before promoting the rollback draft.",
+            "Review diff signals before promoting the rollback draft.",
         ],
     }
 
@@ -277,9 +269,6 @@ def _workflow_quality_issues(workflow: Workflow) -> list[dict]:
         issues.append({"severity": "error", "code": "workflow.cadence_count", "message": "Cadence count must be greater than zero."})
     if not workflow.repeatability_check:
         issues.append({"severity": "error", "code": "workflow.repeatability_check", "message": "Only repeatable, standard workflows should pass intake."})
-    if workflow.equipment_required and not (workflow.equipment_state or "").strip():
-        issues.append({"severity": "error", "code": "workflow.equipment_state", "message": "Equipment state is required when equipment is involved."})
-
     access_control = workflow.access_control or {}
     ownership = workflow.ownership or {}
     if not (access_control.get("owner") or ownership.get("owner")):
@@ -297,8 +286,8 @@ def _workflow_quality_issues(workflow: Workflow) -> list[dict]:
     if "automation" in workflow_type:
         if not (ownership.get("automation_owner") or "").strip():
             issues.append({"severity": "error", "code": "workflow.automation_owner", "message": "Automation study workflows require an automation owner."})
-        if not (workflow.quick_capture_notes or "").strip() and not (workflow.version_notes or "").strip():
-            issues.append({"severity": "warning", "code": "workflow.automation_context", "message": "Automation-oriented workflows should capture current-state notes or version rationale."})
+        if not (workflow.quick_capture_notes or "").strip():
+            issues.append({"severity": "warning", "code": "workflow.automation_context", "message": "Automation-oriented workflows should capture current-state notes."})
         if len(_ensure_list(workflow.review_requests)) == 0:
             issues.append({"severity": "warning", "code": "workflow.automation_review_request", "message": "Automation-oriented workflows should start with at least one review request."})
 
@@ -469,169 +458,6 @@ async def create_workflow(workflow_data: WorkflowCreate, db: AsyncSession = Depe
     
     result = await db.execute(_workflow_query().where(Workflow.id == new_workflow.id))
     return result.scalar_one()
-
-
-@router.get("/templates")
-async def list_workflow_templates():
-    return WORKFLOW_TEMPLATES
-
-
-@router.post("/draft-assist")
-async def workflow_draft_assist(preview: dict = Body(...), db: AsyncSession = Depends(get_db)):
-    workflow_result = await db.execute(_workflow_query().where(Workflow.is_deleted == False))
-    workflows = workflow_result.scalars().all()
-
-    normalized_preview = {
-        "name": preview.get("name") or "",
-        "description": preview.get("description") or "",
-        "quick_capture_notes": preview.get("quick_capture_notes") or "",
-        "prc": preview.get("prc") or "",
-        "workflow_type": preview.get("workflow_type") or "",
-        "tool_family": preview.get("tool_family") or [],
-        "applicable_tools": preview.get("applicable_tools") or [],
-    }
-    preview_blob = " ".join([
-        normalized_preview["name"],
-        normalized_preview["description"],
-        normalized_preview["quick_capture_notes"],
-        normalized_preview["prc"],
-        normalized_preview["workflow_type"],
-        " ".join(normalized_preview["tool_family"]),
-        " ".join(normalized_preview["applicable_tools"]),
-    ]).lower()
-    preview_tokens = _tokenize(preview_blob)
-
-    template_scored = []
-    for template in WORKFLOW_TEMPLATES:
-        score = 0.0
-        if normalized_preview["workflow_type"] and template.get("workflow_type") == normalized_preview["workflow_type"]:
-            score += 3.0
-        if normalized_preview["name"] and normalized_preview["name"].lower() in template.get("label", "").lower():
-            score += 2.0
-        template_tokens = _tokenize(" ".join([
-            template.get("label", ""),
-            template.get("description", ""),
-            template.get("workflow_type", ""),
-            " ".join(flag for flag in template.get("standards_flags", [])),
-        ]))
-        score += min(len(preview_tokens & template_tokens), 6) * 0.4
-        template_scored.append((score, template))
-    template_scored.sort(key=lambda item: item[0], reverse=True)
-    best_template = template_scored[0][1] if template_scored and template_scored[0][0] > 0 else None
-
-    similar = [
-        {"workflow": workflow, "score": _preview_similarity(normalized_preview, workflow)}
-        for workflow in workflows
-    ]
-    similar = [item for item in sorted(similar, key=lambda item: item["score"], reverse=True) if item["score"] > 0][:5]
-    similar_workflows = [WorkflowRead.model_validate(item["workflow"]).model_dump(mode="json") for item in similar]
-
-    keyword_scores: dict[str, float] = {}
-    inferred = {}
-    for token, suggestion in KEYWORD_HINTS.items():
-        if token in preview_blob:
-            weight = 2.5 if token in {"shift", "handoff", "automation"} else 1.0
-            for field, value in suggestion.items():
-                key = f"{field}:{value}"
-                keyword_scores[key] = keyword_scores.get(key, 0.0) + weight
-    for key, _score in sorted(keyword_scores.items(), key=lambda item: item[1], reverse=True):
-        field, value = key.split(":", 1)
-        inferred.setdefault(field, value)
-
-    def top_field(field_name: str) -> str | None:
-        values: dict[str, int] = {}
-        for item in similar:
-            candidate = getattr(item["workflow"], field_name, None)
-            if candidate:
-                values[candidate] = values.get(candidate, 0) + 1
-        if not values:
-            return None
-        return sorted(values.items(), key=lambda entry: entry[1], reverse=True)[0][0]
-
-    suggested_workflow_type = normalized_preview["workflow_type"] or inferred.get("workflow_type") or (best_template or {}).get("workflow_type") or top_field("workflow_type")
-    suggested_prc = normalized_preview["prc"] or top_field("prc")
-    suggested_trigger_type = inferred.get("trigger_type") or top_field("trigger_type") or "Schedule"
-    suggested_output_type = inferred.get("output_type") or top_field("output_type") or "Report"
-    suggested_tool_family = normalized_preview["tool_family"] or ((similar_workflows[0].get("tool_family", "") or "").split(", ") if similar_workflows else [])
-
-    outline = []
-    if best_template:
-        for index, block in enumerate(best_template.get("task_blocks", []), start=1):
-            outline.append({
-                "step": index,
-                "title": block.get("label"),
-                "task_type": block.get("task_type"),
-                "phase_name": block.get("phase_name"),
-            })
-    elif similar:
-        candidate_tasks = getattr(similar[0]["workflow"], "tasks", []) or []
-        for index, task in enumerate(candidate_tasks[:5], start=1):
-            outline.append({
-                "step": index,
-                "title": task.name,
-                "task_type": task.task_type,
-                "phase_name": getattr(task, "phase_name", None),
-            })
-
-    missing_questions = []
-    if not normalized_preview["prc"]:
-        missing_questions.append("Which PRC or department owns this workflow?")
-    if not normalized_preview["workflow_type"]:
-        missing_questions.append("Is this verification, handoff, exception response, or automation study work?")
-    if not normalized_preview["tool_family"]:
-        missing_questions.append("Which tool family or system family does this workflow touch?")
-    if "handoff" in preview_blob and "shift" not in preview_blob:
-        missing_questions.append("Does this workflow span a shift or operator handoff?")
-    if "exception" in preview_blob and "recovery" not in preview_blob:
-        missing_questions.append("What is the standard recovery path when the workflow fails?")
-
-    recommended_flags = []
-    if best_template:
-        recommended_flags.extend(best_template.get("standards_flags", []))
-    for workflow in similar_workflows[:3]:
-        recommended_flags.extend((workflow.get("governance") or {}).get("standards_flags", []))
-    recommended_flags = list(dict.fromkeys(flag for flag in recommended_flags if flag))[:8]
-
-    confidence = min(
-        96,
-        max(
-            42,
-            int((len(preview_tokens) * 6) + (template_scored[0][0] * 8 if best_template else 0) + (similar[0]["score"] * 5 if similar else 0)),
-        ),
-    )
-
-    return {
-        "confidence": confidence,
-        "recommended_template": best_template,
-        "suggested_fields": {
-            "workflow_type": suggested_workflow_type,
-            "prc": suggested_prc,
-            "trigger_type": suggested_trigger_type,
-            "output_type": suggested_output_type,
-            "tool_family": suggested_tool_family,
-            "required_reviewer_roles": (best_template or {}).get("required_reviewer_roles", []),
-            "standards_flags": recommended_flags,
-        },
-        "generated_name": normalized_preview["name"] or " ".join(part for part in [suggested_prc, suggested_workflow_type, "Workflow"] if part),
-        "draft_outline": outline,
-        "missing_questions": missing_questions,
-        "reuse_candidates": similar_workflows,
-        "reuse_patterns": [
-            {
-                "workflow_id": workflow["id"],
-                "name": workflow["name"],
-                "why": ((workflow.get("analysis") or {}).get("storytelling") or {}).get("summary")
-                    or workflow.get("description")
-                    or "Related workflow pattern worth reusing.",
-            }
-            for workflow in similar_workflows[:4]
-        ],
-        "executive_summary": (
-            f"This looks closest to `{suggested_workflow_type or 'Operational Workflow'}` work"
-            f" with {len(similar_workflows)} reusable workflow references"
-            f" and {len(recommended_flags)} governance standards worth carrying forward."
-        ),
-    }
 
 
 @router.get("/insights/overview")

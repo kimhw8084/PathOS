@@ -54,12 +54,9 @@ class Workflow(Base, BaseMixin):
     cadence_count = Column(Float, default=1.0)
     cadence_unit = Column(String, default="week") # day, week, month, year
     
-    output_type = Column(String) 
+    output_type = Column(String)
     output_description = Column(Text)
     repeatability_check = Column(Boolean, default=True)
-    equipment_required = Column(Boolean, default=False)
-    equipment_state = Column(String, nullable=True)
-    cleanroom_required = Column(Boolean, default=False)
     
     # Metadata & Health
     status = Column(String, default=AutomationStatus.CREATED.value)
