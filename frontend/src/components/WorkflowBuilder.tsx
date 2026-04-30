@@ -179,26 +179,6 @@ const rankItemsByQuery = <T,>(
     .map(({ item }) => item);
 };
 
-const buildFixSuggestion = (issue: WorkflowAuditIssue) => {
-  const code = issue.code || '';
-  if (code.includes('workflow.name')) return 'Open Workflow Definition and enter a more specific process name.';
-  if (code.includes('workflow.description')) return 'Add the current-state description in the Workflow Definition panel.';
-  if (code.includes('workflow.trigger') || code.includes('workflow.output')) return 'Set trigger and output metadata in the Workflow Definition panel.';
-  if (code.includes('task.name')) return 'Select the task node and rename it in the Overview tab.';
-  if (code.includes('task.description')) return 'Add a plain-language description to the selected task.';
-  if (code.includes('task.blocker')) return 'Fill all blocker fields or remove the incomplete blocker entry.';
-  if (code.includes('task.error')) return 'Complete the error type and recovery description or remove the incomplete error entry.';
-  if (code.includes('task.validation_step')) return 'Add a validation step description or remove the empty validation row.';
-  if (code.includes('edge.self_loop')) return 'Delete the self-loop or reconnect the edge to a different target.';
-  if (code.includes('edge.endpoint_missing') || code.includes('edge.endpoint_invalid')) return 'Reconnect the route to existing nodes.';
-  if (code.includes('graph.trigger_incoming')) return 'Remove any incoming edge into the trigger node.';
-  if (code.includes('graph.outcome_outgoing')) return 'Remove any outgoing edge from the outcome node.';
-  if (code.includes('graph.decision_route_count')) return 'Ensure the decision node has exactly two outgoing routes.';
-  if (code.includes('graph.decision_labels')) return 'Label the decision routes True and False.';
-  if (code.includes('graph.unreachable') || code.includes('graph.disconnected')) return 'Add routes so every node is connected to both the trigger and outcome path.';
-  return 'Open the matching node or workflow section and correct the missing field.';
-};
-
 const compactIssueTone = (severity: 'error' | 'warning') => (
   severity === 'error'
     ? 'border-status-error/20 bg-status-error/10 text-status-error'
@@ -213,10 +193,10 @@ const issueMatchesField = (issue: WorkflowAuditIssue, fieldKey: string) => (
 
 const issueForTask = (issue: WorkflowAuditIssue, taskId: string) => issue.targetId === taskId;
 
-const BUILDER_RADIUS = 'rounded-xl';
-const BUILDER_PANEL = 'rounded-xl border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_-40px_rgba(0,0,0,0.85)]';
-const BUILDER_FIELD = 'w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5 text-[12px] text-white outline-none focus:border-theme-accent';
-const BUILDER_BUTTON = 'rounded-2xl px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] transition-all';
+const BUILDER_RADIUS = 'rounded-lg';
+const BUILDER_PANEL = 'rounded-lg border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_-40px_rgba(0,0,0,0.85)]';
+const BUILDER_FIELD = 'w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-[12px] text-white outline-none focus:border-theme-accent';
+const BUILDER_BUTTON = 'rounded-lg px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] leading-none transition-all';
 
 interface TaskMedia {
   id: string;
@@ -606,7 +586,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         `apple-glass !bg-[#0b1221]/96 !${BUILDER_RADIUS} px-5 sm:px-6 py-4 sm:py-5 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center w-[clamp(180px,22vw,260px)] max-w-[90vw] h-auto hover:z-[1000]`,
         selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
       )}>
-        <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-[0.2em] border z-20 shadow-lg", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
+        <div className={cn("absolute -top-3 left-4 px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-[0.2em] border z-20 shadow-lg", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
           {isTrigger ? "TRIGGER" : "OUTCOME"}
         </div>
         <div className="w-full relative flex justify-center">
@@ -639,7 +619,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
       data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
     )}>
       {data.validation_needed && (
-        <div className="absolute -top-3 right-4 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-[0.2em] bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
+        <div className="absolute -top-3 right-4 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
           VALIDATION REQUIRED
         </div>
       )}
@@ -650,7 +630,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
             event.stopPropagation();
             data.onOpenComments?.(data.id);
           }}
-          className="absolute -top-3 right-4 flex items-center gap-1.5 rounded-full border border-white/10 bg-[#0b1221]/96 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/60 shadow-lg transition-colors hover:text-white"
+          className="absolute -top-3 right-4 flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#0b1221]/96 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/60 shadow-lg transition-colors hover:text-white"
           title={`${data.commentSummary.open} open, ${data.commentSummary.resolved} resolved comments`}
         >
           <Satellite size={10} className="text-theme-accent" />
@@ -693,11 +673,11 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
 
         <div className="flex flex-col gap-3 mt-1.5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <div className="bg-black/40 rounded-xl p-3 border border-white/5 flex flex-col items-center justify-center">
+            <div className="bg-black/40 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center">
                <span className="text-[11px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-1">Manual</span>
                <span className="text-[28px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
             </div>
-            <div className="bg-black/40 rounded-xl p-3 border border-white/5 flex flex-col items-center justify-center">
+            <div className="bg-black/40 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center">
                <span className="text-[11px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-1">Machine</span>
                <span className="text-[28px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
             </div>
@@ -727,7 +707,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
                 )}
              </div>
           </div>
-          <div className="flex flex-wrap gap-2 items-center pt-2.5 border-t border-white/5 min-h-[36px]">
+          <div className="flex flex-wrap gap-2 items-center pt-2 border-t border-white/5 min-h-[32px]">
              {visibleSystems.map((s: TaskSystem, i: number) => (
                <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[11px] font-bold text-white/40 uppercase">{s.name}</span>
              ))}
@@ -739,15 +719,12 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
              )}
           </div>
           {selected && (
-            <div className="flex flex-wrap gap-2 pt-1.5 border-t border-white/5">
-              <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-2 rounded-xl border border-theme-accent/20 bg-theme-accent/10 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent">
+            <div className="absolute left-1/2 top-full mt-2 z-30 flex -translate-x-1/2 flex-wrap justify-center gap-2 pointer-events-auto">
+              <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-2 rounded-lg border border-theme-accent/20 bg-theme-accent/10 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent shadow-lg shadow-black/30">
                 <MessageSquarePlus size={11} /> Comment
               </button>
-              <button onClick={(event) => { event.stopPropagation(); data.onOpenHistory?.(); }} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-white/55">
-                <History size={11} /> Diff
-              </button>
               {data.commentSummary?.total > 0 && (
-                <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-white/55">
+                <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 shadow-lg shadow-black/30">
                   <Satellite size={11} /> {data.commentSummary.open} open
                 </button>
               )}
@@ -909,13 +886,13 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   });
   const [baseFontSize] = useState(14);
   const [defaultEdgeStyle, setDefaultEdgeStyle] = useState<'bezier' | 'smoothstep' | 'straight'>('smoothstep');
-  const [builderMode, setBuilderMode] = useState<BuilderMode>('guided');
+  const builderMode: BuilderMode = 'advanced';
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     inputs: false, outputs: false, manual_inputs: false, manual_outputs: false, blockers: false, errors: false, tribal: false, references: false, assets: false, instructions: false
   });
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
   const [isOutputPickerOpen, setIsOutputPickerOpen] = useState(false);
-  const [showGuide, setShowGuide] = useState(true);
+  const showGuide = false;
   const [isMetadataEditMode, setIsMetadataEditMode] = useState(false);
   const [ownerPositionsCollapsed, setOwnerPositionsCollapsed] = useState(true);
   const [draftRestored, setDraftRestored] = useState(false);
@@ -1105,8 +1082,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     setTasks(draft.tasks || []);
     setNodes(draft.nodes || []);
     setEdges(draft.edges || []);
-    setBuilderMode(draft.builderMode || 'guided');
-    setShowGuide(draft.showGuide ?? true);
     setIsMetadataEditMode(draft.isMetadataEditMode ?? false);
     setSelectedTaskId(draft.selectedTaskId || null);
     setSelectedEdgeId(draft.selectedEdgeId || null);
@@ -1249,53 +1224,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   const selectedEdge = useMemo(() => edges.find(e => String(e.id) === String(selectedEdgeId)), [edges, selectedEdgeId]);
   const isProtected = selectedTask?.interface === 'TRIGGER' || selectedTask?.interface === 'OUTCOME';
 
-  const workflowDiff = useMemo(() => {
-    const baseline = initialSnapshotRef.current || {};
-    const baselineMetadata = baseline.metadata || {};
-    const baselineTasks = new Map((baseline.tasks || []).map((task: any) => [String(task.node_id || task.id), task]));
-    const currentTasks = new Map(tasks.map((task) => [String(task.node_id || task.id), task]));
-    const addedTasks = tasks.filter((task) => !baselineTasks.has(String(task.node_id || task.id)));
-    const removedTasks = (baseline.tasks || []).filter((task: any) => !currentTasks.has(String(task.node_id || task.id)));
-    const changedTasks = tasks
-      .map((task) => {
-        const baselineTask = baselineTasks.get(String(task.node_id || task.id));
-        if (!baselineTask) return null;
-        const comparisons = ['name', 'description', 'task_type', 'manual_time_minutes', 'automation_time_minutes', 'machine_wait_time_minutes', 'occurrence', 'owning_team', 'validation_needed'];
-        const changedFields = comparisons.filter((key) => JSON.stringify((task as any)[key]) !== JSON.stringify((baselineTask as any)[key]));
-        return changedFields.length > 0 ? { id: String(task.node_id || task.id), name: task.name, changedFields } : null;
-      })
-      .filter(Boolean) as Array<{ id: string; name: string; changedFields: string[] }>;
-    const edgeKey = (edge: any) => String(edge.id || `${edge.source}::${edge.target}`);
-    const baselineEdges = new Map((baseline.edges || []).map((edge: any) => [edgeKey(edge), edge]));
-    const currentEdges = new Map(edges.map((edge) => [edgeKey(edge), edge]));
-    const addedEdges = edges.filter((edge) => !baselineEdges.has(edgeKey(edge)));
-    const removedEdges = (baseline.edges || []).filter((edge: any) => !currentEdges.has(edgeKey(edge)));
-    const changedEdges = edges
-      .map((edge) => {
-        const baselineEdge = baselineEdges.get(edgeKey(edge));
-        if (!baselineEdge) return null;
-        const changedFields = ['source', 'target', 'label', 'edge_style', 'line_style', 'color'].filter((key) => {
-          const currentValue = key === 'label' ? edge.data?.label : key === 'edge_style' ? edge.data?.edgeStyle : key === 'line_style' ? edge.data?.lineStyle : key === 'color' ? edge.data?.color : (edge as any)[key];
-          const baselineValue = (baselineEdge as any)[key];
-          return JSON.stringify(currentValue) !== JSON.stringify(baselineValue);
-        });
-        return changedFields.length > 0 ? { id: String(edge.id), changedFields } : null;
-      })
-      .filter(Boolean) as Array<{ id: string; changedFields: string[] }>;
-    const changedMetadata = Object.entries(metadata)
-      .filter(([key, value]) => JSON.stringify(value) !== JSON.stringify((baselineMetadata as any)[key]))
-      .map(([key]) => key);
-    return {
-      addedTasks,
-      removedTasks,
-      changedTasks,
-      addedEdges,
-      removedEdges,
-      changedEdges,
-      changedMetadata,
-    };
-  }, [edges, metadata, tasks]);
-
   const versionHistory = useMemo(() => {
     const currentVersion = workflow?.version || metadata.version || 1;
     const relatedVersions = [workflow, ...relatedWorkflowList]
@@ -1360,6 +1288,53 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       edges: Array.isArray(historyComparisonWorkflow?.edges) ? historyComparisonWorkflow.edges : [],
     };
   }, [historyComparisonWorkflow]);
+
+  const workflowDiff = useMemo(() => {
+    const baseline = historyComparisonSnapshot || initialSnapshotRef.current || {};
+    const baselineMetadata = baseline.metadata || {};
+    const baselineTasks = new Map((baseline.tasks || []).map((task: any) => [String(task.node_id || task.id), task]));
+    const currentTasks = new Map(tasks.map((task) => [String(task.node_id || task.id), task]));
+    const addedTasks = tasks.filter((task) => !baselineTasks.has(String(task.node_id || task.id)));
+    const removedTasks = (baseline.tasks || []).filter((task: any) => !currentTasks.has(String(task.node_id || task.id)));
+    const changedTasks = tasks
+      .map((task) => {
+        const baselineTask = baselineTasks.get(String(task.node_id || task.id));
+        if (!baselineTask) return null;
+        const comparisons = ['name', 'description', 'task_type', 'manual_time_minutes', 'automation_time_minutes', 'machine_wait_time_minutes', 'occurrence', 'owning_team', 'validation_needed'];
+        const changedFields = comparisons.filter((key) => JSON.stringify((task as any)[key]) !== JSON.stringify((baselineTask as any)[key]));
+        return changedFields.length > 0 ? { id: String(task.node_id || task.id), name: task.name, changedFields } : null;
+      })
+      .filter(Boolean) as Array<{ id: string; name: string; changedFields: string[] }>;
+    const edgeKey = (edge: any) => String(edge.id || `${edge.source}::${edge.target}`);
+    const baselineEdges = new Map((baseline.edges || []).map((edge: any) => [edgeKey(edge), edge]));
+    const currentEdges = new Map(edges.map((edge) => [edgeKey(edge), edge]));
+    const addedEdges = edges.filter((edge) => !baselineEdges.has(edgeKey(edge)));
+    const removedEdges = (baseline.edges || []).filter((edge: any) => !currentEdges.has(edgeKey(edge)));
+    const changedEdges = edges
+      .map((edge) => {
+        const baselineEdge = baselineEdges.get(edgeKey(edge));
+        if (!baselineEdge) return null;
+        const changedFields = ['source', 'target', 'label', 'edge_style', 'line_style', 'color'].filter((key) => {
+          const currentValue = key === 'label' ? edge.data?.label : key === 'edge_style' ? edge.data?.edgeStyle : key === 'line_style' ? edge.data?.lineStyle : key === 'color' ? edge.data?.color : (edge as any)[key];
+          const baselineValue = (baselineEdge as any)[key];
+          return JSON.stringify(currentValue) !== JSON.stringify(baselineValue);
+        });
+        return changedFields.length > 0 ? { id: String(edge.id), changedFields } : null;
+      })
+      .filter(Boolean) as Array<{ id: string; changedFields: string[] }>;
+    const changedMetadata = Object.entries(metadata)
+      .filter(([key, value]) => JSON.stringify(value) !== JSON.stringify((baselineMetadata as any)[key]))
+      .map(([key]) => key);
+    return {
+      addedTasks,
+      removedTasks,
+      changedTasks,
+      addedEdges,
+      removedEdges,
+      changedEdges,
+      changedMetadata,
+    };
+  }, [edges, historyComparisonSnapshot, metadata, tasks]);
 
   const auditTrail = useMemo(() => workflow?.activity_timeline || [], [workflow?.activity_timeline]);
   const frictionSignals = useMemo(() => {
@@ -1440,10 +1415,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         ...node.data,
         commentSummary: commentCountsByTaskId.get(node.id) || { open: 0, resolved: 0, total: 0 },
         onOpenComments: openCommentsForTask,
-        onOpenHistory: openHistoryPane,
       },
     })));
-  }, [commentCountsByTaskId, openCommentsForTask, openHistoryPane, setNodes]);
+  }, [commentCountsByTaskId, openCommentsForTask, setNodes]);
 
   useEffect(() => {
     if (historyCompareMode === 'selected') return;
@@ -1492,8 +1466,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       if (parsed.ownership) setOwnership(parsed.ownership);
       if (Array.isArray(parsed.relatedWorkflowIds)) setRelatedWorkflowIds(parsed.relatedWorkflowIds);
       if (Array.isArray(parsed.reviewRequests)) setReviewRequests(parsed.reviewRequests);
-      if (parsed.builderMode) setBuilderMode(parsed.builderMode);
-      setShowGuide(false);
       setIsDirty?.(true);
       toast.success('Workflow draft imported');
     } catch (error) {
@@ -1611,49 +1583,89 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
           <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[10px] font-bold text-white/55">
             Comparing against {historyCompareMode === 'saved' ? 'the last saved builder snapshot' : historyCompareMode === 'approved' ? 'the latest approved or certified version' : `v${historyComparisonSnapshot?.metadata?.version || historyCompareVersionId || 'selected'}`}.
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Metadata Changes</p>
-              <p className="mt-2 text-[22px] font-black text-theme-accent">{workflowDiff.changedMetadata.length}</p>
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Task Changes</p>
+              <p className="mt-2 text-[22px] font-black text-theme-accent">
+                {workflowDiff.addedTasks.length + workflowDiff.changedTasks.length + workflowDiff.removedTasks.length}
+              </p>
             </div>
             <div className="rounded-xl border border-white/10 bg-black/20 p-3">
               <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Route Changes</p>
-              <p className="mt-2 text-[22px] font-black text-emerald-300">{workflowDiff.addedEdges.length + workflowDiff.removedEdges.length}</p>
+              <p className="mt-2 text-[22px] font-black text-emerald-300">
+                {workflowDiff.addedEdges.length + workflowDiff.removedEdges.length + workflowDiff.changedEdges.length}
+              </p>
             </div>
           </div>
-          <div className="space-y-2 max-h-[12rem] overflow-auto pr-1 custom-scrollbar">
-            {workflowDiff.addedTasks.length === 0 && workflowDiff.removedTasks.length === 0 && workflowDiff.changedMetadata.length === 0 && (
+          <div className="space-y-3 max-h-[18rem] overflow-auto pr-1 custom-scrollbar">
+            {workflowDiff.addedTasks.length === 0 && workflowDiff.removedTasks.length === 0 && workflowDiff.changedTasks.length === 0 && workflowDiff.addedEdges.length === 0 && workflowDiff.removedEdges.length === 0 && workflowDiff.changedEdges.length === 0 && workflowDiff.changedMetadata.length === 0 && (
               <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[11px] font-bold text-emerald-300">
-                This draft is aligned with the current baseline snapshot.
+                No task or route changes were detected against the selected baseline.
               </div>
             )}
-            {workflowDiff.addedTasks.slice(0, 4).map((task: any) => (
-              <div key={`added-${task.node_id || task.id}`} className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[11px] font-bold text-emerald-200">
-                Added task: {task.name}
+            {workflowDiff.addedTasks.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">New Tasks</p>
+                {workflowDiff.addedTasks.map((task: any) => (
+                  <div key={`added-${task.node_id || task.id}`} className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[11px] font-bold text-emerald-200">
+                    New task: {task.name || 'Untitled task'}
+                  </div>
+                ))}
               </div>
-            ))}
-            {workflowDiff.changedTasks.slice(0, 4).map((task: any) => (
-              <div key={`changed-${task.id}`} className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-[11px] font-bold text-amber-200">
-                Updated task: {task.name} ({task.changedFields.join(', ')})
+            )}
+            {workflowDiff.changedTasks.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">Updated Tasks</p>
+                {workflowDiff.changedTasks.map((task: any) => (
+                  <div key={`changed-${task.id}`} className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-[11px] font-bold text-amber-200">
+                    <p className="font-black text-white">{task.name || task.id}</p>
+                    <p className="mt-1 text-[10px] text-amber-100/80">Changed fields: {task.changedFields.join(', ')}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-            {workflowDiff.removedTasks.slice(0, 4).map((task: any) => (
-              <div key={`removed-${task.node_id || task.id}`} className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-[11px] font-bold text-rose-200">
-                Removed task: {task.name}
+            )}
+            {workflowDiff.removedTasks.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-rose-300">Removed Tasks</p>
+                {workflowDiff.removedTasks.map((task: any) => (
+                  <div key={`removed-${task.node_id || task.id}`} className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-[11px] font-bold text-rose-200">
+                    Removed task: {task.name || task.id}
+                  </div>
+                ))}
               </div>
-            ))}
-            {workflowDiff.changedEdges.slice(0, 4).map((edge: any) => (
-              <div key={`edge-${edge.id}`} className="rounded-2xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-[11px] font-bold text-sky-200">
-                Updated route: {edge.changedFields.join(', ')}
+            )}
+            {workflowDiff.addedEdges.length > 0 || workflowDiff.removedEdges.length > 0 || workflowDiff.changedEdges.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-sky-300">Route Changes</p>
+                {workflowDiff.addedEdges.map((edge: any) => (
+                  <div key={`edge-added-${edge.id}`} className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-[11px] font-bold text-sky-200">
+                    New connection: {edge.data?.label || edge.id}
+                  </div>
+                ))}
+                {workflowDiff.changedEdges.map((edge: any) => (
+                  <div key={`edge-${edge.id}`} className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-[11px] font-bold text-sky-200">
+                    Route changed: {edge.changedFields.join(', ')}
+                  </div>
+                ))}
+                {workflowDiff.removedEdges.map((edge: any) => (
+                  <div key={`edge-removed-${edge.id}`} className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-[11px] font-bold text-sky-200">
+                    Removed connection: {edge.data?.label || `${edge.source} → ${edge.target}`}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {versionHistory.map((version) => (
-              <span key={`${version.id}-${version.version}`} className={cn("rounded-full border px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em]", version.isCurrent ? "border-theme-accent/20 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/55")}>
-                v{version.version} {version.isCurrent ? 'Current' : version.state}
-              </span>
-            ))}
+            ) : null}
+            {workflowDiff.changedMetadata.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Metadata Changes</p>
+                <div className="flex flex-wrap gap-2">
+                  {workflowDiff.changedMetadata.map((field: string) => (
+                    <span key={field} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/55">
+                      {field}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           {rollbackPreview?.available && onCreateRollbackDraft && (
             <button onClick={onCreateRollbackDraft} className="w-full rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">
@@ -2271,7 +2283,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
         data: {
           ...t, label: t.name, task_type: t.task_type || 'GENERAL', manual_time: t.manual_time_minutes || 0, automation_time: t.automation_time_minutes || 0, occurrence: t.occurrence || 1, involved_systems: t.involved_systems, owningTeam: t.owning_team, ownerPositions: t.owner_positions, sourceCount: (t.source_data_list || []).length, outputCount: (t.output_data_list || []).length, interface: t.interface, validation_needed: t.validation_needed, blockerCount: (t.blockers || []).length, errorCount: (t.errors || []).length, description: t.description || '', id: String(t.node_id), baseFontSize: 14
-          , commentSummary: { open: 0, resolved: 0, total: 0 }, onOpenComments: openCommentsForTask, onOpenHistory: openHistoryPane
+          , commentSummary: { open: 0, resolved: 0, total: 0 }, onOpenComments: openCommentsForTask
         },
       }));
       const initialEdges: Edge[] = (workflow?.edges || []).map((e: any, idx: number) => {
@@ -2371,8 +2383,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       applicable_tools: Array.isArray(template.applicable_tools) ? template.applicable_tools : prev.applicable_tools,
     }));
     setIsMetadataEditMode(true);
-    setShowGuide(true);
-    setBuilderMode('guided');
     setIsDirty?.(true);
   }, [saveToHistory, setIsDirty]);
 
@@ -2635,70 +2645,63 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               </button>
             ))}
           </div>
-          <button onClick={() => handleLayout(nodes, edges)} className={cn(BUILDER_BUTTON, "flex items-center gap-2 px-4 h-[38px] bg-white/5 border border-white/10 text-white uppercase hover:bg-white/10 transition-all")}><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
-          <button data-testid="builder-commit" onClick={handleSave} className={cn(BUILDER_BUTTON, "flex items-center gap-2 px-6 h-[38px] bg-theme-accent text-white shadow-xl shadow-theme-accent/20 hover:scale-[1.02]")}><Save size={14} /> Commit Changes</button>
+          <button onClick={() => handleLayout(nodes, edges)} className={cn(BUILDER_BUTTON, "flex items-center gap-2 px-4 h-[34px] bg-white/5 border border-white/10 text-white uppercase hover:bg-white/10 transition-all")}><RefreshCw size={14} className="text-theme-accent" /> Auto Layout</button>
+          <button data-testid="builder-commit" onClick={handleSave} className={cn(BUILDER_BUTTON, "flex items-center gap-2 px-5 h-[34px] bg-theme-accent text-white shadow-xl shadow-theme-accent/20 hover:scale-[1.02] leading-none")}><Save size={14} /> Commit Changes</button>
           <button onClick={onExit} className="p-2 text-white/20 hover:text-status-error"><X size={20} /></button>
         </div>
         </div>
 
         <div className="flex-1 relative min-h-0 flex flex-col">
-          <div className="shrink-0 border-b border-white/10 bg-[#0a1120]/95 backdrop-blur-xl px-3 py-3">
+          <div className="shrink-0 border-b border-white/10 bg-[#0a1120]/95 backdrop-blur-xl px-3 py-2">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/5 p-1">
-                <button onClick={() => setBuilderMode('guided')} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap", builderMode === 'guided' ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>Guided</button>
-                <button onClick={() => setBuilderMode('advanced')} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap", builderMode === 'advanced' ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>Advanced</button>
-              </div>
-              <button onClick={() => setInspectorTab('validation')} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border", validationErrorCount > 0 ? "border-status-error/30 bg-status-error/10 text-status-error" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+              <button onClick={() => setInspectorTab('validation')} className={cn("px-3 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all whitespace-nowrap border leading-none", validationErrorCount > 0 ? "border-status-error/30 bg-status-error/10 text-status-error" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
                 {validationErrorCount} Errors · {validationWarningCount} Warnings
               </button>
-              <div className={cn("rounded-2xl border px-3 py-2", saveStatus === 'conflict' ? "border-status-error/30 bg-status-error/10 text-status-error" : saveStatus === 'saving' ? "border-amber-500/20 bg-amber-500/10 text-amber-300" : saveStatus === 'saved' ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/5 text-white/45")}>
+              <div className={cn("rounded-lg border px-3 py-1.5", saveStatus === 'conflict' ? "border-status-error/30 bg-status-error/10 text-status-error" : saveStatus === 'saving' ? "border-amber-500/20 bg-amber-500/10 text-amber-300" : saveStatus === 'saved' ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/5 text-white/45")}>
                 <p className="text-[8px] font-black uppercase tracking-[0.18em]">Save</p>
                 <p className="text-[9px] font-bold leading-none">{saveStatus === 'conflict' ? 'Conflict' : saveStatus === 'saving' ? 'Saving' : saveStatus === 'saved' ? 'Saved' : 'Idle'}</p>
               </div>
-              <button onClick={() => setFocusMode((prev) => !prev)} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border", focusMode ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+              <button onClick={() => setFocusMode((prev) => !prev)} className={cn("px-3 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all whitespace-nowrap border leading-none", focusMode ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
                 {focusMode ? 'Exit Focus' : 'Focus Mode'}
               </button>
-              <button onClick={() => openCommentsForTask(selectedTaskId)} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border", utilityPane === 'comments' ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
-                Comments
-              </button>
-              <button onClick={openHistoryPane} className={cn("px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border", utilityPane === 'history' ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+              <button onClick={openHistoryPane} className={cn("px-3 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all whitespace-nowrap border leading-none", utilityPane === 'history' ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
                 History
               </button>
-              <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/5 p-1">
-                <button onClick={() => updateLayoutPrefs({ inspectorDock: 'left' })} className={cn("rounded-xl px-3 py-2 text-[9px] font-black uppercase transition-all", layoutPrefs.inspectorDock === 'left' ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>Dock Left</button>
-                <button onClick={() => updateLayoutPrefs({ inspectorDock: 'right' })} className={cn("rounded-xl px-3 py-2 text-[9px] font-black uppercase transition-all", layoutPrefs.inspectorDock === 'right' ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>Dock Right</button>
-                <button onClick={() => updateLayoutPrefs({ inspectorCollapsed: !layoutPrefs.inspectorCollapsed })} className={cn("rounded-xl px-3 py-2 text-[9px] font-black uppercase transition-all", layoutPrefs.inspectorCollapsed ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>{layoutPrefs.inspectorCollapsed ? 'Expand Inspector' : 'Collapse Inspector'}</button>
+              <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
+                <button onClick={() => updateLayoutPrefs({ inspectorDock: 'left' })} className={cn("rounded-lg px-3 py-1.5 text-[9px] font-black uppercase transition-all leading-none", layoutPrefs.inspectorDock === 'left' ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>Dock Left</button>
+                <button onClick={() => updateLayoutPrefs({ inspectorDock: 'right' })} className={cn("rounded-lg px-3 py-1.5 text-[9px] font-black uppercase transition-all leading-none", layoutPrefs.inspectorDock === 'right' ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>Dock Right</button>
+                <button onClick={() => updateLayoutPrefs({ inspectorCollapsed: !layoutPrefs.inspectorCollapsed })} className={cn("rounded-lg px-3 py-1.5 text-[9px] font-black uppercase transition-all leading-none", layoutPrefs.inspectorCollapsed ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>{layoutPrefs.inspectorCollapsed ? 'Expand Inspector' : 'Collapse Inspector'}</button>
               </div>
-              <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/5 p-1">
-                <button onClick={() => updateLayoutPrefs({ showMiniMap: !layoutPrefs.showMiniMap })} className={cn("rounded-xl px-3 py-2 text-[9px] font-black uppercase transition-all", layoutPrefs.showMiniMap ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>{layoutPrefs.showMiniMap ? 'Hide MiniMap' : 'Show MiniMap'}</button>
-                <button onClick={() => updateLayoutPrefs({ showCanvasControls: !layoutPrefs.showCanvasControls })} className={cn("rounded-xl px-3 py-2 text-[9px] font-black uppercase transition-all", layoutPrefs.showCanvasControls ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>{layoutPrefs.showCanvasControls ? 'Hide Controls' : 'Show Controls'}</button>
+              <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
+                <button onClick={() => updateLayoutPrefs({ showMiniMap: !layoutPrefs.showMiniMap })} className={cn("rounded-lg px-3 py-1.5 text-[9px] font-black uppercase transition-all leading-none", layoutPrefs.showMiniMap ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>{layoutPrefs.showMiniMap ? 'Hide MiniMap' : 'Show MiniMap'}</button>
+                <button onClick={() => updateLayoutPrefs({ showCanvasControls: !layoutPrefs.showCanvasControls })} className={cn("rounded-lg px-3 py-1.5 text-[9px] font-black uppercase transition-all leading-none", layoutPrefs.showCanvasControls ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>{layoutPrefs.showCanvasControls ? 'Hide Controls' : 'Show Controls'}</button>
               </div>
-              <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-white/5 p-1">
-                <button onClick={() => zoomOut({ duration: 150 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">-</button>
-                <button onClick={() => fitView({ padding: 0.12, duration: 250 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">Fit</button>
-                <button onClick={() => zoomIn({ duration: 150 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">+</button>
-                <button onClick={() => setViewport({ x: 0, y: 0, zoom: 1 }, { duration: 150 })} className="rounded-xl px-3 py-2 text-[9px] font-black uppercase text-white/45 hover:text-white">Reset</button>
+              <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
+                <button onClick={() => zoomOut({ duration: 150 })} className="rounded-lg px-3 py-1.5 text-[9px] font-black uppercase text-white/45 hover:text-white leading-none">-</button>
+                <button onClick={() => fitView({ padding: 0.12, duration: 250 })} className="rounded-lg px-3 py-1.5 text-[9px] font-black uppercase text-white/45 hover:text-white leading-none">Fit</button>
+                <button onClick={() => zoomIn({ duration: 150 })} className="rounded-lg px-3 py-1.5 text-[9px] font-black uppercase text-white/45 hover:text-white leading-none">+</button>
+                <button onClick={() => setViewport({ x: 0, y: 0, zoom: 1 }, { duration: 150 })} className="rounded-lg px-3 py-1.5 text-[9px] font-black uppercase text-white/45 hover:text-white leading-none">Reset</button>
               </div>
               {selectedItemCount > 0 && (
-                <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
+                <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5">
                   <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/55">
                     {selectedNodeIds.length} Nodes · {selectedEdgeIds.length} Edges Selected
                   </span>
-                  <button onClick={clearSelection} className="rounded-xl border border-white/10 bg-black/20 px-2 py-1 text-[8px] font-black uppercase text-white/45 hover:text-white transition-colors">
+                  <button onClick={clearSelection} className="rounded-lg border border-white/10 bg-black/20 px-2 py-1 text-[8px] font-black uppercase text-white/45 hover:text-white transition-colors leading-none">
                     Clear
                   </button>
                 </div>
               )}
               {draftRestored && (
-                <button onClick={clearBuilderDraft} className="px-3 py-2 text-[9px] font-black uppercase rounded-2xl transition-all whitespace-nowrap border border-theme-accent/20 bg-theme-accent/10 text-theme-accent hover:bg-theme-accent hover:text-white">
+                <button onClick={clearBuilderDraft} className="px-3 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all whitespace-nowrap border border-theme-accent/20 bg-theme-accent/10 text-theme-accent hover:bg-theme-accent hover:text-white leading-none">
                   Clear Draft
                 </button>
               )}
-              <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+              <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-1.5">
                 <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Draft</p>
                 <p className="text-[9px] font-bold text-white/70 leading-none">{draftSavedAtLabel}</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2">
+              <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-1.5">
                 <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Server</p>
                 <p className="text-[9px] font-bold text-white/70 leading-none">{savedAtLabel}</p>
               </div>
@@ -2706,16 +2709,16 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 value={builderSearch}
                 onChange={(e) => setBuilderSearch(e.target.value)}
                 placeholder="Search templates, workflows, tasks"
-                className="min-w-[220px] flex-1 sm:flex-none sm:w-[280px] bg-black/40 border border-white/10 rounded-2xl px-4 py-2.5 text-[11px] text-white outline-none focus:border-theme-accent"
+                className="min-w-[220px] flex-1 sm:flex-none sm:w-[280px] bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white outline-none focus:border-theme-accent"
               />
               <div className="ml-auto flex flex-wrap gap-2">
-                <button data-testid="builder-add-task" onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2 bg-theme-accent text-white rounded-2xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap"><Plus size={12} /> Add Task</button>
-                <button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-2xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap"><Plus size={12} /> Add Condition</button>
+                <button data-testid="builder-add-task" onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2 bg-theme-accent text-white rounded-2xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap leading-none"><Plus size={12} /> Add Task</button>
+                <button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-2xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap leading-none"><Plus size={12} /> Add Condition</button>
               </div>
             </div>
           </div>
           {utilityPane && (
-            <div className="shrink-0 border-b border-white/10 bg-[#09111d]/96 backdrop-blur-xl px-4 sm:px-6 py-3">
+            <div className="shrink-0 border-b border-white/10 bg-[#09111d]/96 backdrop-blur-xl px-4 sm:px-6 py-2">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">{utilityPane === 'comments' ? 'Comments' : 'Version History'}</p>
@@ -2725,7 +2728,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       : 'Compare the working draft against the last saved version, approved version, or a chosen version.'}
                   </p>
                 </div>
-                <button onClick={closeUtilityPane} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white transition-all">
+                <button onClick={closeUtilityPane} className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white transition-all leading-none">
                   Close
                 </button>
               </div>
@@ -2767,13 +2770,22 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               <Background color="#1e293b" gap={30} size={1} />
               {layoutPrefs.showCanvasControls && <Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl overflow-hidden" />}
               {layoutPrefs.showMiniMap && (
-                <MiniMap
-                  nodeColor={(node) => node.data?.interface === 'TRIGGER' ? '#22d3ee' : node.data?.interface === 'OUTCOME' ? '#fb7185' : node.type === 'diamond' ? '#f59e0b' : '#60a5fa'}
-                  maskColor="rgba(3, 7, 18, 0.75)"
-                  className="!bg-[#0a1120] !border !border-white/10 !rounded-2xl overflow-hidden"
-                  pannable
-                  zoomable
-                />
+                <div className="absolute bottom-4 right-4 z-20">
+                  <button
+                    onClick={() => updateLayoutPrefs({ showMiniMap: false })}
+                    className="absolute -top-2 -right-2 z-30 flex h-5 w-5 items-center justify-center rounded-full border border-white/10 bg-[#09111d] text-white/50 shadow-lg hover:text-white"
+                    aria-label="Close minimap"
+                  >
+                    <X size={11} />
+                  </button>
+                  <MiniMap
+                    nodeColor={(node) => node.data?.interface === 'TRIGGER' ? '#22d3ee' : node.data?.interface === 'OUTCOME' ? '#fb7185' : node.type === 'diamond' ? '#f59e0b' : '#60a5fa'}
+                    maskColor="rgba(3, 7, 18, 0.75)"
+                    className="!bg-[#0a1120] !border !border-white/10 !rounded-2xl overflow-hidden"
+                    pannable
+                    zoomable
+                  />
+                </div>
               )}
             </ReactFlow>
           </div>
@@ -2808,9 +2820,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             <button key={t.id} onClick={() => setInspectorTab(t.id as any)} className={cn("flex-1 min-w-[84px] flex flex-col items-center justify-center gap-0.5 border-b-2 px-2", inspectorTab === t.id ? 'border-theme-accent bg-theme-accent/10 text-white' : 'border-transparent text-white/20 hover:text-white transition-all')}>{t.icon}<span className="text-[8px] font-black uppercase whitespace-nowrap">{t.label}</span></button>
           ))}
           {selectedEdgeId && (<div className="flex-1 min-w-[84px] flex flex-col items-center justify-center gap-0.5 border-b-2 border-theme-accent bg-theme-accent/10 text-white px-2"><Link2 size={12} /><span className="text-[8px] font-black uppercase whitespace-nowrap">Edge</span></div>)}
-          <button onClick={() => updateLayoutPrefs({ inspectorCollapsed: !layoutPrefs.inspectorCollapsed })} className="px-3 text-[8px] font-black uppercase tracking-[0.18em] text-white/35 hover:text-white border-l border-white/10">
-            {layoutPrefs.inspectorCollapsed ? 'Open' : 'Collapse'}
-          </button>
         </div>
         {layoutPrefs.inspectorCollapsed ? (
           <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center p-4">
@@ -3186,12 +3195,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               )}
 
               {inspectorTab === 'validation' && (
-                <div className="space-y-6 animate-apple-in">
-                  <div className="p-5 bg-white/[0.02] border border-white/5 rounded-xl space-y-4">
+                <div className="space-y-4 animate-apple-in">
+                  <div className="p-4 bg-white/[0.02] border border-white/5 rounded-lg space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="space-y-1">
                         <h3 className="text-[14px] font-black text-white uppercase tracking-tight">Post-Task Validation</h3>
-                        <p className="text-[10px] text-white/40 font-bold uppercase">Validation state is reflected inline on the affected fields and sections.</p>
+                        <p className="text-[10px] text-white/40 font-bold uppercase">Validation state is shown inline on the affected fields and sections.</p>
                       </div>
                       <button 
                         onClick={() => updateTask(selectedTaskId, { validation_needed: !selectedTask.validation_needed })} 
@@ -3202,7 +3211,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     </div>
 
                     {selectedTask.validation_needed && (
-                      <div className="space-y-4 animate-apple-in pt-4 border-t border-white/5">
+                      <div className="space-y-3 animate-apple-in pt-3 border-t border-white/5">
                         {(selectedTask.validation_procedure_steps || []).map((step, idx) => (
                           <NestedCollapsible key={step.id} title={`Verification Step ${idx + 1}`} isOpen={openItems[step.id]} toggle={() => toggleItem(step.id)} onDelete={() => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.filter(x => x.id !== step.id) })}>
                             <div className="space-y-4">
@@ -3215,7 +3224,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                   placeholder="Describe the verification action..."
                                 />
                                 {!step.description && issuesForField('task.validation_step', selectedTaskId).length > 0 && (
-                                  <p className={cn("mt-2 rounded-xl border px-3 py-2 text-[10px] font-bold leading-relaxed", compactIssueTone('error'))}>
+                                  <p className={cn("mt-2 rounded-lg border px-3 py-2 text-[10px] font-bold leading-relaxed", compactIssueTone('error'))}>
                                     Validation step description is required.
                                   </p>
                                 )}
@@ -3224,14 +3233,14 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             </div>
                           </NestedCollapsible>
                         ))}
-                        <button onClick={() => updateTask(selectedTaskId, { validation_procedure_steps: [...(selectedTask.validation_procedure_steps || []), { id: Date.now().toString(), description: '', figures: [] }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-orange-500 transition-all rounded-2xl">+ Add Verification Step</button>
+                        <button onClick={() => updateTask(selectedTaskId, { validation_procedure_steps: [...(selectedTask.validation_procedure_steps || []), { id: Date.now().toString(), description: '', figures: [] }] })} className="w-full py-2.5 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-orange-500 transition-all rounded-2xl leading-none">+ Add Verification Step</button>
                       </div>
                     )}
                   </div>
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-4 space-y-3">
+                  <div className="rounded-lg border border-white/10 bg-black/20 p-4 space-y-2">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Inline validation map</p>
-                      <button onClick={() => blockingValidationIssues[0] && focusAuditIssue(blockingValidationIssues[0])} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-white/45 hover:text-white">
+                      <button onClick={() => blockingValidationIssues[0] && focusAuditIssue(blockingValidationIssues[0])} className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/45 hover:text-white leading-none">
                         Jump to first issue
                       </button>
                     </div>
@@ -3301,41 +3310,41 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               )}
             </div>
           ) : selectedEdgeId && selectedEdge ? (
-            <div className="p-6 space-y-10 animate-apple-in">
+            <div className="p-4 space-y-6 animate-apple-in">
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
                 <div className="flex items-center gap-3"><Link2 size={16} className="text-theme-accent" /><span className="text-[14px] font-black text-white uppercase tracking-widest">Edge Configuration</span></div>
                 <div className="flex gap-2">
-                  <button onClick={() => swapEdgeDirection(selectedEdgeId)} title="Swap Direction" className="text-white/40 hover:text-white p-2 bg-white/5 border border-white/10 rounded-2xl transition-all"><LucideWorkflow size={16} className="rotate-90" /></button>
-                  <button onClick={() => { setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); setIsDirty?.(true); }} className="text-status-error hover:bg-status-error/10 p-2 border border-status-error/20 rounded-2xl transition-all"><Trash size={16} /></button>
+                  <button onClick={() => swapEdgeDirection(selectedEdgeId)} title="Swap Direction" className="text-white/40 hover:text-white p-2 bg-white/5 border border-white/10 rounded-2xl transition-all leading-none"><LucideWorkflow size={16} className="rotate-90" /></button>
+                  <button onClick={() => { setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); setIsDirty?.(true); }} className="text-status-error hover:bg-status-error/10 p-2 border border-status-error/20 rounded-2xl transition-all leading-none"><Trash size={16} /></button>
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-2">
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4 space-y-2">
                 <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Route Inspection</p>
                 <div className="flex flex-wrap gap-2 text-[11px] font-bold text-white/65">
-                  <span className="rounded-2xl border border-white/10 bg-black/25 px-3 py-2">From: {nodes.find((node) => node.id === selectedEdge.source)?.data?.label || selectedEdge.source}</span>
-                  <span className="rounded-2xl border border-white/10 bg-black/25 px-3 py-2">To: {nodes.find((node) => node.id === selectedEdge.target)?.data?.label || selectedEdge.target}</span>
-                  <span className="rounded-2xl border border-white/10 bg-black/25 px-3 py-2">Style: {selectedEdge.data?.edgeStyle || 'bezier'}</span>
-                  <span className="rounded-2xl border border-white/10 bg-black/25 px-3 py-2">Line: {selectedEdge.data?.lineStyle || 'solid'}</span>
+                  <span className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">From: {nodes.find((node) => node.id === selectedEdge.source)?.data?.label || selectedEdge.source}</span>
+                  <span className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">To: {nodes.find((node) => node.id === selectedEdge.target)?.data?.label || selectedEdge.target}</span>
+                  <span className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">Style: {selectedEdge.data?.edgeStyle || 'bezier'}</span>
+                  <span className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">Line: {selectedEdge.data?.lineStyle || 'solid'}</span>
                 </div>
               </div>
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Label</label>
-                  <input className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-[13px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedEdge.data?.label || ''} onChange={e => updateEdge(selectedEdgeId, { label: e.target.value })} />
+                  <input className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-[13px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedEdge.data?.label || ''} onChange={e => updateEdge(selectedEdgeId, { label: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Style</label>
-                  <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10">
+                  <div className="flex bg-white/5 p-1 rounded-lg border border-white/10">
                     {(['smoothstep', 'bezier', 'straight'] as const).map((s) => (
-                      <button key={s} onClick={() => updateEdge(selectedEdgeId, { edgeStyle: s })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-2xl transition-all", (selectedEdge.data?.edgeStyle || 'bezier') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
+                      <button key={s} onClick={() => updateEdge(selectedEdgeId, { edgeStyle: s })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all leading-none", (selectedEdge.data?.edgeStyle || 'bezier') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
                     ))}
                   </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Line Style</label>
-                  <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10">
+                  <div className="flex bg-white/5 p-1 rounded-lg border border-white/10">
                     {(['solid', 'dashed'] as const).map((s) => (
-                      <button key={s} onClick={() => updateEdge(selectedEdgeId, { lineStyle: s })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-2xl transition-all", (selectedEdge.data?.lineStyle || 'solid') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
+                      <button key={s} onClick={() => updateEdge(selectedEdgeId, { lineStyle: s })} className={cn("flex-1 py-2 text-[10px] font-black uppercase rounded-lg transition-all leading-none", (selectedEdge.data?.lineStyle || 'solid') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
                     ))}
                   </div>
                 </div>
@@ -3350,41 +3359,9 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               </div>
             </div>
           ) : (
-            <div className="space-y-6 animate-apple-in pb-16">
-              {showGuide && (
-                <div className={cn(BUILDER_PANEL, "p-5")}>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Builder Guide</p>
-                      <p className="mt-2 text-[12px] font-bold leading-relaxed text-white/60">
-                        1. Choose a template or start from the current workflow. 2. Click a node to edit its details. 3. Commit once validation is clean.
-                      </p>
-                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {[
-                          'Start with templates or related workflows',
-                          'Click nodes, edges, or fields to edit',
-                          'Fix validation issues before commit',
-                        ].map((step, index) => (
-                          <div key={step} className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
-                            <p className="text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent">Step {index + 1}</p>
-                            <p className="mt-1 text-[11px] font-bold leading-relaxed text-white/65">{step}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <button
-                      data-testid="builder-guide-dismiss"
-                      onClick={() => setShowGuide(false)}
-                    className={cn(BUILDER_BUTTON, "border border-white/10 bg-white/5 px-4 py-2 text-white/60 hover:bg-white/10 hover:text-white")}
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-              )}
-
+            <div className="space-y-4 animate-apple-in pb-16">
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <div className={cn(BUILDER_PANEL, "p-5 space-y-4")}>
+                <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Quick Start Library</p>
@@ -3397,7 +3374,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </div>
                   <div className="space-y-2">
                     {(builderSuggestions.templateMatches || []).slice(0, 3).map((template: any) => (
-                      <div key={template.key || template.label} className="rounded-xl border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
+                      <div key={template.key || template.label} className="rounded-lg border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-[11px] font-black uppercase text-white truncate">{template.label || template.key}</p>
                           <p className="text-[10px] text-white/45 leading-relaxed mt-1">{template.description || template.workflow_type || 'Template starter'}</p>
@@ -3406,16 +3383,16 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       </div>
                     ))}
                     {(builderSuggestions.templateMatches || []).length === 0 && (
-                      <div className="rounded-xl border border-dashed border-white/10 bg-black/20 p-4 text-[11px] font-bold text-white/35">
+                      <div className="rounded-lg border border-dashed border-white/10 bg-black/20 p-3 text-[11px] font-bold text-white/35">
                         No matching templates. Start from the current workflow and use the metadata panel below.
                       </div>
                     )}
                   </div>
                   {(builderSuggestions.workflowMatches || []).length > 0 && (
-                    <div className="space-y-2 border-t border-white/5 pt-4">
+                    <div className="space-y-2 border-t border-white/5 pt-3">
                       <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30">Related Workflows</p>
                       {builderSuggestions.workflowMatches.slice(0, 3).map((item: any) => (
-                        <div key={item.id || item.name} className="rounded-xl border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
+                        <div key={item.id || item.name} className="rounded-lg border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-[11px] font-black uppercase text-white truncate">{item.name || item.label || 'Related workflow'}</p>
                             <p className="text-[10px] text-white/45 leading-relaxed mt-1">{item.description || item.workflow_type || 'Reusable workflow example'}</p>
@@ -3426,10 +3403,10 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     </div>
                   )}
                   {builderSuggestions.taskLibrary.length > 0 && (
-                    <div className="space-y-2 border-t border-white/5 pt-4">
+                    <div className="space-y-2 border-t border-white/5 pt-3">
                       <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30">Current Draft Tasks</p>
                       {builderSuggestions.taskLibrary.map((task: any) => (
-                        <button key={task.id} onClick={() => { setSelectedTaskId(task.id); setSelectedNodeIds([task.id]); setInspectorTab('overview'); }} className="w-full rounded-xl border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3 text-left hover:bg-white/5 transition-all">
+                        <button key={task.id} onClick={() => { setSelectedTaskId(task.id); setSelectedNodeIds([task.id]); setInspectorTab('overview'); }} className="w-full rounded-lg border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3 text-left hover:bg-white/5 transition-all">
                           <div className="min-w-0">
                             <p className="text-[11px] font-black uppercase text-white truncate">{task.name || 'Untitled task'}</p>
                             <p className="text-[10px] text-white/45 leading-relaxed mt-1">{task.description || task.task_type || 'Draft task'}</p>
@@ -3441,7 +3418,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   )}
                 </div>
 
-                <div className={cn(BUILDER_PANEL, "p-5 space-y-4")}>
+                <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Validation Health</p>
@@ -3450,23 +3427,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <button onClick={() => setInspectorTab('validation')} className={cn(BUILDER_BUTTON, "shrink-0 border border-white/10 bg-white/5 text-white/60")}>Open</button>
                   </div>
                   {blockingValidationIssues.length > 0 && (
-                    <div className="rounded-xl border border-status-error/20 bg-status-error/10 px-4 py-3 text-[11px] font-bold text-status-error">
+                    <div className="rounded-lg border border-status-error/20 bg-status-error/10 px-4 py-2 text-[11px] font-bold text-status-error">
                       Fix the blocking issues before saving. Select any item below to jump to the affected field or node.
                     </div>
                   )}
-                  <div className="space-y-2 max-h-[12rem] overflow-auto pr-1 custom-scrollbar">
-                    {validationIssues.slice(0, 6).map((issue) => (
-                      <button key={`${issue.code}-${issue.targetId || 'workflow'}`} onClick={() => focusAuditIssue(issue)} className={cn("w-full text-left rounded-xl border p-3 transition-all", issue.severity === 'error' ? "border-status-error/20 bg-status-error/10 hover:bg-status-error/15" : "border-white/10 bg-black/20 hover:bg-white/5")}>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className={cn("text-[9px] font-black uppercase tracking-[0.18em]", issue.severity === 'error' ? "text-status-error" : "text-amber-400")}>{issue.severity}</span>
-                          <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/25">{issue.scope}</span>
-                        </div>
-                        <p className="mt-1 text-[11px] font-bold text-white/75 leading-relaxed">{issue.message}</p>
-                        <p className="mt-2 text-[10px] text-white/35">{buildFixSuggestion(issue)}</p>
-                      </button>
-                    ))}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full border border-status-error/20 bg-status-error/10 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-status-error">{validationErrorCount} errors</span>
+                      <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">{validationWarningCount} warnings</span>
+                    </div>
+                    <p className="text-[11px] font-bold text-white/45 leading-relaxed">
+                      Validation details no longer use separate cards. Fix the field or node directly from the inline markers.
+                    </p>
                     {validationIssues.length === 0 && (
-                      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[11px] font-bold text-emerald-300">
+                      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold text-emerald-300">
                         The current draft is structurally clean.
                       </div>
                     )}
@@ -3474,7 +3448,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
                 <div className="flex items-center gap-3">
                   <LucideWorkflow className="text-theme-accent" size={18} />
                   <h2 className="text-[14px] font-black text-white uppercase tracking-widest">Workflow Definition</h2>
@@ -3483,20 +3457,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   <span className="text-[9px] text-white/20 font-black uppercase tracking-widest">v{metadata.version}</span>
                   <button 
                     onClick={() => setIsMetadataEditMode(!isMetadataEditMode)}
-                    className={cn("px-4 py-1.5 rounded-2xl text-[9px] font-black uppercase transition-all", isMetadataEditMode ? "bg-theme-accent text-white" : "bg-white/5 text-white/40 hover:text-white")}
+                    className={cn("px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all leading-none", isMetadataEditMode ? "bg-theme-accent text-white" : "bg-white/5 text-white/40 hover:text-white")}
                   >
                     {isMetadataEditMode ? "Finish Editing" : "Edit Definition"}
                   </button>
                 </div>
               </div>
               
-              <div className={cn("space-y-6 transition-all", !isMetadataEditMode && "opacity-80 pointer-events-none")}>
-                <div className="space-y-4">
+              <div className={cn("space-y-4 transition-all", !isMetadataEditMode && "opacity-80 pointer-events-none")}>
+                <div className="space-y-3">
                   <div className="flex items-center gap-2 text-theme-accent font-black px-1">
                     <Cpu size={14} />
                     <span className="text-[10px] tracking-[0.2em] uppercase">Overview</span>
                   </div>
-                  <div className={cn(BUILDER_PANEL, "space-y-5 !bg-white/[0.02] border-white/5 p-5")}>
+                  <div className={cn(BUILDER_PANEL, "space-y-4 !bg-white/[0.02] border-white/5 p-4")}>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center px-1">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Workflow Name</label>
@@ -3537,7 +3511,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                       <SearchableSelect 
                         label="PRC"
                         options={(taxonomy.find(t => t.category === 'PRC') as any)?.cached_values || []}
@@ -3554,7 +3528,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       />
                       <div className="space-y-2">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Occurrence</label>
-                        <div className="flex items-center gap-1 bg-black/40 border border-white/10 rounded-xl p-1 h-[48px]">
+                        <div className="flex items-center gap-1 bg-black/40 border border-white/10 rounded-lg p-1 h-[44px]">
                           <input 
                             type="number" 
                             step="0.1"
@@ -3576,7 +3550,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                       <SearchableSelect 
                         label="Tool Family"
                         options={(taxonomy.find(t => t.category === 'ToolType') as any)?.cached_values || []}
@@ -3602,8 +3576,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <Zap size={14} />
                     <span className="text-[10px] tracking-[0.2em] uppercase">Trigger & Output</span>
                   </div>
-                  <div className={cn(BUILDER_PANEL, "space-y-5 !bg-white/[0.02] border-white/5 p-5")}>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className={cn(BUILDER_PANEL, "space-y-4 !bg-white/[0.02] border-white/5 p-4")}>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                       <SearchableSelect 
                         label="Trigger Type"
                         options={(taxonomy.find(t => t.category === 'TriggerType') as any)?.cached_values || []}
@@ -3619,7 +3593,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         placeholder="SELECT OUTPUT..."
                       />
                     </div>
-                    <div className="grid grid-cols-1 gap-6 border-t border-white/5 pt-6">
+                    <div className="grid grid-cols-1 gap-4 border-t border-white/5 pt-4">
                       <div className="space-y-2">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Trigger Description</label>
                         <textarea 
