@@ -4,7 +4,6 @@ import ReactFlow, {
   Handle, 
   Position, 
   Background, 
-  Controls, 
   MiniMap,
   addEdge, 
   useNodesState, 
@@ -44,12 +43,7 @@ import {
   Edit3,
   MessageSquare,
   History,
-  ShieldCheck,
-  FileDown,
-  FileUp,
-  GitBranch,
   Users,
-  MessageSquarePlus,
   Satellite,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -64,16 +58,12 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type BuilderMode = 'guided' | 'advanced';
 type InspectorTab = 'overview' | 'data' | 'exceptions' | 'validation' | 'appendix';
 type BuilderUtilityPane = 'comments' | 'history' | null;
-type BuilderDockSide = 'left' | 'right';
 
 interface BuilderLayoutPrefs {
-  inspectorDock: BuilderDockSide;
   inspectorCollapsed: boolean;
   showMiniMap: boolean;
-  showCanvasControls: boolean;
 }
 
 interface WorkflowComment {
@@ -82,21 +72,8 @@ interface WorkflowComment {
   scope_id?: string;
   author: string;
   message: string;
-  mentions: string[];
-  parent_id?: string;
-  assignee?: string;
-  review_state: string;
   created_at?: string;
-  resolved: boolean;
-}
-
-interface ReviewRequestDraft {
-  id: string;
-  role: string;
-  requested_by: string;
-  status: string;
-  due_at: string;
-  note: string;
+  updated_at?: string;
 }
 
 interface AccessControlState {
@@ -124,19 +101,7 @@ const createWorkflowComment = (scope: WorkflowComment['scope'] = 'workflow', sco
   scope_id: scopeId || undefined,
   author: 'system_user',
   message: '',
-  mentions: [],
-  review_state: 'open',
   created_at: new Date().toISOString(),
-  resolved: false,
-});
-
-const createReviewRequestDraft = (): ReviewRequestDraft => ({
-  id: `review-${Date.now()}`,
-  role: '',
-  requested_by: 'system_user',
-  status: 'open',
-  due_at: '',
-  note: '',
 });
 
 const normalizeStringList = (value: unknown) => Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : [];
@@ -144,39 +109,6 @@ const parseIsoDate = (value: unknown) => {
   if (!value) return null;
   const parsed = new Date(String(value));
   return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const scoreTextMatch = (value: unknown, query: string) => {
-  const haystack = String(value ?? '').toLowerCase();
-  if (!query) return 0;
-  if (!haystack) return 0;
-  if (haystack === query) return 100;
-  if (haystack.startsWith(query)) return 80;
-  if (haystack.includes(query)) return 55;
-  const tokens = query.split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return 0;
-  const matchedTokens = tokens.filter((token) => haystack.includes(token)).length;
-  return matchedTokens > 0 ? matchedTokens * 12 : 0;
-};
-
-const rankItemsByQuery = <T,>(
-  items: T[],
-  query: string,
-  fields: Array<(item: T) => unknown>,
-  limit = 6,
-) => {
-  const trimmed = query.trim().toLowerCase();
-  return [...items]
-    .map((item) => ({
-      item,
-      score: trimmed
-        ? Math.max(...fields.map((field) => scoreTextMatch(field(item), trimmed)))
-        : 1,
-    }))
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map(({ item }) => item);
 };
 
 const compactIssueTone = (severity: 'error' | 'warning') => (
@@ -631,7 +563,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
             data.onOpenComments?.(data.id);
           }}
           className="absolute -top-3 right-4 flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#0b1221]/96 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/60 shadow-lg transition-colors hover:text-white"
-          title={`${data.commentSummary.open} open, ${data.commentSummary.resolved} resolved comments`}
+          title={`${data.commentSummary.total} comments`}
         >
           <Satellite size={10} className="text-theme-accent" />
           {data.commentSummary.total}
@@ -721,11 +653,11 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
           {selected && (
             <div className="absolute left-1/2 top-full mt-2 z-30 flex -translate-x-1/2 flex-wrap justify-center gap-2 pointer-events-auto">
               <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-2 rounded-lg border border-theme-accent/20 bg-theme-accent/10 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent shadow-lg shadow-black/30">
-                <MessageSquarePlus size={11} /> Comment
+                <MessageSquare size={11} /> Comment
               </button>
               {data.commentSummary?.total > 0 && (
                 <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 shadow-lg shadow-black/30">
-                  <Satellite size={11} /> {data.commentSummary.open} open
+                  <Satellite size={11} /> {data.commentSummary.total}
                 </button>
               )}
             </div>
@@ -868,10 +800,10 @@ const ConfirmDeleteOverlay: React.FC<{ onConfirm: () => void, onCancel: () => vo
   </div>
 );
 
-const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, templates = [], relatedWorkflows = [], rollbackPreview, onSave, onBack, onExit, onCreateRollbackDraft, onGovernanceAction, setIsDirty }) => {
+const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedWorkflows = [], rollbackPreview, onSave, onBack, onExit, onCreateRollbackDraft, setIsDirty }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const { project, fitView, zoomIn, zoomOut, setViewport } = useReactFlow();
+  const { project, fitView } = useReactFlow();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
@@ -879,20 +811,16 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('overview');
   const [inspectorWidth, setInspectorWidth] = useState(450);
   const [layoutPrefs, setLayoutPrefs] = useState<BuilderLayoutPrefs>({
-    inspectorDock: 'right',
     inspectorCollapsed: false,
     showMiniMap: true,
-    showCanvasControls: true,
   });
   const [baseFontSize] = useState(14);
   const [defaultEdgeStyle, setDefaultEdgeStyle] = useState<'bezier' | 'smoothstep' | 'straight'>('smoothstep');
-  const builderMode: BuilderMode = 'advanced';
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     inputs: false, outputs: false, manual_inputs: false, manual_outputs: false, blockers: false, errors: false, tribal: false, references: false, assets: false, instructions: false
   });
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
   const [isOutputPickerOpen, setIsOutputPickerOpen] = useState(false);
-  const showGuide = false;
   const [isMetadataEditMode, setIsMetadataEditMode] = useState(false);
   const [ownerPositionsCollapsed, setOwnerPositionsCollapsed] = useState(true);
   const [draftRestored, setDraftRestored] = useState(false);
@@ -912,21 +840,18 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     reviewers: [],
   });
   const [relatedWorkflowIds, setRelatedWorkflowIds] = useState<number[]>([]);
-  const [reviewRequests, setReviewRequests] = useState<ReviewRequestDraft[]>([]);
   const [commentDraft, setCommentDraft] = useState<WorkflowComment>(createWorkflowComment());
-  const [replyTargetCommentId, setReplyTargetCommentId] = useState<string | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentDraft, setEditingCommentDraft] = useState('');
   const [utilityPane, setUtilityPane] = useState<BuilderUtilityPane>(null);
   const [utilityPaneTaskId, setUtilityPaneTaskId] = useState<string | null>(null);
   const [historyCompareMode, setHistoryCompareMode] = useState<'saved' | 'approved' | 'selected'>('saved');
   const [historyCompareVersionId, setHistoryCompareVersionId] = useState<string>('');
   const [importDraft, setImportDraft] = useState('');
-  const [showImportPanel, setShowImportPanel] = useState(false);
-  const [selectedCommentId, setSelectedCommentId] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'conflict' | 'error'>('idle');
   const [saveConflict, setSaveConflict] = useState<any>(null);
-  const [focusMode, setFocusMode] = useState(false);
   const draftSaveTimer = useRef<number | null>(null);
   const draftRestoreAttempted = useRef(false);
   const initialSnapshotRef = useRef<any>(null);
@@ -957,12 +882,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   const [redoStack, setRedoStack] = useState<any[]>([]);
   const [clipboard, setClipboard] = useState<any>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
-  const [builderSearch, setBuilderSearch] = useState('');
 
   const validationIssues = useMemo(() => auditWorkflowDraft({ metadata, tasks, edges }), [metadata, tasks, edges]);
   const validationErrorCount = useMemo(() => validationIssues.filter(issue => issue.severity === 'error').length, [validationIssues]);
   const validationWarningCount = useMemo(() => validationIssues.filter(issue => issue.severity === 'warning').length, [validationIssues]);
-  const validationSummary = useMemo(() => summarizeAuditIssues(validationIssues), [validationIssues]);
   const blockingValidationIssues = useMemo(() => validationIssues.filter((issue) => new Set([
     'graph.unreachable',
     'graph.disconnected',
@@ -982,7 +905,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   ), [validationIssues]);
   const workflowBuilderDraftKey = useMemo(() => getWorkflowBuilderDraftKey(workflow?.id), [workflow?.id]);
   const workflowSourceStamp = useMemo(() => workflow?.updated_at || workflow?.updatedAt || workflow?.version || null, [workflow?.updated_at, workflow?.updatedAt, workflow?.version]);
-  const templateList = useMemo(() => (Array.isArray(templates) ? templates : []), [templates]);
   const relatedWorkflowList = useMemo(() => (Array.isArray(relatedWorkflows) ? relatedWorkflows : []), [relatedWorkflows]);
 
   const selectedTasks = useMemo(
@@ -1004,42 +926,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
   const updateLayoutPrefs = useCallback((updates: Partial<BuilderLayoutPrefs>) => {
     setLayoutPrefs((prev) => ({ ...prev, ...updates }));
   }, []);
-
-  const builderSuggestions = useMemo(() => {
-    const templateMatches = rankItemsByQuery(
-      templateList,
-      builderSearch,
-      [
-        (template: any) => template?.label,
-        (template: any) => template?.description,
-        (template: any) => template?.workflow_type,
-        (template: any) => template?.key,
-      ],
-      6,
-    );
-    const workflowMatches = rankItemsByQuery(
-      relatedWorkflowList,
-      builderSearch,
-      [
-        (item: any) => item?.name,
-        (item: any) => item?.description,
-        (item: any) => item?.workflow_type,
-      ],
-      6,
-    );
-    const taskLibrary = rankItemsByQuery(
-      tasks.filter((task) => task.interface !== 'TRIGGER' && task.interface !== 'OUTCOME'),
-      builderSearch,
-      [
-        (task) => task.name,
-        (task) => task.description,
-        (task) => task.task_type,
-        (task) => task.owning_team,
-      ],
-      6,
-    );
-    return { templateMatches, workflowMatches, taskLibrary };
-  }, [templateList, relatedWorkflowList, tasks, builderSearch]);
 
   const clearSelection = useCallback(() => {
     setSelectedTaskId(null);
@@ -1091,7 +977,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     setAccessControl(draft.accessControl || accessControl);
     setOwnership(draft.ownership || ownership);
     setRelatedWorkflowIds(Array.isArray(draft.relatedWorkflowIds) ? draft.relatedWorkflowIds : []);
-    setReviewRequests(Array.isArray(draft.reviewRequests) ? draft.reviewRequests : []);
     if (draft.commentDraft) setCommentDraft(draft.commentDraft);
     if (typeof draft.importDraft === 'string') setImportDraft(draft.importDraft);
     setDraftRestored(true);
@@ -1102,7 +987,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
 
   const saveToHistory = useCallback(() => {
     // Optimization: Only save if state actually changed
-    const currentState = JSON.stringify({ nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, reviewRequests });
+    const currentState = JSON.stringify({ nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds });
     const lastHistory = history.length > 0 ? JSON.stringify(history[history.length - 1]) : null;
     if (currentState === lastHistory) return;
 
@@ -1115,10 +1000,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       accessControl: JSON.parse(JSON.stringify(accessControl)),
       ownership: JSON.parse(JSON.stringify(ownership)),
       relatedWorkflowIds: JSON.parse(JSON.stringify(relatedWorkflowIds)),
-      reviewRequests: JSON.parse(JSON.stringify(reviewRequests)),
     }]);
     setRedoStack([]);
-  }, [nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, reviewRequests, history]);
+  }, [nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, history]);
 
   const undo = useCallback(() => {
     if (history.length === 0) return;
@@ -1132,7 +1016,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       accessControl: JSON.parse(JSON.stringify(accessControl)),
       ownership: JSON.parse(JSON.stringify(ownership)),
       relatedWorkflowIds: JSON.parse(JSON.stringify(relatedWorkflowIds)),
-      reviewRequests: JSON.parse(JSON.stringify(reviewRequests)),
     }]);
     
     setNodes(lastState.nodes);
@@ -1143,9 +1026,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     setAccessControl(lastState.accessControl || accessControl);
     setOwnership(lastState.ownership || ownership);
     setRelatedWorkflowIds(lastState.relatedWorkflowIds || []);
-    setReviewRequests(lastState.reviewRequests || []);
     setHistory(prev => prev.slice(0, -1));
-  }, [history, nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, reviewRequests, setNodes, setEdges]);
+  }, [history, nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, setNodes, setEdges]);
 
   const redo = useCallback(() => {
     if (redoStack.length === 0) return;
@@ -1159,7 +1041,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       accessControl: JSON.parse(JSON.stringify(accessControl)),
       ownership: JSON.parse(JSON.stringify(ownership)),
       relatedWorkflowIds: JSON.parse(JSON.stringify(relatedWorkflowIds)),
-      reviewRequests: JSON.parse(JSON.stringify(reviewRequests)),
     }]);
     
     setNodes(nextState.nodes);
@@ -1170,9 +1051,8 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     setAccessControl(nextState.accessControl || accessControl);
     setOwnership(nextState.ownership || ownership);
     setRelatedWorkflowIds(nextState.relatedWorkflowIds || []);
-    setReviewRequests(nextState.reviewRequests || []);
     setRedoStack(prev => prev.slice(0, -1));
-  }, [redoStack, nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, reviewRequests, setNodes, setEdges]);
+  }, [redoStack, nodes, edges, tasks, metadata, workflowComments, accessControl, ownership, relatedWorkflowIds, setNodes, setEdges]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1336,53 +1216,17 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     };
   }, [edges, historyComparisonSnapshot, metadata, tasks]);
 
-  const auditTrail = useMemo(() => workflow?.activity_timeline || [], [workflow?.activity_timeline]);
-  const frictionSignals = useMemo(() => {
-    const analysis = workflow?.analysis || {};
-    const topRisks = ((analysis.task_diagnostic_summary || {}).top_risk_nodes || []).slice(0, 5);
-    return {
-      reviewQueue: reviewRequests.filter((request) => request.status === 'open').length,
-      unresolvedComments: workflowComments.filter((comment) => !comment.resolved).length,
-      bottlenecks: (analysis.bottlenecks || []).slice(0, 3),
-      topRisks,
-      standardsFlags: (workflow?.governance?.standards_flags || []).slice(0, 5),
-      auditEntries: auditTrail.length,
-    };
-  }, [auditTrail.length, reviewRequests, workflow, workflowComments]);
-
-  const commentThreads = useMemo(() => {
-    const byParent = new Map<string | undefined, WorkflowComment[]>();
-    workflowComments.forEach((comment) => {
-      const key = comment.parent_id || undefined;
-      const list = byParent.get(key) || [];
-      list.push(comment);
-      byParent.set(key, list);
-    });
-    const sortByTime = (items: WorkflowComment[]) => [...items].sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
-    return sortByTime(byParent.get(undefined) || []).map((comment) => ({
-      comment,
-      replies: sortByTime(byParent.get(comment.id) || []),
-    }));
-  }, [workflowComments]);
-
   const commentCountsByTaskId = useMemo(() => {
-    const counts = new Map<string, { open: number; resolved: number; total: number }>();
+    const counts = new Map<string, { total: number }>();
     workflowComments.forEach((comment) => {
       if (comment.scope !== 'task' || !comment.scope_id) return;
       const key = String(comment.scope_id);
-      const current = counts.get(key) || { open: 0, resolved: 0, total: 0 };
+      const current = counts.get(key) || { total: 0 };
       current.total += 1;
-      if (comment.resolved) current.resolved += 1;
-      else current.open += 1;
       counts.set(key, current);
     });
     return counts;
   }, [workflowComments]);
-
-  const replyTargetComment = useMemo(
-    () => workflowComments.find((comment) => comment.id === replyTargetCommentId) || null,
-    [replyTargetCommentId, workflowComments]
-  );
 
   const openCommentsForTask = useCallback((taskId?: string | null) => {
     const nextTaskId = taskId || selectedTaskId || null;
@@ -1395,7 +1239,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       setSelectedEdgeIds([]);
     }
     setCommentDraft(createWorkflowComment('task', nextTaskId || ''));
-    setReplyTargetCommentId(null);
   }, [selectedTaskId]);
 
   const openHistoryPane = useCallback(() => {
@@ -1413,7 +1256,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       ...node,
       data: {
         ...node.data,
-        commentSummary: commentCountsByTaskId.get(node.id) || { open: 0, resolved: 0, total: 0 },
+        commentSummary: commentCountsByTaskId.get(node.id) || { total: 0 },
         onOpenComments: openCommentsForTask,
       },
     })));
@@ -1428,516 +1271,283 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     setHistoryCompareVersionId(String(fallbackVersion?.id || ''));
   }, [historyCompareMode, historyComparisonWorkflow, versionHistory]);
 
-  const exportWorkflowDraft = useCallback(() => {
-    const payload = {
-      metadata,
-      tasks,
-      edges,
-      workflowComments,
-      accessControl,
-      ownership,
-      relatedWorkflowIds,
-      reviewRequests,
-      builderMode,
-      versionHistory,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
-    const url = window.URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `${String(metadata.name || workflow?.name || 'workflow-builder').toLowerCase().replace(/\s+/g, '-')}.json`;
-    anchor.click();
-    window.URL.revokeObjectURL(url);
-    toast.success('Workflow draft exported');
-  }, [accessControl, builderMode, edges, metadata, ownership, relatedWorkflowIds, reviewRequests, tasks, versionHistory, workflow?.name, workflowComments]);
-
-  const importWorkflowDraft = useCallback(() => {
-    if (!importDraft.trim()) {
-      toast.error('Paste a workflow JSON payload first.');
-      return;
-    }
-    try {
-      const parsed = JSON.parse(importDraft);
-      if (parsed.metadata) setMetadata(parsed.metadata);
-      if (Array.isArray(parsed.tasks)) setTasks(parsed.tasks);
-      if (Array.isArray(parsed.edges)) setEdges(parsed.edges);
-      if (Array.isArray(parsed.workflowComments)) setWorkflowComments(parsed.workflowComments);
-      if (parsed.accessControl) setAccessControl(parsed.accessControl);
-      if (parsed.ownership) setOwnership(parsed.ownership);
-      if (Array.isArray(parsed.relatedWorkflowIds)) setRelatedWorkflowIds(parsed.relatedWorkflowIds);
-      if (Array.isArray(parsed.reviewRequests)) setReviewRequests(parsed.reviewRequests);
-      setIsDirty?.(true);
-      toast.success('Workflow draft imported');
-    } catch (error) {
-      toast.error('Invalid workflow JSON payload.');
-    }
-  }, [importDraft, setEdges, setIsDirty]);
-
   const addWorkflowComment = useCallback(() => {
     if (!commentDraft.message.trim()) {
       toast.error('Comment message is required.');
       return;
     }
-    const commentScopeTaskId = utilityPane === 'comments' ? utilityPaneTaskId : selectedTaskId;
+    const commentScopeTaskId = utilityPaneTaskId || undefined;
     const nextComment = {
       ...commentDraft,
       id: commentDraft.id || `comment-${Date.now()}`,
       created_at: commentDraft.created_at || new Date().toISOString(),
       scope: commentDraft.scope || 'workflow',
       scope_id: commentDraft.scope_id || commentScopeTaskId || undefined,
-      parent_id: replyTargetCommentId || commentDraft.parent_id,
     };
     saveToHistory();
     setWorkflowComments((prev) => [nextComment, ...prev]);
     setCommentDraft(createWorkflowComment(commentScopeTaskId ? 'task' : 'workflow', commentScopeTaskId || ''));
-    setReplyTargetCommentId(null);
     setIsDirty?.(true);
     toast.success('Comment added');
-  }, [commentDraft, replyTargetCommentId, saveToHistory, selectedTaskId, setIsDirty, utilityPane, utilityPaneTaskId]);
+  }, [commentDraft, saveToHistory, setIsDirty, utilityPaneTaskId]);
 
-  const toggleCommentResolved = useCallback((commentId: string) => {
-    saveToHistory();
-    setWorkflowComments((prev) => prev.map((comment) => comment.id === commentId ? { ...comment, resolved: !comment.resolved } : comment));
-    setIsDirty?.(true);
-  }, [saveToHistory, setIsDirty]);
-
-  const updateRelatedWorkflowIds = useCallback((workflowId: number) => {
-    saveToHistory();
-    setRelatedWorkflowIds((prev) => prev.includes(workflowId) ? prev.filter((id) => id !== workflowId) : [...prev, workflowId]);
-    setIsDirty?.(true);
-  }, [saveToHistory, setIsDirty]);
-
-  const updateAccessControl = useCallback((updates: Partial<AccessControlState>) => {
-    saveToHistory();
-    setAccessControl((prev) => ({ ...prev, ...updates }));
-    setIsDirty?.(true);
-  }, [saveToHistory, setIsDirty]);
-
-  const updateOwnership = useCallback((updates: Partial<OwnershipState>) => {
-    saveToHistory();
-    setOwnership((prev) => ({ ...prev, ...updates }));
-    setIsDirty?.(true);
-  }, [saveToHistory, setIsDirty]);
-
-  const addReviewRequest = useCallback(() => {
-    saveToHistory();
-    setReviewRequests((prev) => [createReviewRequestDraft(), ...prev]);
-    setIsDirty?.(true);
-  }, [saveToHistory, setIsDirty]);
-
-  const updateReviewRequest = useCallback((id: string, updates: Partial<ReviewRequestDraft>) => {
-    saveToHistory();
-    setReviewRequests((prev) => prev.map((request) => request.id === id ? { ...request, ...updates } : request));
-    setIsDirty?.(true);
-  }, [saveToHistory, setIsDirty]);
-
-  const deleteReviewRequest = useCallback((id: string) => {
-    saveToHistory();
-    setReviewRequests((prev) => prev.filter((request) => request.id !== id));
-    setIsDirty?.(true);
-  }, [saveToHistory, setIsDirty]);
-
-  const runGovernanceAction = useCallback((action: string, requestId?: string) => {
-    if (typeof (onGovernanceAction) !== 'function') {
-      toast.error('Governance actions are unavailable in this view.');
+  const updateWorkflowComment = useCallback((commentId: string, message: string) => {
+    if (!message.trim()) {
+      toast.error('Comment message is required.');
       return;
     }
-    onGovernanceAction(action, requestId);
-  }, [onGovernanceAction]);
+    saveToHistory();
+    setWorkflowComments((prev) => prev.map((comment) => comment.id === commentId ? { ...comment, message: message.trim(), updated_at: new Date().toISOString() } : comment));
+    setIsDirty?.(true);
+  }, [saveToHistory, setIsDirty]);
 
-  const renderWorkflowOpsSurface = () => (
+  const deleteWorkflowComment = useCallback((commentId: string) => {
+    saveToHistory();
+    setWorkflowComments((prev) => prev.filter((comment) => comment.id !== commentId));
+    setIsDirty?.(true);
+    if (editingCommentId === commentId) {
+      setEditingCommentId(null);
+      setEditingCommentDraft('');
+    }
+  }, [editingCommentId, saveToHistory, setIsDirty]);
+
+  const renderHistorySurface = () => (
     <div className="space-y-6 animate-apple-in pb-10">
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Diff and Version History</p>
-              <p className="mt-1 text-[12px] font-bold text-white/55">Compare this draft to the baseline and review the version line.</p>
-            </div>
-            <History size={16} className="text-theme-accent" />
+      <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Diff and Version History</p>
+            <p className="mt-1 text-[12px] font-bold text-white/55">Compare this draft to the baseline and review the version line.</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {(['saved', 'approved', 'selected'] as const).map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setHistoryCompareMode(mode)}
-                className={cn("rounded-xl border px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] transition-all", historyCompareMode === mode ? "border-theme-accent/20 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/45 hover:text-white")}
-              >
-                {mode === 'saved' ? 'Saved' : mode === 'approved' ? 'Approved' : 'Chosen'}
-              </button>
-            ))}
-            {historyCompareMode === 'selected' && (
-              <select
-                className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[8px] font-black uppercase text-white outline-none"
-                value={historyCompareVersionId}
-                onChange={(e) => setHistoryCompareVersionId(e.target.value)}
-              >
-                {versionHistory.filter((version) => !version.isCurrent).map((version) => (
-                  <option key={`${version.id}-${version.version}`} value={version.id}>
-                    v{version.version} {version.state}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-          <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[10px] font-bold text-white/55">
-            Comparing against {historyCompareMode === 'saved' ? 'the last saved builder snapshot' : historyCompareMode === 'approved' ? 'the latest approved or certified version' : `v${historyComparisonSnapshot?.metadata?.version || historyCompareVersionId || 'selected'}`}.
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Task Changes</p>
-              <p className="mt-2 text-[22px] font-black text-theme-accent">
-                {workflowDiff.addedTasks.length + workflowDiff.changedTasks.length + workflowDiff.removedTasks.length}
-              </p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Route Changes</p>
-              <p className="mt-2 text-[22px] font-black text-emerald-300">
-                {workflowDiff.addedEdges.length + workflowDiff.removedEdges.length + workflowDiff.changedEdges.length}
-              </p>
-            </div>
-          </div>
-          <div className="space-y-3 max-h-[18rem] overflow-auto pr-1 custom-scrollbar">
-            {workflowDiff.addedTasks.length === 0 && workflowDiff.removedTasks.length === 0 && workflowDiff.changedTasks.length === 0 && workflowDiff.addedEdges.length === 0 && workflowDiff.removedEdges.length === 0 && workflowDiff.changedEdges.length === 0 && workflowDiff.changedMetadata.length === 0 && (
-              <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[11px] font-bold text-emerald-300">
-                No task or route changes were detected against the selected baseline.
-              </div>
-            )}
-            {workflowDiff.addedTasks.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">New Tasks</p>
-                {workflowDiff.addedTasks.map((task: any) => (
-                  <div key={`added-${task.node_id || task.id}`} className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[11px] font-bold text-emerald-200">
-                    New task: {task.name || 'Untitled task'}
-                  </div>
-                ))}
-              </div>
-            )}
-            {workflowDiff.changedTasks.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">Updated Tasks</p>
-                {workflowDiff.changedTasks.map((task: any) => (
-                  <div key={`changed-${task.id}`} className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-[11px] font-bold text-amber-200">
-                    <p className="font-black text-white">{task.name || task.id}</p>
-                    <p className="mt-1 text-[10px] text-amber-100/80">Changed fields: {task.changedFields.join(', ')}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-            {workflowDiff.removedTasks.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-rose-300">Removed Tasks</p>
-                {workflowDiff.removedTasks.map((task: any) => (
-                  <div key={`removed-${task.node_id || task.id}`} className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-[11px] font-bold text-rose-200">
-                    Removed task: {task.name || task.id}
-                  </div>
-                ))}
-              </div>
-            )}
-            {workflowDiff.addedEdges.length > 0 || workflowDiff.removedEdges.length > 0 || workflowDiff.changedEdges.length > 0 ? (
-              <div className="space-y-2">
-                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-sky-300">Route Changes</p>
-                {workflowDiff.addedEdges.map((edge: any) => (
-                  <div key={`edge-added-${edge.id}`} className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-[11px] font-bold text-sky-200">
-                    New connection: {edge.data?.label || edge.id}
-                  </div>
-                ))}
-                {workflowDiff.changedEdges.map((edge: any) => (
-                  <div key={`edge-${edge.id}`} className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-[11px] font-bold text-sky-200">
-                    Route changed: {edge.changedFields.join(', ')}
-                  </div>
-                ))}
-                {workflowDiff.removedEdges.map((edge: any) => (
-                  <div key={`edge-removed-${edge.id}`} className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-[11px] font-bold text-sky-200">
-                    Removed connection: {edge.data?.label || `${edge.source} → ${edge.target}`}
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            {workflowDiff.changedMetadata.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Metadata Changes</p>
-                <div className="flex flex-wrap gap-2">
-                  {workflowDiff.changedMetadata.map((field: string) => (
-                    <span key={field} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/55">
-                      {field}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          {rollbackPreview?.available && onCreateRollbackDraft && (
-            <button onClick={onCreateRollbackDraft} className="w-full rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">
-              Create Rollback Draft
+          <History size={16} className="text-theme-accent" />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {(['saved', 'approved', 'selected'] as const).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setHistoryCompareMode(mode)}
+              className={cn("rounded-xl border px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] transition-all", historyCompareMode === mode ? "border-theme-accent/20 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/45 hover:text-white")}
+            >
+              {mode === 'saved' ? 'Saved' : mode === 'approved' ? 'Approved' : 'Chosen'}
             </button>
+          ))}
+          {historyCompareMode === 'selected' && (
+            <select
+              className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[8px] font-black uppercase text-white outline-none"
+              value={historyCompareVersionId}
+              onChange={(e) => setHistoryCompareVersionId(e.target.value)}
+            >
+              {versionHistory.filter((version) => !version.isCurrent).map((version) => (
+                <option key={`${version.id}-${version.version}`} value={version.id}>
+                  v{version.version} {version.state}
+                </option>
+              ))}
+            </select>
           )}
         </div>
-
-        <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Approvals and Review</p>
-              <p className="mt-1 text-[12px] font-bold text-white/55">Publish, request changes, or certify without leaving the builder.</p>
-            </div>
-            <ShieldCheck size={16} className="text-theme-accent" />
+        <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-[10px] font-bold text-white/55">
+          Comparing against {historyCompareMode === 'saved' ? 'the last saved builder snapshot' : historyCompareMode === 'approved' ? 'the latest approved or certified version' : `v${historyComparisonSnapshot?.metadata?.version || historyCompareVersionId || 'selected'}`}.
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+            <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Task Changes</p>
+            <p className="mt-2 text-[22px] font-black text-theme-accent">
+              {workflowDiff.addedTasks.length + workflowDiff.changedTasks.length + workflowDiff.removedTasks.length}
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <button onClick={() => runGovernanceAction('approve_review')} className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300 hover:bg-emerald-500 hover:text-white transition-all">Approve Review</button>
-            <button onClick={() => runGovernanceAction('request_changes')} className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-amber-300 hover:bg-amber-500 hover:text-white transition-all">Request Changes</button>
-            <button onClick={() => runGovernanceAction('approve_workflow')} className="rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">Approve Workflow</button>
-            <button onClick={() => runGovernanceAction('certify')} className="rounded-2xl border border-violet-500/20 bg-violet-500/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-violet-300 hover:bg-violet-500 hover:text-white transition-all">Certify</button>
+          <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+            <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Route Changes</p>
+            <p className="mt-2 text-[22px] font-black text-emerald-300">
+              {workflowDiff.addedEdges.length + workflowDiff.removedEdges.length + workflowDiff.changedEdges.length}
+            </p>
           </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Review Request Editor</p>
-              <button onClick={addReviewRequest} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">Add Request</button>
+        </div>
+        <div className="space-y-3 max-h-[18rem] overflow-auto pr-1 custom-scrollbar">
+          {workflowDiff.addedTasks.length === 0 && workflowDiff.removedTasks.length === 0 && workflowDiff.changedTasks.length === 0 && workflowDiff.addedEdges.length === 0 && workflowDiff.removedEdges.length === 0 && workflowDiff.changedEdges.length === 0 && workflowDiff.changedMetadata.length === 0 && (
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[11px] font-bold text-emerald-300">
+              No task or route changes were detected against the selected baseline.
             </div>
-            <div className="space-y-2 max-h-[11rem] overflow-auto pr-1 custom-scrollbar">
-              {reviewRequests.map((request) => (
-                <div key={request.id} className="rounded-xl border border-white/10 bg-black/20 p-3 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <input className="w-full max-w-[12rem] rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-black text-white outline-none focus:border-theme-accent" value={request.role} onChange={(e) => updateReviewRequest(request.id, { role: e.target.value })} placeholder="Reviewer role" />
-                    <button onClick={() => deleteReviewRequest(request.id)} className="rounded-2xl border border-status-error/20 bg-status-error/10 px-2 py-1 text-[8px] font-black uppercase text-status-error">Remove</button>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <input className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-bold text-white outline-none focus:border-theme-accent" value={request.requested_by} onChange={(e) => updateReviewRequest(request.id, { requested_by: e.target.value })} placeholder="Requested by" />
-                    <input className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-bold text-white outline-none focus:border-theme-accent" value={request.due_at} onChange={(e) => updateReviewRequest(request.id, { due_at: e.target.value })} placeholder="Due date" />
-                    <select className="rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-black text-white outline-none focus:border-theme-accent" value={request.status} onChange={(e) => updateReviewRequest(request.id, { status: e.target.value })}>
-                      <option value="open">Open</option>
-                      <option value="approved">Approved</option>
-                      <option value="changes_requested">Changes Requested</option>
-                    </select>
-                  </div>
-                  <textarea className="w-full rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-[10px] font-bold text-white/70 outline-none focus:border-theme-accent resize-none min-h-[4.5rem]" value={request.note} onChange={(e) => updateReviewRequest(request.id, { note: e.target.value })} placeholder="Request note" />
+          )}
+          {workflowDiff.addedTasks.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">New Tasks</p>
+              {workflowDiff.addedTasks.map((task: any) => (
+                <div key={`added-${task.node_id || task.id}`} className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-[11px] font-bold text-emerald-200">
+                  New task: {task.name || 'Untitled task'}
                 </div>
               ))}
-              {reviewRequests.length === 0 && <p className="text-[11px] font-bold text-white/40">No review requests configured yet.</p>}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Comments and Annotations</p>
-              <p className="mt-1 text-[12px] font-bold text-white/55">Capture review context and keep the reason for change visible.</p>
-            </div>
-            <MessageSquare size={16} className="text-theme-accent" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <select className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={commentDraft.scope} onChange={(e) => setCommentDraft((prev) => ({ ...prev, scope: e.target.value as WorkflowComment['scope'] }))}>
-              <option value="workflow">Workflow</option>
-              <option value="task">Task</option>
-              <option value="section">Section</option>
-            </select>
-            <input className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={commentDraft.scope_id || ''} onChange={(e) => setCommentDraft((prev) => ({ ...prev, scope_id: e.target.value }))} placeholder={selectedTaskId ? selectedTask?.name || 'Selected task' : 'Scope id'} />
-          </div>
-          <textarea className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[12px] font-bold text-white/80 outline-none focus:border-theme-accent min-h-[7rem] resize-none" value={commentDraft.message} onChange={(e) => setCommentDraft((prev) => ({ ...prev, message: e.target.value }))} placeholder="Write a clear review note or annotation..." />
-          <div className="flex items-center justify-between gap-3">
-            <input className="flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-bold text-white/70 outline-none focus:border-theme-accent" value={commentDraft.assignee || ''} onChange={(e) => setCommentDraft((prev) => ({ ...prev, assignee: e.target.value }))} placeholder="Optional assignee" />
-            <button onClick={addWorkflowComment} className="rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">Add Comment</button>
-          </div>
-          {replyTargetCommentId && (
-            <div className="rounded-xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[11px] font-bold text-theme-accent flex items-center justify-between gap-3">
-              <span>Replying to {replyTargetComment?.author || replyTargetComment?.scope || 'selected comment'}</span>
-              <button onClick={() => setReplyTargetCommentId(null)} className="rounded-xl border border-white/10 bg-black/20 px-2 py-1 text-[8px] font-black uppercase text-white/55">Clear</button>
             </div>
           )}
-          <div className="space-y-3 max-h-[16rem] overflow-auto pr-1 custom-scrollbar">
-            {commentThreads.map(({ comment, replies }) => (
-              <div key={comment.id} className="space-y-2">
-                <button onClick={() => setSelectedCommentId(comment.id)} className={cn("w-full rounded-xl border p-4 text-left transition-all", selectedCommentId === comment.id ? "border-theme-accent/30 bg-theme-accent/10" : "border-white/10 bg-black/20 hover:bg-white/[0.05]")}>
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{comment.author}</p>
-                    <span className={cn("rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em]", comment.resolved ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-amber-500/20 bg-amber-500/10 text-amber-300")}>{comment.resolved ? 'Resolved' : comment.review_state || 'Open'}</span>
-                  </div>
-                  <p className="mt-2 text-[11px] font-bold text-white/70 leading-relaxed">{comment.message}</p>
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">{comment.scope}{comment.scope_id ? ` • ${comment.scope_id}` : ''}</p>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => setReplyTargetCommentId(comment.id)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">Reply</button>
-                      <button onClick={() => toggleCommentResolved(comment.id)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">{comment.resolved ? 'Reopen' : 'Resolve'}</button>
-                    </div>
-                  </div>
-                </button>
-                {replies.length > 0 && (
-                  <div className="ml-4 space-y-2 border-l border-white/10 pl-3">
-                    {replies.map((reply) => (
-                      <button key={reply.id} onClick={() => setSelectedCommentId(reply.id)} className={cn("w-full rounded-[20px] border p-3 text-left transition-all", selectedCommentId === reply.id ? "border-theme-accent/30 bg-theme-accent/10" : "border-white/10 bg-black/15 hover:bg-white/[0.04]")}>
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/80">{reply.author}</p>
-                          <span className={cn("rounded-full border px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em]", reply.resolved ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-amber-500/20 bg-amber-500/10 text-amber-300")}>{reply.resolved ? 'Resolved' : reply.review_state || 'Open'}</span>
-                        </div>
-                        <p className="mt-2 text-[10px] font-bold text-white/65 leading-relaxed">{reply.message}</p>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-            {workflowComments.length === 0 && <p className="text-[11px] font-bold text-white/40">No annotations have been added yet.</p>}
-          </div>
-        </div>
-
-        <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Access, Ownership, and Reuse</p>
-              <p className="mt-1 text-[12px] font-bold text-white/55">Standardize who owns the workflow and what can be reused.</p>
-            </div>
-            <Users size={16} className="text-theme-accent" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <select className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={accessControl.visibility} onChange={(e) => updateAccessControl({ visibility: e.target.value })}>
-              <option value="private">Private</option>
-              <option value="workspace">Workspace</option>
-              <option value="org">Org</option>
-            </select>
-            <input className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={accessControl.owner} onChange={(e) => updateAccessControl({ owner: e.target.value })} placeholder="Access owner" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <textarea className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-bold text-white/70 outline-none focus:border-theme-accent min-h-[5.5rem] resize-none" value={accessControl.editors.join('\n')} onChange={(e) => updateAccessControl({ editors: e.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })} placeholder="Editors, one per line" />
-            <textarea className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-bold text-white/70 outline-none focus:border-theme-accent min-h-[5.5rem] resize-none" value={accessControl.viewers.join('\n')} onChange={(e) => updateAccessControl({ viewers: e.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })} placeholder="Viewers, one per line" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <textarea className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-bold text-white/70 outline-none focus:border-theme-accent min-h-[5.5rem] resize-none" value={ownership.smes.join('\n')} onChange={(e) => updateOwnership({ smes: e.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })} placeholder="SMEs, one per line" />
-            <textarea className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-bold text-white/70 outline-none focus:border-theme-accent min-h-[5.5rem] resize-none" value={ownership.reviewers.join('\n')} onChange={(e) => updateOwnership({ reviewers: e.target.value.split('\n').map((item) => item.trim()).filter(Boolean) })} placeholder="Reviewers, one per line" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={ownership.owner} onChange={(e) => updateOwnership({ owner: e.target.value })} placeholder="Workflow owner" />
-            <input className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={ownership.automation_owner || ''} onChange={(e) => updateOwnership({ automation_owner: e.target.value })} placeholder="Automation owner" />
-          </div>
-          <div className="space-y-2">
-            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Reusable Linked Workflows</p>
-            <div className="space-y-2 max-h-[12rem] overflow-auto pr-1 custom-scrollbar">
-              {relatedWorkflowList.slice(0, 6).map((item: any) => (
-                <button key={item.id} onClick={() => updateRelatedWorkflowIds(Number(item.id))} className={cn("w-full rounded-2xl border px-4 py-3 text-left transition-all", relatedWorkflowIds.includes(Number(item.id)) ? "border-theme-accent/30 bg-theme-accent/10" : "border-white/10 bg-black/20 hover:bg-white/[0.05]")}>
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{item.name}</p>
-                    <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">{relatedWorkflowIds.includes(Number(item.id)) ? 'Linked' : 'Link'}</span>
-                  </div>
-                  <p className="mt-1 text-[11px] font-bold text-white/55">{item.workflow_type || item.description || 'Reusable component'}</p>
-                </button>
+          {workflowDiff.changedTasks.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">Updated Tasks</p>
+              {workflowDiff.changedTasks.map((task: any) => (
+                <div key={`changed-${task.id}`} className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-[11px] font-bold text-amber-200">
+                  <p className="font-black text-white">{task.name || task.id}</p>
+                  <p className="mt-1 text-[10px] text-amber-100/80">Changed fields: {task.changedFields.join(', ')}</p>
+                </div>
               ))}
             </div>
-          </div>
-          <div className="space-y-2 border-t border-white/5 pt-4">
-            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Suggested Reuse</p>
-            <div className="space-y-2 max-h-[12rem] overflow-auto pr-1 custom-scrollbar">
-                  {(builderSuggestions.workflowMatches.length > 0 ? builderSuggestions.workflowMatches : relatedWorkflowList).slice(0, 6).map((item: any) => (
-                    <div key={`suggested-${item.id}`} className="w-full rounded-2xl border border-white/10 bg-black/15 px-4 py-3 text-left">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{item.name}</p>
-                        <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Suggested</span>
-                      </div>
-                      <p className="mt-1 text-[11px] font-bold text-white/55">{item.workflow_type || item.description || 'Reusable component'}</p>
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        {relatedWorkflowIds.includes(Number(item.id)) ? (
-                          <span className="rounded-full border border-theme-accent/20 bg-theme-accent/10 px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent">
-                            Linked
-                          </span>
-                        ) : (
-                          <button onClick={() => updateRelatedWorkflowIds(Number(item.id))} className="rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white">
-                            Link Workflow
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_0.9fr] gap-4">
-        <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Audit Trail and Usage Friction</p>
-              <p className="mt-1 text-[12px] font-bold text-white/55">Keep the review record visible and surface the most likely adoption blockers.</p>
-            </div>
-            <GitBranch size={16} className="text-theme-accent" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Audit Entries</p>
-              <p className="mt-2 text-[22px] font-black text-theme-accent">{frictionSignals.auditEntries}</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Open Comments</p>
-              <p className="mt-2 text-[22px] font-black text-amber-300">{frictionSignals.unresolvedComments}</p>
-            </div>
-          </div>
-          <div className="space-y-2 max-h-[14rem] overflow-auto pr-1 custom-scrollbar">
-            {auditTrail.map((entry: any) => (
-              <div key={entry.id || `${entry.type}-${entry.created_at}`} className="rounded-xl border border-white/10 bg-black/20 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{entry.type}</p>
-                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">{entry.actor || 'system'}</p>
+          )}
+          {workflowDiff.removedTasks.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-rose-300">Removed Tasks</p>
+              {workflowDiff.removedTasks.map((task: any) => (
+                <div key={`removed-${task.node_id || task.id}`} className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-[11px] font-bold text-rose-200">
+                  Removed task: {task.name || task.id}
                 </div>
-                <p className="mt-1 text-[11px] font-bold text-white/55">{entry.message}</p>
-              </div>
-            ))}
-            {auditTrail.length === 0 && <p className="text-[11px] font-bold text-white/40">No activity has been captured yet.</p>}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {(frictionSignals.bottlenecks || []).map((item: any) => (
-              <div key={item.node_id || item.task_name} className="rounded-xl border border-white/10 bg-black/20 p-3">
-                <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">{item.task_name || 'Bottleneck'}</p>
-                <p className="mt-2 text-[16px] font-black text-rose-300">{Number(item.total_burden_minutes || 0).toFixed(1)}m</p>
-                <p className="mt-1 text-[10px] font-bold text-white/45">{item.blocker_count || 0} blockers / {item.error_count || 0} errors</p>
-              </div>
-            ))}
-            {((frictionSignals.bottlenecks || []).length === 0) && <p className="text-[11px] font-bold text-white/40">No major friction points are reported in the current analysis.</p>}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Import and Export</p>
-              <p className="mt-1 text-[12px] font-bold text-white/55">Move workflow definitions in and out as JSON.</p>
+              ))}
             </div>
-            <div className="flex items-center gap-2">
-              <button onClick={exportWorkflowDraft} className="rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all flex items-center gap-2"><FileDown size={12} /> Export</button>
-              <button onClick={() => setShowImportPanel((prev) => !prev)} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white transition-all flex items-center gap-2"><FileUp size={12} /> Import</button>
+          )}
+          {workflowDiff.addedEdges.length > 0 || workflowDiff.removedEdges.length > 0 || workflowDiff.changedEdges.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-sky-300">Route Changes</p>
+              {workflowDiff.addedEdges.map((edge: any) => (
+                <div key={`edge-added-${edge.id}`} className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-[11px] font-bold text-sky-200">
+                  New connection: {edge.data?.label || edge.id}
+                </div>
+              ))}
+              {workflowDiff.changedEdges.map((edge: any) => (
+                <div key={`edge-${edge.id}`} className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-[11px] font-bold text-sky-200">
+                  Route changed: {edge.changedFields.join(', ')}
+                </div>
+              ))}
+              {workflowDiff.removedEdges.map((edge: any) => (
+                <div key={`edge-removed-${edge.id}`} className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 py-3 text-[11px] font-bold text-sky-200">
+                  Removed connection: {edge.data?.label || `${edge.source} → ${edge.target}`}
+                </div>
+              ))}
             </div>
-          </div>
-          {showImportPanel && (
-            <div className="space-y-3 rounded-xl border border-white/10 bg-black/20 p-4">
-              <textarea className="min-h-[12rem] w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[11px] font-mono text-white/70 outline-none focus:border-theme-accent resize-none" value={importDraft} onChange={(e) => setImportDraft(e.target.value)} placeholder="Paste workflow JSON here..." />
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[10px] font-bold text-white/45">Import replaces the current builder draft state.</p>
-                <button onClick={importWorkflowDraft} className="rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">Apply Import</button>
+          ) : null}
+          {workflowDiff.changedMetadata.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Metadata Changes</p>
+              <div className="flex flex-wrap gap-2">
+                {workflowDiff.changedMetadata.map((field: string) => (
+                  <span key={field} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/55">
+                    {field}
+                  </span>
+                ))}
               </div>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Review Queue</p>
-              <p className="mt-2 text-[22px] font-black text-white">{frictionSignals.reviewQueue}</p>
-            </div>
-            <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Standards Flags</p>
-              <p className="mt-2 text-[22px] font-black text-violet-300">{frictionSignals.standardsFlags.length}</p>
-            </div>
-          </div>
-          <div className="space-y-2">
-            {frictionSignals.standardsFlags.map((flag: string) => (
-              <div key={flag} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-[11px] font-bold text-white/60">
-                {flag}
-              </div>
-            ))}
-            {frictionSignals.standardsFlags.length === 0 && <p className="text-[11px] font-bold text-white/40">No standards flags are attached yet.</p>}
-          </div>
         </div>
       </div>
+      {rollbackPreview?.available && onCreateRollbackDraft && (
+        <button onClick={onCreateRollbackDraft} className="w-full rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">
+          Create Rollback Draft
+        </button>
+      )}
     </div>
   );
 
+  const renderCommentsSurface = () => {
+    const activeTask = utilityPaneTaskId ? tasks.find((task) => String(task.id) === String(utilityPaneTaskId)) : selectedTask;
+    const scopeTitle = activeTask?.name || workflow?.name || 'Workflow';
+    const scopedComments = workflowComments
+      .filter((comment) => {
+        if (utilityPaneTaskId) return comment.scope === 'task' && String(comment.scope_id || '') === String(utilityPaneTaskId);
+        return comment.scope === 'workflow';
+      })
+      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    return (
+      <div className="space-y-4 animate-apple-in pb-10">
+        <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Comments</p>
+              <p className="mt-1 text-[12px] font-bold text-white/55">Add, edit, and delete comments for {scopeTitle}.</p>
+            </div>
+            <MessageSquare size={16} className="text-theme-accent" />
+          </div>
+          <textarea
+            className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-[12px] font-bold text-white/80 outline-none focus:border-theme-accent min-h-[7rem] resize-none"
+            value={commentDraft.message}
+            onChange={(e) => setCommentDraft((prev) => ({ ...prev, message: e.target.value }))}
+            placeholder="Write a comment..."
+          />
+          <div className="flex items-center justify-between gap-3">
+            <button
+              onClick={addWorkflowComment}
+              className="rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all"
+            >
+              Add Comment
+            </button>
+            <p className="text-[10px] font-bold text-white/35">{scopedComments.length} comments</p>
+          </div>
+        </div>
+        <div className="space-y-3 max-h-[34rem] overflow-auto pr-1 custom-scrollbar">
+          {scopedComments.map((comment) => {
+            const isEditing = editingCommentId === comment.id;
+            return (
+              <div key={comment.id} className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{comment.author}</p>
+                    <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/30">{comment.updated_at ? 'Edited' : 'Created'} {String(comment.created_at || comment.updated_at || '').slice(0, 19).replace('T', ' ')}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingCommentId(comment.id);
+                        setEditingCommentDraft(comment.message);
+                      }}
+                      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteWorkflowComment(comment.id)}
+                      className="rounded-xl border border-status-error/20 bg-status-error/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-status-error"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+                {isEditing ? (
+                  <div className="space-y-3">
+                    <textarea
+                      className="w-full rounded-2xl border border-theme-accent/20 bg-black/30 px-4 py-3 text-[12px] font-bold text-white/80 outline-none focus:border-theme-accent min-h-[7rem] resize-none"
+                      value={editingCommentDraft}
+                      onChange={(e) => setEditingCommentDraft(e.target.value)}
+                    />
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          updateWorkflowComment(comment.id, editingCommentDraft);
+                          setEditingCommentId(null);
+                          setEditingCommentDraft('');
+                        }}
+                        className="rounded-xl border border-theme-accent/20 bg-theme-accent/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingCommentId(null);
+                          setEditingCommentDraft('');
+                        }}
+                        className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] font-bold text-white/70 leading-relaxed whitespace-pre-wrap">{comment.message}</p>
+                )}
+              </div>
+            );
+          })}
+          {scopedComments.length === 0 && (
+            <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-[11px] font-bold text-white/40">
+              No comments yet.
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
   const taskTypes = useMemo(() => {
     const fromTaxonomy = taxonomy.find(t => t.category === 'TASK_TYPE');
     if (fromTaxonomy && (fromTaxonomy as any).cached_values) return (fromTaxonomy as any).cached_values;
@@ -2039,19 +1649,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
       const raw = window.localStorage.getItem(layoutPrefsKey);
       if (!raw) {
         setLayoutPrefs({
-          inspectorDock: 'right',
           inspectorCollapsed: false,
           showMiniMap: true,
-          showCanvasControls: true,
         });
         return;
       }
       const parsed = JSON.parse(raw);
       setLayoutPrefs({
-        inspectorDock: parsed?.inspectorDock === 'left' ? 'left' : 'right',
         inspectorCollapsed: Boolean(parsed?.inspectorCollapsed),
         showMiniMap: parsed?.showMiniMap !== false,
-        showCanvasControls: parsed?.showCanvasControls !== false,
       });
     } catch (error) {
       console.warn('[WorkflowBuilder] Failed to restore layout prefs:', error);
@@ -2101,14 +1707,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
           selectedEdgeId,
           selectedNodeIds,
           selectedEdgeIds,
-          builderMode,
-          showGuide,
           isMetadataEditMode,
           workflowComments,
           accessControl,
           ownership,
           relatedWorkflowIds,
-          reviewRequests,
           commentDraft,
           importDraft,
         }));
@@ -2136,14 +1739,11 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     selectedEdgeId,
     selectedNodeIds,
     selectedEdgeIds,
-    builderMode,
-    showGuide,
     isMetadataEditMode,
     workflowComments,
     accessControl,
     ownership,
     relatedWorkflowIds,
-    reviewRequests,
     commentDraft,
     importDraft,
     draftRestored,
@@ -2189,14 +1789,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         reviewers: normalizeStringList(workflow?.ownership?.reviewers),
       });
       setRelatedWorkflowIds(normalizeStringList(workflow?.related_workflow_ids).map((value) => Number(value)).filter((value) => Number.isFinite(value)));
-      setReviewRequests(Array.isArray(workflow?.review_requests) ? workflow.review_requests.map((request: any) => ({
-        id: String(request.id || `review-${Date.now()}`),
-        role: String(request.role || request.requested_from || ''),
-        requested_by: String(request.requested_by || request.requested_from || workflow?.created_by || 'system_user'),
-        status: String(request.status || 'open'),
-        due_at: String(request.due_at || request.review_due_at || ''),
-        note: String(request.note || request.message || ''),
-      })) : []);
       setCommentDraft(createWorkflowComment());
       setImportDraft('');
       initialSnapshotRef.current = JSON.parse(JSON.stringify({
@@ -2207,7 +1799,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         accessControl: workflow?.access_control || {},
         ownership: workflow?.ownership || {},
         relatedWorkflowIds: workflow?.related_workflow_ids || [],
-        reviewRequests: Array.isArray(workflow?.review_requests) ? workflow.review_requests : [],
         version: workflow?.version || 1,
         updated_at: workflow?.updated_at || workflow?.updatedAt || null,
       }));
@@ -2283,7 +1874,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
         position: { x: t.position_x ?? 0, y: t.position_y ?? 0 },
         data: {
           ...t, label: t.name, task_type: t.task_type || 'GENERAL', manual_time: t.manual_time_minutes || 0, automation_time: t.automation_time_minutes || 0, occurrence: t.occurrence || 1, involved_systems: t.involved_systems, owningTeam: t.owning_team, ownerPositions: t.owner_positions, sourceCount: (t.source_data_list || []).length, outputCount: (t.output_data_list || []).length, interface: t.interface, validation_needed: t.validation_needed, blockerCount: (t.blockers || []).length, errorCount: (t.errors || []).length, description: t.description || '', id: String(t.node_id), baseFontSize: 14
-          , commentSummary: { open: 0, resolved: 0, total: 0 }, onOpenComments: openCommentsForTask
+          , commentSummary: { total: 0 }, onOpenComments: openCommentsForTask
         },
       }));
       const initialEdges: Edge[] = (workflow?.edges || []).map((e: any, idx: number) => {
@@ -2365,26 +1956,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, t
     }));
     setIsDirty?.(true);
   }, [nodes, saveToHistory, selectedNodeIds, setIsDirty, setNodes]);
-
-  const applyTemplateToMetadata = useCallback((template: any) => {
-    if (!template) return;
-    saveToHistory();
-    setMetadata((prev) => ({
-      ...prev,
-      name: template.label || prev.name,
-      description: template.description || prev.description,
-      workflow_type: template.workflow_type || prev.workflow_type,
-      prc: template.prc || prev.prc,
-      trigger_type: template.trigger_type || prev.trigger_type,
-      trigger_description: template.trigger_description || prev.trigger_description,
-      output_type: template.output_type || prev.output_type,
-      output_description: template.output_description || prev.output_description,
-      tool_family: Array.isArray(template.tool_family) ? template.tool_family : prev.tool_family,
-      applicable_tools: Array.isArray(template.applicable_tools) ? template.applicable_tools : prev.applicable_tools,
-    }));
-    setIsMetadataEditMode(true);
-    setIsDirty?.(true);
-  }, [saveToHistory, setIsDirty]);
 
   const clearBuilderDraft = useCallback(() => {
     if (typeof window === 'undefined' || !workflow?.id) return;
@@ -2472,7 +2043,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         access_control: accessControl,
         ownership,
         related_workflow_ids: relatedWorkflowIds,
-        review_requests: reviewRequests,
         tasks: tasks.map(t => {
           const node = nodes.find(n => String(n.id) === String(t.node_id));
           return { 
@@ -2661,26 +2231,17 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 <p className="text-[8px] font-black uppercase tracking-[0.18em]">Save</p>
                 <p className="text-[9px] font-bold leading-none">{saveStatus === 'conflict' ? 'Conflict' : saveStatus === 'saving' ? 'Saving' : saveStatus === 'saved' ? 'Saved' : 'Idle'}</p>
               </div>
-              <button onClick={() => setFocusMode((prev) => !prev)} className={cn("px-3 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all whitespace-nowrap border leading-none", focusMode ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
-                {focusMode ? 'Exit Focus' : 'Focus Mode'}
-              </button>
               <button onClick={openHistoryPane} className={cn("px-3 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all whitespace-nowrap border leading-none", utilityPane === 'history' ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
                 History
               </button>
+              <button onClick={() => updateLayoutPrefs({ inspectorCollapsed: !layoutPrefs.inspectorCollapsed })} className={cn("px-3 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all whitespace-nowrap border leading-none", layoutPrefs.inspectorCollapsed ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+                {layoutPrefs.inspectorCollapsed ? 'Expand Inspector' : 'Collapse Inspector'}
+              </button>
+              <button onClick={() => updateLayoutPrefs({ showMiniMap: !layoutPrefs.showMiniMap })} className={cn("px-3 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all whitespace-nowrap border leading-none", layoutPrefs.showMiniMap ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+                {layoutPrefs.showMiniMap ? 'Hide MiniMap' : 'Show MiniMap'}
+              </button>
               <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
-                <button onClick={() => updateLayoutPrefs({ inspectorDock: 'left' })} className={cn("rounded-lg px-3 py-1.5 text-[9px] font-black uppercase transition-all leading-none", layoutPrefs.inspectorDock === 'left' ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>Dock Left</button>
-                <button onClick={() => updateLayoutPrefs({ inspectorDock: 'right' })} className={cn("rounded-lg px-3 py-1.5 text-[9px] font-black uppercase transition-all leading-none", layoutPrefs.inspectorDock === 'right' ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>Dock Right</button>
-                <button onClick={() => updateLayoutPrefs({ inspectorCollapsed: !layoutPrefs.inspectorCollapsed })} className={cn("rounded-lg px-3 py-1.5 text-[9px] font-black uppercase transition-all leading-none", layoutPrefs.inspectorCollapsed ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>{layoutPrefs.inspectorCollapsed ? 'Expand Inspector' : 'Collapse Inspector'}</button>
-              </div>
-              <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
-                <button onClick={() => updateLayoutPrefs({ showMiniMap: !layoutPrefs.showMiniMap })} className={cn("rounded-lg px-3 py-1.5 text-[9px] font-black uppercase transition-all leading-none", layoutPrefs.showMiniMap ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>{layoutPrefs.showMiniMap ? 'Hide MiniMap' : 'Show MiniMap'}</button>
-                <button onClick={() => updateLayoutPrefs({ showCanvasControls: !layoutPrefs.showCanvasControls })} className={cn("rounded-lg px-3 py-1.5 text-[9px] font-black uppercase transition-all leading-none", layoutPrefs.showCanvasControls ? "bg-theme-accent text-white" : "text-white/45 hover:text-white")}>{layoutPrefs.showCanvasControls ? 'Hide Controls' : 'Show Controls'}</button>
-              </div>
-              <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
-                <button onClick={() => zoomOut({ duration: 150 })} className="rounded-lg px-3 py-1.5 text-[9px] font-black uppercase text-white/45 hover:text-white leading-none">-</button>
                 <button onClick={() => fitView({ padding: 0.12, duration: 250 })} className="rounded-lg px-3 py-1.5 text-[9px] font-black uppercase text-white/45 hover:text-white leading-none">Fit</button>
-                <button onClick={() => zoomIn({ duration: 150 })} className="rounded-lg px-3 py-1.5 text-[9px] font-black uppercase text-white/45 hover:text-white leading-none">+</button>
-                <button onClick={() => setViewport({ x: 0, y: 0, zoom: 1 }, { duration: 150 })} className="rounded-lg px-3 py-1.5 text-[9px] font-black uppercase text-white/45 hover:text-white leading-none">Reset</button>
               </div>
               {selectedItemCount > 0 && (
                 <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5">
@@ -2705,12 +2266,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Server</p>
                 <p className="text-[9px] font-bold text-white/70 leading-none">{savedAtLabel}</p>
               </div>
-              <input
-                value={builderSearch}
-                onChange={(e) => setBuilderSearch(e.target.value)}
-                placeholder="Search templates, workflows, tasks"
-                className="min-w-[220px] flex-1 sm:flex-none sm:w-[280px] bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-[11px] text-white outline-none focus:border-theme-accent"
-              />
               <div className="ml-auto flex flex-wrap gap-2">
                 <button data-testid="builder-add-task" onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2 bg-theme-accent text-white rounded-2xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap leading-none"><Plus size={12} /> Add Task</button>
                 <button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-2xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap leading-none"><Plus size={12} /> Add Condition</button>
@@ -2724,7 +2279,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">{utilityPane === 'comments' ? 'Comments' : 'Version History'}</p>
                   <p className="mt-1 text-[11px] font-bold text-white/55 leading-relaxed">
                     {utilityPane === 'comments'
-                      ? 'Add notes, reply to threads, and keep task-level feedback attached to the right node.'
+                      ? 'Add, edit, or delete comments for the selected task or workflow.'
                       : 'Compare the working draft against the last saved version, approved version, or a chosen version.'}
                   </p>
                 </div>
@@ -2733,7 +2288,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 </button>
               </div>
               <div className="mt-3">
-                {renderWorkflowOpsSurface()}
+                {utilityPane === 'comments' ? renderCommentsSurface() : renderHistorySurface()}
               </div>
             </div>
           )}
@@ -2768,7 +2323,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             className="react-flow-industrial"
             >
               <Background color="#1e293b" gap={30} size={1} />
-              {layoutPrefs.showCanvasControls && <Controls className="!bg-[#0a1120] !border-white/10 !rounded-xl overflow-hidden" />}
               {layoutPrefs.showMiniMap && (
                 <div className="absolute bottom-4 right-4 z-20">
                   <button
@@ -2802,10 +2356,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         </div>
       </div>
 
-      {!focusMode && (
         <div className={cn(
           "relative border-t xl:border-t-0 xl:border-l border-white/10 bg-[#09111d] flex flex-col z-[70] w-full xl:flex-none h-full min-h-0 overflow-hidden",
-          layoutPrefs.inspectorDock === 'left' ? "xl:order-first" : "xl:order-last",
           layoutPrefs.inspectorCollapsed ? "xl:w-[92px]" : "xl:[width:var(--inspector-width)]",
         )} style={{ '--inspector-width': `${inspectorWidth}px` } as React.CSSProperties}>
         <div onMouseDown={handleMouseDown} className="hidden xl:block absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent z-50" />
@@ -2827,14 +2379,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               <button onClick={() => updateLayoutPrefs({ inspectorCollapsed: false })} className="rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-3 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white">
                 Open Inspector
               </button>
-              <button onClick={() => updateLayoutPrefs({ inspectorDock: layoutPrefs.inspectorDock === 'left' ? 'right' : 'left' })} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-white/45 hover:text-white">
-                Dock {layoutPrefs.inspectorDock === 'left' ? 'Right' : 'Left'}
-              </button>
               <button onClick={() => updateLayoutPrefs({ showMiniMap: !layoutPrefs.showMiniMap })} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-white/45 hover:text-white">
                 {layoutPrefs.showMiniMap ? 'Hide' : 'Show'} MiniMap
-              </button>
-              <button onClick={() => updateLayoutPrefs({ showCanvasControls: !layoutPrefs.showCanvasControls })} className="rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-[9px] font-black uppercase tracking-[0.18em] text-white/45 hover:text-white">
-                {layoutPrefs.showCanvasControls ? 'Hide' : 'Show'} Controls
               </button>
             </div>
           </div>
@@ -2894,18 +2440,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Contextual Description</label>
-                    <textarea 
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[13px] font-medium text-white/60 outline-none focus:border-theme-accent h-32 resize-none disabled:opacity-50" 
-                      value={selectedTask.description} 
-                      onChange={e => updateTask(selectedTaskId, { description: e.target.value })} 
-                      disabled={isProtected}
-                    />
+                    <div className={cn("rounded-xl border bg-white/5 p-1", issuesForField('task.description', selectedTaskId).length > 0 ? "border-status-error/40 bg-status-error/10" : "border-white/10")}>
+                      <textarea 
+                        className="w-full bg-transparent border-0 rounded-[inherit] px-3 py-3 text-[13px] font-medium text-white/60 outline-none focus:border-theme-accent h-32 resize-none disabled:opacity-50" 
+                        value={selectedTask.description} 
+                        onChange={e => updateTask(selectedTaskId, { description: e.target.value })} 
+                        disabled={isProtected}
+                      />
+                    </div>
                     {issuesForField('task.description', selectedTaskId).length > 0 && (
-                      <div className="flex flex-wrap gap-2">
+                      <div className="space-y-2">
                         {issuesForField('task.description', selectedTaskId).map((issue) => (
-                          <span key={issueId(issue)} className={cn("rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>
+                          <div key={issueId(issue)} className="rounded-xl border border-status-error/30 bg-status-error/10 px-4 py-3 text-[11px] font-bold text-status-error">
                             {issue.message}
-                          </span>
+                          </div>
                         ))}
                       </div>
                     )}
@@ -3360,94 +2908,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             </div>
           ) : (
             <div className="space-y-4 animate-apple-in pb-16">
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Quick Start Library</p>
-                      <p className="mt-1 text-[12px] font-bold text-white/55">Reuse approved metadata and workflow patterns.</p>
-                    </div>
-                    <Search size={14} className="text-white/25" />
-                  </div>
-                  <div className="flex gap-2">
-                    <input value={builderSearch} onChange={(e) => setBuilderSearch(e.target.value)} placeholder="Search templates or related workflows" className={cn(BUILDER_FIELD, "flex-1 py-2.5")} />
-                  </div>
-                  <div className="space-y-2">
-                    {(builderSuggestions.templateMatches || []).slice(0, 3).map((template: any) => (
-                      <div key={template.key || template.label} className="rounded-lg border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-black uppercase text-white truncate">{template.label || template.key}</p>
-                          <p className="text-[10px] text-white/45 leading-relaxed mt-1">{template.description || template.workflow_type || 'Template starter'}</p>
-                        </div>
-                        <button onClick={() => applyTemplateToMetadata(template)} className={cn(BUILDER_BUTTON, "shrink-0 bg-theme-accent text-white whitespace-nowrap")}>Use</button>
-                      </div>
-                    ))}
-                    {(builderSuggestions.templateMatches || []).length === 0 && (
-                      <div className="rounded-lg border border-dashed border-white/10 bg-black/20 p-3 text-[11px] font-bold text-white/35">
-                        No matching templates. Start from the current workflow and use the metadata panel below.
-                      </div>
-                    )}
-                  </div>
-                  {(builderSuggestions.workflowMatches || []).length > 0 && (
-                    <div className="space-y-2 border-t border-white/5 pt-3">
-                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30">Related Workflows</p>
-                      {builderSuggestions.workflowMatches.slice(0, 3).map((item: any) => (
-                        <div key={item.id || item.name} className="rounded-lg border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-[11px] font-black uppercase text-white truncate">{item.name || item.label || 'Related workflow'}</p>
-                            <p className="text-[10px] text-white/45 leading-relaxed mt-1">{item.description || item.workflow_type || 'Reusable workflow example'}</p>
-                          </div>
-                          <button onClick={() => applyTemplateToMetadata(item)} className={cn(BUILDER_BUTTON, "shrink-0 bg-white/5 border border-white/10 text-white/50 whitespace-nowrap")}>Borrow</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {builderSuggestions.taskLibrary.length > 0 && (
-                    <div className="space-y-2 border-t border-white/5 pt-3">
-                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30">Current Draft Tasks</p>
-                      {builderSuggestions.taskLibrary.map((task: any) => (
-                        <button key={task.id} onClick={() => { setSelectedTaskId(task.id); setSelectedNodeIds([task.id]); setInspectorTab('overview'); }} className="w-full rounded-lg border border-white/10 bg-black/25 p-3 flex items-start justify-between gap-3 text-left hover:bg-white/5 transition-all">
-                          <div className="min-w-0">
-                            <p className="text-[11px] font-black uppercase text-white truncate">{task.name || 'Untitled task'}</p>
-                            <p className="text-[10px] text-white/45 leading-relaxed mt-1">{task.description || task.task_type || 'Draft task'}</p>
-                          </div>
-                          <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-2 py-1 text-[8px] font-black uppercase text-white/40">Open</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className={cn(BUILDER_PANEL, "p-4 space-y-3")}>
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Validation Health</p>
-                      <p className="mt-1 text-[12px] font-bold text-white/55">{validationSummary}</p>
-                    </div>
-                    <button onClick={() => setInspectorTab('validation')} className={cn(BUILDER_BUTTON, "shrink-0 border border-white/10 bg-white/5 text-white/60")}>Open</button>
-                  </div>
-                  {blockingValidationIssues.length > 0 && (
-                    <div className="rounded-lg border border-status-error/20 bg-status-error/10 px-4 py-2 text-[11px] font-bold text-status-error">
-                      Fix the blocking issues before saving. Select any item below to jump to the affected field or node.
-                    </div>
-                  )}
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      <span className="rounded-full border border-status-error/20 bg-status-error/10 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-status-error">{validationErrorCount} errors</span>
-                      <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">{validationWarningCount} warnings</span>
-                    </div>
-                    <p className="text-[11px] font-bold text-white/45 leading-relaxed">
-                      Validation details no longer use separate cards. Fix the field or node directly from the inline markers.
-                    </p>
-                    {validationIssues.length === 0 && (
-                      <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-[11px] font-bold text-emerald-300">
-                        The current draft is structurally clean.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
               <div className="flex items-center justify-between border-b border-white/10 pb-3">
                 <div className="flex items-center gap-3">
                   <LucideWorkflow className="text-theme-accent" size={18} />
@@ -3633,7 +3093,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         </div>
       )}
       </div>
-    )}
     </div>
   );
 };
