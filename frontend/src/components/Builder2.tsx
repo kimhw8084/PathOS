@@ -997,7 +997,7 @@ const ConfirmDeleteOverlay: React.FC<{ onConfirm: () => void, onCancel: () => vo
       <span className="text-[9px] font-black text-white uppercase tracking-tight">{label}</span>
     </div>
     <div className="flex gap-1.5">
-      <button onClick={(e) => { e.stopPropagation(); onConfirm(); }} className="flex-1 py-[5px] bg-status-error text-white text-[8px] font-black uppercase rounded-[8px] shadow-lg shadow-status-error/20 hover:bg-status-error/80 transition-colors">Confirm Delete</button>
+      <button onClick={(e) => { e.stopPropagation(); onConfirm(); }} className="flex-1 py-[5px] bg-status-error text-white text-[8px] font-black uppercase rounded-[8px] shadow-lg shadow-status-error/20 hover:bg-status-error/80 transition-colors">Remove</button>
       <button onClick={(e) => { e.stopPropagation(); onCancel(); }} className="flex-1 py-[5px] bg-white/5 text-white/40 text-[8px] font-black uppercase rounded-[8px] hover:bg-white/10 transition-colors">Cancel</button>
     </div>
   </div>
@@ -2368,7 +2368,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                     disabled={reviewMode}
                     className="rounded-[8px] border border-rose-500/20 bg-rose-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-rose-300"
                   >
-                    Delete
+                    Remove
                   </button>
                   </div>
                 </div>
@@ -4266,7 +4266,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <div className="pt-4 border-t border-white/5 space-y-1.5">
                       {confirmingDelete === selectedTaskId ? (
                         <ConfirmDeleteOverlay 
-                          label={`Delete ${selectedTask.task_type === 'LOOP' ? 'Condition' : 'Task'}?`}
+                          label={`Remove ${selectedTask.task_type === 'LOOP' ? 'Condition' : 'Task'}?`}
                           onConfirm={() => deleteTask(selectedTaskId)}
                           onCancel={() => setConfirmingDelete(null)}
                         />
@@ -4315,7 +4315,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Format / Example</label>
                               <input className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-white/60 outline-none focus:border-theme-accent disabled:opacity-50" value={sd.data_example} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, data_example: e.target.value } : x) })} placeholder="Example value or format" disabled={!!sd.from_task_id} />
                             </div>
-                            <ImagePasteField figures={sd.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, figures: figs } : x) })} label="Evidence Figures (Ctrl+V)" isLocked={!!sd.from_task_id} />
+                            <ImagePasteField figures={sd.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, figures: figs } : x) })} label="Proof images (Ctrl+V)" isLocked={!!sd.from_task_id} />
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Links</label>
                               <input className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-theme-accent outline-none disabled:opacity-50" value={sd.link} onChange={e => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.map(x => x.id === sd.id ? { ...x, link: e.target.value } : x) })} placeholder="Relevant URL" disabled={!!sd.from_task_id} />
@@ -4360,7 +4360,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Format / Example</label>
                               <input className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-white/60 outline-none focus:border-theme-accent" value={od.data_example} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, data_example: e.target.value } : x) })} placeholder="Example value or format" />
                             </div>
-                            <ImagePasteField figures={od.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, figures: figs } : x) })} label="Evidence Figures (Ctrl+V)" />
+                            <ImagePasteField figures={od.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, figures: figs } : x) })} label="Proof images (Ctrl+V)" />
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Links</label>
                               <input className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-theme-accent outline-none" value={od.link} onChange={e => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.map(x => x.id === od.id ? { ...x, link: e.target.value } : x) })} placeholder="Relevant URL" />
@@ -4380,12 +4380,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               )}
               {inspectorTab === 'exceptions' && (
                 <div className={cn("space-y-1.5", isReadOnlyMode && "pointer-events-none select-none opacity-80")}>
-                  <CollapsibleSection title="Roadblocks" isOpen={expandedSections.blockers} toggle={() => toggleSection('blockers')} count={selectedTask.blockers.length}>
+                  <CollapsibleSection title="Slowdowns" isOpen={expandedSections.blockers} toggle={() => toggleSection('blockers')} count={selectedTask.blockers.length}>
                     <div className="space-y-1.5 pt-4">
                       {selectedTask.blockers.map((b, idx) => (
                         <NestedCollapsible
                           key={b.id}
-                          title={b.blocking_entity || "New Roadblock"}
+                          title={b.blocking_entity || "New Slowdown"}
                           isOpen={openItems[b.id]}
                           toggle={() => toggleItem(b.id)}
                           onMoveUp={idx > 0 ? () => updateTask(selectedTaskId, { blockers: moveArrayItem(selectedTask.blockers || [], idx, idx - 1) }) : undefined}
@@ -4394,41 +4394,41 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         >
                           <div className="space-y-1.5">
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Roadblock Description *</label>
-                              <input className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-white outline-none focus:border-amber-500" value={b.blocking_entity} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, blocking_entity: e.target.value } : x) })} placeholder="What stops the process?" />
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">What slows it down *</label>
+                              <input className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-white outline-none focus:border-amber-500" value={b.blocking_entity} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, blocking_entity: e.target.value } : x) })} placeholder="What gets in the way?" />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Average Delay (Minutes)</label>
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Delay (Minutes)</label>
                               <input type="number" className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[12px] text-white" value={b.average_delay_minutes || 0} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, average_delay_minutes: parseFloat(e.target.value) || 0 } : x) })} />
                             </div>
                             <div className="space-y-1.5">
                               <div className="flex justify-between items-center">
-                                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Frequency ({b.frequency || 1} / 10)</label>
+                                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">How often ({b.frequency || 1} / 10)</label>
                               </div>
                               <input type="range" min="1" max="10" step="1" className="w-full accent-amber-500" value={b.frequency || 1} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, frequency: parseInt(e.target.value) } : x) })} />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Mitigation Description</label>
-                              <textarea className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-white/60 h-[4.5rem] resize-none outline-none focus:border-amber-500" value={b.reason} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, reason: e.target.value } : x) })} placeholder="Action to reduce delay..." />
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">How to reduce it</label>
+                              <textarea className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-white/60 h-[4.5rem] resize-none outline-none focus:border-amber-500" value={b.reason} onChange={e => updateTask(selectedTaskId, { blockers: selectedTask.blockers.map(x => x.id === b.id ? { ...x, reason: e.target.value } : x) })} placeholder="What would reduce the delay?" />
                             </div>
                           </div>
                         </NestedCollapsible>
                       ))}
                       {selectedTask.blockers.length === 0 && (
                         <div className="rounded-[8px] border border-amber-500/15 bg-amber-500/5 px-1.5 py-1.5 text-[11px] font-bold text-amber-100">
-                          No blockers logged yet. Capture only the delays that materially affect the task.
+                          No slowdowns logged yet. Capture only the delays that materially affect the task.
                         </div>
                       )}
-                      <button onClick={() => updateTask(selectedTaskId, { blockers: [...selectedTask.blockers, { id: Date.now().toString(), blocking_entity: '', reason: '', average_delay_minutes: 0, frequency: 1 }] })} className="w-full py-1.5 bg-amber-500/10 border border-amber-500/20 text-[10px] font-black uppercase text-amber-500 hover:bg-amber-500/20 transition-all rounded-[8px] flex items-center justify-center gap-1.5"><Plus size={12} /> Add Roadblock</button>
+                      <button onClick={() => updateTask(selectedTaskId, { blockers: [...selectedTask.blockers, { id: Date.now().toString(), blocking_entity: '', reason: '', average_delay_minutes: 0, frequency: 1 }] })} className="w-full py-1.5 bg-amber-500/10 border border-amber-500/20 text-[10px] font-black uppercase text-amber-500 hover:bg-amber-500/20 transition-all rounded-[8px] flex items-center justify-center gap-1.5"><Plus size={12} /> Add Slowdown</button>
                     </div>
                   </CollapsibleSection>
 
-                  <CollapsibleSection title="Human Errors" isOpen={expandedSections.errors} toggle={() => toggleSection('errors')} count={selectedTask.errors.length}>
+                  <CollapsibleSection title="Mistakes" isOpen={expandedSections.errors} toggle={() => toggleSection('errors')} count={selectedTask.errors.length}>
                     <div className="space-y-1.5 pt-4">
                       {selectedTask.errors.map((er, idx) => (
                         <NestedCollapsible
                           key={er.id}
-                          title={er.error_type || "New Error"}
+                          title={er.error_type || "New Mistake"}
                           isOpen={openItems[er.id]}
                           toggle={() => toggleItem(er.id)}
                           onMoveUp={idx > 0 ? () => updateTask(selectedTaskId, { errors: moveArrayItem(selectedTask.errors || [], idx, idx - 1) }) : undefined}
@@ -4437,21 +4437,21 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         >
                           <div className="space-y-1.5">
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Error Description *</label>
-                              <input className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-white outline-none focus:border-status-error" value={er.error_type} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, error_type: e.target.value } : x) })} placeholder="Describe the common human error" />
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">What happened *</label>
+                              <input className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-white outline-none focus:border-status-error" value={er.error_type} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, error_type: e.target.value } : x) })} placeholder="Describe the common mistake" />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Recovery (Minutes)</label>
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Recovery time (Minutes)</label>
                               <input type="number" className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[12px] text-white" value={er.recovery_time_minutes || 0} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, recovery_time_minutes: parseFloat(e.target.value) || 0 } : x) })} />
                             </div>
                             <div className="space-y-1.5">
                               <div className="flex justify-between items-center">
-                                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Frequency ({er.frequency || 1} / 10)</label>
+                                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">How often ({er.frequency || 1} / 10)</label>
                               </div>
                               <input type="range" min="1" max="10" step="1" className="w-full accent-status-error" value={er.frequency || 1} onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, frequency: parseInt(e.target.value) } : x) })} />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Correction Method</label>
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">How to fix it</label>
                               <textarea 
                                 className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-white/60 h-[5.5rem] resize-none outline-none focus:border-status-error" 
                                 value={er.description} 
@@ -4466,7 +4466,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                   }
                                 }}
                                 onChange={e => updateTask(selectedTaskId, { errors: selectedTask.errors.map(x => x.id === er.id ? { ...x, description: e.target.value } : x) })}
-                                placeholder="Steps to correct this error (auto-numbered if multiple lines)..." 
+                                placeholder="Steps to correct this mistake (auto-numbered if multiple lines)..." 
                               />
                             </div>
                           </div>
@@ -4474,20 +4474,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       ))}
                       {selectedTask.errors.length === 0 && (
                         <div className="rounded-[8px] border border-rose-500/15 bg-rose-500/5 px-1.5 py-1.5 text-[11px] font-bold text-rose-100">
-                          No common errors captured yet. Add only repeatable mistakes that need explicit recovery steps.
+                          No mistakes captured yet. Add only repeatable issues that need explicit recovery steps.
                         </div>
                       )}
-                      <button onClick={() => updateTask(selectedTaskId, { errors: [...selectedTask.errors, { id: Date.now().toString(), error_type: '', description: '', recovery_time_minutes: 0, frequency: 1 }] })} className="w-full py-1.5 bg-status-error/10 border border-status-error/20 text-[10px] font-black uppercase text-status-error hover:bg-status-error/20 transition-all rounded-[8px] flex items-center justify-center gap-1.5"><Plus size={12} /> Add Human Error</button>
+                      <button onClick={() => updateTask(selectedTaskId, { errors: [...selectedTask.errors, { id: Date.now().toString(), error_type: '', description: '', recovery_time_minutes: 0, frequency: 1 }] })} className="w-full py-1.5 bg-status-error/10 border border-status-error/20 text-[10px] font-black uppercase text-status-error hover:bg-status-error/20 transition-all rounded-[8px] flex items-center justify-center gap-1.5"><Plus size={12} /> Add Mistake</button>
                     </div>
                   </CollapsibleSection>
 
                   <ManagedListSection 
-                    title="Tribal Knowledge Entries" 
+                    title="Tips and Tricks" 
                     items={selectedTask.tribal_knowledge || []} 
                     onUpdate={(items) => updateTask(selectedTaskId, { tribal_knowledge: items })}
                     isOpen={expandedSections.tribal}
                     toggle={() => toggleSection('tribal')}
-                    placeholder="Capture unwritten knowledge or tips..."
+                    placeholder="Capture unwritten tips or shortcuts..."
                   />
                 </div>
               )}
@@ -4513,7 +4513,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         {(selectedTask.validation_procedure_steps || []).map((step, idx) => (
                         <NestedCollapsible
                           key={step.id}
-                          title={`Verification Step ${idx + 1}`}
+                          title={`Check ${idx + 1}`}
                           isOpen={openItems[step.id]}
                           toggle={() => toggleItem(step.id)}
                           onMoveUp={idx > 0 ? () => updateTask(selectedTaskId, { validation_procedure_steps: moveArrayItem(selectedTask.validation_procedure_steps || [], idx, idx - 1) }) : undefined}
@@ -4522,25 +4522,25 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         >
                             <div className="space-y-1.5">
                               <div className="space-y-1">
-                                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Description *</label>
+                                <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">What to check *</label>
                                 <textarea 
                                 data-builder-field="task.validation_procedure_steps"
                                 className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-white/80 h-24 resize-none outline-none focus:border-orange-500" 
                                   value={step.description} 
                                   onChange={e => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.map(x => x.id === step.id ? { ...x, description: e.target.value } : x) })} 
-                                  placeholder="Describe the verification action..."
+                                  placeholder="Describe the check..."
                                 />
                                 {!step.description && issuesForField('task.validation_step', selectedTaskId).length > 0 && (
                                   <p className={cn("mt-2 rounded-[8px] border px-1.5 py-1 text-[10px] font-bold leading-relaxed", compactIssueTone('error'))}>
-                                    Verification step description is required.
+                                    Check description is required.
                                   </p>
                                 )}
                               </div>
-                              <ImagePasteField figures={step.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.map(x => x.id === step.id ? { ...x, figures: figs } : x) })} label="Evidence Figures (Ctrl+V)" />
+                              <ImagePasteField figures={step.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.map(x => x.id === step.id ? { ...x, figures: figs } : x) })} label="Proof images (Ctrl+V)" />
                             </div>
                           </NestedCollapsible>
                         ))}
-                        <button onClick={() => updateTask(selectedTaskId, { validation_procedure_steps: [...(selectedTask.validation_procedure_steps || []), { id: Date.now().toString(), description: '', figures: [] }] })} className="w-full py-1.5 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-orange-500 transition-all rounded-[8px] leading-none">+ Add Verification Step</button>
+                        <button onClick={() => updateTask(selectedTaskId, { validation_procedure_steps: [...(selectedTask.validation_procedure_steps || []), { id: Date.now().toString(), description: '', figures: [] }] })} className="w-full py-1.5 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-orange-500 transition-all rounded-[8px] leading-none">+ Add Check</button>
                       </div>
                     )}
                   </div>
@@ -4858,7 +4858,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                   onClick={() => setMetadata({ ...metadata, pre_requisites: metadata.pre_requisites.filter((_, idx) => idx !== index) })}
                                   className="h-8 shrink-0 rounded-[8px] border border-white/10 bg-white/5 px-1.5 text-[8px] font-black uppercase text-white/40 hover:text-white"
                                 >
-                                  Delete
+                                  Remove
                                 </button>
                               </div>
                             ))}
