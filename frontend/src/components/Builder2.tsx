@@ -52,6 +52,8 @@ import {
   Clock3,
   MapPinned,
   ShieldAlert,
+  ShieldCheck,
+  BriefcaseBusiness,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -67,7 +69,7 @@ function cn(...inputs: ClassValue[]) {
 }
 
 type InspectorTab = 'overview' | 'data' | 'exceptions' | 'validation' | 'appendix';
-type BuilderUtilityPane = 'comments' | 'history' | null;
+type BuilderUtilityPane = 'comments' | 'history' | 'review' | null;
 
 interface BuilderLayoutPrefs {
   inspectorCollapsed: boolean;
@@ -1048,6 +1050,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
   const [utilityPane, setUtilityPane] = useState<BuilderUtilityPane>(null);
   const [utilityPaneTaskId, setUtilityPaneTaskId] = useState<string | null>(null);
   const [utilityPaneSectionId, setUtilityPaneSectionId] = useState<string | null>(null);
+  const [commentFilter, setCommentFilter] = useState<'all' | 'open' | 'resolved'>('all');
   const [historyCompareMode, setHistoryCompareMode] = useState<'saved' | 'approved' | 'selected'>('saved');
   const [historyCompareVersionId, setHistoryCompareVersionId] = useState<string>('');
   const [importDraft, setImportDraft] = useState('');
@@ -1773,6 +1776,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
     setUtilityPane('comments');
     setUtilityPaneTaskId(nextTaskId);
     setUtilityPaneSectionId(null);
+    setCommentFilter('all');
     setSelectedTaskId(nextTaskId);
     setSelectedEdgeId(null);
     if (nextTaskId) {
@@ -1784,6 +1788,12 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
 
   const openHistoryPane = useCallback(() => {
     setUtilityPane('history');
+    setUtilityPaneTaskId(null);
+    setUtilityPaneSectionId(null);
+  }, []);
+
+  const openReviewPane = useCallback(() => {
+    setUtilityPane('review');
     setUtilityPaneTaskId(null);
     setUtilityPaneSectionId(null);
   }, []);
@@ -2009,27 +2019,27 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
   const renderHistorySurface = () => {
     return (
       <div className="space-y-1.5 animate-apple-in pb-8">
-        <div className={cn(BUILDER_PANEL, "p-1.5 space-y-1.5")}>
+        <div className={cn(BUILDER_PANEL, "p-1.5 space-y-1.5 border-slate-500/15 bg-slate-500/5")}>
           <div className="flex items-center justify-between gap-1.5">
             <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Version History</p>
-              <p className="mt-1 text-[11px] font-bold text-white/55">Compare the current draft against a saved, approved, or selected version.</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-200">Version History</p>
+              <p className="mt-1 text-[11px] font-bold text-white/50">Compare this draft against a saved, approved, or selected version.</p>
             </div>
-            <History size={16} className="text-theme-accent" />
+            <History size={16} className="text-slate-200" />
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             {(['saved', 'approved', 'selected'] as const).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setHistoryCompareMode(mode)}
-                className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] transition-all", historyCompareMode === mode ? "border-theme-accent/20 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/45 hover:text-white")}
+                className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] transition-all", historyCompareMode === mode ? "border-slate-300/20 bg-slate-300/10 text-white" : "border-white/10 bg-black/20 text-white/45 hover:text-white")}
               >
                 {mode === 'saved' ? 'Saved' : mode === 'approved' ? 'Approved' : 'Selected'}
               </button>
             ))}
             {historyCompareMode === 'selected' && (
               <select
-                className="rounded-[8px] border border-white/10 bg-black/30 px-1.5 py-[3px] text-[8px] font-black uppercase text-white outline-none"
+                className="rounded-[8px] border border-slate-300/15 bg-black/30 px-1.5 py-[3px] text-[8px] font-black uppercase text-white outline-none"
                 value={historyCompareVersionId}
                 onChange={(e) => setHistoryCompareVersionId(e.target.value)}
               >
@@ -2052,8 +2062,8 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                 className={cn(
                   "rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] transition-colors",
                   String(historyCompareVersionId) === String(version.id) && historyCompareMode === 'selected'
-                    ? "border-theme-accent/20 bg-theme-accent/10 text-theme-accent"
-                    : "border-white/10 bg-white/5 text-white/45 hover:text-white",
+                    ? "border-slate-300/20 bg-slate-300/10 text-white"
+                    : "border-white/10 bg-black/20 text-white/45 hover:text-white",
                   version.isCurrent && "opacity-70"
                 )}
               >
@@ -2061,19 +2071,19 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
               </button>
             ))}
           </div>
-          <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1 text-[9px] font-bold text-white/55">
+          <div className="rounded-[8px] border border-slate-300/15 bg-slate-500/10 px-1.5 py-1 text-[9px] font-bold text-slate-100">
             Comparing against {historyCompareMode === 'saved' ? 'last saved draft' : historyCompareMode === 'approved' ? 'latest approved version' : `v${historyComparisonSnapshot?.metadata?.version || historyCompareVersionId || 'selected'}`}.
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-            <div className="rounded-[8px] border border-white/10 bg-black/20 p-1.5">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Tasks changed</p>
-              <p className="mt-2 text-[22px] font-black text-theme-accent">
+            <div className="rounded-[8px] border border-slate-300/15 bg-slate-500/10 p-1.5">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-slate-200">Tasks changed</p>
+              <p className="mt-1 text-[20px] font-black text-white">
                 {workflowDiff.addedTasks.length + workflowDiff.changedTasks.length + workflowDiff.removedTasks.length}
               </p>
             </div>
-            <div className="rounded-[8px] border border-white/10 bg-black/20 p-1.5">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Routes changed</p>
-              <p className="mt-2 text-[22px] font-black text-emerald-300">
+            <div className="rounded-[8px] border border-cyan-500/15 bg-cyan-500/10 p-1.5">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-cyan-100">Routes changed</p>
+              <p className="mt-1 text-[20px] font-black text-cyan-100">
                 {workflowDiff.addedEdges.length + workflowDiff.removedEdges.length + workflowDiff.changedEdges.length}
               </p>
             </div>
@@ -2081,13 +2091,13 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
         </div>
         <div className="space-y-1.5 max-h-[15rem] overflow-auto pr-1 custom-scrollbar">
           {workflowDiff.addedTasks.length === 0 && workflowDiff.removedTasks.length === 0 && workflowDiff.changedTasks.length === 0 && workflowDiff.addedEdges.length === 0 && workflowDiff.removedEdges.length === 0 && workflowDiff.changedEdges.length === 0 && workflowDiff.changedMetadata.length === 0 && (
-            <div className="rounded-[8px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-1.5 text-[10px] font-bold text-emerald-300">
+            <div className="rounded-[8px] border border-slate-300/15 bg-slate-500/10 px-1.5 py-1.5 text-[10px] font-bold text-slate-100">
               No task or route changes were detected against the selected baseline. Switch baselines or make a draft edit to compare.
             </div>
           )}
           {workflowDiff.addedTasks.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">New tasks</p>
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">Added tasks</p>
               {workflowDiff.addedTasks.map((task: any) => (
                 <div key={`added-${task.node_id || task.id}`} className="rounded-[8px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-1.5 text-[10px] font-bold text-emerald-100">
                   <div className="flex items-center justify-between gap-1.5">
@@ -2201,24 +2211,43 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
         return comment.scope === 'workflow';
       })
       .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+    const filteredComments = scopedComments.filter((comment) => {
+      if (commentFilter === 'open') return comment.status !== 'resolved';
+      if (commentFilter === 'resolved') return comment.status === 'resolved';
+      return true;
+    });
     const openCount = scopedComments.filter((comment) => comment.status !== 'resolved').length;
     const resolvedCount = scopedComments.filter((comment) => comment.status === 'resolved').length;
     return (
       <div className="space-y-1.5 animate-apple-in pb-8">
-        <div className={cn(BUILDER_PANEL, "p-1.5 space-y-1.5")}>
+        <div className={cn(BUILDER_PANEL, "p-1.5 space-y-1.5 border-sky-500/15 bg-sky-500/5")}>
           <div className="flex items-center justify-between gap-1.5">
             <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Comments</p>
-              <p className="mt-1 text-[11px] font-bold text-white/55">Notes for {scopeTitle}. Keep them short and specific.</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-sky-100">Notes</p>
+              <p className="mt-1 text-[11px] font-bold text-white/55">Short notes for {scopeTitle}. Keep the thread tied to the work.</p>
             </div>
-            <MessageSquare size={16} className="text-theme-accent" />
+            <MessageSquare size={16} className="text-sky-100" />
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <span className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/55">{openCount} open</span>
-            <span className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/55">{resolvedCount} resolved</span>
+            <span className="rounded-[8px] border border-sky-500/15 bg-sky-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-sky-100">{openCount} open</span>
+            <span className="rounded-[8px] border border-emerald-500/15 bg-emerald-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-emerald-100">{resolvedCount} resolved</span>
+            <div className="ml-auto flex flex-wrap gap-1">
+              {(['all', 'open', 'resolved'] as const).map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setCommentFilter(filter)}
+                  className={cn(
+                    "rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] transition-all",
+                    commentFilter === filter ? "border-sky-500/20 bg-sky-500/10 text-sky-100" : "border-white/10 bg-black/20 text-white/45 hover:text-white"
+                  )}
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
           </div>
           <textarea
-            className="w-full rounded-[8px] border border-white/10 bg-black/30 px-1.5 py-1.5 text-[11px] font-bold text-white/80 outline-none focus:border-theme-accent min-h-[5.5rem] resize-none"
+            className="w-full rounded-[8px] border border-sky-500/15 bg-black/30 px-1.5 py-1.5 text-[11px] font-bold text-white/80 outline-none focus:border-sky-400 min-h-[5.5rem] resize-none"
             value={commentDraft.message}
             disabled={reviewMode}
             onChange={(e) => setCommentDraft((prev) => ({ ...prev, message: e.target.value }))}
@@ -2228,7 +2257,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
             <button
               onClick={addWorkflowComment}
               disabled={reviewMode}
-              className="rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all"
+              className="rounded-[8px] border border-sky-500/15 bg-sky-500/10 px-1.5 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-sky-100 hover:bg-sky-500/20 hover:text-white transition-all"
             >
               Save Note
             </button>
@@ -2236,10 +2265,10 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
           </div>
         </div>
         <div className="space-y-1.5 max-h-[28rem] overflow-auto pr-1 custom-scrollbar">
-          {scopedComments.map((comment) => {
+          {filteredComments.map((comment) => {
             const isEditing = editingCommentId === comment.id;
             return (
-              <div key={comment.id} className="rounded-[8px] border border-white/10 bg-black/20 p-1.5 space-y-1.5">
+              <div key={comment.id} className="rounded-[8px] border border-sky-500/15 bg-sky-500/5 p-1.5 space-y-1.5">
                 <div className="flex items-center justify-between gap-1.5">
                   <div className="min-w-0">
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{comment.author}</p>
@@ -2252,7 +2281,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                       setEditingCommentDraft(comment.message);
                     }}
                     disabled={reviewMode}
-                    className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white"
+                    className="rounded-[8px] border border-sky-500/15 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-sky-100 hover:text-white"
                   >
                     Edit
                   </button>
@@ -2262,8 +2291,8 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                     className={cn(
                       "rounded-[8px] border px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em]",
                       comment.status === 'resolved'
-                        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
-                        : "border-white/10 bg-white/5 text-white/55 hover:text-white"
+                        ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
+                        : "border-sky-500/15 bg-black/20 text-sky-100 hover:text-white"
                     )}
                   >
                     {comment.status === 'resolved' ? 'Reopen' : 'Resolve'}
@@ -2271,7 +2300,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                   <button
                     onClick={() => deleteWorkflowComment(comment.id)}
                     disabled={reviewMode}
-                    className="rounded-[8px] border border-status-error/20 bg-status-error/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-status-error"
+                    className="rounded-[8px] border border-rose-500/20 bg-rose-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-rose-300"
                   >
                     Delete
                   </button>
@@ -2280,7 +2309,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                 {isEditing ? (
                   <div className="space-y-1.5">
                     <textarea
-                      className="w-full rounded-[8px] border border-theme-accent/20 bg-black/30 px-1.5 py-1.5 text-[11px] font-bold text-white/80 outline-none focus:border-theme-accent min-h-[5.5rem] resize-none"
+                      className="w-full rounded-[8px] border border-sky-500/15 bg-black/30 px-1.5 py-1.5 text-[11px] font-bold text-white/80 outline-none focus:border-sky-400 min-h-[5.5rem] resize-none"
                       value={editingCommentDraft}
                       disabled={reviewMode}
                       onChange={(e) => setEditingCommentDraft(e.target.value)}
@@ -2293,7 +2322,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                             setEditingCommentDraft('');
                           }}
                           disabled={reviewMode}
-                          className="rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent"
+                          className="rounded-[8px] border border-sky-500/15 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-sky-100"
                         >
                         Save
                       </button>
@@ -2303,7 +2332,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                             setEditingCommentDraft('');
                           }}
                           disabled={reviewMode}
-                          className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/55"
+                          className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/55"
                         >
                         Cancel
                       </button>
@@ -2315,11 +2344,101 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
               </div>
             );
           })}
-          {scopedComments.length === 0 && (
-            <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1.5 text-[10px] font-bold text-white/40">
-              No notes yet. Add the first one here so the review stays tied to the work.
+          {filteredComments.length === 0 && (
+            <div className="rounded-[8px] border border-sky-500/15 bg-sky-500/5 px-1.5 py-1.5 text-[10px] font-bold text-white/40">
+              No notes match this filter. Add a note or switch back to all comments.
             </div>
           )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderReviewSurface = () => {
+    const reviewState = workflow?.review_state || 'Draft';
+    const approvalState = workflow?.approval_state || 'Draft';
+    const taskCommentTotal = Array.from(commentCountsByTaskId.values()).reduce((total, value) => total + (value.total || 0), 0);
+    const openCommentTotal = Array.from(commentCountsByTaskId.values()).reduce((total, value) => total + (value.open || 0), 0);
+    return (
+      <div className="space-y-1.5 animate-apple-in pb-8">
+        <div className="rounded-[8px] border border-emerald-500/15 bg-emerald-500/5 p-1.5 space-y-1.5">
+          <div className="flex items-center justify-between gap-1.5">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-emerald-100">Review</p>
+              <p className="mt-1 text-[11px] font-bold text-white/55">Read the workflow, check the states, then act only through review permissions.</p>
+            </div>
+            <ShieldCheck size={16} className="text-emerald-100" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+            <div className="rounded-[8px] border border-white/10 bg-black/20 p-1.5">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Review state</p>
+              <p className={cn("mt-1 text-[12px] font-black uppercase tracking-[0.18em]", reviewState === 'Approved' ? "text-emerald-100" : "text-amber-100")}>{reviewState}</p>
+            </div>
+            <div className="rounded-[8px] border border-white/10 bg-black/20 p-1.5">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Approval state</p>
+              <p className={cn("mt-1 text-[12px] font-black uppercase tracking-[0.18em]", ['Approved', 'Certified'].includes(approvalState) ? "text-emerald-100" : "text-white/70")}>{approvalState}</p>
+            </div>
+            <div className="rounded-[8px] border border-white/10 bg-black/20 p-1.5">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Comment load</p>
+              <p className="mt-1 text-[12px] font-black uppercase tracking-[0.18em] text-white">{taskCommentTotal} total / {openCommentTotal} open</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[8px] border border-emerald-500/15 bg-emerald-500/5 p-1.5 space-y-1.5">
+          <div className="flex items-center justify-between gap-1.5">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-emerald-100">Decision actions</p>
+              <p className="mt-1 text-[11px] font-bold text-white/50">Only actions allowed by the active member are shown here.</p>
+            </div>
+            <BriefcaseBusiness size={16} className="text-emerald-100" />
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {onGovernanceAction && canReviewWorkflowState && workflow?.review_state !== 'Approved' && (
+              <button onClick={() => onGovernanceAction('approve_review')} className="rounded-[8px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-[4px] text-[8px] font-black uppercase tracking-[0.18em] text-emerald-100 hover:bg-emerald-500/20">
+                Approve Review
+              </button>
+            )}
+            {onGovernanceAction && canApproveWorkflowState && !['Approved', 'Certified'].includes(workflow?.approval_state) && (
+              <button onClick={() => onGovernanceAction('approve_workflow')} className="rounded-[8px] border border-sky-500/20 bg-sky-500/10 px-1.5 py-[4px] text-[8px] font-black uppercase tracking-[0.18em] text-sky-100 hover:bg-sky-500/20">
+                Approve Workflow
+              </button>
+            )}
+            {onGovernanceAction && canCertifyWorkflowState && workflow?.approval_state !== 'Certified' && (
+              <button onClick={() => onGovernanceAction('certify')} className="rounded-[8px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-[4px] text-[8px] font-black uppercase tracking-[0.18em] text-emerald-100 hover:bg-emerald-500/20">
+                Certify
+              </button>
+            )}
+            {onGovernanceAction && canRequestChangesState && workflow?.review_state !== 'Changes Requested' && (
+              <button onClick={() => onGovernanceAction('request_changes')} className="rounded-[8px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-[4px] text-[8px] font-black uppercase tracking-[0.18em] text-amber-100 hover:bg-amber-500/20">
+                Request Changes
+              </button>
+            )}
+            {onGovernanceAction && canRequestRecertificationState && (
+              <button onClick={() => onGovernanceAction('request_recertification')} className="rounded-[8px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-[4px] text-[8px] font-black uppercase tracking-[0.18em] text-amber-100 hover:bg-amber-500/20">
+                Need Recertification
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-[8px] border border-emerald-500/15 bg-emerald-500/5 p-1.5 space-y-1.5">
+          <div className="flex items-center justify-between gap-1.5">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-emerald-100">What to check</p>
+              <p className="mt-1 text-[11px] font-bold text-white/50">Use the graph for edits. Use this hub for decision and context checks.</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+            <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1.5 text-[10px] font-bold text-white/65">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Scope</p>
+              Confirm the approved workflow, the current draft changes, and any replaced tasks.
+            </div>
+            <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1.5 text-[10px] font-bold text-white/65">
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Evidence</p>
+              Look for validation steps, comments, and route changes before approving.
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -3304,6 +3423,9 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               <button onClick={openHistoryPane} className={cn("px-[9px] py-[5px] text-[8px] font-black uppercase rounded-[8px] transition-all whitespace-nowrap border leading-none", utilityPane === 'history' ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
                 History
               </button>
+              <button onClick={openReviewPane} className={cn("px-[9px] py-[5px] text-[8px] font-black uppercase rounded-[8px] transition-all whitespace-nowrap border leading-none", utilityPane === 'review' ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+                Review
+              </button>
               <button onClick={() => setReviewMode((current) => !current)} className={cn("px-[9px] py-[5px] text-[8px] font-black uppercase rounded-[8px] transition-all whitespace-nowrap border leading-none", reviewMode ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
                 {reviewMode ? 'Review Mode On' : 'Review Mode'}
               </button>
@@ -3346,19 +3468,26 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             <div className="shrink-0 border-b border-white/10 bg-[#09111d]/96 backdrop-blur-xl px-3 sm:px-1.5 py-0.5">
               <div className="flex items-center justify-between gap-1.5">
                 <div className="min-w-0">
-                  <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">{utilityPane === 'comments' ? 'Comments' : 'Version History'}</p>
+                  <p className={cn("text-[9px] font-black uppercase tracking-[0.22em]", utilityPane === 'comments' ? "text-sky-100" : utilityPane === 'review' ? "text-emerald-100" : "text-slate-100")}>{utilityPane === 'comments' ? 'Notes' : utilityPane === 'review' ? 'Review' : 'Version History'}</p>
                   <p className="mt-1 text-[11px] font-bold text-white/55 leading-relaxed">
                     {utilityPane === 'comments'
-                      ? 'Add, edit, or delete comments for the selected task or workflow.'
-                      : 'Compare the working draft against the last saved version, approved version, or a chosen version.'}
+                      ? 'Short, anchored notes for the workflow, a task, or a section.'
+                      : utilityPane === 'review'
+                        ? 'Read the draft, compare the states, and act with review permissions only.'
+                        : 'Compare the working draft against a saved, approved, or selected version.'}
                   </p>
                 </div>
                 <button onClick={closeUtilityPane} className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white transition-all leading-none">
                   Close
                 </button>
               </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <button onClick={() => openCommentsForTask()} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", utilityPane === 'comments' ? "border-sky-500/20 bg-sky-500/10 text-sky-100" : "border-white/10 bg-black/20 text-white/45 hover:text-white")}>Notes</button>
+                <button onClick={openHistoryPane} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", utilityPane === 'history' ? "border-slate-300/20 bg-slate-300/10 text-white" : "border-white/10 bg-black/20 text-white/45 hover:text-white")}>History</button>
+                <button onClick={openReviewPane} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", utilityPane === 'review' ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-100" : "border-white/10 bg-black/20 text-white/45 hover:text-white")}>Review</button>
+              </div>
               <div className="mt-3">
-                {utilityPane === 'comments' ? renderCommentsSurface() : renderHistorySurface()}
+                {utilityPane === 'comments' ? renderCommentsSurface() : utilityPane === 'review' ? renderReviewSurface() : renderHistorySurface()}
               </div>
             </div>
           )}
@@ -3708,20 +3837,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     )}
                   </div>
 
-                  <div
+                      <div
                     ref={(el) => { taskSectionRefs.current.dependencies = el; }}
-                    className={cn("rounded-[8px] border p-1.5 space-y-1.5", selectedTaskDiff.changedFields.length > 0 ? "border-theme-accent/20 bg-theme-accent/5" : "border-white/5 bg-white/[0.02]")}
+                    className={cn("rounded-[8px] border p-1.5 space-y-1.5", selectedTaskDiff.changedFields.length > 0 ? "border-cyan-500/15 bg-cyan-500/5" : "border-cyan-500/10 bg-cyan-500/5")}
                     data-section="dependencies"
                   >
                     <div className="flex items-center justify-between gap-1.5">
                       <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Dependencies</p>
-                        <p className="mt-1 text-[11px] font-bold text-white/45">Upstream, downstream, blockers, and handoffs in one view.</p>
+                        <p className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-100">Dependencies</p>
+                        <p className="mt-1 text-[11px] font-bold text-white/45">Routes, handoffs, blockers, and upstream/downstream links.</p>
                       </div>
-                      <MapPinned size={14} className="text-theme-accent" />
+                      <MapPinned size={14} className="text-cyan-100" />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
-                      <div className="rounded-[8px] border border-white/10 bg-black/20 p-1 space-y-1">
+                      <div className="rounded-[8px] border border-cyan-500/15 bg-cyan-500/5 p-1 space-y-1">
                         <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Upstream tasks</p>
                         <div className="flex flex-wrap gap-1">
                           {selectedTaskIncomingTasks.length > 0 ? selectedTaskIncomingTasks.map((task) => (
@@ -3735,7 +3864,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           )) : <span className="text-[10px] font-bold text-white/25">No upstream tasks.</span>}
                         </div>
                       </div>
-                      <div className="rounded-[8px] border border-white/10 bg-black/20 p-1 space-y-1">
+                      <div className="rounded-[8px] border border-cyan-500/15 bg-cyan-500/5 p-1 space-y-1">
                         <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Downstream tasks</p>
                         <div className="flex flex-wrap gap-1">
                           {selectedTaskOutgoingTasks.length > 0 ? selectedTaskOutgoingTasks.map((task) => (
@@ -3781,13 +3910,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     </div>
                   </div>
 
-                  <div className="rounded-[8px] border border-white/5 bg-white/[0.02] p-1.5 space-y-1.5">
+                  <div className="rounded-[8px] border border-slate-500/15 bg-slate-500/5 p-1.5 space-y-1.5">
                     <div className="flex items-center justify-between gap-1.5">
                       <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Task Change Summary</p>
+                        <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-100">Task change summary</p>
                         <p className="mt-1 text-[11px] font-bold text-white/45">What changed since the saved baseline.</p>
                       </div>
-                      <Clock3 size={14} className="text-theme-accent" />
+                      <Clock3 size={14} className="text-slate-100" />
                     </div>
                     {selectedTaskDiff.changedFields.length === 0 ? (
                       <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1 text-[10px] font-bold text-white/35">
@@ -3830,9 +3959,9 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         )}
                       </div>
 
-                      <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 p-1 bg-white/[0.02] border border-white/5 rounded-[8px]">
+                      <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 p-1 bg-blue-500/5 border border-blue-500/15 rounded-[8px]">
                         <div className="space-y-1">
-                          <label className="text-[8px] font-black text-blue-400 uppercase tracking-widest px-1 text-center block leading-none">TAT Manual (m)</label>
+                          <label className="text-[8px] font-black text-blue-300 uppercase tracking-widest px-1 text-center block leading-none">Manual time (m)</label>
                           <div className={getDefinitionIssueShell(issuesForField('task.manual_time_minutes', selectedTaskId).length > 0)} data-builder-field="task.manual_time_minutes">
                             <input type="number" className="w-full bg-black/40 border-0 rounded-[inherit] px-1.5 py-[2px] text-[12px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
                           </div>
@@ -3845,7 +3974,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           )}
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[8px] font-black text-purple-400 uppercase tracking-widest px-1 text-center block leading-none">TAT Machine (m)</label>
+                          <label className="text-[8px] font-black text-purple-300 uppercase tracking-widest px-1 text-center block leading-none">Machine time (m)</label>
                           <div className={getDefinitionIssueShell(issuesForField('task.automation_time_minutes', selectedTaskId).length > 0)} data-builder-field="task.automation_time_minutes">
                             <input type="number" className="w-full bg-black/40 border-0 rounded-[inherit] px-1.5 py-[2px] text-[12px] font-black text-white outline-none focus:border-purple-400 text-center" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
                           </div>
@@ -3866,10 +3995,10 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         </div>
                         <div className="space-y-1">
                           <label className="text-[8px] font-black text-white/40 uppercase tracking-widest px-1 leading-none">Owner Positions</label>
-                          <div className="rounded-[8px] border border-white/10 bg-black/30 p-1">
+                          <div className="rounded-[8px] border border-violet-500/15 bg-violet-500/5 p-1">
                             <button
                               onClick={() => setOwnerPositionsCollapsed(!ownerPositionsCollapsed)}
-                              className="w-full rounded-[8px] border border-white/10 bg-white/[0.03] px-1.5 h-8 flex items-center justify-between hover:bg-white/10 transition-colors"
+                              className="w-full rounded-[8px] border border-violet-500/15 bg-black/20 px-1.5 h-8 flex items-center justify-between hover:bg-violet-500/10 transition-colors"
                             >
                               <span className="text-[10px] font-bold text-white truncate">
                                 {selectedTask.owner_positions?.length || 0} Positions
@@ -3899,14 +4028,14 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
 
                       <div
                         ref={(el) => { taskSectionRefs.current.ownership = el; }}
-                        className="rounded-[8px] border border-white/5 bg-white/[0.02] p-1 space-y-1"
+                        className="rounded-[8px] border border-violet-500/15 bg-violet-500/5 p-1 space-y-1"
                         data-section="ownership"
                       >
                         <div className="flex items-center justify-between gap-1.5">
                           <div>
-                            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Ownership & Risk</p>
+                            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-violet-100">Ownership & risk</p>
                           </div>
-                          <ShieldAlert size={14} className="text-theme-accent" />
+                          <ShieldAlert size={14} className="text-violet-100" />
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                           <input data-builder-field="task.backup_owner" className={cn(BUILDER_FIELD, "h-8")} value={selectedTaskDiagnostics.taskManagement?.backup_owner || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskManagement: { backup_owner: e.target.value } })} placeholder="Backup owner" />
@@ -3940,11 +4069,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       <div className="space-y-1">
                       <div className="flex items-center justify-between gap-1 px-1" ref={(el) => { taskSectionRefs.current.systems = el; }} data-section="systems">
                         <div>
-                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Systems & Integrations</label>
+                          <label className="text-[9px] font-black text-cyan-100 uppercase tracking-widest">Systems & integrations</label>
                         </div>
                           <button
                             onClick={() => updateTaskDiagnostics(selectedTaskId, { taskProfile: { shadow_it_used: !selectedTaskDiagnostics.taskProfile?.shadow_it_used } })}
-                            className={cn("rounded-[8px] border px-1.5 py-[2px] text-[8px] font-black uppercase tracking-[0.18em] leading-none", selectedTaskDiagnostics.taskProfile?.shadow_it_used ? "border-amber-500/20 bg-amber-500/10 text-amber-300" : "border-white/10 bg-white/5 text-white/45 hover:text-white")}
+                            className={cn("rounded-[8px] border px-1.5 py-[2px] text-[8px] font-black uppercase tracking-[0.18em] leading-none", selectedTaskDiagnostics.taskProfile?.shadow_it_used ? "border-amber-500/20 bg-amber-500/10 text-amber-300" : "border-cyan-500/15 bg-cyan-500/10 text-cyan-100 hover:text-white")}
                         >
                           Shadow IT {selectedTaskDiagnostics.taskProfile?.shadow_it_used ? 'On' : 'Off'}
                         </button>
@@ -3958,7 +4087,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         </span>
                       </div>
                       {selectedTaskDiagnostics.taskProfile?.shadow_it_used && (
-                        <input className={cn(BUILDER_FIELD, "h-8")} value={selectedTaskDiagnostics.taskProfile?.shadow_it_link || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { shadow_it_link: e.target.value } })} placeholder="Shadow IT / workaround link" />
+                          <input className={cn(BUILDER_FIELD, "h-8")} value={selectedTaskDiagnostics.taskProfile?.shadow_it_link || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { shadow_it_link: e.target.value } })} placeholder="Shadow IT / workaround link" />
                       )}
                         <div className="space-y-1">
                           {(selectedTask.involved_systems || []).map((sys, idx) => (
@@ -4174,18 +4303,18 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         </NestedCollapsible>
                       ))}
                       {selectedTask.output_data_list.length === 0 && (
-                        <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1.5 text-[11px] font-bold text-white/35">
+                        <div className="rounded-[8px] border border-emerald-500/15 bg-emerald-500/5 px-1.5 py-1.5 text-[11px] font-bold text-emerald-100">
                           No outputs yet. Define the artifact this task leaves behind.
                         </div>
                       )}
-                      <button onClick={() => updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '', figures: [], link: '', data_example: '' }] })} className="w-full py-1.5 bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-[8px] flex items-center justify-center gap-1.5"><Plus size={12} /> Add Output Artifact</button>
+                      <button onClick={() => updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '', figures: [], link: '', data_example: '' }] })} className="w-full py-1.5 bg-emerald-500/10 border border-emerald-500/15 text-[10px] font-black uppercase text-emerald-100 hover:bg-emerald-500/20 transition-all rounded-[8px] flex items-center justify-center gap-1.5"><Plus size={12} /> Add Output Artifact</button>
                     </div>
                   </CollapsibleSection>
                 </div>
               )}
               {inspectorTab === 'exceptions' && (
                 <div className={cn("space-y-1.5", isReadOnlyMode && "pointer-events-none select-none opacity-80")}>
-                  <CollapsibleSection title="Operational Roadblocks" isOpen={expandedSections.blockers} toggle={() => toggleSection('blockers')} count={selectedTask.blockers.length}>
+                  <CollapsibleSection title="Roadblocks" isOpen={expandedSections.blockers} toggle={() => toggleSection('blockers')} count={selectedTask.blockers.length}>
                     <div className="space-y-1.5 pt-4">
                       {selectedTask.blockers.map((b, idx) => (
                         <NestedCollapsible
@@ -4220,7 +4349,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         </NestedCollapsible>
                       ))}
                       {selectedTask.blockers.length === 0 && (
-                        <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1.5 text-[11px] font-bold text-white/35">
+                        <div className="rounded-[8px] border border-amber-500/15 bg-amber-500/5 px-1.5 py-1.5 text-[11px] font-bold text-amber-100">
                           No blockers logged yet. Capture only the delays that materially affect the task.
                         </div>
                       )}
@@ -4228,7 +4357,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     </div>
                   </CollapsibleSection>
 
-                  <CollapsibleSection title="Human Errors & Recoveries" isOpen={expandedSections.errors} toggle={() => toggleSection('errors')} count={selectedTask.errors.length}>
+                  <CollapsibleSection title="Human Errors" isOpen={expandedSections.errors} toggle={() => toggleSection('errors')} count={selectedTask.errors.length}>
                     <div className="space-y-1.5 pt-4">
                       {selectedTask.errors.map((er, idx) => (
                         <NestedCollapsible
@@ -4278,7 +4407,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         </NestedCollapsible>
                       ))}
                       {selectedTask.errors.length === 0 && (
-                        <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1.5 text-[11px] font-bold text-white/35">
+                        <div className="rounded-[8px] border border-rose-500/15 bg-rose-500/5 px-1.5 py-1.5 text-[11px] font-bold text-rose-100">
                           No common errors captured yet. Add only repeatable mistakes that need explicit recovery steps.
                         </div>
                       )}
@@ -4349,26 +4478,26 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       </div>
                     )}
                   </div>
-                  <div className="rounded-[8px] border border-white/10 bg-black/20 p-1.5 space-y-1.5">
+                  <div className="rounded-[8px] border border-amber-500/15 bg-amber-500/5 p-1.5 space-y-1.5">
                     <div className="flex items-center justify-between gap-1.5">
-                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Inline validation map</p>
-                      <button onClick={() => blockingValidationIssues[0] && focusAuditIssue(blockingValidationIssues[0])} className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/45 hover:text-white leading-none">
+                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-100">Issue map</p>
+                      <button onClick={() => blockingValidationIssues[0] && focusAuditIssue(blockingValidationIssues[0])} className="rounded-[8px] border border-amber-500/15 bg-black/20 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-amber-100 hover:text-white leading-none">
                         Jump to first issue
                       </button>
                     </div>
                     <p className="text-[11px] font-bold text-white/55 leading-relaxed">
-                      The issue list has been removed from this tab. Errors and warnings are now attached directly to the relevant workflow field or section.
+                      Errors and warnings stay on the field they belong to.
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      <span className="rounded-[8px] border border-status-error/20 bg-status-error/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-status-error">{validationErrorCount} errors</span>
-                      <span className="rounded-[8px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">{validationWarningCount} warnings</span>
+                      <span className="rounded-[8px] border border-rose-500/20 bg-rose-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-rose-200">{validationErrorCount} errors</span>
+                      <span className="rounded-[8px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-amber-100">{validationWarningCount} warnings</span>
                     </div>
                   </div>
                 </div>
               )}
               {inspectorTab === 'appendix' && (
                 <div className={cn("space-y-1.5 pb-16", isReadOnlyMode && "pointer-events-none select-none opacity-80")}>
-                  <CollapsibleSection title="Operational References" isOpen={expandedSections.references} toggle={() => toggleSection('references')} count={selectedTask.reference_links.length}>
+                  <CollapsibleSection title="References" isOpen={expandedSections.references} toggle={() => toggleSection('references')} count={selectedTask.reference_links.length}>
                     <div className="space-y-1.5 pt-4">
                       {selectedTask.reference_links.map((l, idx) => (
                         <NestedCollapsible
@@ -4396,11 +4525,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         </NestedCollapsible>
                       ))}
                       {selectedTask.reference_links.length === 0 && (
-                        <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1.5 text-[11px] font-bold text-white/35">
-                          No references yet. Add SOPs, wikis, or evidence links that support the task.
+                        <div className="rounded-[8px] border border-emerald-500/15 bg-emerald-500/5 px-1.5 py-1.5 text-[11px] font-bold text-emerald-100">
+                          No references yet. Add the SOP, wiki, or evidence link that supports the task.
                         </div>
                       )}
-                      <button onClick={() => updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, { id: Date.now().toString(), label: '', url: '' }] })} className="w-full py-1.5 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white transition-all rounded-[8px] mt-2">+ Add Reference Link</button>
+                      <button onClick={() => updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, { id: Date.now().toString(), label: '', url: '' }] })} className="w-full py-1.5 bg-emerald-500/10 border border-emerald-500/15 text-[9px] font-black uppercase text-emerald-100 hover:bg-emerald-500/20 transition-all rounded-[8px] mt-2">+ Add Reference Link</button>
                     </div>
                   </CollapsibleSection>
 
@@ -4410,7 +4539,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     </div>
                   </CollapsibleSection>
 
-                  <CollapsibleSection title="Step-by-Step Instructions" isOpen={expandedSections.instructions} toggle={() => toggleSection('instructions')} count={selectedTask.instructions.length}>
+                  <CollapsibleSection title="Instructions" isOpen={expandedSections.instructions} toggle={() => toggleSection('instructions')} count={selectedTask.instructions.length}>
                     <div className="space-y-1.5 pt-4">
                       {selectedTask.instructions.map((step, idx) => (
                         <NestedCollapsible
@@ -4438,11 +4567,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         </NestedCollapsible>
                       ))}
                       {selectedTask.instructions.length === 0 && (
-                        <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1.5 text-[11px] font-bold text-white/35">
+                        <div className="rounded-[8px] border border-cyan-500/15 bg-cyan-500/5 px-1.5 py-1.5 text-[11px] font-bold text-cyan-100">
                           No instruction steps yet. Add only steps that help someone perform the task reliably.
                         </div>
                       )}
-                      <button onClick={() => updateTask(selectedTaskId, { instructions: [...selectedTask.instructions, { id: Date.now().toString(), description: '', figures: [], links: [] }] })} className="w-full py-1.5 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white transition-all rounded-[8px]">+ Add Instruction Step</button>
+                      <button onClick={() => updateTask(selectedTaskId, { instructions: [...selectedTask.instructions, { id: Date.now().toString(), description: '', figures: [], links: [] }] })} className="w-full py-1.5 bg-cyan-500/10 border border-cyan-500/15 text-[9px] font-black uppercase text-cyan-100 hover:bg-cyan-500/20 transition-all rounded-[8px]">+ Add Instruction Step</button>
                     </div>
                   </CollapsibleSection>
                 </div>
