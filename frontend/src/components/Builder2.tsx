@@ -722,7 +722,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
       )}>
         <div className={cn("absolute -top-1.5 left-4 px-1.5 py-0.5 rounded-[8px] text-[8px] font-black uppercase tracking-[0.2em] border z-20 shadow-lg", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
-          {isTrigger ? "TRIGGER" : "OUTCOME"}
+          {isTrigger ? "Start" : "Finish"}
         </div>
         <div className="w-full relative flex justify-center">
           <h4
@@ -755,7 +755,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
     )}>
       {data.validation_needed && (
         <div className="absolute -top-1.5 right-4 px-1.5 py-0.5 rounded-[8px] text-[8px] font-black uppercase tracking-[0.2em] bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
-          VALIDATION REQUIRED
+          VERIFY
         </div>
       )}
       {data.commentSummary?.total > 0 && (
@@ -774,23 +774,23 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
       )}
       <div className="flex flex-col gap-1.5 h-full">
         <div className="flex items-center justify-between gap-1.5">
-          <div className={cn("px-1.5.5 py-[3px] rounded-[8px] text-[10px] font-black uppercase tracking-widest border", typeColor)}>
-            {data.task_type || 'GENERAL'}
+          <div className={cn("px-1.5 py-[3px] rounded-[8px] text-[10px] font-black uppercase tracking-widest border", typeColor)}>
+            {data.task_type === 'TRIGGER' ? 'Start' : data.task_type === 'OUTCOME' ? 'Finish' : data.task_type === 'LOOP' ? 'Decision' : 'Task'}
           </div>
           <div className="flex items-center gap-1.5 flex-wrap justify-end">
             {data.occurrence > 1 && (
               <div className="flex items-center gap-1 bg-blue-500 text-white px-1.5 py-[3px] rounded-[8px] text-[10px] font-black shadow-lg shadow-blue-500/20">
-                <RefreshCw size={12} /> {data.occurrence}
+                <RefreshCw size={12} /> Repeat {data.occurrence}
               </div>
             )}
             {data.blockerCount > 0 && (
               <div className="flex items-center gap-1 bg-amber-500 text-white px-1.5 py-[3px] rounded-[8px] text-[10px] font-black shadow-lg shadow-amber-500/20">
-                <AlertCircle size={12} /> {data.blockerCount}
+                <AlertCircle size={12} /> {data.blockerCount} blocked
               </div>
             )}
             {data.errorCount > 0 && (
               <div className="flex items-center gap-1 bg-status-error text-white px-1.5 py-[3px] rounded-[8px] text-[10px] font-black shadow-lg shadow-status-error/20">
-                <X size={12} /> {data.errorCount}
+                <X size={12} /> {data.errorCount} issues
               </div>
             )}
           </div>
@@ -798,7 +798,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         
         <div className="space-y-1 relative">
           <h4
-            className="font-black text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-1.5 overflow-hidden min-h-[2.05em]"
+            className="font-black text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-1 overflow-hidden min-h-[2.05em]"
             style={{ fontSize: `${titleFontSize}px` }}
             title={data.label || 'Untitled Task'}
           >
@@ -809,11 +809,11 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         <div className="flex flex-col gap-1.5 mt-1">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             <div className="bg-black/40 rounded-[8px] p-1.5 border border-white/5 flex flex-col items-center justify-center">
-               <span className="text-[10px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-1">Manual</span>
+               <span className="text-[10px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-1">Manual time</span>
                <span className="text-[24px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
             </div>
             <div className="bg-black/40 rounded-[8px] p-1.5 border border-white/5 flex flex-col items-center justify-center">
-               <span className="text-[10px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-1">Machine</span>
+               <span className="text-[10px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-1">Automated time</span>
                <span className="text-[24px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
             </div>
           </div>
@@ -821,18 +821,18 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1.5 py-1.5 border-t border-white/5">
              <div className="flex items-center gap-1.5 flex-1 justify-center min-w-0">
                <div className="flex flex-col items-center">
-                 <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Input</span>
+                 <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Inputs</span>
                  <span className="text-[16px] font-black text-white leading-none">{data.sourceCount || 0}</span>
                </div>
                <div className="w-px h-6 bg-white/5" />
                <div className="flex flex-col items-center">
-                 <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Output</span>
+                 <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Outputs</span>
                  <span className="text-[16px] font-black text-white leading-none">{data.outputCount || 0}</span>
                </div>
              </div>
              <div className="text-right flex flex-col items-end">
                 <div className="flex items-center gap-1.5">
-                   <span className="text-[11px] font-black text-white/60 uppercase truncate max-w-[120px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
+                   <span className="text-[11px] font-black text-white/60 uppercase truncate max-w-[120px]">{(data.ownerPositions || [])[0] || 'No owner yet'}</span>
                    {(data.ownerPositions || []).length > 1 && (
                      <span className="text-[10px] font-black text-theme-accent">+{(data.ownerPositions || []).length - 1}</span>
                    )}
@@ -850,13 +850,13 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
                <span className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded-[8px] text-[10px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
              )}
              {involvedSystems.length === 0 && (
-               <span className="text-[10px] font-black text-white/10 uppercase tracking-widest">No Systems</span>
+               <span className="text-[10px] font-black text-white/10 uppercase tracking-widest">No systems linked</span>
              )}
           </div>
       {selected && (
             <div className="absolute left-1/2 top-full mt-1.5 z-30 flex -translate-x-1/2 flex-wrap justify-center gap-1.5 pointer-events-auto">
               <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-1.5 rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent shadow-lg shadow-black/30">
-                <MessageSquare size={10} /> Comment
+                <MessageSquare size={10} /> Notes
               </button>
               {data.commentSummary?.total > 0 && (
                 <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-1.5 rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 shadow-lg shadow-black/30">
@@ -900,7 +900,7 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
 
       <div className="relative z-40 flex flex-col items-center justify-center p-4 w-full h-full pointer-events-none">
         <span
-          className="max-w-[170px] text-center font-bold text-white leading-tight break-words line-clamp-1.5 transition-colors"
+          className="max-w-[170px] text-center font-bold text-white leading-tight break-words line-clamp-1 transition-colors"
           style={{ fontSize: `${titleFontSize}px` }}
           title={data.label || 'Condition'}
         >
@@ -908,7 +908,7 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
         </span>
       </div>
     {data.validation_needed && (
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[112px] px-1.5 py-0.5 rounded-[8px] text-[6px] font-black uppercase bg-orange-500 border border-orange-400 text-white z-30 shadow-lg animate-pulse">VALID</div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[112px] px-1.5 py-0.5 rounded-[8px] text-[6px] font-black uppercase bg-orange-500 border border-orange-400 text-white z-30 shadow-lg animate-pulse">Verify</div>
     )}
   </div>
 );
@@ -2017,6 +2017,28 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
   }, [editingCommentId, saveToHistory, setIsDirty]);
 
   const renderHistorySurface = () => {
+    const renderHistoryGroup = (
+      title: string,
+      toneClass: string,
+      items: any[],
+      renderItem: (item: any) => React.ReactNode,
+    ) => {
+      if (items.length === 0) return null;
+      return (
+        <details className={cn("rounded-[8px] border p-1.5", toneClass)} open>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-1.5 [&::-webkit-details-marker]:hidden">
+            <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/75">{title}</p>
+            <span className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+              {items.length}
+            </span>
+          </summary>
+          <div className="mt-1.5 space-y-1.5">
+            {items.map(renderItem)}
+          </div>
+        </details>
+      );
+    };
+
     return (
       <div className="space-y-1.5 animate-apple-in pb-8">
         <div className={cn(BUILDER_PANEL, "p-1.5 space-y-1.5 border-slate-500/15 bg-slate-500/5")}>
@@ -2095,61 +2117,79 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
               No task or route changes were detected against the selected baseline. Switch baselines or make a draft edit to compare.
             </div>
           )}
-          {workflowDiff.addedTasks.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">Added tasks</p>
-              {workflowDiff.addedTasks.map((task: any) => (
-                <div key={`added-${task.node_id || task.id}`} className="rounded-[8px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-1.5 text-[10px] font-bold text-emerald-100">
-                  <div className="flex items-center justify-between gap-1.5">
-                    <span className="font-black text-white">{task.name || 'Untitled task'}</span>
-                    <span className="rounded-[8px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">New</span>
+          {renderHistoryGroup(
+            'Added tasks',
+            'border-emerald-500/15 bg-emerald-500/5',
+            workflowDiff.addedTasks,
+            (task: any) => (
+              <div key={`added-${task.node_id || task.id}`} className="rounded-[8px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-1.5 text-[10px] font-bold text-emerald-100">
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="font-black text-white">{task.name || 'Untitled task'}</span>
+                  <span className="rounded-[8px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">New</span>
+                </div>
+              </div>
+            ),
+          )}
+
+          {renderHistoryGroup(
+            'Updated tasks',
+            'border-amber-500/15 bg-amber-500/5',
+            workflowDiff.changedTasks,
+            (task: any) => (
+              <div key={`changed-${task.id}`} className="rounded-[8px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-1.5 text-[10px] font-bold text-amber-100">
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="font-black text-white">{task.renamed ? `${task.baselineName || task.id} → ${task.name || task.id}` : (task.name || task.id)}</span>
+                  <span className="rounded-[8px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">{task.changedFields.length} fields</span>
+                </div>
+                <div className="mt-1.5 space-y-1">
+                  {task.changedFields.map((field: any) => (
+                    <div key={`${task.id}-${field.key}`} className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1">
+                      <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/40">{field.key.replace(/_/g, ' ')}</p>
+                      <p className="mt-1 text-[10px] font-bold text-white/70 leading-relaxed">
+                        {formatDiffValue(field.before)} <span className="text-white/25">→</span> {formatDiffValue(field.after)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ),
+          )}
+
+          {renderHistoryGroup(
+            'Removed tasks',
+            'border-rose-500/15 bg-rose-500/5',
+            workflowDiff.removedTasks,
+            (task: any) => (
+              <div key={`removed-${task.node_id || task.id}`} className="rounded-[8px] border border-rose-500/20 bg-rose-500/10 px-1.5 py-1.5 text-[10px] font-bold text-rose-100">
+                Removed task: {task.name || task.id}
+              </div>
+            ),
+          )}
+
+          {renderHistoryGroup(
+            'Route changes',
+            'border-sky-500/15 bg-sky-500/5',
+            [
+              ...workflowDiff.addedEdges.map((edge: any) => ({ ...edge, _kind: 'added' })),
+              ...workflowDiff.changedEdges.map((edge: any) => ({ ...edge, _kind: 'changed' })),
+              ...workflowDiff.removedEdges.map((edge: any) => ({ ...edge, _kind: 'removed' })),
+            ],
+            (edge: any) => {
+              if (edge._kind === 'added') {
+                return (
+                  <div key={`edge-added-${edge.id}`} className="rounded-[8px] border border-sky-500/20 bg-sky-500/10 px-1.5 py-1.5 text-[10px] font-bold text-sky-100">
+                    Added route: {edge.data?.label || `${edge.source} → ${edge.target}`}
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-              {workflowDiff.changedTasks.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">Updated tasks</p>
-                  {workflowDiff.changedTasks.map((task: any) => (
-                    <div key={`changed-${task.id}`} className="rounded-[8px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-1.5 text-[10px] font-bold text-amber-100">
-                      <div className="flex items-center justify-between gap-1.5">
-                        <span className="font-black text-white">{task.renamed ? `${task.baselineName || task.id} → ${task.name || task.id}` : (task.name || task.id)}</span>
-                        <span className="rounded-[8px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">{task.changedFields.length} fields</span>
-                      </div>
-                      <div className="mt-2 space-y-1">
-                    {task.changedFields.map((field: any) => (
-                      <div key={`${task.id}-${field.key}`} className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1">
-                        <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/40">{field.key.replace(/_/g, ' ')}</p>
-                        <p className="mt-1 text-[10px] font-bold text-white/70 leading-relaxed">
-                          {formatDiffValue(field.before)} <span className="text-white/25">→</span> {formatDiffValue(field.after)}
-                        </p>
-                      </div>
-                    ))}
+                );
+              }
+              if (edge._kind === 'removed') {
+                return (
+                  <div key={`edge-removed-${edge.id}`} className="rounded-[8px] border border-sky-500/20 bg-sky-500/10 px-1.5 py-1.5 text-[10px] font-bold text-sky-100">
+                    Removed route: {edge.data?.label || `${edge.source} → ${edge.target}`}
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-          {workflowDiff.removedTasks.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-rose-300">Removed tasks</p>
-              {workflowDiff.removedTasks.map((task: any) => (
-                <div key={`removed-${task.node_id || task.id}`} className="rounded-[8px] border border-rose-500/20 bg-rose-500/10 px-1.5 py-1.5 text-[10px] font-bold text-rose-100">
-                  Removed task: {task.name || task.id}
-                </div>
-              ))}
-            </div>
-          )}
-          {workflowDiff.addedEdges.length > 0 || workflowDiff.removedEdges.length > 0 || workflowDiff.changedEdges.length > 0 ? (
-            <div className="space-y-1.5">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-sky-300">Route changes</p>
-              {workflowDiff.addedEdges.map((edge: any) => (
-                <div key={`edge-added-${edge.id}`} className="rounded-[8px] border border-sky-500/20 bg-sky-500/10 px-1.5 py-1.5 text-[10px] font-bold text-sky-100">
-                  Added route: {edge.data?.label || `${edge.source} → ${edge.target}`}
-                </div>
-              ))}
-              {workflowDiff.changedEdges.map((edge: any) => (
+                );
+              }
+              return (
                 <div key={`edge-${edge.id}`} className="rounded-[8px] border border-sky-500/20 bg-sky-500/10 px-1.5 py-1.5 text-[10px] font-bold text-sky-100">
                   <div className="flex items-center justify-between gap-1.5">
                     <span className="font-black text-white">{edge.label || `${edge.source} → ${edge.target}`}</span>
@@ -2158,7 +2198,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                       <span className="rounded-[8px] border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-sky-300">{edge.changedFields.length} changes</span>
                     </div>
                   </div>
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-1.5 space-y-1">
                     {edge.changedFields.map((field: any) => (
                       <div key={`${edge.id}-${field.key}`} className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1">
                         <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/40">{field.key.replace(/_/g, ' ')}</p>
@@ -2169,25 +2209,19 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                     ))}
                   </div>
                 </div>
-              ))}
-              {workflowDiff.removedEdges.map((edge: any) => (
-                <div key={`edge-removed-${edge.id}`} className="rounded-[8px] border border-sky-500/20 bg-sky-500/10 px-1.5 py-1.5 text-[10px] font-bold text-sky-100">
-                  Removed route: {edge.data?.label || `${edge.source} → ${edge.target}`}
-                </div>
-              ))}
-            </div>
-          ) : null}
-          {workflowDiff.changedMetadata.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Metadata changes</p>
-              <div className="flex flex-wrap gap-1.5">
-                {workflowDiff.changedMetadata.map((field: string) => (
-                  <span key={field} className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/55">
-                    {field}
-                  </span>
-                ))}
-              </div>
-            </div>
+              );
+            },
+          )}
+
+          {renderHistoryGroup(
+            'Metadata changes',
+            'border-white/10 bg-white/5',
+            workflowDiff.changedMetadata,
+            (field: string) => (
+              <span key={field} className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/55">
+                {field}
+              </span>
+            ),
           )}
         </div>
         {rollbackPreview?.available && onCreateRollbackDraft && (
@@ -2218,6 +2252,25 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
     });
     const openCount = scopedComments.filter((comment) => comment.status !== 'resolved').length;
     const resolvedCount = scopedComments.filter((comment) => comment.status === 'resolved').length;
+    const jumpToCommentScope = (comment: WorkflowComment) => {
+      if (comment.scope === 'task' && comment.scope_id) {
+        openCommentsForTask(String(comment.scope_id));
+        return;
+      }
+      if (comment.scope === 'section' && comment.scope_id) {
+        setUtilityPane('comments');
+        setUtilityPaneTaskId(null);
+        setUtilityPaneSectionId(String(comment.scope_id));
+        setCommentFilter('all');
+        setCommentDraft(createWorkflowComment('section', String(comment.scope_id)));
+        return;
+      }
+      setUtilityPane('comments');
+      setUtilityPaneTaskId(null);
+      setUtilityPaneSectionId(null);
+      setCommentFilter('all');
+      setCommentDraft(createWorkflowComment('workflow', ''));
+    };
     return (
       <div className="space-y-1.5 animate-apple-in pb-8">
         <div className={cn(BUILDER_PANEL, "p-1.5 space-y-1.5 border-sky-500/15 bg-sky-500/5")}>
@@ -2267,14 +2320,27 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
         <div className="space-y-1.5 max-h-[28rem] overflow-auto pr-1 custom-scrollbar">
           {filteredComments.map((comment) => {
             const isEditing = editingCommentId === comment.id;
+            const scopeLabel = comment.scope === 'task' ? 'Task' : comment.scope === 'section' ? 'Section' : 'Workflow';
             return (
               <div key={comment.id} className="rounded-[8px] border border-sky-500/15 bg-sky-500/5 p-1.5 space-y-1.5">
                 <div className="flex items-center justify-between gap-1.5">
-                  <div className="min-w-0">
+                  <div className="min-w-0 space-y-1">
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{comment.author}</p>
-                    <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/30">{comment.updated_at ? 'Edited' : 'Created'} {String(comment.created_at || comment.updated_at || '').slice(0, 19).replace('T', ' ')}</p>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className="rounded-[8px] border border-sky-500/15 bg-sky-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-sky-100">{scopeLabel}</span>
+                      <span className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                        {comment.updated_at ? 'Edited' : 'Created'} {String(comment.created_at || comment.updated_at || '').slice(0, 19).replace('T', ' ')}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => jumpToCommentScope(comment)}
+                      disabled={reviewMode}
+                      className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/45 hover:text-white"
+                    >
+                      Jump
+                    </button>
                   <button
                     onClick={() => {
                       setEditingCommentId(comment.id);
@@ -3272,7 +3338,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             <div className="p-1.5 sm:p-1.5 border-b border-white/10 flex items-center justify-between gap-1.5">
               <div className="flex items-center gap-1.5">
                 <Database className="text-theme-accent" size={18} />
-                <h3 className="text-[13px] font-black text-white uppercase tracking-tight">Select Existing Output</h3>
+              <h3 className="text-[13px] font-black text-white uppercase tracking-tight">Choose an Output</h3>
               </div>
               <button onClick={() => setIsOutputPickerOpen(false)} className="p-1.5 hover:bg-white/5 rounded-[8px] transition-colors"><X size={15} className="text-white/40 hover:text-white" /></button>
             </div>
@@ -3281,7 +3347,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               <input
                 value={outputPickerSearch}
                 onChange={(e) => setOutputPickerSearch(e.target.value)}
-                placeholder="Search outputs, tasks, descriptions..."
+                placeholder="Search outputs by task, name, or description..."
                 className="min-w-0 flex-1 bg-transparent text-[11px] font-bold text-white outline-none placeholder:text-white/25"
               />
               {outputPickerSearch && (
@@ -3294,9 +3360,9 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               <table className="w-full text-left border-collapse">
                 <thead className="sticky top-0 bg-[#0f172a] z-10 shadow-lg shadow-black/20">
                   <tr className="border-b border-white/10">
-                    <th className="px-1.5 py-1.5 text-[8px] font-black text-white/40 uppercase tracking-widest">Source Task</th>
-                    <th className="px-1.5 py-1.5 text-[8px] font-black text-white/40 uppercase tracking-widest">Output Name</th>
-                    <th className="px-1.5 py-1.5 text-[8px] font-black text-white/40 uppercase tracking-widest">Description</th>
+                    <th className="px-1.5 py-1.5 text-[8px] font-black text-white/40 uppercase tracking-widest">From task</th>
+                    <th className="px-1.5 py-1.5 text-[8px] font-black text-white/40 uppercase tracking-widest">Output</th>
+                    <th className="px-1.5 py-1.5 text-[8px] font-black text-white/40 uppercase tracking-widest">What it is</th>
                     <th className="px-1.5 py-1.5"></th>
                   </tr>
                 </thead>
@@ -3313,7 +3379,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <tr key={idx} className="hover:bg-white/[0.02] transition-colors group">
                       <td className="px-1.5 py-1.5 text-[9px] font-bold text-theme-accent uppercase">{output.taskName}</td>
                       <td className="px-1.5 py-1.5 text-[9px] font-bold text-white uppercase">{output.name}</td>
-                      <td className="px-1.5 py-1.5 text-[8px] text-white/40 line-clamp-1.5">{output.description || 'No description'}</td>
+                      <td className="px-1.5 py-1.5 text-[8px] text-white/40 line-clamp-1">{output.description || 'No description'}</td>
                       <td className="px-1.5 py-1.5 text-right">
                         <button 
                           onClick={() => {
@@ -3333,13 +3399,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           }}
                           className="px-1.5 py-1 bg-theme-accent text-white text-[8px] font-black uppercase rounded-[8px] opacity-0 group-hover:opacity-100 hover:scale-105 transition-all"
                         >
-                          Select Output
+                          Use Output
                         </button>
                       </td>
                     </tr>
                   ))}
                   {tasks.every(t => (t.output_data_list || []).length === 0) && (
-                    <tr><td colSpan={4} className="px-4 py-8 text-center text-white/20 italic text-[10px]">No outputs available yet. Add an output to a task first.</td></tr>
+                    <tr><td colSpan={4} className="px-4 py-8 text-center text-white/20 italic text-[10px]">No outputs yet. Add one to any task, then come back here.</td></tr>
                   )}
                   {tasks.some(t => (t.output_data_list || []).length > 0) && tasks
                     .filter(t => t.id !== selectedTaskId)
@@ -3349,7 +3415,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       if (!query) return true;
                       return [output.taskName, output.name, output.description].some((value) => String(value || '').toLowerCase().includes(query));
                     }).length === 0 && (
-                    <tr><td colSpan={4} className="px-4 py-8 text-center text-white/20 italic text-[10px]">No outputs match the search.</td></tr>
+                    <tr><td colSpan={4} className="px-4 py-8 text-center text-white/20 italic text-[10px]">No outputs match this search.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -3365,13 +3431,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             <div className="flex flex-col min-w-0">
               <span className="text-[10px] font-black text-theme-accent uppercase tracking-widest mb-1">Workflow Builder</span>
               <h1 className="text-[14px] font-black text-white uppercase truncate max-w-[55vw] sm:max-w-[300px]">{workflow?.name}</h1>
-              <span className="text-[9px] font-black uppercase tracking-[0.24em] text-theme-accent/80">Repository Definition Surface</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.24em] text-theme-accent/80">Define the workflow</span>
             </div>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-1.5 flex-wrap justify-end">
           <div className="flex bg-white/5 border border-white/10 rounded-[8px] p-0.5 mr-2 h-[24px] items-center">
-            <button onClick={undo} disabled={history.length === 0 || isReadOnlyMode} className="px-1.5.5 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all border-r border-white/5"><RefreshCw size={13} className="-scale-x-100" /></button>
-            <button onClick={redo} disabled={redoStack.length === 0 || isReadOnlyMode} className="px-1.5.5 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all"><RefreshCw size={13} /></button>
+            <button onClick={undo} disabled={history.length === 0 || isReadOnlyMode} className="px-1.5 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all border-r border-white/5"><RefreshCw size={13} className="-scale-x-100" /></button>
+            <button onClick={redo} disabled={redoStack.length === 0 || isReadOnlyMode} className="px-1.5 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all"><RefreshCw size={13} /></button>
           </div>
               <div className="flex bg-white/5 border border-white/10 rounded-[8px] p-0.5 mr-2 h-[24px] items-center">
                 {(['bezier', 'smoothstep', 'straight'] as const).map(s => (
@@ -3390,10 +3456,10 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 ))}
               </div>
           {!reviewMode && (
-            <button disabled={isReadOnlyMode} onClick={() => { if (isReadOnlyMode) return; handleLayout(nodes, edges); }} className={cn(BUILDER_BUTTON, "flex items-center gap-1.5 px-1.5.5 h-[24px] bg-white/5 border border-white/10 text-white uppercase hover:bg-white/10 transition-all", isReadOnlyMode && "opacity-35 cursor-not-allowed")}><RefreshCw size={12} className="text-theme-accent" /> Auto Layout</button>
+            <button disabled={isReadOnlyMode} onClick={() => { if (isReadOnlyMode) return; handleLayout(nodes, edges); }} className={cn(BUILDER_BUTTON, "flex items-center gap-1.5 px-1.5 h-[24px] bg-white/5 border border-white/10 text-white uppercase hover:bg-white/10 transition-all", isReadOnlyMode && "opacity-35 cursor-not-allowed")}><RefreshCw size={12} className="text-theme-accent" /> Auto Layout</button>
           )}
           {!reviewMode && (
-            <button data-testid="builder-commit" disabled={isReadOnlyMode} onClick={handleSave} className={cn(BUILDER_BUTTON, "flex items-center gap-1.5 px-1.5.5 h-[24px] bg-theme-accent text-white shadow-xl shadow-theme-accent/20 hover:scale-[1.02] leading-none", isReadOnlyMode && "opacity-35 cursor-not-allowed")}><Save size={12} /> Commit Changes</button>
+            <button data-testid="builder-commit" disabled={isReadOnlyMode} onClick={handleSave} className={cn(BUILDER_BUTTON, "flex items-center gap-1.5 px-1.5 h-[24px] bg-theme-accent text-white shadow-xl shadow-theme-accent/20 hover:scale-[1.02] leading-none", isReadOnlyMode && "opacity-35 cursor-not-allowed")}><Save size={12} /> Commit Changes</button>
           )}
           <button onClick={onExit} className="p-1.5 text-white/20 hover:text-status-error"><X size={16} /></button>
         </div>
@@ -3483,7 +3549,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <button onClick={() => openCommentsForTask()} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", utilityPane === 'comments' ? "border-sky-500/20 bg-sky-500/10 text-sky-100" : "border-white/10 bg-black/20 text-white/45 hover:text-white")}>Notes</button>
-                <button onClick={openHistoryPane} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", utilityPane === 'history' ? "border-slate-300/20 bg-slate-300/10 text-white" : "border-white/10 bg-black/20 text-white/45 hover:text-white")}>History</button>
+              <button onClick={openHistoryPane} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", utilityPane === 'history' ? "border-slate-300/20 bg-slate-300/10 text-white" : "border-white/10 bg-black/20 text-white/45 hover:text-white")}>Compare</button>
                 <button onClick={openReviewPane} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", utilityPane === 'review' ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-100" : "border-white/10 bg-black/20 text-white/45 hover:text-white")}>Review</button>
               </div>
               <div className="mt-3">
@@ -4136,7 +4202,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       >
                         <div className="flex items-center justify-between gap-1.5">
                           <div>
-                            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Comments</p>
+                            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Notes</p>
                             <p className="mt-1 text-[11px] font-bold text-white/45">Simple notes only. Open and resolved states are tracked on the task node.</p>
                           </div>
                           <MessageSquare size={14} className="text-theme-accent" />
@@ -4146,7 +4212,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           value={commentDraft.scope === 'task' && String(commentDraft.scope_id || '') === String(selectedTask.id) ? commentDraft.message : ''}
                           disabled={reviewMode}
                           onChange={(e) => setCommentDraft({ ...createWorkflowComment('task', String(selectedTask.id)), message: e.target.value })}
-                          placeholder="Write a task comment..."
+                          placeholder="Write a note for this task..."
                         />
                         <div className="flex flex-wrap gap-1.5">
                           <button
@@ -4157,7 +4223,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             disabled={reviewMode}
                             className="rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent"
                           >
-                            Add Comment
+                            Add Note
                           </button>
                           <button
                             onClick={() => {
@@ -4168,7 +4234,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             disabled={reviewMode}
                             className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/55"
                           >
-                            Open Comment List
+                            Open Notes
                           </button>
                         </div>
                         <div className="space-y-1.5 max-h-48 overflow-auto pr-1 custom-scrollbar">
@@ -4188,7 +4254,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           ))}
                           {selectedTaskComments.length === 0 && (
                             <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1 text-[10px] font-bold text-white/35">
-                            No comments for this task yet. Keep comments attached to the actual task so review stays contextual.
+                            No notes for this task yet. Keep notes attached to the actual task so review stays contextual.
                             </div>
                           )}
                         </div>
@@ -4790,7 +4856,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                 />
                                 <button
                                   onClick={() => setMetadata({ ...metadata, pre_requisites: metadata.pre_requisites.filter((_, idx) => idx !== index) })}
-                                  className="h-8 shrink-0 rounded-[8px] border border-white/10 bg-white/5 px-1.5.5 text-[8px] font-black uppercase text-white/40 hover:text-white"
+                                  className="h-8 shrink-0 rounded-[8px] border border-white/10 bg-white/5 px-1.5 text-[8px] font-black uppercase text-white/40 hover:text-white"
                                 >
                                   Delete
                                 </button>
@@ -4815,7 +4881,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               });
                               setDefinitionPrereqDraft('');
                             }}
-                            className="h-8 shrink-0 rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5.5 text-[8px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white"
+                            className="h-8 shrink-0 rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 text-[8px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white"
                           >
                             Add
                           </button>
@@ -4879,7 +4945,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     {(definitionSettings.fieldVisibility.tool_family || definitionSettings.fieldVisibility.applicable_tools) && (
                       <div className="space-y-1.5">
                         <div className="flex flex-wrap items-center gap-1.5 rounded-[8px] border border-white/5 bg-black/20 px-1.5 py-1">
-                          <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Propagation</span>
+                          <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Tool family to tools</span>
                           {definitionToolPropagation.familyChips.length > 0 ? (
                             definitionToolPropagation.familyChips.map((chip) => (
                               <span key={chip.family} className="rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-[3px] text-[7px] font-black uppercase tracking-[0.18em] text-theme-accent">
@@ -4902,7 +4968,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               }}
                               className="ml-auto rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/50 hover:text-white"
                             >
-                              Clear Families
+                              Clear selection
                             </button>
                           )}
                         </div>
@@ -4922,7 +4988,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                 applicable_tools: nextFamilies.length === 0 ? [] : nextPropagation.selectedTools,
                               });
                             }}
-                            placeholder="SELECT FAMILIES..."
+                            placeholder="Choose tool families..."
                             isMulti
                             error={issuesForField('workflow.tool_family').length > 0}
                             compact
@@ -4941,7 +5007,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                 applicable_tools: nextTools.filter((tool) => definitionToolPropagation.availableTools.includes(tool)),
                               });
                             }}
-                            placeholder={metadata.tool_family.length === 0 ? "SELECT FAMILIES FIRST..." : "SELECT TOOLS..."}
+                            placeholder={metadata.tool_family.length === 0 ? "Pick a tool family first..." : "Choose applicable tools..."}
                             isMulti
                             disabled={metadata.tool_family.length === 0}
                             error={issuesForField('workflow.applicable_tools').length > 0}
