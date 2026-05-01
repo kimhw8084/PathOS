@@ -842,10 +842,10 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
           </div>
           <div className="flex flex-wrap gap-1.5 items-center pt-1 border-t border-white/5 min-h-[24px]">
              {visibleSystems.map((s: TaskSystem, i: number) => (
-               <span key={i} className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold text-white/40 uppercase">{s.name}</span>
+               <span key={i} className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded-[8px] text-[10px] font-bold text-white/40 uppercase">{s.name}</span>
              ))}
              {hiddenSystemsCount > 0 && (
-               <span className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
+               <span className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded-[8px] text-[10px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
              )}
              {involvedSystems.length === 0 && (
                <span className="text-[10px] font-black text-white/10 uppercase tracking-widest">No Systems</span>
@@ -2012,8 +2012,8 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
         <div className={cn(BUILDER_PANEL, "p-1.5 space-y-1.5")}>
           <div className="flex items-center justify-between gap-1.5">
             <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">History Diff</p>
-              <p className="mt-1 text-[12px] font-bold text-white/55">Row-by-row compare against a saved, approved, or chosen version.</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Version History</p>
+              <p className="mt-1 text-[11px] font-bold text-white/55">Compare the current draft against a saved, approved, or selected version.</p>
             </div>
             <History size={16} className="text-theme-accent" />
           </div>
@@ -2024,7 +2024,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                 onClick={() => setHistoryCompareMode(mode)}
                 className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] transition-all", historyCompareMode === mode ? "border-theme-accent/20 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/45 hover:text-white")}
               >
-                {mode === 'saved' ? 'Saved' : mode === 'approved' ? 'Approved' : 'Chosen'}
+                {mode === 'saved' ? 'Saved' : mode === 'approved' ? 'Approved' : 'Selected'}
               </button>
             ))}
             {historyCompareMode === 'selected' && (
@@ -2050,7 +2050,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                   setHistoryCompareVersionId(String(version.id));
                 }}
                 className={cn(
-                  "rounded-full border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] transition-colors",
+                  "rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] transition-colors",
                   String(historyCompareVersionId) === String(version.id) && historyCompareMode === 'selected'
                     ? "border-theme-accent/20 bg-theme-accent/10 text-theme-accent"
                     : "border-white/10 bg-white/5 text-white/45 hover:text-white",
@@ -2062,17 +2062,17 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
             ))}
           </div>
           <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1 text-[9px] font-bold text-white/55">
-            Comparing against {historyCompareMode === 'saved' ? 'the last saved builder snapshot' : historyCompareMode === 'approved' ? 'the latest approved or certified version' : `v${historyComparisonSnapshot?.metadata?.version || historyCompareVersionId || 'selected'}`}.
+            Comparing against {historyCompareMode === 'saved' ? 'last saved draft' : historyCompareMode === 'approved' ? 'latest approved version' : `v${historyComparisonSnapshot?.metadata?.version || historyCompareVersionId || 'selected'}`}.
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             <div className="rounded-[8px] border border-white/10 bg-black/20 p-1.5">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Task Rows</p>
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Tasks changed</p>
               <p className="mt-2 text-[22px] font-black text-theme-accent">
                 {workflowDiff.addedTasks.length + workflowDiff.changedTasks.length + workflowDiff.removedTasks.length}
               </p>
             </div>
             <div className="rounded-[8px] border border-white/10 bg-black/20 p-1.5">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Route Rows</p>
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Routes changed</p>
               <p className="mt-2 text-[22px] font-black text-emerald-300">
                 {workflowDiff.addedEdges.length + workflowDiff.removedEdges.length + workflowDiff.changedEdges.length}
               </p>
@@ -2087,12 +2087,12 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
           )}
           {workflowDiff.addedTasks.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">New Tasks</p>
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">New tasks</p>
               {workflowDiff.addedTasks.map((task: any) => (
                 <div key={`added-${task.node_id || task.id}`} className="rounded-[8px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-1.5 text-[10px] font-bold text-emerald-100">
                   <div className="flex items-center justify-between gap-1.5">
                     <span className="font-black text-white">{task.name || 'Untitled task'}</span>
-                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">New</span>
+                    <span className="rounded-[8px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">New</span>
                   </div>
                 </div>
               ))}
@@ -2100,18 +2100,18 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
           )}
               {workflowDiff.changedTasks.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">Updated Tasks</p>
+                  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">Updated tasks</p>
                   {workflowDiff.changedTasks.map((task: any) => (
                     <div key={`changed-${task.id}`} className="rounded-[8px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-1.5 text-[10px] font-bold text-amber-100">
                       <div className="flex items-center justify-between gap-1.5">
-                    <span className="font-black text-white">{task.renamed ? `${task.baselineName || task.id} → ${task.name || task.id}` : (task.name || task.id)}</span>
-                        <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">{task.changedFields.length} fields</span>
+                        <span className="font-black text-white">{task.renamed ? `${task.baselineName || task.id} → ${task.name || task.id}` : (task.name || task.id)}</span>
+                        <span className="rounded-[8px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">{task.changedFields.length} fields</span>
                       </div>
-                  <div className="mt-2 space-y-1">
+                      <div className="mt-2 space-y-1">
                     {task.changedFields.map((field: any) => (
                       <div key={`${task.id}-${field.key}`} className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1">
                         <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/40">{field.key.replace(/_/g, ' ')}</p>
-                        <p className="mt-1 text-[10px] font-bold text-white/70">
+                        <p className="mt-1 text-[10px] font-bold text-white/70 leading-relaxed">
                           {formatDiffValue(field.before)} <span className="text-white/25">→</span> {formatDiffValue(field.after)}
                         </p>
                       </div>
@@ -2123,7 +2123,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
           )}
           {workflowDiff.removedTasks.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-rose-300">Removed Tasks</p>
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-rose-300">Removed tasks</p>
               {workflowDiff.removedTasks.map((task: any) => (
                 <div key={`removed-${task.node_id || task.id}`} className="rounded-[8px] border border-rose-500/20 bg-rose-500/10 px-1.5 py-1.5 text-[10px] font-bold text-rose-100">
                   Removed task: {task.name || task.id}
@@ -2133,10 +2133,10 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
           )}
           {workflowDiff.addedEdges.length > 0 || workflowDiff.removedEdges.length > 0 || workflowDiff.changedEdges.length > 0 ? (
             <div className="space-y-1.5">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-sky-300">Route Changes</p>
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-sky-300">Route changes</p>
               {workflowDiff.addedEdges.map((edge: any) => (
                 <div key={`edge-added-${edge.id}`} className="rounded-[8px] border border-sky-500/20 bg-sky-500/10 px-1.5 py-1.5 text-[10px] font-bold text-sky-100">
-                  New connection: {edge.data?.label || `${edge.source} → ${edge.target}`}
+                  Added route: {edge.data?.label || `${edge.source} → ${edge.target}`}
                 </div>
               ))}
               {workflowDiff.changedEdges.map((edge: any) => (
@@ -2144,8 +2144,8 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                   <div className="flex items-center justify-between gap-1.5">
                     <span className="font-black text-white">{edge.label || `${edge.source} → ${edge.target}`}</span>
                     <div className="flex items-center gap-1.5">
-                      {edge.routeChanged && <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-sky-300">Route</span>}
-                      <span className="rounded-full border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-sky-300">{edge.changedFields.length} changes</span>
+                      {edge.routeChanged && <span className="rounded-[8px] border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-sky-300">Route</span>}
+                      <span className="rounded-[8px] border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-sky-300">{edge.changedFields.length} changes</span>
                     </div>
                   </div>
                   <div className="mt-2 space-y-1">
@@ -2162,17 +2162,17 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
               ))}
               {workflowDiff.removedEdges.map((edge: any) => (
                 <div key={`edge-removed-${edge.id}`} className="rounded-[8px] border border-sky-500/20 bg-sky-500/10 px-1.5 py-1.5 text-[10px] font-bold text-sky-100">
-                  Removed connection: {edge.data?.label || `${edge.source} → ${edge.target}`}
+                  Removed route: {edge.data?.label || `${edge.source} → ${edge.target}`}
                 </div>
               ))}
             </div>
           ) : null}
           {workflowDiff.changedMetadata.length > 0 && (
             <div className="space-y-1.5">
-              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Metadata Changes</p>
+              <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Metadata changes</p>
               <div className="flex flex-wrap gap-1.5">
                 {workflowDiff.changedMetadata.map((field: string) => (
-                  <span key={field} className="rounded-full border border-white/10 bg-white/5 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/55">
+                  <span key={field} className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/55">
                     {field}
                   </span>
                 ))}
@@ -2209,20 +2209,20 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
           <div className="flex items-center justify-between gap-1.5">
             <div>
               <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Comments</p>
-              <p className="mt-1 text-[12px] font-bold text-white/55">Add, edit, and delete comments for {scopeTitle}.</p>
+              <p className="mt-1 text-[11px] font-bold text-white/55">Notes for {scopeTitle}. Keep them short and specific.</p>
             </div>
             <MessageSquare size={16} className="text-theme-accent" />
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <span className="rounded-full border border-white/10 bg-white/5 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/55">{openCount} open</span>
-            <span className="rounded-full border border-white/10 bg-white/5 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/55">{resolvedCount} resolved</span>
+            <span className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/55">{openCount} open</span>
+            <span className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/55">{resolvedCount} resolved</span>
           </div>
           <textarea
             className="w-full rounded-[8px] border border-white/10 bg-black/30 px-1.5 py-1.5 text-[11px] font-bold text-white/80 outline-none focus:border-theme-accent min-h-[5.5rem] resize-none"
             value={commentDraft.message}
             disabled={reviewMode}
             onChange={(e) => setCommentDraft((prev) => ({ ...prev, message: e.target.value }))}
-            placeholder="Write a comment..."
+            placeholder="Add a note..."
           />
           <div className="flex items-center justify-between gap-1.5">
             <button
@@ -2230,7 +2230,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
               disabled={reviewMode}
               className="rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all"
             >
-              Add Comment
+              Save Note
             </button>
             <p className="text-[10px] font-bold text-white/35">{scopedComments.length} comments</p>
           </div>
@@ -2245,7 +2245,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{comment.author}</p>
                     <p className="mt-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/30">{comment.updated_at ? 'Edited' : 'Created'} {String(comment.created_at || comment.updated_at || '').slice(0, 19).replace('T', ' ')}</p>
                   </div>
-                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => {
                       setEditingCommentId(comment.id);
@@ -2274,7 +2274,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                     className="rounded-[8px] border border-status-error/20 bg-status-error/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-status-error"
                   >
                     Delete
-                    </button>
+                  </button>
                   </div>
                 </div>
                 {isEditing ? (
@@ -2317,7 +2317,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
           })}
           {scopedComments.length === 0 && (
             <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1.5 text-[10px] font-bold text-white/40">
-              No comments yet. Add a short note, then keep follow-ups attached to this workflow.
+              No notes yet. Add the first one here so the review stays tied to the work.
             </div>
           )}
         </div>
@@ -3134,7 +3134,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{action.label}</p>
                           <p className="mt-0.5 text-[9px] font-bold text-white/35">{action.hint}</p>
                         </div>
-                        <span className="rounded-full border border-white/10 bg-black/25 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-[0.18em] text-white/45">
+                        <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-[0.18em] text-white/45">
                           {action.id}
                         </span>
                       </button>
@@ -3155,7 +3155,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 <Database className="text-theme-accent" size={18} />
                 <h3 className="text-[13px] font-black text-white uppercase tracking-tight">Select Existing Output</h3>
               </div>
-              <button onClick={() => setIsOutputPickerOpen(false)} className="p-1.5 hover:bg-white/5 rounded-full transition-colors"><X size={15} className="text-white/40 hover:text-white" /></button>
+              <button onClick={() => setIsOutputPickerOpen(false)} className="p-1.5 hover:bg-white/5 rounded-[8px] transition-colors"><X size={15} className="text-white/40 hover:text-white" /></button>
             </div>
             <div className="flex items-center gap-1.5 border-b border-white/10 px-1.5 py-[3px]">
               <Search size={13} className="text-white/30" />
@@ -3398,7 +3398,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 <div className="absolute bottom-4 right-4 z-20">
                   <button
                     onClick={() => updateLayoutPrefs({ showMiniMap: false })}
-                    className="absolute -top-1.5 -right-2 z-30 flex h-5 w-5 items-center justify-center rounded-full border border-white/10 bg-[#09111d] text-white/50 shadow-lg hover:text-white"
+                    className="absolute -top-1.5 -right-2 z-30 flex h-5 w-5 items-center justify-center rounded-[8px] border border-white/10 bg-[#09111d] text-white/50 shadow-lg hover:text-white"
                     aria-label="Close minimap"
                   >
                     <X size={11} />
@@ -3499,8 +3499,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         <span className="text-[9px] font-black text-white/70">{selectedTaskCompleteness.score}%</span>
                         <ChevronDown size={10} className={cn("text-white/25 transition-transform", taskCompletenessOpen && "rotate-180")} />
                       </div>
-                      <div className="mt-1 h-1 rounded-full bg-white/10 overflow-hidden">
-                        <div className="h-full rounded-full bg-theme-accent" style={{ width: `${selectedTaskCompleteness.score}%` }} />
+                      <div className="mt-1 h-1 rounded-[8px] bg-white/10 overflow-hidden">
+                        <div className="h-full rounded-[8px] bg-theme-accent" style={{ width: `${selectedTaskCompleteness.score}%` }} />
                       </div>
                     </button>
                     <div className="flex items-center gap-1">
@@ -3679,7 +3679,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     {issuesForField('task.name', selectedTaskId).length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {issuesForField('task.name', selectedTaskId).map((issue) => (
-                          <span key={issueId(issue)} className={cn("rounded-full border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>
+                          <span key={issueId(issue)} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>
                             {issue.message}
                           </span>
                         ))}
@@ -3720,29 +3720,29 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       </div>
                       <MapPinned size={14} className="text-theme-accent" />
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                      <div className="rounded-[8px] border border-white/10 bg-black/20 p-1.5 space-y-1.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                      <div className="rounded-[8px] border border-white/10 bg-black/20 p-1 space-y-1">
                         <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Upstream tasks</p>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-1">
                           {selectedTaskIncomingTasks.length > 0 ? selectedTaskIncomingTasks.map((task) => (
                             <button
                               key={task.id}
                               onClick={() => { setSelectedTaskId(task.id); setSelectedNodeIds([task.id]); }}
-                              className="rounded-full border border-white/10 bg-white/5 px-1.5 py-[3px] text-[9px] font-black uppercase text-white/60 hover:text-white"
+                              className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-[2px] text-[8px] font-black uppercase text-white/60 hover:text-white leading-none"
                             >
                               {task.name || 'Untitled'}
                             </button>
                           )) : <span className="text-[10px] font-bold text-white/25">No upstream tasks.</span>}
                         </div>
                       </div>
-                      <div className="rounded-[8px] border border-white/10 bg-black/20 p-1.5 space-y-1.5">
+                      <div className="rounded-[8px] border border-white/10 bg-black/20 p-1 space-y-1">
                         <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Downstream tasks</p>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="flex flex-wrap gap-1">
                           {selectedTaskOutgoingTasks.length > 0 ? selectedTaskOutgoingTasks.map((task) => (
                             <button
                               key={task.id}
                               onClick={() => { setSelectedTaskId(task.id); setSelectedNodeIds([task.id]); }}
-                              className="rounded-full border border-white/10 bg-white/5 px-1.5 py-[3px] text-[9px] font-black uppercase text-white/60 hover:text-white"
+                              className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-[2px] text-[8px] font-black uppercase text-white/60 hover:text-white leading-none"
                             >
                               {task.name || 'Untitled'}
                             </button>
@@ -3750,32 +3750,32 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-                      <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1">
+                    <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
+                      <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-[2px]">
                         <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Inputs</p>
-                        <p className="mt-1 text-[14px] font-black text-white">{selectedTask.source_data_list.length}</p>
+                        <p className="mt-0.5 text-[12px] font-black text-white">{selectedTask.source_data_list.length}</p>
                       </div>
-                      <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1">
+                      <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-[2px]">
                         <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Outputs</p>
-                        <p className="mt-1 text-[14px] font-black text-white">{selectedTask.output_data_list.length}</p>
+                        <p className="mt-0.5 text-[12px] font-black text-white">{selectedTask.output_data_list.length}</p>
                       </div>
-                      <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1">
+                      <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-[2px]">
                         <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Handoffs</p>
-                        <p className="mt-1 text-[14px] font-black text-white">{selectedTaskIncomingEdges.length + selectedTaskOutgoingEdges.length}</p>
+                        <p className="mt-0.5 text-[12px] font-black text-white">{selectedTaskIncomingEdges.length + selectedTaskOutgoingEdges.length}</p>
                       </div>
-                      <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1">
+                      <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-[2px]">
                         <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Changes</p>
-                        <p className="mt-1 text-[14px] font-black text-white">{selectedTaskDiff.changedFields.length}</p>
+                        <p className="mt-0.5 text-[12px] font-black text-white">{selectedTaskDiff.changedFields.length}</p>
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      <span className="rounded-full border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                      <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
                         {selectedTask.blockers.length} blockers
                       </span>
-                      <span className="rounded-full border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                      <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
                         {selectedTask.reference_links.length} references
                       </span>
-                      <span className="rounded-full border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                      <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
                         {selectedTask.involved_systems.length} systems
                       </span>
                     </div>
@@ -3790,26 +3790,23 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       <Clock3 size={14} className="text-theme-accent" />
                     </div>
                     {selectedTaskDiff.changedFields.length === 0 ? (
-                      <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1.5 text-[11px] font-bold text-white/35">
+                      <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1 text-[10px] font-bold text-white/35">
                         No task-level field changes detected.
                       </div>
                     ) : (
-                      <div className="space-y-1.5">
+                      <div className="flex flex-wrap gap-1">
                         {selectedTaskDiff.changedFields.slice(0, 4).map((field) => (
-                          <div key={field.key} className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1">
-                            <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/40">{field.key.replace(/_/g, ' ')}</p>
-                            <p className="mt-1 text-[10px] font-bold text-white/70">
-                              {formatDiffValue(field.before)} <span className="text-white/25">→</span> {formatDiffValue(field.after)}
-                            </p>
-                          </div>
+                          <span key={field.key} className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-[2px] text-[8px] font-black uppercase tracking-[0.18em] text-white/55">
+                            {field.key.replace(/_/g, ' ')}: {formatDiffValue(field.before)} → {formatDiffValue(field.after)}
+                          </span>
                         ))}
                       </div>
                     )}
                     <div className="flex flex-wrap gap-1.5">
-                      <span className="rounded-full border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                      <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
                         {selectedTaskDiff.addedConnections} added connections
                       </span>
-                      <span className="rounded-full border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                      <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
                         {selectedTaskDiff.removedConnections} removed connections
                       </span>
                     </div>
@@ -3825,7 +3822,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         {issuesForField('task.task_type', selectedTaskId).length > 0 && (
                           <div className="flex flex-wrap gap-1.5">
                             {issuesForField('task.task_type', selectedTaskId).map((issue) => (
-                              <span key={issueId(issue)} className={cn("rounded-full border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>
+                              <span key={issueId(issue)} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>
                                 {issue.message}
                               </span>
                             ))}
@@ -3833,51 +3830,51 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         )}
                       </div>
 
-                      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 p-1.5 bg-white/[0.02] border border-white/5 rounded-[8px]">
-                        <div className="space-y-1.5">
-                          <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest px-1 text-center block">TAT Manual (m)</label>
-                        <div className={getDefinitionIssueShell(issuesForField('task.manual_time_minutes', selectedTaskId).length > 0)} data-builder-field="task.manual_time_minutes">
-                          <input type="number" className="w-full bg-black/40 border-0 rounded-[inherit] px-1.5 py-1 text-[12px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
-                        </div>
+                      <div className="grid grid-cols-1 gap-1 sm:grid-cols-2 p-1 bg-white/[0.02] border border-white/5 rounded-[8px]">
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-black text-blue-400 uppercase tracking-widest px-1 text-center block leading-none">TAT Manual (m)</label>
+                          <div className={getDefinitionIssueShell(issuesForField('task.manual_time_minutes', selectedTaskId).length > 0)} data-builder-field="task.manual_time_minutes">
+                            <input type="number" className="w-full bg-black/40 border-0 rounded-[inherit] px-1.5 py-[2px] text-[12px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
+                          </div>
                           {issuesForField('task.manual_time_minutes', selectedTaskId).length > 0 && (
                             <div className="flex flex-wrap gap-1.5">
                               {issuesForField('task.manual_time_minutes', selectedTaskId).map((issue) => (
-                                <span key={issueId(issue)} className={cn("rounded-full border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                                <span key={issueId(issue)} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
                               ))}
                             </div>
                           )}
                         </div>
-                      <div className="space-y-1.5">
-                          <label className="text-[9px] font-black text-purple-400 uppercase tracking-widest px-1 text-center block">TAT Machine (m)</label>
-                        <div className={getDefinitionIssueShell(issuesForField('task.automation_time_minutes', selectedTaskId).length > 0)} data-builder-field="task.automation_time_minutes">
-                          <input type="number" className="w-full bg-black/40 border-0 rounded-[inherit] px-1.5 py-1 text-[12px] font-black text-white outline-none focus:border-purple-400 text-center" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
-                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-black text-purple-400 uppercase tracking-widest px-1 text-center block leading-none">TAT Machine (m)</label>
+                          <div className={getDefinitionIssueShell(issuesForField('task.automation_time_minutes', selectedTaskId).length > 0)} data-builder-field="task.automation_time_minutes">
+                            <input type="number" className="w-full bg-black/40 border-0 rounded-[inherit] px-1.5 py-[2px] text-[12px] font-black text-white outline-none focus:border-purple-400 text-center" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
+                          </div>
                           {issuesForField('task.automation_time_minutes', selectedTaskId).length > 0 && (
                             <div className="flex flex-wrap gap-1.5">
                               {issuesForField('task.automation_time_minutes', selectedTaskId).map((issue) => (
-                                <span key={issueId(issue)} className={cn("rounded-full border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                                <span key={issueId(issue)} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
                               ))}
                             </div>
                           )}
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 items-end">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owner Team</label>
-                          <input data-builder-field="task.owning_team" className={BUILDER_FIELD.replace('py-1.5', 'h-10 py-1.5')} value={selectedTask.owning_team} onChange={e => updateTask(selectedTaskId, { owning_team: e.target.value })} placeholder="Team Name" />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 items-end">
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-black text-white/40 uppercase tracking-widest px-1 leading-none">Owner Team</label>
+                          <input data-builder-field="task.owning_team" className={BUILDER_FIELD.replace('py-1.5', 'py-1').replace('text-[10px]', 'text-[9px]')} value={selectedTask.owning_team} onChange={e => updateTask(selectedTaskId, { owning_team: e.target.value })} placeholder="Team Name" />
                         </div>
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Owner Positions</label>
-                          <div className="rounded-[8px] border border-white/10 bg-black/30 p-1.5">
+                        <div className="space-y-1">
+                          <label className="text-[8px] font-black text-white/40 uppercase tracking-widest px-1 leading-none">Owner Positions</label>
+                          <div className="rounded-[8px] border border-white/10 bg-black/30 p-1">
                             <button
                               onClick={() => setOwnerPositionsCollapsed(!ownerPositionsCollapsed)}
-                              className="w-full rounded-[8px] border border-white/10 bg-white/[0.03] px-3 h-10 flex items-center justify-between hover:bg-white/10 transition-colors"
+                              className="w-full rounded-[8px] border border-white/10 bg-white/[0.03] px-1.5 h-8 flex items-center justify-between hover:bg-white/10 transition-colors"
                             >
-                              <span className="text-[12px] font-bold text-white truncate">
+                              <span className="text-[10px] font-bold text-white truncate">
                                 {selectedTask.owner_positions?.length || 0} Positions
                               </span>
-                              {ownerPositionsCollapsed ? <ChevronDown size={14} className="text-white/20" /> : <ChevronUp size={14} className="text-white/20" />}
+                              {ownerPositionsCollapsed ? <ChevronDown size={12} className="text-white/20" /> : <ChevronUp size={12} className="text-white/20" />}
                             </button>
                           </div>
                         </div>
@@ -3902,70 +3899,68 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
 
                       <div
                         ref={(el) => { taskSectionRefs.current.ownership = el; }}
-                        className="rounded-[8px] border border-white/5 bg-white/[0.02] p-1.5 space-y-1.5"
+                        className="rounded-[8px] border border-white/5 bg-white/[0.02] p-1 space-y-1"
                         data-section="ownership"
                       >
                         <div className="flex items-center justify-between gap-1.5">
                           <div>
                             <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Ownership & Risk</p>
-                            <p className="mt-1 text-[11px] font-bold text-white/45">Backup owners, review coverage, and readiness signals.</p>
                           </div>
                           <ShieldAlert size={14} className="text-theme-accent" />
                         </div>
-                        <div className={cn(taskPaneCompact ? "grid grid-cols-1 sm:grid-cols-2 gap-1.5" : "grid grid-cols-1 sm:grid-cols-2 gap-1.5")}>
-                          <input data-builder-field="task.backup_owner" className={cn(BUILDER_FIELD, "h-9")} value={selectedTaskDiagnostics.taskManagement?.backup_owner || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskManagement: { backup_owner: e.target.value } })} placeholder="Backup owner" />
-                          <input data-builder-field="task.escalation_contact" className={cn(BUILDER_FIELD, "h-9")} value={selectedTaskDiagnostics.taskManagement?.escalation_contact || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskManagement: { escalation_contact: e.target.value } })} placeholder="Escalation contact" />
-                          <input data-builder-field="task.sme" className={cn(BUILDER_FIELD, "h-9")} value={selectedTaskDiagnostics.taskManagement?.sme || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskManagement: { sme: e.target.value } })} placeholder="Subject matter expert" />
-                          <input data-builder-field="task.reviewer" className={cn(BUILDER_FIELD, "h-9")} value={selectedTaskDiagnostics.taskManagement?.reviewer || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskManagement: { reviewer: e.target.value } })} placeholder="Reviewer" />
-                          <input data-builder-field="task.due_date" type="date" className={cn(BUILDER_FIELD, "h-9")} value={selectedTaskDiagnostics.taskManagement?.due_date || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskManagement: { due_date: e.target.value } })} />
-                          <input data-builder-field="task.automation_readiness" className={cn(BUILDER_FIELD, "h-9")} value={selectedTaskDiagnostics.taskProfile?.automation_readiness || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { automation_readiness: e.target.value } })} placeholder="Automation readiness" />
-                          <input data-builder-field="task.risk_level" className={cn(BUILDER_FIELD, "h-9")} value={selectedTaskDiagnostics.taskProfile?.risk_level || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { risk_level: e.target.value } })} placeholder="Risk level" />
-                          <input data-builder-field="task.sensitivity" className={cn(BUILDER_FIELD, "h-9")} value={selectedTaskDiagnostics.taskProfile?.sensitivity || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { sensitivity: e.target.value } })} placeholder="Sensitivity" />
-                          <input data-builder-field="task.exception_burden" className={cn(BUILDER_FIELD, "h-9")} value={selectedTaskDiagnostics.taskProfile?.exception_burden || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { exception_burden: e.target.value } })} placeholder="Exception burden" />
-                          <input data-builder-field="task.cadence" className={cn(BUILDER_FIELD, "h-9")} value={selectedTaskDiagnostics.taskProfile?.cadence || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { cadence: e.target.value } })} placeholder="Cadence" />
-                          <input data-builder-field="task.sla" className={cn(BUILDER_FIELD, "h-9")} value={selectedTaskDiagnostics.taskProfile?.sla || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { sla: e.target.value } })} placeholder="SLA / timing target" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                          <input data-builder-field="task.backup_owner" className={cn(BUILDER_FIELD, "h-8")} value={selectedTaskDiagnostics.taskManagement?.backup_owner || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskManagement: { backup_owner: e.target.value } })} placeholder="Backup owner" />
+                          <input data-builder-field="task.escalation_contact" className={cn(BUILDER_FIELD, "h-8")} value={selectedTaskDiagnostics.taskManagement?.escalation_contact || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskManagement: { escalation_contact: e.target.value } })} placeholder="Escalation contact" />
+                          <input data-builder-field="task.sme" className={cn(BUILDER_FIELD, "h-8")} value={selectedTaskDiagnostics.taskManagement?.sme || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskManagement: { sme: e.target.value } })} placeholder="Subject matter expert" />
+                          <input data-builder-field="task.reviewer" className={cn(BUILDER_FIELD, "h-8")} value={selectedTaskDiagnostics.taskManagement?.reviewer || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskManagement: { reviewer: e.target.value } })} placeholder="Reviewer" />
+                          <input data-builder-field="task.due_date" type="date" className={cn(BUILDER_FIELD, "h-8")} value={selectedTaskDiagnostics.taskManagement?.due_date || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskManagement: { due_date: e.target.value } })} />
+                          <input data-builder-field="task.automation_readiness" className={cn(BUILDER_FIELD, "h-8")} value={selectedTaskDiagnostics.taskProfile?.automation_readiness || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { automation_readiness: e.target.value } })} placeholder="Automation readiness" />
+                          <input data-builder-field="task.risk_level" className={cn(BUILDER_FIELD, "h-8")} value={selectedTaskDiagnostics.taskProfile?.risk_level || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { risk_level: e.target.value } })} placeholder="Risk level" />
+                          <input data-builder-field="task.sensitivity" className={cn(BUILDER_FIELD, "h-8")} value={selectedTaskDiagnostics.taskProfile?.sensitivity || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { sensitivity: e.target.value } })} placeholder="Sensitivity" />
+                          <input data-builder-field="task.exception_burden" className={cn(BUILDER_FIELD, "h-8")} value={selectedTaskDiagnostics.taskProfile?.exception_burden || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { exception_burden: e.target.value } })} placeholder="Exception burden" />
+                          <input data-builder-field="task.cadence" className={cn(BUILDER_FIELD, "h-8")} value={selectedTaskDiagnostics.taskProfile?.cadence || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { cadence: e.target.value } })} placeholder="Cadence" />
+                          <input data-builder-field="task.sla" className={cn(BUILDER_FIELD, "h-8")} value={selectedTaskDiagnostics.taskProfile?.sla || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { sla: e.target.value } })} placeholder="SLA / timing target" />
                         </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          <span className="rounded-full border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                        <div className="flex flex-wrap gap-1">
+                          <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
                             Manual {selectedTask.manual_time_minutes}m
                           </span>
-                          <span className="rounded-full border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                          <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
                             Automation {selectedTask.automation_time_minutes}m
                           </span>
-                          <span className="rounded-full border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                          <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
                             Gap {Math.max(selectedTask.manual_time_minutes - selectedTask.automation_time_minutes, 0)}m
                           </span>
-                          <span className="rounded-full border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                          <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
                             Wait {selectedTask.machine_wait_time_minutes}m
                           </span>
                         </div>
                       </div>
 
-                      <div className="space-y-1.5">
-                      <div className="flex items-center justify-between gap-1.5 px-1" ref={(el) => { taskSectionRefs.current.systems = el; }} data-section="systems">
+                      <div className="space-y-1">
+                      <div className="flex items-center justify-between gap-1 px-1" ref={(el) => { taskSectionRefs.current.systems = el; }} data-section="systems">
                         <div>
-                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest">Systems & Integrations</label>
-                          <p className="mt-1 text-[11px] font-bold text-white/35">Systems are grouped by their connected role and documentation link.</p>
+                          <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Systems & Integrations</label>
                         </div>
                           <button
                             onClick={() => updateTaskDiagnostics(selectedTaskId, { taskProfile: { shadow_it_used: !selectedTaskDiagnostics.taskProfile?.shadow_it_used } })}
-                            className={cn("rounded-[8px] border px-1.5 py-1 text-[8px] font-black uppercase tracking-[0.18em]", selectedTaskDiagnostics.taskProfile?.shadow_it_used ? "border-amber-500/20 bg-amber-500/10 text-amber-300" : "border-white/10 bg-white/5 text-white/45 hover:text-white")}
+                            className={cn("rounded-[8px] border px-1.5 py-[2px] text-[8px] font-black uppercase tracking-[0.18em] leading-none", selectedTaskDiagnostics.taskProfile?.shadow_it_used ? "border-amber-500/20 bg-amber-500/10 text-amber-300" : "border-white/10 bg-white/5 text-white/45 hover:text-white")}
                         >
                           Shadow IT {selectedTaskDiagnostics.taskProfile?.shadow_it_used ? 'On' : 'Off'}
                         </button>
                       </div>
-                      <div className="flex flex-wrap gap-1.5 px-1">
-                        <span className="rounded-full border border-white/10 bg-black/20 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                      <div className="flex flex-wrap gap-1 px-1">
+                        <span className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
                           {selectedTask.involved_systems.filter((sys) => Boolean(sys.link)).length} linked
                         </span>
-                        <span className="rounded-full border border-white/10 bg-black/20 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                        <span className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
                           {selectedTask.involved_systems.filter((sys) => Boolean(sys.usage)).length} described
                         </span>
                       </div>
                       {selectedTaskDiagnostics.taskProfile?.shadow_it_used && (
-                        <input className={cn(BUILDER_FIELD, "h-10")} value={selectedTaskDiagnostics.taskProfile?.shadow_it_link || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { shadow_it_link: e.target.value } })} placeholder="Shadow IT / workaround link" />
+                        <input className={cn(BUILDER_FIELD, "h-8")} value={selectedTaskDiagnostics.taskProfile?.shadow_it_link || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { shadow_it_link: e.target.value } })} placeholder="Shadow IT / workaround link" />
                       )}
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           {(selectedTask.involved_systems || []).map((sys, idx) => (
                             <NestedCollapsible
                               key={sys.id}
@@ -3976,21 +3971,21 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               onMoveDown={idx < (selectedTask.involved_systems || []).length - 1 ? () => updateTask(selectedTaskId, { involved_systems: moveArrayItem(selectedTask.involved_systems || [], idx, idx + 1) }) : undefined}
                               onDelete={() => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.filter(x => x.id !== sys.id) })}
                             >
-                              <div className="space-y-1.5">
+                              <div className="space-y-1">
                                 <div className="space-y-1">
-                                  <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">System Name</label>
-                                  <input data-builder-field="task.involved_systems" className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-white outline-none focus:border-theme-accent" value={sys.name} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, name: e.target.value } : x) })} placeholder="e.g., SAP, Salesforce, Internal Tool" />
+                                  <label className="text-[8px] font-black text-white/20 uppercase tracking-widest">System Name</label>
+                                  <input data-builder-field="task.involved_systems" className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1 text-[10px] text-white outline-none focus:border-theme-accent" value={sys.name} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, name: e.target.value } : x) })} placeholder="e.g., SAP, Salesforce, Internal Tool" />
                                 </div>
                                 <div className="space-y-1">
-                                  <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Usage Context</label>
-                                  <textarea className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-white/60 h-[4.5rem] resize-none outline-none focus:border-theme-accent" value={sys.usage} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, usage: e.target.value } : x) })} placeholder="Describe how the system is used in this task..." />
+                                  <label className="text-[8px] font-black text-white/20 uppercase tracking-widest">Usage Context</label>
+                                  <textarea className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1 text-[10px] text-white/60 h-[3.75rem] resize-none outline-none focus:border-theme-accent" value={sys.usage} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, usage: e.target.value } : x) })} placeholder="Describe how the system is used in this task..." />
                                 </div>
                                 <ImagePasteField figures={sys.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, figures: figs } : x) })} label="System Screenshots (Ctrl+V)" />
                                 <div className="space-y-1">
-                                  <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Documentation Link</label>
-                                  <div className="flex items-center gap-1.5 bg-black/40 border border-white/10 rounded-[8px] px-1.5 py-1">
+                                  <label className="text-[8px] font-black text-white/20 uppercase tracking-widest">Documentation Link</label>
+                                  <div className="flex items-center gap-1 bg-black/40 border border-white/10 rounded-[8px] px-1.5 py-[2px]">
                                     <Link2 size={12} className="text-theme-accent" />
-                                    <input className="flex-1 bg-transparent border-none p-0 text-[11px] text-theme-accent underline outline-none" value={sys.link} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, link: e.target.value } : x) })} placeholder="URL to SOP or Wiki" />
+                                    <input className="flex-1 bg-transparent border-none p-0 text-[10px] text-theme-accent underline outline-none" value={sys.link} onChange={e => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.map(x => x.id === sys.id ? { ...x, link: e.target.value } : x) })} placeholder="URL to SOP or Wiki" />
                                   </div>
                                 </div>
                               </div>
@@ -4063,7 +4058,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             </div>
                           ))}
                           {selectedTaskComments.length === 0 && (
-                            <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1.5 text-[11px] font-bold text-white/35">
+                            <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1 text-[10px] font-bold text-white/35">
                             No comments for this task yet. Keep comments attached to the actual task so review stays contextual.
                             </div>
                           )}
@@ -4312,9 +4307,9 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       </div>
                       <button 
                         onClick={() => updateTask(selectedTaskId, { validation_needed: !selectedTask.validation_needed })} 
-                        className={cn("relative w-12 h-6 rounded-full transition-all duration-300", selectedTask.validation_needed ? "bg-orange-500" : "bg-white/10")}
+                        className={cn("relative w-12 h-6 rounded-[8px] transition-all duration-300", selectedTask.validation_needed ? "bg-orange-500" : "bg-white/10")}
                       >
-                        <div className={cn("absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300", selectedTask.validation_needed ? "left-7 shadow-[0_0_10px_rgba(255,255,255,0.5)]" : "left-1")} />
+                        <div className={cn("absolute top-1 w-4 h-4 bg-white rounded-[8px] transition-all duration-300", selectedTask.validation_needed ? "left-7 shadow-[0_0_10px_rgba(255,255,255,0.5)]" : "left-1")} />
                       </button>
                     </div>
 
@@ -4365,8 +4360,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       The issue list has been removed from this tab. Errors and warnings are now attached directly to the relevant workflow field or section.
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      <span className="rounded-full border border-status-error/20 bg-status-error/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-status-error">{validationErrorCount} errors</span>
-                      <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">{validationWarningCount} warnings</span>
+                      <span className="rounded-[8px] border border-status-error/20 bg-status-error/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-status-error">{validationErrorCount} errors</span>
+                      <span className="rounded-[8px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-amber-300">{validationWarningCount} warnings</span>
                     </div>
                   </div>
                 </div>
@@ -4497,7 +4492,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   <label className="text-[9px] font-black text-white/40 uppercase px-1">Color Palette</label>
                   <div className="flex flex-wrap gap-1.5">
                     {['#ffffff', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'].map((c) => (
-                      <button key={c} onClick={() => updateEdge(selectedEdgeId, { color: c })} className={cn("w-6 h-6 rounded-full border transition-all", (selectedEdge.data?.color || '#ffffff') === c ? "border-white scale-125" : "border-transparent hover:scale-110")} style={{ backgroundColor: c }} />
+                      <button key={c} onClick={() => updateEdge(selectedEdgeId, { color: c })} className={cn("w-6 h-6 rounded-[8px] border transition-all", (selectedEdge.data?.color || '#ffffff') === c ? "border-white scale-125" : "border-transparent hover:scale-110")} style={{ backgroundColor: c }} />
                     ))}
                   </div>
                 </div>
@@ -4538,10 +4533,10 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      <span className={cn("rounded-full border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", workflow?.review_state === 'Approved' ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-amber-500/20 bg-amber-500/10 text-amber-300')}>
+                      <span className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", workflow?.review_state === 'Approved' ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-amber-500/20 bg-amber-500/10 text-amber-300')}>
                         Review {workflow?.review_state || 'Draft'}
                       </span>
-                      <span className={cn("rounded-full border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", workflow?.approval_state === 'Approved' || workflow?.approval_state === 'Certified' ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-white/10 bg-white/5 text-white/55')}>
+                      <span className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", workflow?.approval_state === 'Approved' || workflow?.approval_state === 'Certified' ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-white/10 bg-white/5 text-white/55')}>
                         Approval {workflow?.approval_state || 'Draft'}
                       </span>
                     </div>
@@ -4604,7 +4599,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       {issuesForField('workflow.name').length > 0 && (
                         <div className="flex flex-wrap gap-1.5">
                           {issuesForField('workflow.name').map((issue) => (
-                            <span key={issueId(issue)} className={cn("rounded-full border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                            <span key={issueId(issue)} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
                           ))}
                         </div>
                       )}
@@ -4632,7 +4627,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         {issuesForField('workflow.description').length > 0 && (
                           <div className="flex flex-wrap gap-1.5">
                             {issuesForField('workflow.description').map((issue) => (
-                              <span key={issueId(issue)} className={cn("rounded-full border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                              <span key={issueId(issue)} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
                             ))}
                           </div>
                         )}
@@ -4758,7 +4753,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Propagation</span>
                           {definitionToolPropagation.familyChips.length > 0 ? (
                             definitionToolPropagation.familyChips.map((chip) => (
-                              <span key={chip.family} className="rounded-full border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-[3px] text-[7px] font-black uppercase tracking-[0.18em] text-theme-accent">
+                              <span key={chip.family} className="rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-[3px] text-[7px] font-black uppercase tracking-[0.18em] text-theme-accent">
                                 {chip.family} <span className="text-white/35">({chip.toolCount})</span>
                               </span>
                             ))
@@ -4828,14 +4823,14 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         {issuesForField('workflow.tool_family').length > 0 && (
                           <div className="flex flex-wrap gap-1.5 px-1">
                             {issuesForField('workflow.tool_family').map((issue) => (
-                              <span key={issueId(issue)} className={cn("rounded-full border px-1.5 py-[3px] text-[7px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                              <span key={issueId(issue)} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[7px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
                             ))}
                           </div>
                         )}
                         {issuesForField('workflow.applicable_tools').length > 0 && (
                           <div className="flex flex-wrap gap-1.5 px-1">
                             {issuesForField('workflow.applicable_tools').map((issue) => (
-                              <span key={issueId(issue)} className={cn("rounded-full border px-1.5 py-[3px] text-[7px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                              <span key={issueId(issue)} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[7px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
                             ))}
                           </div>
                         )}
@@ -4897,7 +4892,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         {issuesForField('workflow.trigger_description').length > 0 && (
                           <div className="flex flex-wrap gap-1.5">
                             {issuesForField('workflow.trigger_description').map((issue) => (
-                              <span key={issueId(issue)} className={cn("rounded-full border px-1.5 py-[3px] text-[7px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                              <span key={issueId(issue)} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[7px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
                             ))}
                           </div>
                         )}
@@ -4921,7 +4916,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         {issuesForField('workflow.output_description').length > 0 && (
                           <div className="flex flex-wrap gap-1.5">
                             {issuesForField('workflow.output_description').map((issue) => (
-                              <span key={issueId(issue)} className={cn("rounded-full border px-1.5 py-[3px] text-[7px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
+                              <span key={issueId(issue)} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[7px] font-black uppercase tracking-[0.18em]", compactIssueTone(issue.severity))}>{issue.message}</span>
                             ))}
                           </div>
                         )}
