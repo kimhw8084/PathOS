@@ -561,6 +561,12 @@ async def test_company_rollout_overview_search_inbox_and_governance_actions(api_
     assert inbox["member"]["email"] == member_email
     assert inbox["unread_count"] >= 1
 
+    invalid_inbox_response = await api_client.get("/api/workflows/inbox", params={"member_email": "missing.person@example.com"})
+    assert invalid_inbox_response.status_code == 200, invalid_inbox_response.text
+    invalid_inbox = invalid_inbox_response.json()
+    assert invalid_inbox["member"] is None
+    assert invalid_inbox["items"] == []
+
     governance_center_response = await api_client.get("/api/workflows/governance-center")
     assert governance_center_response.status_code == 200, governance_center_response.text
     governance_center = governance_center_response.json()
@@ -577,6 +583,31 @@ async def test_company_rollout_overview_search_inbox_and_governance_actions(api_
     assert governed["review_state"] == "Approved"
     assert governed["review_requests"][0]["status"] == "approved"
 
+    approve_workflow_create = await api_client.post("/api/workflows", json=workflow_payload())
+    assert approve_workflow_create.status_code == 200, approve_workflow_create.text
+    approve_workflow_id = approve_workflow_create.json()["id"]
+    approve_workflow_response = await api_client.post(
+        f"/api/workflows/{approve_workflow_id}/governance-action",
+        json={"action": "approve_workflow", "actor": overview["active_member"]["full_name"], "request_id": "review-1", "note": "Final approval"},
+    )
+    assert approve_workflow_response.status_code == 200, approve_workflow_response.text
+    approved_workflow = approve_workflow_response.json()
+    assert approved_workflow["review_state"] == "Approved"
+    assert approved_workflow["approval_state"] == "Approved"
+    assert all(request["status"] == "approved" for request in approved_workflow["review_requests"])
+
+    invalid_request_response = await api_client.post(
+        f"/api/workflows/{approve_workflow_id}/governance-action",
+        json={"action": "approve_review", "actor": member_email, "request_id": "missing-request", "note": "Invalid request"},
+    )
+    assert invalid_request_response.status_code == 404, invalid_request_response.text
+
+    unsupported_action_response = await api_client.post(
+        f"/api/workflows/{approve_workflow_id}/governance-action",
+        json={"action": "unsupported_action", "actor": member_email, "note": "Invalid action"},
+    )
+    assert unsupported_action_response.status_code == 400, unsupported_action_response.text
+
     notification_id = governed["notification_feed"][0]["id"]
     read_response = await api_client.post(
         f"/api/workflows/{workflow_id}/notifications/{notification_id}/read",
@@ -591,6 +622,134 @@ async def test_company_rollout_overview_search_inbox_and_governance_actions(api_
     quality = quality_response.json()
     assert quality["portfolio"]["workflow_count"] >= 1
     assert "developer_commands" in quality
+
+
+@pytest.mark.asyncio
+async def test_governance_action_rejects_unauthorized_actor(api_client: AsyncClient):
+    create_response = await api_client.post("/api/workflows", json=workflow_payload())
+    assert create_response.status_code == 200, create_response.text
+    workflow_id = create_response.json()["id"]
+
+    member_response = await api_client.post(
+        "/api/settings/members",
+        json={
+            "full_name": "Limited Reviewer",
+            "email": "limited.reviewer@example.com",
+            "employee_id": "EMP-LIMITED",
+            "title": "Reviewer",
+            "org": "Ops",
+            "team": "Automation",
+            "site": "Austin",
+            "manager": "Director One",
+            "roles": ["viewer"],
+            "permissions": ["workflow.read"],
+            "status": "active",
+        },
+    )
+    assert member_response.status_code == 200, member_response.text
+
+    forbidden_response = await api_client.post(
+        f"/api/workflows/{workflow_id}/governance-action",
+        json={"action": "approve_review", "actor": "limited.reviewer@example.com", "request_id": "review-1", "note": "Trying to approve without permission"},
+    )
+    assert forbidden_response.status_code == 403, forbidden_response.text
+
+
+@pytest.mark.asyncio
+async def test_identity_source_sync_versions_and_retains_history(api_client: AsyncClient):
+    source_response = await api_client.get("/api/settings/identity-source")
+    assert source_response.status_code == 200, source_response.text
+    source_payload = source_response.json()["source"]
+
+    source_payload["script_content"] = """
+import pandas as pd
+
+df = pd.DataFrame([
+    {
+        "employee_id": "EMP-001",
+        "full_name": "Alice Example",
+        "email": "alice@example.com",
+        "title": "Manager",
+        "org": "Ops",
+        "team": "Automation",
+        "site": "Austin",
+        "manager": "Director One",
+        "roles": ["reviewer"],
+        "permissions": ["workflow.review"],
+        "status": "active",
+    },
+    {
+        "employee_id": "EMP-002",
+        "full_name": "Bob Example",
+        "email": "bob@example.com",
+        "title": "Engineer",
+        "org": "Ops",
+        "team": "Automation",
+        "site": "Austin",
+        "manager": "Director One",
+        "roles": ["editor"],
+        "permissions": ["workflow.write"],
+        "status": "active",
+    },
+])
+"""
+    save_response = await api_client.put("/api/settings/identity-source", json=source_payload)
+    assert save_response.status_code == 200, save_response.text
+
+    first_sync_response = await api_client.post("/api/settings/identity-source/sync")
+    assert first_sync_response.status_code == 200, first_sync_response.text
+    first_sync = first_sync_response.json()
+    assert first_sync["status"] == "success"
+    assert first_sync["source"]["current_version"] == 1
+    assert first_sync["snapshot"]["added_count"] == 2
+    assert len(first_sync["members"]) == 2
+
+    source_payload["script_content"] = """
+import pandas as pd
+
+df = pd.DataFrame([
+    {
+        "employee_id": "EMP-001",
+        "full_name": "Alice Example",
+        "email": "alice@example.com",
+        "title": "Senior Manager",
+        "org": "Ops",
+        "team": "Automation",
+        "site": "Austin",
+        "manager": "Director One",
+        "roles": ["reviewer", "approver"],
+        "permissions": ["workflow.review", "workflow.approve"],
+        "status": "active",
+    },
+    {
+        "employee_id": "EMP-003",
+        "full_name": "Cara Example",
+        "email": "cara@example.com",
+        "title": "Analyst",
+        "org": "Ops",
+        "team": "Automation",
+        "site": "Austin",
+        "manager": "Director One",
+        "roles": ["viewer"],
+        "permissions": ["workflow.read"],
+        "status": "active",
+    },
+])
+"""
+    update_response = await api_client.put("/api/settings/identity-source", json=source_payload)
+    assert update_response.status_code == 200, update_response.text
+
+    second_sync_response = await api_client.post("/api/settings/identity-source/sync")
+    assert second_sync_response.status_code == 200, second_sync_response.text
+    second_sync = second_sync_response.json()
+    assert second_sync["source"]["current_version"] == 2
+    assert second_sync["snapshot"]["added_count"] == 1
+    assert second_sync["snapshot"]["updated_count"] == 1
+    assert second_sync["snapshot"]["removed_count"] == 1
+    assert len(second_sync["members"]) == 2
+    assert any(member["employee_id"] == "EMP-001" and member["title"] == "Senior Manager" for member in second_sync["members"])
+    latest_snapshot = second_sync["snapshots"][0]
+    assert any(row["row_state"] == "removed" and row["employee_id"] == "EMP-002" for row in latest_snapshot["rows"])
 
 
 @pytest.mark.asyncio

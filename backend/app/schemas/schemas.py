@@ -432,7 +432,37 @@ class AppConfigRead(AppConfigBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class OrgMemberBase(BaseModel):
+class IdentitySourceBase(BaseModel):
+    name: str = "Local Python Roster Source"
+    provider: str = "python_script"
+    working_dir: Optional[str] = None
+    venv_path: Optional[str] = None
+    script_path: Optional[str] = None
+    script_content: Optional[str] = None
+    schedule: Optional[str] = None
+    schema_version: str = "1"
+    is_active: bool = True
+
+
+class IdentitySourceCreate(IdentitySourceBase):
+    pass
+
+
+class IdentitySourceRead(IdentitySourceBase):
+    id: int
+    current_version: int = 0
+    current_snapshot_id: Optional[int] = None
+    last_run_at: Optional[datetime] = None
+    last_run_status: str = "never"
+    last_run_message: Optional[str] = None
+    last_run_row_count: int = 0
+    model_config = ConfigDict(from_attributes=True)
+
+
+class IdentitySourceSnapshotRowRead(BaseModel):
+    id: int
+    snapshot_id: int
+    employee_id: str
     full_name: str
     email: str
     title: Optional[str] = None
@@ -443,7 +473,49 @@ class OrgMemberBase(BaseModel):
     roles: List[str] = []
     permissions: List[str] = []
     status: str = "active"
+    row_state: str = "current"
+    source_hash: Optional[str] = None
+    payload: Optional[dict] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class IdentitySourceSnapshotRead(BaseModel):
+    id: int
+    source_id: int
+    version: int = 1
+    run_at: Optional[datetime] = None
+    actor: str = "system_user"
+    status: str = "success"
+    message: Optional[str] = None
+    row_count: int = 0
+    added_count: int = 0
+    updated_count: int = 0
+    removed_count: int = 0
+    source_hash: Optional[str] = None
+    diff_summary: Optional[dict] = None
+    rows: List[IdentitySourceSnapshotRowRead] = []
+    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OrgMemberBase(BaseModel):
+    full_name: str
+    email: str
+    employee_id: Optional[str] = None
+    title: Optional[str] = None
+    org: Optional[str] = None
+    team: Optional[str] = None
+    site: Optional[str] = None
+    manager: Optional[str] = None
+    roles: List[str] = []
+    permissions: List[str] = []
+    status: str = "active"
     avatar_initials: Optional[str] = None
+    identity_source_id: Optional[int] = None
+    identity_snapshot_id: Optional[int] = None
+    identity_status: str = "active"
+    identity_hash: Optional[str] = None
+    last_synced_at: Optional[datetime] = None
 
 
 class OrgMemberCreate(OrgMemberBase):

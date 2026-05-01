@@ -11,6 +11,7 @@ import {
   Layers,
   Bug,
   AlertTriangle,
+  GitBranch,
   Users,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -40,6 +41,8 @@ const IntakeGatekeeper = lazy(() => import('./components/IntakeGatekeeper'));
 const WorkflowRegistry = lazy(() => import('./components/WorkflowRegistry'));
 const ROIDashboard = lazy(() => import('./components/ROIDashboard'));
 const WorkflowBuilder = lazy(() => import('./components/WorkflowBuilder'));
+const Builder2 = lazy(() => import('./components/Builder2'));
+const AutomationBoard = lazy(() => import('./components/AutomationBoard'));
 const SettingsView = lazy(() => import('./components/SettingsView'));
 const OperationalBoard = lazy(() => import('./components/OperationalBoard'));
 const PerformanceAnalytics = lazy(() => import('./components/PerformanceAnalytics'));
@@ -152,10 +155,25 @@ const GlobalSidebar = ({ isOpen, setOpen, onNavigateRequested, currentUser }: {
       </div>
       <nav className="flex-1 px-2.5 space-y-1">
         {menuItems.map(item => (
-          <button key={item.id} onClick={() => handleNav(item.path)} className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group ${currentTab === item.id ? 'sidebar-item-active text-theme-accent' : 'text-theme-secondary hover:bg-white/[0.04] hover:text-white'}`}>
-            <item.icon size={18} className={currentTab === item.id ? 'text-theme-accent' : 'text-theme-muted group-hover:text-theme-secondary'} />
-            {isOpen && <span className="text-nav">{item.label}</span>}
-          </button>
+          <div key={item.id} className="space-y-1">
+            <button onClick={() => handleNav(item.path)} className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group ${currentTab === item.id ? 'sidebar-item-active text-theme-accent' : 'text-theme-secondary hover:bg-white/[0.04] hover:text-white'}`}>
+              <item.icon size={18} className={currentTab === item.id ? 'text-theme-accent' : 'text-theme-muted group-hover:text-theme-secondary'} />
+              {isOpen && <span className="text-nav">{item.label}</span>}
+            </button>
+            {isOpen && item.id === 'workflows' && (
+              <button
+                onClick={() => handleNav('/workflows/automation')}
+                className={`ml-7 w-[calc(100%-1.75rem)] flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 group text-[10px] font-black uppercase tracking-[0.16em] ${
+                  location.pathname.startsWith('/workflows/automation')
+                    ? 'sidebar-item-active text-theme-accent'
+                    : 'text-theme-secondary hover:bg-white/[0.04] hover:text-white'
+                }`}
+              >
+                <GitBranch size={16} className={location.pathname.startsWith('/workflows/automation') ? 'text-theme-accent' : 'text-theme-muted group-hover:text-theme-secondary'} />
+                <span className="text-nav">Automation Board</span>
+              </button>
+            )}
+          </div>
         ))}
       </nav>
       <div className="px-2.5 py-4 space-y-1 border-t border-theme-border/50">
@@ -202,22 +220,26 @@ const GlobalHeader = ({
   const { setIsOpen, isOpen, reports } = useBuganizer();
   const location = useLocation();
   const currentTab = location.pathname.split('/')[1] || 'dashboard';
+  const currentSubTab = location.pathname.split('/')[2] || '';
   
   const getTabLabel = (id: string) => {
     const labels: Record<string, string> = {
       'dashboard': 'Executive Dashboard',
       'workflows': 'Workflow Repository',
+      'automation': 'Automation Board',
       'board': 'Operational Board',
       'analytics': 'Advanced Analytics',
       'settings': 'System Settings',
       'help': 'Documentation',
       'intake': 'Initial Assessment',
-      'builder': 'Process Configuration'
+      'builder': 'Process Configuration',
+      'builder2': 'Process Configuration'
     };
     return labels[id] || id;
   };
 
   const activeReports = reports.filter(r => !r.acknowledged);
+  const currentLabel = currentTab === 'workflows' && currentSubTab === 'automation' ? 'Automation Board' : getTabLabel(currentTab);
 
   return (
     <header className="min-h-14 bg-theme-header backdrop-blur-xl border-b border-theme-border flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 z-20 sticky top-0">
@@ -225,7 +247,7 @@ const GlobalHeader = ({
         <h2 className="text-hint text-theme-muted flex items-center gap-2 min-w-0">
           <span className="shrink-0">PathOS</span>
           <span className="opacity-30 shrink-0">/</span>
-          <span className="text-white font-black uppercase tracking-[0.1em] truncate max-w-[42vw] sm:max-w-[28vw]">{getTabLabel(currentTab)}</span>
+          <span className="text-white font-black uppercase tracking-[0.1em] truncate max-w-[42vw] sm:max-w-[28vw]">{currentLabel}</span>
         </h2>
         <ConnectionStatus />
       </div>
@@ -293,7 +315,7 @@ const PathOSApp: React.FC = () => {
   // URL State Recovery
   useEffect(() => {
     const pathParts = location.pathname.split('/');
-    if ((pathParts.includes('builder') || pathParts.includes('intake') || pathParts.includes('summary')) && pathParts.length > 3) {
+    if ((pathParts.includes('builder') || pathParts.includes('builder2') || pathParts.includes('intake') || pathParts.includes('summary') || pathParts.includes('automation')) && pathParts.length > 3) {
       const id = parseInt(pathParts[3]);
       if (!isNaN(id) && workflows.length > 0 && id !== lastSyncedId.current) {
         const found = workflows.find((w: any) => w.id === id);
@@ -687,6 +709,26 @@ const PathOSApp: React.FC = () => {
                   />
                 </Suspense>
               } />
+              <Route path="/workflows/automation/:workflowId?" element={
+                <Suspense fallback={<RouteLoading label="Loading Automation Board" />}>
+                  <div className="h-[calc(100dvh-140px)] min-h-0 overflow-hidden">
+                    <AutomationBoard
+                      workflow={selectedWorkflow}
+                      workflows={workflows.filter((w: any) => !w.is_deleted)}
+                      onBack={() => handleNavigateRequest('/workflows')}
+                      currentUser={currentUser}
+                      runtimeConfig={runtimeConfig}
+                      onOpenWorkflow={(workflowId: number) => {
+                        const found = workflows.find((w: any) => w.id === workflowId);
+                        if (found) {
+                          setSelectedWorkflow(found);
+                          navigate(`/workflows/automation/${found.id}`);
+                        }
+                      }}
+                    />
+                  </div>
+                </Suspense>
+              } />
               <Route path="/workflows/intake/new" element={
                 <Suspense fallback={<RouteLoading label="Loading Intake" />}>
                   <div className="max-w-4xl mx-auto">
@@ -820,6 +862,41 @@ const PathOSApp: React.FC = () => {
                     </div>
                   </Suspense>
                 ) : <div className="flex items-center justify-center h-full text-theme-muted uppercase font-black tracking-widest gap-4 animate-pulse"><Layers size={32} /> Loading Workflow State...</div>
+              } />
+      <Route path="/workflows/builder2/:workflowId" element={
+                selectedWorkflow ? (
+                  <Suspense fallback={<RouteLoading label="Loading Workflow Builder 2" />}>
+                    <div className="h-[calc(100dvh-140px)] min-h-0 overflow-hidden">
+                      <Builder2 
+                        key={selectedWorkflow.id}
+                        workflow={selectedWorkflow}
+                        taxonomy={taxonomy}
+                        relatedWorkflows={workflowDiscovery.related || []}
+                        insights={workflowInsights}
+                        policyOverlay={workflowPolicyOverlay}
+                        rollbackPreview={workflowRollbackPreview}
+                        runtimeConfig={runtimeConfig}
+                        onSave={(data: any) => workflowsApi.update(selectedWorkflow.id, data).then((updated) => {
+                          toast.success("Configuration Saved");
+                          queryClient.invalidateQueries({ queryKey: ['workflows'] });
+                          setSelectedWorkflow(updated);
+                          setIsDirty(false);
+                          return updated;
+                        })} 
+                        onGovernanceAction={(action: string, requestId?: string) => governanceActionMutation.mutate({ workflowId: selectedWorkflow.id, action, requestId })}
+                        onBack={(currentData?: any) => {
+                          if (currentData) {
+                            setSelectedWorkflow({ ...selectedWorkflow, ...currentData });
+                          }
+                          navigate(`/workflows/intake/${selectedWorkflow.id}`);
+                        }}
+                        onExit={() => handleNavigateRequest('/workflows')}
+                        onCreateRollbackDraft={() => selectedWorkflow?.id && rollbackDraftMutation.mutate({ workflowId: selectedWorkflow.id, workspace: 'Personal Drafts' })}
+                        setIsDirty={setIsDirty}
+                      />
+                    </div>
+                  </Suspense>
+                ) : <div className="flex items-center justify-center h-full text-theme-muted uppercase font-black tracking-widest gap-4 animate-pulse"><Layers size={32} /> Loading Workflow Builder 2...</div>
               } />
               <Route path="/help" element={<Suspense fallback={<RouteLoading label="Loading Help Center" />}><HelpCenter /></Suspense>} />
               <Route path="*" element={<div className="flex flex-col items-center justify-center h-full text-theme-muted uppercase font-black tracking-widest gap-4 opacity-20"><Layers size={64} /> <span>Under Development</span></div>} />

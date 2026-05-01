@@ -30,7 +30,7 @@ export const FALLBACK_RUNTIME_CONFIG = {
   governance: {
     certification_states: ['Draft', 'Pending Review', 'Certified', 'Needs Recertification'],
     review_states: ['Draft', 'Requested', 'Changes Requested', 'Approved'],
-    approval_states: ['Draft', 'Pending Review', 'Certified'],
+    approval_states: ['Draft', 'Pending Review', 'Approved', 'Certified', 'Needs Recertification'],
     lifecycle_stages: ['Draft', 'In Review', 'Approved', 'Active'],
     status_categories: {
       STANDARD: ['Partially Automated', 'Fully Automated'],

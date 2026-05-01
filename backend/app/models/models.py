@@ -228,10 +228,70 @@ class AppConfig(Base, BaseMixin):
     value = Column(JSON, nullable=True)
 
 
+class IdentitySource(Base, BaseMixin):
+    __tablename__ = "identity_sources"
+    name = Column(String, nullable=False, default="Local Python Roster Source")
+    provider = Column(String, default="python_script")
+    working_dir = Column(String, nullable=True)
+    venv_path = Column(String, nullable=True)
+    script_path = Column(String, nullable=True)
+    script_content = Column(Text, nullable=True)
+    schedule = Column(String, nullable=True)
+    schema_version = Column(String, default="1")
+    is_active = Column(Boolean, default=True)
+    current_version = Column(Integer, default=0)
+    current_snapshot_id = Column(Integer, ForeignKey("identity_source_snapshots.id"), nullable=True)
+    last_run_at = Column(DateTime(timezone=True), nullable=True)
+    last_run_status = Column(String, default="never")
+    last_run_message = Column(Text, nullable=True)
+    last_run_row_count = Column(Integer, default=0)
+
+
+class IdentitySourceSnapshot(Base, BaseMixin):
+    __tablename__ = "identity_source_snapshots"
+    source_id = Column(Integer, ForeignKey("identity_sources.id", ondelete="CASCADE"), nullable=False, index=True)
+    version = Column(Integer, default=1)
+    run_at = Column(DateTime(timezone=True), server_default=func.now())
+    actor = Column(String, default="system_user")
+    status = Column(String, default="success")
+    message = Column(Text, nullable=True)
+    row_count = Column(Integer, default=0)
+    added_count = Column(Integer, default=0)
+    updated_count = Column(Integer, default=0)
+    removed_count = Column(Integer, default=0)
+    source_hash = Column(String, nullable=True)
+    diff_summary = Column(JSON, nullable=True)
+    source = relationship("IdentitySource", foreign_keys=[source_id])
+    rows = relationship("IdentitySourceSnapshotRow", back_populates="snapshot", cascade="all, delete-orphan")
+
+
+class IdentitySourceSnapshotRow(Base, BaseMixin):
+    __tablename__ = "identity_source_snapshot_rows"
+    snapshot_id = Column(Integer, ForeignKey("identity_source_snapshots.id", ondelete="CASCADE"), nullable=False, index=True)
+    employee_id = Column(String, nullable=False, index=True)
+    full_name = Column(String, nullable=False)
+    email = Column(String, nullable=False, index=True)
+    title = Column(String, nullable=True)
+    org = Column(String, nullable=True)
+    team = Column(String, nullable=True)
+    site = Column(String, nullable=True)
+    manager = Column(String, nullable=True)
+    roles = Column(JSON, nullable=True)
+    permissions = Column(JSON, nullable=True)
+    status = Column(String, default="active")
+    row_state = Column(String, default="current")
+    source_hash = Column(String, nullable=True)
+    payload = Column(JSON, nullable=True)
+    snapshot = relationship("IdentitySourceSnapshot", back_populates="rows")
+
+
 class OrgMember(Base, BaseMixin):
     __tablename__ = "org_members"
     full_name = Column(String, nullable=False, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
+    employee_id = Column(String, nullable=True, unique=True, index=True)
+    identity_source_id = Column(Integer, ForeignKey("identity_sources.id"), nullable=True)
+    identity_snapshot_id = Column(Integer, ForeignKey("identity_source_snapshots.id"), nullable=True)
     title = Column(String, nullable=True)
     org = Column(String, nullable=True, index=True)
     team = Column(String, nullable=True, index=True)
@@ -241,6 +301,9 @@ class OrgMember(Base, BaseMixin):
     permissions = Column(JSON, nullable=True)
     status = Column(String, default="active")
     avatar_initials = Column(String, nullable=True)
+    identity_status = Column(String, default="active")
+    identity_hash = Column(String, nullable=True)
+    last_synced_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class SavedView(Base, BaseMixin):

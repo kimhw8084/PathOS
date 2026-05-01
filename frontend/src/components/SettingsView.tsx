@@ -22,6 +22,7 @@ const SettingsView: React.FC = () => {
   const [showLogs, setShowLogs] = useState(false);
   const [activeTab, setActiveTab] = useState<'parameters' | 'rollout' | 'quality' | 'environments'>('parameters');
   const [adminOverview, setAdminOverview] = useState<any>({ configs: [], members: [], saved_views: [] });
+  const [identitySource, setIdentitySource] = useState<any>(null);
   const [qualityOverview, setQualityOverview] = useState<any>(null);
   const [envConfig, setEnvConfig] = useState<{ backend_env: string, frontend_env: string, backend_path: string, frontend_path: string } | null>(null);
 
@@ -40,14 +41,16 @@ const SettingsView: React.FC = () => {
 
   const loadParameters = async () => {
     try {
-      const [parameterData, rolloutData, qualityData, environmentData] = await Promise.all([
+      const [parameterData, rolloutData, qualityData, environmentData, identityData] = await Promise.all([
         settingsApi.listParameters(),
         settingsApi.adminOverview(),
         settingsApi.qualityOverview(),
         settingsApi.getEnvironmentConfig(),
+        settingsApi.getIdentitySource(),
       ]);
       setParameters(parameterData);
       setAdminOverview(rolloutData);
+      setIdentitySource(identityData);
       setQualityOverview(qualityData);
       setEnvConfig(environmentData);
       if (parameterData.length > 0 && !selectedKey) setSelectedKey(parameterData[0].key);
@@ -385,7 +388,7 @@ const SettingsView: React.FC = () => {
         </div>
       </div>
       ) : activeTab === 'rollout' ? (
-        <AdminRolloutSettings overview={adminOverview} onRefresh={async () => {
+        <AdminRolloutSettings overview={adminOverview} identitySource={identitySource} onRefresh={async () => {
           await loadParameters();
           queryClient.invalidateQueries({ queryKey: ['runtime-config'] });
         }} />

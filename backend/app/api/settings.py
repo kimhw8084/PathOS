@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import delete
+from sqlalchemy.orm import selectinload
 from typing import List, Any, Optional
 import asyncio
 import sys
@@ -10,13 +11,16 @@ import tempfile
 import json
 from datetime import datetime, timezone
 from ..database import get_db
-from ..models.models import SystemParameter, ParameterLog, AppConfig, OrgMember, SavedView, Workflow, WorkflowExecution, AutomationProject
+from ..models.models import SystemParameter, ParameterLog, AppConfig, OrgMember, SavedView, Workflow, WorkflowExecution, AutomationProject, IdentitySource, IdentitySourceSnapshot, IdentitySourceSnapshotRow
 from ..schemas.schemas import (
     SystemParameterUpdate,
     SystemParameterRead,
     ParameterLogRead,
     AppConfigUpdate,
     AppConfigRead,
+    IdentitySourceCreate,
+    IdentitySourceRead,
+    IdentitySourceSnapshotRead,
     OrgMemberCreate,
     OrgMemberRead,
     RuntimeConfigRead,
@@ -29,11 +33,13 @@ from ..schemas.schemas import (
 from pydantic import BaseModel
 from ..runtime_defaults import (
     build_frontend_runtime_config,
+    get_default_identity_source,
     get_default_org_members,
     get_fixed_parameters,
     get_parameter_seed_defaults,
     get_rollout_default_configs,
 )
+from ..core.identity_source import ensure_identity_source_defaults, execute_identity_source
 
 router = APIRouter(tags=["settings"])
 
@@ -92,6 +98,10 @@ async def ensure_rollout_defaults(db: AsyncSession):
     if not members:
         db.add_all([OrgMember(**member) for member in get_default_org_members()])
         changed = True
+    identity_result = await db.execute(select(IdentitySource))
+    if identity_result.scalars().first() is None:
+        db.add(IdentitySource(**get_default_identity_source()))
+        changed = True
     if changed:
         await db.commit()
 
@@ -99,7 +109,7 @@ async def ensure_rollout_defaults(db: AsyncSession):
 async def _runtime_config_payload(db: AsyncSession) -> dict[str, Any]:
     await ensure_rollout_defaults(db)
     config_result = await db.execute(select(AppConfig).where(AppConfig.is_deleted == False))
-    member_result = await db.execute(select(OrgMember).where(OrgMember.is_deleted == False).order_by(OrgMember.full_name.asc()))
+    member_result = await db.execute(select(OrgMember).where(OrgMember.is_deleted == False, OrgMember.status == "active").order_by(OrgMember.full_name.asc()))
     configs = config_result.scalars().all()
     members = member_result.scalars().all()
     config_map = {item.key: AppConfigRead.model_validate(item).model_dump(mode="json") for item in configs}
@@ -336,7 +346,7 @@ async def resolve_discrepancy(key: str, action: str, db: AsyncSession = Depends(
 async def admin_overview(db: AsyncSession = Depends(get_db)):
     await ensure_rollout_defaults(db)
     config_result = await db.execute(select(AppConfig).where(AppConfig.is_deleted == False))
-    member_result = await db.execute(select(OrgMember).where(OrgMember.is_deleted == False))
+    member_result = await db.execute(select(OrgMember).where(OrgMember.is_deleted == False, OrgMember.status == "active"))
     view_result = await db.execute(select(SavedView).where(SavedView.is_deleted == False))
     configs = config_result.scalars().all()
     members = member_result.scalars().all()
@@ -355,6 +365,73 @@ async def admin_overview(db: AsyncSession = Depends(get_db)):
     }
 
 
+@router.get("/identity-source")
+async def get_identity_source(db: AsyncSession = Depends(get_db)):
+    await ensure_rollout_defaults(db)
+    source_result = await db.execute(select(IdentitySource).order_by(IdentitySource.created_at.desc()))
+    source = source_result.scalars().first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Identity source not found")
+    snapshot_result = await db.execute(
+        select(IdentitySourceSnapshot)
+        .options(selectinload(IdentitySourceSnapshot.rows))
+        .where(IdentitySourceSnapshot.source_id == source.id)
+        .order_by(IdentitySourceSnapshot.version.desc())
+        .limit(20)
+    )
+    snapshots = snapshot_result.scalars().all()
+    member_result = await db.execute(select(OrgMember).where(OrgMember.is_deleted == False, OrgMember.status == "active").order_by(OrgMember.full_name.asc()))
+    members = member_result.scalars().all()
+    return {
+        "source": IdentitySourceRead.model_validate(source).model_dump(mode="json"),
+        "snapshots": [IdentitySourceSnapshotRead.model_validate(snapshot).model_dump(mode="json") for snapshot in snapshots],
+        "members": [OrgMemberRead.model_validate(member).model_dump(mode="json") for member in members],
+    }
+
+
+@router.put("/identity-source")
+async def update_identity_source(data: IdentitySourceCreate, db: AsyncSession = Depends(get_db)):
+    await ensure_rollout_defaults(db)
+    result = await db.execute(select(IdentitySource).order_by(IdentitySource.created_at.desc()))
+    source = result.scalars().first()
+    if not source:
+        source = IdentitySource(**data.model_dump())
+        db.add(source)
+    else:
+        for key, value in data.model_dump().items():
+            setattr(source, key, value)
+    await db.commit()
+    await db.refresh(source)
+    return IdentitySourceRead.model_validate(source).model_dump(mode="json")
+
+
+@router.post("/identity-source/sync")
+async def sync_identity_source(actor: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+    result = await execute_identity_source(db, actor=actor or "system_user")
+    source = result["source"]
+    snapshot = result.get("snapshot")
+    if snapshot:
+        await db.refresh(snapshot)
+    snapshot_result = await db.execute(
+        select(IdentitySourceSnapshot)
+        .options(selectinload(IdentitySourceSnapshot.rows))
+        .where(IdentitySourceSnapshot.source_id == source.id)
+        .order_by(IdentitySourceSnapshot.version.desc())
+        .limit(20)
+    )
+    snapshots = snapshot_result.scalars().all()
+    member_result = await db.execute(select(OrgMember).where(OrgMember.is_deleted == False, OrgMember.status == "active").order_by(OrgMember.full_name.asc()))
+    members = member_result.scalars().all()
+    return {
+        "status": result["status"],
+        "message": result["message"],
+        "source": IdentitySourceRead.model_validate(source).model_dump(mode="json"),
+        "snapshot": IdentitySourceSnapshotRead.model_validate(snapshot).model_dump(mode="json") if snapshot else None,
+        "snapshots": [IdentitySourceSnapshotRead.model_validate(item).model_dump(mode="json") for item in snapshots],
+        "members": [OrgMemberRead.model_validate(item).model_dump(mode="json") for item in members],
+    }
+
+
 @router.get("/runtime-config", response_model=RuntimeConfigRead)
 async def runtime_config(db: AsyncSession = Depends(get_db)):
     return await _runtime_config_payload(db)
@@ -368,7 +445,7 @@ async def quality_overview(db: AsyncSession = Depends(get_db)):
     project_result = await db.execute(select(AutomationProject).where(AutomationProject.is_deleted == False))
     parameter_result = await db.execute(select(SystemParameter))
     log_result = await db.execute(select(ParameterLog).order_by(ParameterLog.timestamp.desc()).limit(20))
-    member_result = await db.execute(select(OrgMember).where(OrgMember.is_deleted == False))
+    member_result = await db.execute(select(OrgMember).where(OrgMember.is_deleted == False, OrgMember.status == "active"))
     workflows = workflow_result.scalars().all()
     executions = execution_result.scalars().all()
     projects = project_result.scalars().all()
@@ -443,7 +520,7 @@ async def get_app_config(key: str, db: AsyncSession = Depends(get_db)):
 async def export_runtime_config(db: AsyncSession = Depends(get_db)):
     await ensure_rollout_defaults(db)
     config_result = await db.execute(select(AppConfig).where(AppConfig.is_deleted == False))
-    member_result = await db.execute(select(OrgMember).where(OrgMember.is_deleted == False))
+    member_result = await db.execute(select(OrgMember).where(OrgMember.is_deleted == False, OrgMember.status == "active"))
     view_result = await db.execute(select(SavedView).where(SavedView.is_deleted == False))
     return {
         "exported_at": datetime.now(timezone.utc).isoformat(),
@@ -513,7 +590,7 @@ async def update_app_config(key: str, data: AppConfigUpdate, db: AsyncSession = 
 @router.get("/members", response_model=List[OrgMemberRead])
 async def list_org_members(db: AsyncSession = Depends(get_db)):
     await ensure_rollout_defaults(db)
-    result = await db.execute(select(OrgMember).where(OrgMember.is_deleted == False).order_by(OrgMember.full_name.asc()))
+    result = await db.execute(select(OrgMember).where(OrgMember.is_deleted == False, OrgMember.status == "active").order_by(OrgMember.full_name.asc()))
     return result.scalars().all()
 
 

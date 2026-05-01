@@ -74,6 +74,14 @@ interface BuilderLayoutPrefs {
   showMiniMap: boolean;
 }
 
+interface BuilderCommandAction {
+  id: string;
+  label: string;
+  hint: string;
+  keywords: string[];
+  run: () => void;
+}
+
 interface WorkflowComment {
   id: string;
   scope: 'workflow' | 'task' | 'section';
@@ -101,8 +109,8 @@ interface OwnershipState {
   reviewers: string[];
 }
 
-const getWorkflowBuilderDraftKey = (workflowId?: string | number | null) => `pathos-workflow-builder-draft-${workflowId ?? 'new'}`;
-const getWorkflowBuilderLayoutKey = (workflowId?: string | number | null) => `pathos-workflow-builder-layout-${workflowId ?? 'new'}`;
+const getWorkflowBuilderDraftKey = (workflowId?: string | number | null) => `pathos-workflow-builder2-draft-${workflowId ?? 'new'}`;
+const getWorkflowBuilderLayoutKey = (workflowId?: string | number | null) => `pathos-workflow-builder2-layout-${workflowId ?? 'new'}`;
 
 const createWorkflowComment = (scope: WorkflowComment['scope'] = 'workflow', scopeId = ''): WorkflowComment => ({
   id: `comment-${Date.now()}`,
@@ -178,6 +186,78 @@ const issueMatchesField = (issue: WorkflowAuditIssue, fieldKey: string) => (
 );
 
 const issueForTask = (issue: WorkflowAuditIssue, taskId: string) => issue.targetId === taskId;
+
+const moveArrayItem = <T,>(items: T[], fromIndex: number, toIndex: number) => {
+  if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex || fromIndex >= items.length || toIndex >= items.length) {
+    return items;
+  }
+  const next = [...items];
+  const [item] = next.splice(fromIndex, 1);
+  next.splice(toIndex, 0, item);
+  return next;
+};
+
+const sanitizeTaskClone = (task: any, nextId: string, nextName: string) => {
+  const remapCollection = (items: any[] = [], prefix: string) => items.map((item, idx) => ({
+    ...JSON.parse(JSON.stringify(item)),
+    id: `${prefix}-${nextId}-${idx}`,
+  }));
+  return JSON.parse(JSON.stringify({
+    ...task,
+    id: nextId,
+    node_id: nextId,
+    name: nextName,
+    involved_systems: remapCollection(task?.involved_systems || [], 'sys'),
+    blockers: remapCollection(task?.blockers || [], 'blk'),
+    errors: remapCollection(task?.errors || [], 'err'),
+    media: remapCollection(task?.media || [], 'media'),
+    reference_links: remapCollection(task?.reference_links || [], 'ref'),
+    instructions: (task?.instructions || []).map((item: any, idx: number) => ({
+      ...JSON.parse(JSON.stringify(item)),
+      id: `inst-${nextId}-${idx}`,
+      figures: Array.isArray(item?.figures) ? item.figures : [],
+      links: Array.isArray(item?.links) ? item.links : [],
+    })),
+    source_data_list: (task?.source_data_list || []).map((item: any, idx: number) => ({
+      ...JSON.parse(JSON.stringify(item)),
+      id: `src-${nextId}-${idx}`,
+      figures: Array.isArray(item?.figures) ? item.figures : [],
+    })),
+    output_data_list: (task?.output_data_list || []).map((item: any, idx: number) => ({
+      ...JSON.parse(JSON.stringify(item)),
+      id: `out-${nextId}-${idx}`,
+      figures: Array.isArray(item?.figures) ? item.figures : [],
+    })),
+    validation_procedure_steps: (task?.validation_procedure_steps || []).map((item: any, idx: number) => ({
+      ...JSON.parse(JSON.stringify(item)),
+      id: `val-${nextId}-${idx}`,
+      figures: Array.isArray(item?.figures) ? item.figures : [],
+    })),
+    tribal_knowledge: Array.isArray(task?.tribal_knowledge) ? [...task.tribal_knowledge] : [],
+    diagnostics: task?.diagnostics ? JSON.parse(JSON.stringify(task.diagnostics)) : undefined,
+  }));
+};
+
+const getCompletenessSectionId = (label: string) => {
+  const map: Record<string, string> = {
+    Name: 'overview',
+    Description: 'overview',
+    'Owner team': 'ownership',
+    'Owner roles': 'ownership',
+    Systems: 'systems',
+    Inputs: 'dependencies',
+    Outputs: 'dependencies',
+    References: 'appendix',
+    'Validation detail': 'validation',
+    'Risk / readiness': 'ownership',
+  };
+  return map[label] || 'overview';
+};
+
+const getDefinitionIssueShell = (hasIssue: boolean) => cn(
+  "rounded-[1.15rem] border bg-white/5 p-1",
+  hasIssue ? "border-status-error/40 bg-status-error/10" : "border-white/10",
+);
 
 const BUILDER_RADIUS = 'rounded-[1.15rem]';
 const BUILDER_PANEL = 'rounded-[1.15rem] border border-white/10 bg-white/[0.03] shadow-[0_30px_80px_-40px_rgba(0,0,0,0.85)]';
@@ -275,24 +355,25 @@ const ManagedListSection: React.FC<{
   title: string;
   items: string[];
   onUpdate: (items: string[]) => void;
+  onMoveItem?: (fromIndex: number, direction: -1 | 1) => void;
   placeholder?: string;
   icon?: React.ReactNode;
   isOpen: boolean;
   toggle: () => void;
-}> = ({ title, items, onUpdate, placeholder, icon, isOpen, toggle }) => {
+}> = ({ title, items, onUpdate, onMoveItem, placeholder, icon, isOpen, toggle }) => {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [editVal, setEditVal] = useState('');
 
   return (
     <CollapsibleSection title={title} count={items.length} isOpen={isOpen} toggle={toggle} icon={icon}>
-      <div className="space-y-3 pt-4">
+      <div className="space-y-2.5 pt-3">
         {items.map((item, idx) => (
-          <div key={idx} className="bg-white/[0.02] border border-white/5 rounded-2xl p-3 group relative">
+          <div key={idx} className="bg-white/[0.02] border border-white/5 rounded-[1.15rem] p-2.5 group relative">
             {editingIdx === idx ? (
               <div className="space-y-2 animate-apple-in">
                 <textarea 
                   autoFocus
-                  className={cn(BUILDER_FIELD, "min-h-[80px]")}
+                  className={cn(BUILDER_FIELD, "min-h-[72px] text-[11px]")}
                   value={editVal}
                   onChange={e => setEditVal(e.target.value)}
                 />
@@ -306,31 +387,51 @@ const ManagedListSection: React.FC<{
                         setEditingIdx(null);
                       }
                     }}
-                    className="flex-1 py-2 bg-theme-accent text-white text-[9px] font-black uppercase rounded-2xl"
+                    className="flex-1 py-1.5 bg-theme-accent text-white text-[8px] font-black uppercase rounded-[1.15rem]"
                   >
                     Save Changes
                   </button>
                   <button 
                     onClick={() => setEditingIdx(null)}
-                    className="px-4 py-2 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-2xl"
+                    className="px-3 py-1.5 bg-white/5 text-white/40 text-[8px] font-black uppercase rounded-[1.15rem]"
                   >
                     Cancel
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="flex items-start justify-between gap-4">
-                <p className="text-[12px] text-white/80 font-medium leading-relaxed flex-1">{item}</p>
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-[11px] text-white/80 font-medium leading-relaxed flex-1">{item}</p>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                  {onMoveItem && (
+                    <>
+                      <button
+                        onClick={() => onMoveItem(idx, -1)}
+                        disabled={idx === 0}
+                        className="p-1.5 hover:bg-white/10 disabled:opacity-20 text-white/40 hover:text-white rounded-[1.15rem] transition-all"
+                        title="Move up"
+                      >
+                        <ChevronUp size={12} />
+                      </button>
+                      <button
+                        onClick={() => onMoveItem(idx, 1)}
+                        disabled={idx === items.length - 1}
+                        className="p-1.5 hover:bg-white/10 disabled:opacity-20 text-white/40 hover:text-white rounded-[1.15rem] transition-all"
+                        title="Move down"
+                      >
+                        <ChevronDown size={12} />
+                      </button>
+                    </>
+                  )}
                   <button 
                     onClick={() => { setEditingIdx(idx); setEditVal(item); }}
-                    className="p-1.5 hover:bg-theme-accent/20 text-white/40 hover:text-theme-accent rounded-md transition-all"
+                    className="p-1.5 hover:bg-theme-accent/20 text-white/40 hover:text-theme-accent rounded-[1.15rem] transition-all"
                   >
                     <Edit3 size={12} />
                   </button>
                   <button 
                     onClick={() => onUpdate(items.filter((_, i) => i !== idx))}
-                    className="p-1.5 hover:bg-status-error/20 text-white/40 hover:text-status-error rounded-md transition-all"
+                    className="p-1.5 hover:bg-status-error/20 text-white/40 hover:text-status-error rounded-[1.15rem] transition-all"
                   >
                     <Trash size={12} />
                   </button>
@@ -340,10 +441,10 @@ const ManagedListSection: React.FC<{
           </div>
         ))}
         {editingIdx === -1 ? (
-          <div className="bg-white/[0.02] border border-theme-accent rounded-2xl p-3 space-y-2 animate-apple-in">
+          <div className="bg-white/[0.02] border border-theme-accent rounded-[1.15rem] p-2.5 space-y-2 animate-apple-in">
             <textarea 
               autoFocus
-              className={cn(BUILDER_FIELD, "min-h-[80px]")}
+              className={cn(BUILDER_FIELD, "min-h-[72px] text-[11px]")}
               value={editVal}
               onChange={e => setEditVal(e.target.value)}
               placeholder={placeholder || "Enter details..."}
@@ -357,13 +458,13 @@ const ManagedListSection: React.FC<{
                     setEditVal('');
                   }
                 }}
-                className="flex-1 py-2 bg-theme-accent text-white text-[9px] font-black uppercase rounded-2xl"
+                className="flex-1 py-1.5 bg-theme-accent text-white text-[8px] font-black uppercase rounded-[1.15rem]"
               >
                 Add Entry
               </button>
               <button 
                 onClick={() => { setEditingIdx(null); setEditVal(''); }}
-                className="px-4 py-2 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-2xl"
+                className="px-3 py-1.5 bg-white/5 text-white/40 text-[8px] font-black uppercase rounded-[1.15rem]"
               >
                 Cancel
               </button>
@@ -372,7 +473,7 @@ const ManagedListSection: React.FC<{
         ) : (
           <button 
             onClick={() => { setEditingIdx(-1); setEditVal(''); }}
-            className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:border-theme-accent transition-all rounded-2xl"
+            className="w-full py-2.5 bg-white/5 border border-dashed border-white/10 text-[8px] font-black uppercase text-white/40 hover:text-white hover:border-theme-accent transition-all rounded-[1.15rem]"
           >
             + Add {title.replace(/s$/, '')}
           </button>
@@ -425,16 +526,16 @@ const CollapsibleSection: React.FC<{
   icon?: React.ReactNode;
   children: React.ReactNode;
 }> = ({ title, count, isOpen, toggle, icon, children }) => (
-  <div className="border-b border-white/5 pb-4">
-    <button onClick={toggle} className="w-full flex items-center justify-between py-2 group">
-      <div className="flex items-center gap-3">
+  <div className="border-b border-white/5 pb-3">
+    <button onClick={toggle} className="w-full flex items-center justify-between py-1.5 group">
+      <div className="flex items-center gap-2.5">
         {icon}
-        <span className="text-[11px] font-black text-white/40 uppercase tracking-widest group-hover:text-white transition-colors">{title}</span>
+        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest group-hover:text-white transition-colors">{title}</span>
         {count !== undefined && count > 0 && (
-          <span className="px-1.5 py-0.5 rounded bg-theme-accent/20 text-theme-accent text-[9px] font-black">{count}</span>
+          <span className="px-1.5 py-0.5 rounded-[1.15rem] bg-theme-accent/20 text-theme-accent text-[8px] font-black">{count}</span>
         )}
       </div>
-      {isOpen ? <ChevronUp size={14} className="text-white/20" /> : <ChevronDown size={14} className="text-white/20" />}
+      {isOpen ? <ChevronUp size={12} className="text-white/20" /> : <ChevronDown size={12} className="text-white/20" />}
     </button>
     {isOpen && <div className="animate-apple-in">{children}</div>}
   </div>
@@ -446,34 +547,56 @@ const NestedCollapsible: React.FC<{
   toggle: () => void;
   children: React.ReactNode;
   onDelete?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
   badge?: React.ReactNode;
   isLocked?: boolean;
-}> = ({ title, isOpen, toggle, children, onDelete, badge, isLocked }) => {
+}> = ({ title, isOpen, toggle, children, onDelete, onMoveUp, onMoveDown, badge, isLocked }) => {
   const [isConfirming, setIsConfirming] = useState(false);
   return (
-    <div className="bg-white/[0.02] border border-white/5 rounded-[24px] overflow-hidden group/item animate-apple-in mt-2">
-      <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/5 transition-colors" onClick={toggle}>
+    <div className="bg-white/[0.02] border border-white/5 rounded-[1.15rem] overflow-hidden group/item animate-apple-in mt-2">
+      <div className="flex items-center justify-between p-2.5 cursor-pointer hover:bg-white/5 transition-colors" onClick={toggle}>
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          {isOpen ? <ChevronUp size={12} className="text-white/20" /> : <ChevronDown size={12} className="text-white/20" />}
-          <span className={cn("text-[11px] font-black uppercase tracking-widest truncate", isOpen ? "text-white" : "text-white/40")}>
+          {isOpen ? <ChevronUp size={11} className="text-white/20" /> : <ChevronDown size={11} className="text-white/20" />}
+          <span className={cn("text-[10px] font-black uppercase tracking-widest truncate", isOpen ? "text-white" : "text-white/40")}>
             {title || "Untitled Item"}
           </span>
-          {isLocked && <Link2 size={10} className="text-theme-accent" />}
+          {isLocked && <Link2 size={9} className="text-theme-accent" />}
           {badge}
         </div>
         {onDelete && !isLocked && (
           <div className="flex items-center gap-2">
+            {(onMoveUp || onMoveDown) && (
+              <div className="flex items-center gap-1 rounded-[1.15rem] border border-white/10 bg-black/20 p-1">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onMoveUp?.(); }}
+                  disabled={!onMoveUp}
+                  className="p-1.5 text-white/35 hover:text-white disabled:opacity-20 rounded-[1.15rem] hover:bg-white/5"
+                  title="Move up"
+                >
+                  <ChevronUp size={11} />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onMoveDown?.(); }}
+                  disabled={!onMoveDown}
+                  className="p-1.5 text-white/35 hover:text-white disabled:opacity-20 rounded-[1.15rem] hover:bg-white/5"
+                  title="Move down"
+                >
+                  <ChevronDown size={11} />
+                </button>
+              </div>
+            )}
             {isConfirming ? (
-              <div className="flex items-center gap-1 bg-status-error/20 rounded-[24px] p-1 animate-apple-in">
+              <div className="flex items-center gap-1 bg-status-error/20 rounded-[1.15rem] p-1 animate-apple-in">
                 <button 
                   onClick={(e) => { e.stopPropagation(); setIsConfirming(false); onDelete(); }}
-                  className="px-2 py-1 bg-status-error text-white text-[8px] font-black uppercase rounded-2xl"
+                  className="px-2 py-1 bg-status-error text-white text-[7px] font-black uppercase rounded-[1.15rem]"
                 >
                   Confirm
                 </button>
                 <button 
                   onClick={(e) => { e.stopPropagation(); setIsConfirming(false); }}
-                  className="px-2 py-1 text-white/40 text-[8px] font-black uppercase"
+                  className="px-2 py-1 text-white/40 text-[7px] font-black uppercase"
                 >
                   <X size={10} />
                 </button>
@@ -481,7 +604,7 @@ const NestedCollapsible: React.FC<{
             ) : (
               <button 
                 onClick={(e) => { e.stopPropagation(); setIsConfirming(true); }} 
-                className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-status-error/20 text-white/20 hover:text-status-error transition-all rounded-2xl"
+                className="opacity-0 group-hover/item:opacity-100 p-1.5 hover:bg-status-error/20 text-white/20 hover:text-status-error transition-all rounded-[1.15rem]"
               >
                 <Trash size={12} />
               </button>
@@ -489,7 +612,7 @@ const NestedCollapsible: React.FC<{
           </div>
         )}
       </div>
-      {isOpen && <div className="p-4 border-t border-white/5 bg-black/20">{children}</div>}
+      {isOpen && <div className="p-3 border-t border-white/5 bg-black/20">{children}</div>}
     </div>
   );
 };
@@ -521,10 +644,10 @@ const ImagePasteField: React.FC<{
 
   return (
     <div className="space-y-2">
-      {label && <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">{label}</label>}
-      <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 h-[4.5rem]">
+      {label && <label className="text-[8px] font-black text-white/20 uppercase tracking-widest">{label}</label>}
+      <div className="flex gap-2 overflow-x-auto custom-scrollbar pb-2 h-[4rem]">
         {figures.map((fig, idx) => (
-          <div key={idx} className="flex-shrink-0 w-24 h-full rounded-xl border border-white/10 overflow-hidden relative group bg-black/40">
+          <div key={idx} className="flex-shrink-0 w-20 h-full rounded-[1.15rem] border border-white/10 overflow-hidden relative group bg-black/40">
             <img src={fig} className="w-full h-full object-cover" />
             {!isLocked && (
               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all p-2">
@@ -532,7 +655,7 @@ const ImagePasteField: React.FC<{
                   onClick={() => {
                     onPaste(figures.filter((_, i) => i !== idx));
                   }}
-                  className="w-full h-full bg-status-error/80 text-white rounded-xl flex items-center justify-center hover:bg-status-error transition-colors"
+                  className="w-full h-full bg-status-error/80 text-white rounded-[1.15rem] flex items-center justify-center hover:bg-status-error transition-colors"
                 >
                   <Trash size={12} />
                 </button>
@@ -545,14 +668,14 @@ const ImagePasteField: React.FC<{
           <div 
             onPaste={handlePaste}
             tabIndex={0}
-            className="flex-shrink-0 w-24 h-full border border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center text-white/20 hover:text-white hover:border-theme-accent transition-all cursor-pointer outline-none focus:border-theme-accent bg-black/20"
+            className="flex-shrink-0 w-20 h-full border border-dashed border-white/10 rounded-[1.15rem] flex flex-col items-center justify-center text-white/20 hover:text-white hover:border-theme-accent transition-all cursor-pointer outline-none focus:border-theme-accent bg-black/20"
           >
-            <Plus size={14} />
+            <Plus size={13} />
             <span className="text-[7px] font-black uppercase mt-1">Paste</span>
           </div>
         )}
         {isLocked && figures.length === 0 && (
-          <div className="flex-shrink-0 w-full h-full border border-white/5 rounded-xl flex items-center justify-center text-white/5 italic text-[10px]">No Figures</div>
+          <div className="flex-shrink-0 w-full h-full border border-white/5 rounded-[1.15rem] flex items-center justify-center text-white/5 italic text-[9px]">No Figures</div>
         )}
       </div>
     </div>
@@ -610,12 +733,12 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
 
   return (
     <div className={cn(
-      `apple-glass !bg-[#0f172a]/95 !${BUILDER_RADIUS} px-4 sm:px-5 py-4 sm:py-5 w-[clamp(300px,31vw,440px)] max-w-[92vw] shadow-2xl transition-all duration-300 relative border-2 h-auto min-h-[340px] hover:z-[1000]`,
+      `apple-glass !bg-[#0f172a]/95 !${BUILDER_RADIUS} px-3.5 sm:px-4 py-3.5 sm:py-4 w-[clamp(300px,31vw,430px)] max-w-[92vw] shadow-2xl transition-all duration-300 relative border-2 h-auto min-h-[320px] hover:z-[1000]`,
       selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : 'border-white/10 hover:border-white/20',
       data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
     )}>
       {data.validation_needed && (
-        <div className="absolute -top-3 right-4 px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-[0.2em] bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
+        <div className="absolute -top-3 right-4 px-2 py-0.5 rounded-[1.15rem] text-[9px] font-black uppercase tracking-[0.2em] bg-orange-500 border border-orange-400 text-white z-20 shadow-lg animate-pulse">
           VALIDATION REQUIRED
         </div>
       )}
@@ -626,32 +749,32 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
             event.stopPropagation();
             data.onOpenComments?.(data.id);
           }}
-          className="absolute -top-3 right-4 flex items-center gap-1.5 rounded-lg border border-white/10 bg-[#0b1221]/96 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/60 shadow-lg transition-colors hover:text-white"
+          className="absolute -top-3 right-4 flex items-center gap-1.5 rounded-[1.15rem] border border-white/10 bg-[#0b1221]/96 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/60 shadow-lg transition-colors hover:text-white"
           title={`${data.commentSummary.open || 0} open, ${data.commentSummary.resolved || 0} resolved comments`}
         >
           <Satellite size={10} className="text-theme-accent" />
           {data.commentSummary.open || 0}/{data.commentSummary.resolved || 0}
         </button>
       )}
-      <div className="flex flex-col gap-4 h-full">
+      <div className="flex flex-col gap-3.5 h-full">
         <div className="flex items-center justify-between gap-2">
-          <div className={cn("px-3 py-1 rounded-lg text-[12px] font-black uppercase tracking-widest border", typeColor)}>
+          <div className={cn("px-3 py-1 rounded-[1.15rem] text-[11px] font-black uppercase tracking-widest border", typeColor)}>
             {data.task_type || 'GENERAL'}
           </div>
           <div className="flex items-center gap-1.5 flex-wrap justify-end">
             {data.occurrence > 1 && (
-              <div className="flex items-center gap-1 bg-blue-500 text-white px-2.5 py-1 rounded-lg text-[12px] font-black shadow-lg shadow-blue-500/20">
-                <RefreshCw size={14} /> {data.occurrence}
+              <div className="flex items-center gap-1 bg-blue-500 text-white px-2.5 py-1 rounded-[1.15rem] text-[11px] font-black shadow-lg shadow-blue-500/20">
+                <RefreshCw size={12} /> {data.occurrence}
               </div>
             )}
             {data.blockerCount > 0 && (
-              <div className="flex items-center gap-1 bg-amber-500 text-white px-2.5 py-1 rounded-lg text-[12px] font-black shadow-lg shadow-amber-500/20">
-                <AlertCircle size={14} /> {data.blockerCount}
+              <div className="flex items-center gap-1 bg-amber-500 text-white px-2.5 py-1 rounded-[1.15rem] text-[11px] font-black shadow-lg shadow-amber-500/20">
+                <AlertCircle size={12} /> {data.blockerCount}
               </div>
             )}
             {data.errorCount > 0 && (
-              <div className="flex items-center gap-1 bg-status-error text-white px-2.5 py-1 rounded-lg text-[12px] font-black shadow-lg shadow-status-error/20">
-                <X size={14} /> {data.errorCount}
+              <div className="flex items-center gap-1 bg-status-error text-white px-2.5 py-1 rounded-[1.15rem] text-[11px] font-black shadow-lg shadow-status-error/20">
+                <X size={12} /> {data.errorCount}
               </div>
             )}
           </div>
@@ -659,7 +782,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         
         <div className="space-y-1 relative">
           <h4
-            className="font-black text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-2 overflow-hidden min-h-[2.2em]"
+            className="font-black text-white tracking-tight leading-tight hover:text-theme-accent transition-colors line-clamp-2 overflow-hidden min-h-[2.05em]"
             style={{ fontSize: `${titleFontSize}px` }}
             title={data.label || 'Untitled Task'}
           >
@@ -668,60 +791,60 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
         </div>
 
         <div className="flex flex-col gap-3 mt-1.5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            <div className="bg-black/40 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center">
-               <span className="text-[11px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-1">Manual</span>
-               <span className="text-[28px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="bg-black/40 rounded-[1.15rem] p-2.5 border border-white/5 flex flex-col items-center justify-center">
+               <span className="text-[10px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-1">Manual</span>
+               <span className="text-[24px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
             </div>
-            <div className="bg-black/40 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center">
-               <span className="text-[11px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-1">Machine</span>
-               <span className="text-[28px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
+            <div className="bg-black/40 rounded-[1.15rem] p-2.5 border border-white/5 flex flex-col items-center justify-center">
+               <span className="text-[10px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-1">Machine</span>
+               <span className="text-[24px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 py-2 border-t border-white/5">
-             <div className="flex items-center gap-4 flex-1 justify-center min-w-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 py-1.5 border-t border-white/5">
+             <div className="flex items-center gap-3 flex-1 justify-center min-w-0">
                <div className="flex flex-col items-center">
-                 <span className="text-[11px] font-black text-white/20 uppercase tracking-widest">Input</span>
-                 <span className="text-[18px] font-black text-white leading-none">{data.sourceCount || 0}</span>
+                 <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Input</span>
+                 <span className="text-[16px] font-black text-white leading-none">{data.sourceCount || 0}</span>
                </div>
-               <div className="w-px h-7 bg-white/5" />
+               <div className="w-px h-6 bg-white/5" />
                <div className="flex flex-col items-center">
-                 <span className="text-[11px] font-black text-white/20 uppercase tracking-widest">Output</span>
-                 <span className="text-[18px] font-black text-white leading-none">{data.outputCount || 0}</span>
+                 <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Output</span>
+                 <span className="text-[16px] font-black text-white leading-none">{data.outputCount || 0}</span>
                </div>
              </div>
              <div className="text-right flex flex-col items-end">
                 <div className="flex items-center gap-2">
-                   <span className="text-[12px] font-black text-white/60 uppercase truncate max-w-[120px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
+                   <span className="text-[11px] font-black text-white/60 uppercase truncate max-w-[120px]">{(data.ownerPositions || [])[0] || 'Unassigned'}</span>
                    {(data.ownerPositions || []).length > 1 && (
-                     <span className="text-[11px] font-black text-theme-accent">+{(data.ownerPositions || []).length - 1}</span>
+                     <span className="text-[10px] font-black text-theme-accent">+{(data.ownerPositions || []).length - 1}</span>
                    )}
                 </div>
                 {data.owningTeam && (
-                  <span className="text-[11px] font-black text-theme-accent/60 uppercase tracking-widest leading-none mt-1">{data.owningTeam}</span>
+                  <span className="text-[10px] font-black text-theme-accent/60 uppercase tracking-widest leading-none mt-1">{data.owningTeam}</span>
                 )}
              </div>
           </div>
-          <div className="flex flex-wrap gap-2 items-center pt-2 border-t border-white/5 min-h-[32px]">
+          <div className="flex flex-wrap gap-2 items-center pt-1.5 border-t border-white/5 min-h-[30px]">
              {visibleSystems.map((s: TaskSystem, i: number) => (
-               <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[11px] font-bold text-white/40 uppercase">{s.name}</span>
+               <span key={i} className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold text-white/40 uppercase">{s.name}</span>
              ))}
              {hiddenSystemsCount > 0 && (
-               <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[11px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
+               <span className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-full text-[10px] font-bold text-white/20 uppercase">+{hiddenSystemsCount}</span>
              )}
              {involvedSystems.length === 0 && (
-               <span className="text-[11px] font-black text-white/10 uppercase tracking-widest">No Systems</span>
+               <span className="text-[10px] font-black text-white/10 uppercase tracking-widest">No Systems</span>
              )}
           </div>
           {selected && (
             <div className="absolute left-1/2 top-full mt-2 z-30 flex -translate-x-1/2 flex-wrap justify-center gap-2 pointer-events-auto">
-              <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-2 rounded-lg border border-theme-accent/20 bg-theme-accent/10 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent shadow-lg shadow-black/30">
-                <MessageSquare size={11} /> Comment
+              <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-2 rounded-[1.15rem] border border-theme-accent/20 bg-theme-accent/10 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent shadow-lg shadow-black/30">
+                <MessageSquare size={10} /> Comment
               </button>
               {data.commentSummary?.total > 0 && (
-                <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 shadow-lg shadow-black/30">
-                  <Satellite size={11} /> {data.commentSummary.open || 0}/{data.commentSummary.resolved || 0}
+                <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-2 rounded-[1.15rem] border border-white/10 bg-white/5 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 shadow-lg shadow-black/30">
+                  <Satellite size={10} /> {data.commentSummary.open || 0}/{data.commentSummary.resolved || 0}
                 </button>
               )}
             </div>
@@ -746,8 +869,8 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
   const baseFontSize = data.baseFontSize || 14;
   const titleFontSize = Math.max(22, baseFontSize + 8);
   return (
-    <div className={cn("relative w-[clamp(220px,24vw,280px)] h-[clamp(220px,24vw,280px)] flex items-center justify-center transition-all duration-300 hover:z-[1000]", selected ? 'scale-105 z-50' : 'z-10')}>
-      <div className={cn(`absolute w-[clamp(174px,17vw,198px)] h-[clamp(174px,17vw,198px)] rotate-45 border-2 transition-all duration-300 bg-[#0b1221]/96 !${BUILDER_RADIUS}`, selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20', data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,158,11,0.3)]' : '')} />
+    <div className={cn("relative w-[clamp(210px,22vw,260px)] h-[clamp(210px,22vw,260px)] flex items-center justify-center transition-all duration-300 hover:z-[1000]", selected ? 'scale-105 z-50' : 'z-10')}>
+      <div className={cn(`absolute w-[clamp(168px,16vw,190px)] h-[clamp(168px,16vw,190px)] rotate-45 border-2 transition-all duration-300 bg-[#0b1221]/96 !${BUILDER_RADIUS}`, selected ? 'border-amber-400 shadow-[0_0_30px_rgba(245,158,11,0.4)]' : 'border-white/20', data.validation_needed ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,158,11,0.3)]' : '')} />
       
       {/* Handles at lower z-index than tooltip container */}
       <Handle type="target" position={Position.Left} id="left-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !left-0 shadow-lg z-10" />
@@ -759,9 +882,9 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
       <Handle type="target" position={Position.Bottom} id="bottom-target" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !bottom-0 shadow-lg z-10" />
       <Handle type="source" position={Position.Bottom} id="bottom-source" className="!bg-amber-400 !w-3.5 !h-3.5 !border-[2px] !border-[#0f172a] !bottom-0 shadow-lg z-20 opacity-0" />
 
-      <div className="relative z-40 flex flex-col items-center justify-center p-7 w-full h-full pointer-events-none">
+      <div className="relative z-40 flex flex-col items-center justify-center p-6 w-full h-full pointer-events-none">
         <span
-          className="max-w-[180px] text-center font-bold text-white leading-tight break-words line-clamp-3 transition-colors"
+          className="max-w-[170px] text-center font-bold text-white leading-tight break-words line-clamp-3 transition-colors"
           style={{ fontSize: `${titleFontSize}px` }}
           title={data.label || 'Condition'}
         >
@@ -769,7 +892,7 @@ const DiamondNode = ({ data, selected }: { data: any, selected: boolean }) => {
         </span>
       </div>
     {data.validation_needed && (
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[120px] px-1.5 py-0.5 rounded-md text-[6px] font-black uppercase bg-orange-500 border border-orange-400 text-white z-30 shadow-lg animate-pulse">VALID</div>
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[112px] px-1.5 py-0.5 rounded-[1.15rem] text-[6px] font-black uppercase bg-orange-500 border border-orange-400 text-white z-30 shadow-lg animate-pulse">VALID</div>
     )}
   </div>
 );
@@ -852,19 +975,19 @@ const nodeTypes = { matrix: MatrixNode, diamond: DiamondNode };
 const edgeTypes = { custom: CustomEdge };
 
 const ConfirmDeleteOverlay: React.FC<{ onConfirm: () => void, onCancel: () => void, label: string }> = ({ onConfirm, onCancel, label }) => (
-  <div className="bg-status-error/10 border border-status-error/30 rounded-[1.15rem] p-3 flex flex-col gap-3 animate-apple-in">
+  <div className="bg-status-error/10 border border-status-error/30 rounded-[1.15rem] p-2.5 flex flex-col gap-2.5 animate-apple-in">
     <div className="flex items-center gap-3">
       <AlertCircle size={14} className="text-status-error" />
-      <span className="text-[10px] font-black text-white uppercase tracking-tight">{label}</span>
+      <span className="text-[9px] font-black text-white uppercase tracking-tight">{label}</span>
     </div>
     <div className="flex gap-2">
-      <button onClick={(e) => { e.stopPropagation(); onConfirm(); }} className="flex-1 py-2 bg-status-error text-white text-[9px] font-black uppercase rounded-[1.15rem] shadow-lg shadow-status-error/20 hover:bg-status-error/80 transition-colors">Confirm Delete</button>
-      <button onClick={(e) => { e.stopPropagation(); onCancel(); }} className="flex-1 py-2 bg-white/5 text-white/40 text-[9px] font-black uppercase rounded-[1.15rem] hover:bg-white/10 transition-colors">Cancel</button>
+      <button onClick={(e) => { e.stopPropagation(); onConfirm(); }} className="flex-1 py-1.5 bg-status-error text-white text-[8px] font-black uppercase rounded-[1.15rem] shadow-lg shadow-status-error/20 hover:bg-status-error/80 transition-colors">Confirm Delete</button>
+      <button onClick={(e) => { e.stopPropagation(); onCancel(); }} className="flex-1 py-1.5 bg-white/5 text-white/40 text-[8px] font-black uppercase rounded-[1.15rem] hover:bg-white/10 transition-colors">Cancel</button>
     </div>
   </div>
 );
 
-const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedWorkflows = [], rollbackPreview, runtimeConfig, onSave, onBack, onExit, onCreateRollbackDraft, onGovernanceAction, setIsDirty }) => {
+const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedWorkflows = [], rollbackPreview, runtimeConfig, onSave, onBack, onExit, onCreateRollbackDraft, onGovernanceAction, setIsDirty }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const { project, fitView, setCenter } = useReactFlow();
@@ -873,12 +996,12 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('overview');
-  const [inspectorWidth, setInspectorWidth] = useState(450);
+  const [inspectorWidth, setInspectorWidth] = useState(410);
   const [layoutPrefs, setLayoutPrefs] = useState<BuilderLayoutPrefs>({
     inspectorCollapsed: false,
-    showMiniMap: true,
+    showMiniMap: false,
   });
-  const [baseFontSize] = useState(14);
+  const [baseFontSize] = useState(13);
   const [defaultEdgeStyle, setDefaultEdgeStyle] = useState<'bezier' | 'smoothstep' | 'straight'>('smoothstep');
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
     inputs: false, outputs: false, manual_inputs: false, manual_outputs: false, blockers: false, errors: false, tribal: false, references: false, assets: false, instructions: false
@@ -914,6 +1037,10 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   const [importDraft, setImportDraft] = useState('');
   const [definitionPrereqDraft, setDefinitionPrereqDraft] = useState('');
   const [taskPaneCompact, setTaskPaneCompact] = useState(true);
+  const [reviewMode, setReviewMode] = useState(false);
+  const [inspectorSearch, setInspectorSearch] = useState('');
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [commandPaletteQuery, setCommandPaletteQuery] = useState('');
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'conflict' | 'error'>('idle');
@@ -923,8 +1050,9 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   const initialSnapshotRef = useRef<any>(null);
   const taskPaneScrollRef = useRef<HTMLDivElement | null>(null);
   const taskSectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const saveWorkflowRef = useRef<(() => void) | null>(null);
   const layoutPrefsKey = useMemo(() => getWorkflowBuilderLayoutKey(workflow?.id), [workflow?.id]);
-  const panePrefsKey = useMemo(() => `pathos-workflow-builder-pane-${workflow?.id ?? 'new'}`, [workflow?.id]);
+  const panePrefsKey = useMemo(() => `pathos-workflow-builder2-pane-${workflow?.id ?? 'new'}`, [workflow?.id]);
 
   const toggleSection = (section: string) => { setExpandedSections(prev => ({ ...prev, [section]: !prev[section] })); };
   const toggleItem = (itemId: string) => { setOpenItems(prev => ({ ...prev, [itemId]: !prev[itemId] })); };
@@ -1093,7 +1221,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
       if (typeof parsed.inspectorTab === 'string') setInspectorTab(parsed.inspectorTab);
       if (typeof parsed.ownerPositionsCollapsed === 'boolean') setOwnerPositionsCollapsed(parsed.ownerPositionsCollapsed);
     } catch (error) {
-      console.warn('[WorkflowBuilder] Failed to restore pane prefs:', error);
+      console.warn('[Builder2] Failed to restore pane prefs:', error);
     }
   }, [panePrefsKey]);
 
@@ -1108,7 +1236,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
         ownerPositionsCollapsed,
       }));
     } catch (error) {
-      console.warn('[WorkflowBuilder] Failed to persist pane prefs:', error);
+      console.warn('[Builder2] Failed to persist pane prefs:', error);
     }
   }, [expandedSections, inspectorTab, openItems, ownerPositionsCollapsed, panePrefsKey, taskPaneCompact]);
 
@@ -1246,7 +1374,23 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't trigger if typing in an input/textarea
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen((current) => !current);
+        return;
+      }
+      if (e.key === 'Escape' && commandPaletteOpen) {
+        e.preventDefault();
+        setCommandPaletteOpen(false);
+        setCommandPaletteQuery('');
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveWorkflowRef.current?.();
+        return;
+      }
+      // Don't trigger structural shortcuts if typing in an input/textarea
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -1258,16 +1402,29 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
         redo();
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'c' && selectedTaskId) {
+        if (isReadOnlyMode) return;
         const task = tasks.find(t => t.id === selectedTaskId);
         if (task && !task.interface) {
           setClipboard({ task: JSON.parse(JSON.stringify(task)), node: JSON.parse(JSON.stringify(nodes.find(n => n.id === selectedTaskId))) });
         }
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'v' && clipboard) {
+        if (isReadOnlyMode) return;
         saveToHistory();
         const id = `node-${Date.now()}`;
-        const newNode = { ...clipboard.node, id, position: { x: (clipboard.node.position?.x || 0) + 40, y: (clipboard.node.position?.y || 0) + 40 }, selected: true };
-        const newTask = { ...clipboard.task, id, node_id: id };
+        const newNode = {
+          ...JSON.parse(JSON.stringify(clipboard.node)),
+          id,
+          position: { x: (clipboard.node.position?.x || 0) + 40, y: (clipboard.node.position?.y || 0) + 40 },
+          selected: true,
+          data: {
+            ...clipboard.node?.data,
+            id,
+            label: `${clipboard.task?.name || clipboard.node?.data?.label || 'Task'} Copy`,
+            commentSummary: { total: 0, open: 0, resolved: 0 },
+          },
+        };
+        const newTask = sanitizeTaskClone(clipboard.task, id, `${clipboard.task?.name || 'Task'} Copy`);
         setTasks(prev => [...prev, newTask]);
         setNodes(nds => nds.map(n => ({ ...n, selected: false })).concat(newNode));
         setSelectedTaskId(id);
@@ -1275,7 +1432,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, selectedTaskId, tasks, nodes, clipboard, saveToHistory]);
+  }, [commandPaletteOpen, redo, selectedTaskId, tasks, nodes, clipboard, saveToHistory, undo]);
 
   useEffect(() => {
     setTasks(prev => prev.map(t => {
@@ -1310,6 +1467,29 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
     () => selectedTaskOutgoingEdges.map((edge) => tasks.find((task) => String(task.id) === String(edge.target))).filter(Boolean) as TaskEntity[],
     [selectedTaskOutgoingEdges, tasks]
   );
+  const isReadOnlyMode = reviewMode;
+  const selectedNeighborNodeIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (selectedTaskId) {
+      ids.add(String(selectedTaskId));
+      selectedTaskIncomingEdges.forEach((edge) => {
+        ids.add(String(edge.source));
+        ids.add(String(edge.target));
+      });
+      selectedTaskOutgoingEdges.forEach((edge) => {
+        ids.add(String(edge.source));
+        ids.add(String(edge.target));
+      });
+    }
+    selectedEdgeIds.forEach((edgeId) => {
+      const edge = edges.find((item) => String(item.id) === String(edgeId));
+      if (edge) {
+        ids.add(String(edge.source));
+        ids.add(String(edge.target));
+      }
+    });
+    return ids;
+  }, [edges, selectedEdgeIds, selectedTaskId, selectedTaskIncomingEdges, selectedTaskOutgoingEdges]);
   const selectedTaskBaseline = useMemo(() => {
     if (!initialSnapshotRef.current?.tasks || !selectedTaskId) return null;
     return (initialSnapshotRef.current.tasks || []).find((task: any) => String(task.node_id || task.id) === String(selectedTaskId)) || null;
@@ -1523,6 +1703,33 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
     }
   }, []);
 
+  const focusCompletenessSection = useCallback((label: string) => {
+    const sectionId = getCompletenessSectionId(label);
+    if (sectionId === 'validation') setInspectorTab('validation');
+    else if (sectionId === 'appendix') setInspectorTab('appendix');
+    else setInspectorTab('overview');
+    window.requestAnimationFrame(() => scrollToTaskSection(sectionId));
+  }, [scrollToTaskSection]);
+
+  const inspectorSections = useMemo(() => ([
+    { id: 'overview', label: 'Overview', tab: 'overview' as InspectorTab, keywords: ['name', 'description', 'purpose', 'definition', 'task nomenclature', 'task type', 'manual time', 'automation time'] },
+    { id: 'dependencies', label: 'Dependencies', tab: 'overview' as InspectorTab, keywords: ['dependency', 'upstream', 'downstream', 'handoff', 'blocker', 'input', 'output', 'route'] },
+    { id: 'ownership', label: 'Ownership & Risk', tab: 'overview' as InspectorTab, keywords: ['owner', 'backup', 'sme', 'reviewer', 'escalation', 'risk', 'readiness', 'sla', 'cadence'] },
+    { id: 'systems', label: 'Systems & Integrations', tab: 'overview' as InspectorTab, keywords: ['system', 'integration', 'shadow it', 'link', 'usage'] },
+    { id: 'comments', label: 'Comments', tab: 'overview' as InspectorTab, keywords: ['comment', 'discussion', 'note', 'review'] },
+    { id: 'validation', label: 'Validation', tab: 'validation' as InspectorTab, keywords: ['validation', 'verify', 'evidence', 'check', 'post-task'] },
+    { id: 'appendix', label: 'Appendix', tab: 'appendix' as InspectorTab, keywords: ['reference', 'asset', 'instruction', 'step', 'appendix'] },
+  ]), []);
+
+  useEffect(() => {
+    if (!inspectorSearch.trim()) return;
+    const query = inspectorSearch.toLowerCase().trim();
+    const match = inspectorSections.find((section) => [section.label, ...section.keywords].some((value) => value.toLowerCase().includes(query)));
+    if (!match) return;
+    setInspectorTab(match.tab);
+    window.requestAnimationFrame(() => scrollToTaskSection(match.id));
+  }, [inspectorSearch, inspectorSections, scrollToTaskSection]);
+
   useEffect(() => {
     setNodes((prev) => prev.map((node) => ({
       ...node,
@@ -1544,6 +1751,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   }, [historyCompareMode, historyComparisonWorkflow, versionHistory]);
 
   const addWorkflowComment = useCallback(() => {
+    if (isReadOnlyMode) return;
     if (!commentDraft.message.trim()) {
       toast.error('Comment message is required.');
       return;
@@ -1565,6 +1773,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   }, [commentDraft, saveToHistory, setIsDirty, utilityPaneTaskId]);
 
   const updateWorkflowComment = useCallback((commentId: string, message: string) => {
+    if (isReadOnlyMode) return;
     if (!message.trim()) {
       toast.error('Comment message is required.');
       return;
@@ -1575,6 +1784,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   }, [saveToHistory, setIsDirty]);
 
   const toggleWorkflowCommentStatus = useCallback((commentId: string) => {
+    if (isReadOnlyMode) return;
     saveToHistory();
     setWorkflowComments((prev) => prev.map((comment) => (
       comment.id === commentId
@@ -1585,6 +1795,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   }, [saveToHistory, setIsDirty]);
 
   const deleteWorkflowComment = useCallback((commentId: string) => {
+    if (isReadOnlyMode) return;
     saveToHistory();
     setWorkflowComments((prev) => prev.filter((comment) => comment.id !== commentId));
     setIsDirty?.(true);
@@ -1610,14 +1821,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
               <button
                 key={mode}
                 onClick={() => setHistoryCompareMode(mode)}
-                className={cn("rounded-xl border px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] transition-all", historyCompareMode === mode ? "border-theme-accent/20 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/45 hover:text-white")}
+                className={cn("rounded-[1.15rem] border px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] transition-all", historyCompareMode === mode ? "border-theme-accent/20 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/45 hover:text-white")}
               >
                 {mode === 'saved' ? 'Saved' : mode === 'approved' ? 'Approved' : 'Chosen'}
               </button>
             ))}
             {historyCompareMode === 'selected' && (
               <select
-                className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[8px] font-black uppercase text-white outline-none"
+                className="rounded-[1.15rem] border border-white/10 bg-black/30 px-3 py-2 text-[8px] font-black uppercase text-white outline-none"
                 value={historyCompareVersionId}
                 onChange={(e) => setHistoryCompareVersionId(e.target.value)}
               >
@@ -1628,6 +1839,26 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
                 ))}
               </select>
             )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {versionHistory.slice(0, 4).map((version) => (
+              <button
+                key={`${version.id}-${version.version}`}
+                onClick={() => {
+                  setHistoryCompareMode('selected');
+                  setHistoryCompareVersionId(String(version.id));
+                }}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] transition-colors",
+                  String(historyCompareVersionId) === String(version.id) && historyCompareMode === 'selected'
+                    ? "border-theme-accent/20 bg-theme-accent/10 text-theme-accent"
+                    : "border-white/10 bg-white/5 text-white/45 hover:text-white",
+                  version.isCurrent && "opacity-70"
+                )}
+              >
+                v{version.version} {version.isCurrent ? 'Current' : version.state}
+              </button>
+            ))}
           </div>
           <div className="rounded-[1.15rem] border border-white/10 bg-black/20 px-3 py-2 text-[10px] font-bold text-white/55">
             Comparing against {historyCompareMode === 'saved' ? 'the last saved builder snapshot' : historyCompareMode === 'approved' ? 'the latest approved or certified version' : `v${historyComparisonSnapshot?.metadata?.version || historyCompareVersionId || 'selected'}`}.
@@ -1782,12 +2013,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
           <textarea
             className="w-full rounded-[1.15rem] border border-white/10 bg-black/30 px-4 py-3 text-[12px] font-bold text-white/80 outline-none focus:border-theme-accent min-h-[6rem] resize-none"
             value={commentDraft.message}
+            disabled={reviewMode}
             onChange={(e) => setCommentDraft((prev) => ({ ...prev, message: e.target.value }))}
             placeholder="Write a comment..."
           />
           <div className="flex items-center justify-between gap-3">
             <button
               onClick={addWorkflowComment}
+              disabled={reviewMode}
               className="rounded-[1.15rem] border border-theme-accent/20 bg-theme-accent/10 px-4 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all"
             >
               Add Comment
@@ -1811,12 +2044,14 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
                       setEditingCommentId(comment.id);
                       setEditingCommentDraft(comment.message);
                     }}
+                    disabled={reviewMode}
                     className="rounded-[1.15rem] border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white"
                   >
                     Edit
                   </button>
                   <button
                     onClick={() => toggleWorkflowCommentStatus(comment.id)}
+                    disabled={reviewMode}
                     className={cn(
                       "rounded-[1.15rem] border px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em]",
                       comment.status === 'resolved'
@@ -1828,6 +2063,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
                   </button>
                   <button
                     onClick={() => deleteWorkflowComment(comment.id)}
+                    disabled={reviewMode}
                     className="rounded-[1.15rem] border border-status-error/20 bg-status-error/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-status-error"
                   >
                     Delete
@@ -1839,26 +2075,29 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
                     <textarea
                       className="w-full rounded-[1.15rem] border border-theme-accent/20 bg-black/30 px-4 py-3 text-[12px] font-bold text-white/80 outline-none focus:border-theme-accent min-h-[6rem] resize-none"
                       value={editingCommentDraft}
+                      disabled={reviewMode}
                       onChange={(e) => setEditingCommentDraft(e.target.value)}
                     />
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          updateWorkflowComment(comment.id, editingCommentDraft);
-                          setEditingCommentId(null);
-                          setEditingCommentDraft('');
-                        }}
-                        className="rounded-[1.15rem] border border-theme-accent/20 bg-theme-accent/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent"
-                      >
+                        <button
+                          onClick={() => {
+                            updateWorkflowComment(comment.id, editingCommentDraft);
+                            setEditingCommentId(null);
+                            setEditingCommentDraft('');
+                          }}
+                          disabled={reviewMode}
+                          className="rounded-[1.15rem] border border-theme-accent/20 bg-theme-accent/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent"
+                        >
                         Save
                       </button>
-                      <button
-                        onClick={() => {
-                          setEditingCommentId(null);
-                          setEditingCommentDraft('');
-                        }}
-                        className="rounded-[1.15rem] border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55"
-                      >
+                        <button
+                          onClick={() => {
+                            setEditingCommentId(null);
+                            setEditingCommentDraft('');
+                          }}
+                          disabled={reviewMode}
+                          className="rounded-[1.15rem] border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-white/55"
+                        >
                         Cancel
                       </button>
                     </div>
@@ -1871,7 +2110,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
           })}
           {scopedComments.length === 0 && (
             <div className="rounded-[1.15rem] border border-white/10 bg-black/20 px-4 py-3 text-[11px] font-bold text-white/40">
-              No comments yet.
+              No comments yet. Add one focused note or start a task thread when the workflow needs discussion.
             </div>
           )}
         </div>
@@ -1957,6 +2196,25 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
     }
   }, [fitView, setNodes, setEdges, setIsDirty, defaultEdgeStyle]);
 
+  const commandActions = useMemo<BuilderCommandAction[]>(() => ([
+    { id: 'save', label: 'Save workflow', hint: 'Cmd/Ctrl+S', keywords: ['save', 'commit'], run: () => saveWorkflowRef.current?.() },
+    { id: 'fit', label: 'Fit diagram', hint: 'View all nodes', keywords: ['fit', 'zoom', 'frame'], run: () => fitView({ padding: 0.12, duration: 250 }) },
+    { id: 'layout', label: 'Auto layout', hint: 'Reflow graph', keywords: ['layout', 'arrange', 'dagre'], run: () => handleLayout(nodes, edges) },
+    { id: 'task', label: 'Add task', hint: 'Create a node', keywords: ['task', 'node', 'add'], run: () => onAddNode('TASK') },
+    { id: 'condition', label: 'Add condition', hint: 'Create a diamond', keywords: ['condition', 'loop', 'decision'], run: () => onAddNode('CONDITION') },
+    { id: 'comments', label: 'Open comments', hint: 'Task or workflow', keywords: ['comment', 'discussion'], run: () => { setUtilityPane('comments'); setUtilityPaneTaskId(selectedTaskId || null); } },
+    { id: 'history', label: 'Open history', hint: 'Compare versions', keywords: ['history', 'diff', 'versions'], run: openHistoryPane },
+    { id: 'review', label: reviewMode ? 'Exit review mode' : 'Enter review mode', hint: 'Read only', keywords: ['review', 'read only'], run: () => setReviewMode((current) => !current) },
+    { id: 'inspector', label: layoutPrefs.inspectorCollapsed ? 'Expand inspector' : 'Collapse inspector', hint: 'Task pane', keywords: ['inspector', 'pane', 'collapse'], run: () => updateLayoutPrefs({ inspectorCollapsed: !layoutPrefs.inspectorCollapsed }) },
+    { id: 'minimap', label: layoutPrefs.showMiniMap ? 'Hide minimap' : 'Show minimap', hint: 'Mini map', keywords: ['minimap', 'map'], run: () => updateLayoutPrefs({ showMiniMap: !layoutPrefs.showMiniMap }) },
+    { id: 'selection', label: 'Clear selection', hint: 'Esc', keywords: ['clear', 'selection'], run: clearSelection },
+  ]), [clearSelection, edges, fitView, handleLayout, layoutPrefs.inspectorCollapsed, layoutPrefs.showMiniMap, nodes, openHistoryPane, reviewMode, selectedTaskId, updateLayoutPrefs]);
+  const filteredCommandActions = useMemo(() => {
+    const query = commandPaletteQuery.trim().toLowerCase();
+    if (!query) return commandActions;
+    return commandActions.filter((action) => [action.label, action.hint, ...action.keywords].some((value) => value.toLowerCase().includes(query)));
+  }, [commandActions, commandPaletteQuery]);
+
   // Ensure fitView on initial load
   const initialFitPerformed = useRef(false);
   useEffect(() => {
@@ -1990,7 +2248,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
         showMiniMap: parsed?.showMiniMap !== false,
       });
     } catch (error) {
-      console.warn('[WorkflowBuilder] Failed to restore layout prefs:', error);
+      console.warn('[Builder2] Failed to restore layout prefs:', error);
     }
   }, [layoutPrefsKey, workflow?.id]);
 
@@ -1999,9 +2257,20 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
     try {
       window.localStorage.setItem(layoutPrefsKey, JSON.stringify(layoutPrefs));
     } catch (error) {
-      console.warn('[WorkflowBuilder] Failed to persist layout prefs:', error);
+      console.warn('[Builder2] Failed to persist layout prefs:', error);
     }
   }, [layoutPrefs, layoutPrefsKey, workflow?.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => {
+      const responsiveMax = Math.max(300, Math.min(460, Math.round(window.innerWidth * 0.34)));
+      setInspectorWidth((current) => Math.max(300, Math.min(current, responsiveMax)));
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (!workflow?.id || typeof window === 'undefined') return;
@@ -2015,7 +2284,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
       draftRestoreAttempted.current = true;
       restoreDraft(parsed);
     } catch (error) {
-      console.warn('[WorkflowBuilder] Failed to restore draft:', error);
+      console.warn('[Builder2] Failed to restore draft:', error);
     }
   }, [workflow?.id, workflowBuilderDraftKey, workflowSourceStamp, restoreDraft]);
 
@@ -2048,7 +2317,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
         setLastDraftSavedAt(new Date().toISOString());
         setSaveStatus((current) => current === 'saving' ? current : 'saved');
       } catch (error) {
-        console.warn('[WorkflowBuilder] Failed to persist draft:', error);
+        console.warn('[Builder2] Failed to persist draft:', error);
       }
     }, 450);
 
@@ -2128,18 +2397,6 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
       setCommentDraft(createWorkflowComment());
       setDefinitionPrereqDraft('');
       setImportDraft('');
-      initialSnapshotRef.current = JSON.parse(JSON.stringify({
-        metadata: initialMetadata,
-        comments: Array.isArray(workflow?.comments) ? workflow.comments.map(normalizeWorkflowComment) : [],
-        tasks: Array.isArray(workflow?.tasks) ? workflow.tasks : [],
-        edges: Array.isArray(workflow?.edges) ? workflow.edges : [],
-        accessControl: workflow?.access_control || {},
-        ownership: workflow?.ownership || {},
-        relatedWorkflowIds: workflow?.related_workflow_ids || [],
-        version: workflow?.version || 1,
-        updated_at: workflow?.updated_at || workflow?.updatedAt || null,
-      }));
-
       let initializedTasks = (workflow?.tasks || []).map((t: any) => {
         let stableId = t.node_id ? String(t.node_id) : String(t.id);
         if (!stableId || stableId === 'undefined' || stableId === 'null') {
@@ -2227,21 +2484,33 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
       }).filter(Boolean);
       setNodes(initialNodes);
       setEdges(initialEdges);
+      initialSnapshotRef.current = JSON.parse(JSON.stringify({
+        metadata: initialMetadata,
+        comments: Array.isArray(workflow?.comments) ? workflow.comments.map(normalizeWorkflowComment) : [],
+        tasks: initializedTasks,
+        edges: initialEdges,
+        accessControl: workflow?.access_control || {},
+        ownership: workflow?.ownership || {},
+        relatedWorkflowIds: workflow?.related_workflow_ids || [],
+        version: workflow?.version || 1,
+        updated_at: workflow?.updated_at || workflow?.updatedAt || null,
+      }));
       if (initializedTasks.every((t: any) => !t.position_x && !t.position_y)) {
         setTimeout(() => handleLayout(initialNodes, initialEdges), 100);
       }
     } catch (err) {
-      console.error("[WorkflowBuilder] Critical Initialization Failure:", err);
+      console.error("[Builder2] Critical Initialization Failure:", err);
     }
   }, [workflow]);
 
   const updateTask = (id: string, updates: Partial<TaskEntity>) => {
+    if (isReadOnlyMode) return;
     saveToHistory();
     setTasks(prev => prev.map(t => {
       if (t.id === id) {
         const updated = { ...t, ...updates };
         setNodes(nds => nds.map(n => n.id === id ? { ...n, data: { 
-          ...n.data, label: updated.name, task_type: updated.task_type, manual_time: updated.manual_time_minutes, automation_time: updated.automation_time_minutes, occurrence: updated.occurrence, involved_systems: updated.involved_systems, owningTeam: updated.owning_team, ownerPositions: updated.owner_positions, sourceCount: (updated.source_data_list || []).length, outputCount: (updated.output_data_list || []).length, validation_needed: updated.validation_needed, blockerCount: (updated.blockers || []).length, errorCount: (updated.errors || []).length, description: updated.description 
+          ...n.data, label: updated.name, task_type: updated.task_type, manual_time: updated.manual_time_minutes, automation_time: updated.automation_time_minutes, occurrence: updated.occurrence, involved_systems: updated.involved_systems, owningTeam: updated.owning_team, ownerPositions: updated.owner_positions, sourceCount: (updated.source_data_list || []).length, outputCount: (updated.output_data_list || []).length, validation_needed: updated.validation_needed, blockerCount: (updated.blockers || []).length, errorCount: (updated.errors || []).length, description: updated.description, diagnostics: updated.diagnostics 
         } } : n));
         return updated;
       }
@@ -2251,18 +2520,22 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   };
 
   const updateTaskDiagnostics = useCallback((id: string, updates: Parameters<typeof buildTaskDiagnostics>[1]) => {
+    if (isReadOnlyMode) return;
     const task = tasks.find((item) => item.id === id);
     if (!task) return;
-    updateTask(id, { diagnostics: buildTaskDiagnostics(task, updates) });
+    const diagnostics = buildTaskDiagnostics(task, updates);
+    updateTask(id, { diagnostics });
   }, [tasks, updateTask]);
 
   const updateEdge = (id: string, updates: any) => {
+    if (isReadOnlyMode) return;
     saveToHistory();
     setEdges(eds => eds.map(e => e.id === id ? { ...e, data: { ...e.data, ...updates }, markerEnd: { type: MarkerType.ArrowClosed, color: updates.color || e.data?.color || '#ffffff' } } : e));
     setIsDirty?.(true);
   };
 
   const updateSelectedTasks = useCallback((updates: Partial<TaskEntity>) => {
+    if (isReadOnlyMode) return;
     if (selectedNodeIds.length === 0) return;
     saveToHistory();
     setTasks(prev => prev.map((task) => {
@@ -2275,6 +2548,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   }, [selectedNodeIds, saveToHistory, setIsDirty]);
 
   const alignSelectedNodes = useCallback((mode: 'left' | 'top' | 'center' | 'horizontal' | 'vertical') => {
+    if (isReadOnlyMode) return;
     if (selectedNodeIds.length < 2) return;
     const targetNodes = nodes.filter((node) => selectedNodeIds.includes(node.id));
     if (targetNodes.length < 2) return;
@@ -2308,6 +2582,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   }, [workflow?.id, workflowBuilderDraftKey]);
 
   const onConnect = (params: Connection) => {
+    if (isReadOnlyMode) return;
     if (!params.source || !params.target) return;
     saveToHistory();
     const newEdge: Edge = { ...params, id: `e-${params.source}-${params.target}-${Date.now()}`, type: 'custom', data: { label: '', edgeStyle: defaultEdgeStyle, color: '#ffffff', lineStyle: 'solid' }, markerEnd: { type: MarkerType.ArrowClosed, color: '#ffffff' }, source: params.source, target: params.target };
@@ -2316,6 +2591,7 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
   };
 
   const deleteTask = useCallback((id: string) => {
+    if (isReadOnlyMode) return;
     const task = tasks.find(t => t.id === id);
     if (task?.interface) return;
     saveToHistory();
@@ -2323,11 +2599,15 @@ const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, r
     setNodes(nds => nds.filter(n => n.id !== id));
     setEdges(eds => eds.filter(e => e.source !== id && e.target !== id));
     setSelectedTaskId(null);
+    setSelectedNodeIds((prev) => prev.filter((nodeId) => nodeId !== id));
+    setSelectedEdgeIds((prev) => prev.filter((edgeId) => edgeId !== id));
+    setSelectedEdgeId((current) => current === id ? null : current);
     setConfirmingDelete(null);
     setIsDirty?.(true);
   }, [tasks, setNodes, setEdges, setIsDirty, saveToHistory]);
 
 const onAddNode = (type: 'TASK' | 'CONDITION') => {
+    if (isReadOnlyMode) return;
     saveToHistory();
     const id = `node-${Date.now()}`;
     const center = project({ x: (window.innerWidth - inspectorWidth) / 2, y: window.innerHeight / 2 });
@@ -2432,9 +2712,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
       });
     } catch (err) {
       setSaveStatus('error');
-      console.error("[WorkflowBuilder] Failed to prepare save data:", err);
+      console.error("[Builder2] Failed to prepare save data:", err);
     }
   };
+
+  useEffect(() => {
+    saveWorkflowRef.current = handleSave;
+  }, [handleSave]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const startX = e.pageX; const startWidth = inspectorWidth;
@@ -2444,6 +2728,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
   };
 
   const swapEdgeDirection = (id: string) => {
+    if (isReadOnlyMode) return;
     saveToHistory();
     setEdges(eds => eds.map(e => {
       if (e.id === id) { const newSourceHandle = e.targetHandle?.replace('-target', '-source'); const newTargetHandle = e.sourceHandle?.replace('-source', '-target'); return { ...e, source: e.target, target: e.source, sourceHandle: newSourceHandle, targetHandle: newTargetHandle }; }
@@ -2453,6 +2738,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
   };
 
   const onNodesDelete = useCallback((deleted: Node[]) => {
+    if (isReadOnlyMode) return;
     const protectedNodes = deleted.filter(n => n.data?.interface === 'TRIGGER' || n.data?.interface === 'OUTCOME');
     if (protectedNodes.length > 0) {
       const allowedToDelete = deleted.filter(n => n.data?.interface !== 'TRIGGER' && n.data?.interface !== 'OUTCOME');
@@ -2464,6 +2750,9 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
       setNodes(nds => nds.filter(n => !ids.includes(n.id)));
       setEdges(eds => eds.filter(e => !ids.includes(e.source) && !ids.includes(e.target)));
       setSelectedNodeIds(prev => prev.filter(id => !ids.includes(id)));
+      setSelectedEdgeIds(prev => prev.filter(id => !ids.includes(id)));
+      setSelectedTaskId((current) => current && ids.includes(current) ? null : current);
+      setSelectedEdgeId((current) => current && ids.includes(current) ? null : current);
       setIsDirty?.(true);
     } else {
       saveToHistory();
@@ -2472,12 +2761,73 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
       setNodes(nds => nds.filter(n => !ids.includes(n.id)));
       setEdges(eds => eds.filter(e => !ids.includes(e.source) && !ids.includes(e.target)));
       setSelectedNodeIds(prev => prev.filter(id => !ids.includes(id)));
+      setSelectedEdgeIds(prev => prev.filter(id => !ids.includes(id)));
+      setSelectedTaskId((current) => current && ids.includes(current) ? null : current);
+      setSelectedEdgeId((current) => current && ids.includes(current) ? null : current);
       setIsDirty?.(true);
     }
   }, [saveToHistory, setTasks, setNodes, setEdges, setIsDirty]);
 
   return (
     <div className="flex h-full min-h-0 w-full bg-[#050914] overflow-hidden">
+      {commandPaletteOpen && (
+        <div className="fixed inset-0 z-[1100] flex items-start justify-center bg-black/70 backdrop-blur-sm px-4 pt-[12vh]">
+          <div className="w-[min(42rem,96vw)] rounded-[1.15rem] border border-white/10 bg-[#0a1120] shadow-2xl">
+            <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
+              <Search size={14} className="text-theme-accent" />
+              <input
+                autoFocus
+                value={commandPaletteQuery}
+                onChange={(e) => setCommandPaletteQuery(e.target.value)}
+                placeholder="Search actions..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && filteredCommandActions[0]) {
+                    e.preventDefault();
+                    filteredCommandActions[0].run();
+                    setCommandPaletteOpen(false);
+                    setCommandPaletteQuery('');
+                  }
+                }}
+                className="min-w-0 flex-1 bg-transparent text-[12px] font-bold text-white outline-none placeholder:text-white/25"
+              />
+              <button
+                onClick={() => {
+                  setCommandPaletteOpen(false);
+                  setCommandPaletteQuery('');
+                }}
+                className="rounded-[1.15rem] border border-white/10 bg-white/5 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-white/50 hover:text-white"
+              >
+                Close
+              </button>
+            </div>
+            <div className="max-h-[24rem] overflow-auto custom-scrollbar p-2">
+              {filteredCommandActions.length === 0 ? (
+                <div className="rounded-[1.15rem] border border-white/10 bg-black/20 px-4 py-4 text-[11px] font-bold text-white/35">
+                  No matching actions.
+                </div>
+              ) : filteredCommandActions.map((action) => (
+                <button
+                  key={action.id}
+                  onClick={() => {
+                    action.run();
+                    setCommandPaletteOpen(false);
+                    setCommandPaletteQuery('');
+                  }}
+                  className="flex w-full items-center justify-between gap-3 rounded-[1.15rem] border border-white/5 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:border-theme-accent/20 hover:bg-theme-accent/10"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white">{action.label}</p>
+                    <p className="mt-1 text-[10px] font-bold text-white/35">{action.hint}</p>
+                  </div>
+                  <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                    {action.id}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Existing Output Picker Modal */}
       {isOutputPickerOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-8 bg-black/80 backdrop-blur-sm animate-apple-in">
@@ -2540,7 +2890,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
       )}
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative overflow-hidden">
-        <div className={cn("min-h-16 border-b border-white/10 bg-[#0a1120]/92 backdrop-blur-xl flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 relative z-[100]")}>
+        <div className={cn("min-h-14 border-b border-white/10 bg-[#0a1120]/92 backdrop-blur-xl flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2.5 relative z-[100]")}>
           <div className="flex items-center gap-4 min-w-0">
             <button onClick={() => onBack(metadata)} className="p-2.5 hover:bg-white/5 rounded-xl transition-colors text-white/40 hover:text-white"><ChevronLeft size={20} /></button>
             <div className="flex flex-col min-w-0">
@@ -2575,59 +2925,71 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
         </div>
 
         <div className="flex-1 relative min-h-0 flex flex-col">
-          <div className="shrink-0 border-b border-white/10 bg-[#0a1120]/95 backdrop-blur-xl px-3 py-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <button onClick={() => setInspectorTab('validation')} className={cn("px-3 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all whitespace-nowrap border leading-none", validationErrorCount > 0 ? "border-status-error/30 bg-status-error/10 text-status-error" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+          <div className="shrink-0 border-b border-white/10 bg-[#0a1120]/95 backdrop-blur-xl px-2.5 py-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button onClick={() => setInspectorTab('validation')} className={cn("px-2.5 py-1.5 text-[8px] font-black uppercase rounded-[1.15rem] transition-all whitespace-nowrap border leading-none", validationErrorCount > 0 ? "border-status-error/30 bg-status-error/10 text-status-error" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
                 {validationErrorCount} Errors · {validationWarningCount} Warnings
               </button>
-              <div className={cn("rounded-lg border px-3 py-1.5", saveStatus === 'conflict' ? "border-status-error/30 bg-status-error/10 text-status-error" : saveStatus === 'saving' ? "border-amber-500/20 bg-amber-500/10 text-amber-300" : saveStatus === 'saved' ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/5 text-white/45")}>
+              <div className={cn("rounded-[1.15rem] border px-2.5 py-1.5", saveStatus === 'conflict' ? "border-status-error/30 bg-status-error/10 text-status-error" : saveStatus === 'saving' ? "border-amber-500/20 bg-amber-500/10 text-amber-300" : saveStatus === 'saved' ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/5 text-white/45")}>
                 <p className="text-[8px] font-black uppercase tracking-[0.18em]">Save</p>
                 <p className="text-[9px] font-bold leading-none">{saveStatus === 'conflict' ? 'Conflict' : saveStatus === 'saving' ? 'Saving' : saveStatus === 'saved' ? 'Saved' : 'Idle'}</p>
               </div>
-              <button onClick={openHistoryPane} className={cn("px-3 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all whitespace-nowrap border leading-none", utilityPane === 'history' ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+              {draftRestored && (
+                <div className="rounded-[1.15rem] border border-theme-accent/20 bg-theme-accent/10 px-2.5 py-1.5">
+                  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent">Recovered</p>
+                  <p className="text-[9px] font-bold leading-none text-white/70">Local draft</p>
+                </div>
+              )}
+              <button onClick={openHistoryPane} className={cn("px-2.5 py-1.5 text-[8px] font-black uppercase rounded-[1.15rem] transition-all whitespace-nowrap border leading-none", utilityPane === 'history' ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
                 History
               </button>
-              <button onClick={() => updateLayoutPrefs({ inspectorCollapsed: !layoutPrefs.inspectorCollapsed })} className={cn("px-3 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all whitespace-nowrap border leading-none", layoutPrefs.inspectorCollapsed ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+              <button onClick={() => setReviewMode((current) => !current)} className={cn("px-2.5 py-1.5 text-[8px] font-black uppercase rounded-[1.15rem] transition-all whitespace-nowrap border leading-none", reviewMode ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+                {reviewMode ? 'Review Mode On' : 'Review Mode'}
+              </button>
+              <button onClick={() => setCommandPaletteOpen(true)} className="px-2.5 py-1.5 text-[8px] font-black uppercase rounded-[1.15rem] transition-all whitespace-nowrap border border-white/10 bg-white/5 text-white/50 hover:text-white leading-none">
+                Cmd/Ctrl+K
+              </button>
+              <button onClick={() => updateLayoutPrefs({ inspectorCollapsed: !layoutPrefs.inspectorCollapsed })} className={cn("px-2.5 py-1.5 text-[8px] font-black uppercase rounded-[1.15rem] transition-all whitespace-nowrap border leading-none", layoutPrefs.inspectorCollapsed ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
                 {layoutPrefs.inspectorCollapsed ? 'Expand Inspector' : 'Collapse Inspector'}
               </button>
-              <button onClick={() => updateLayoutPrefs({ showMiniMap: !layoutPrefs.showMiniMap })} className={cn("px-3 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all whitespace-nowrap border leading-none", layoutPrefs.showMiniMap ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
+              <button onClick={() => updateLayoutPrefs({ showMiniMap: !layoutPrefs.showMiniMap })} className={cn("px-2.5 py-1.5 text-[8px] font-black uppercase rounded-[1.15rem] transition-all whitespace-nowrap border leading-none", layoutPrefs.showMiniMap ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
                 {layoutPrefs.showMiniMap ? 'Hide MiniMap' : 'Show MiniMap'}
               </button>
-              <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
-                <button onClick={() => fitView({ padding: 0.12, duration: 250 })} className="rounded-lg px-3 py-1.5 text-[9px] font-black uppercase text-white/45 hover:text-white leading-none">Fit</button>
+              <div className="flex items-center gap-1 rounded-[1.15rem] border border-white/10 bg-white/5 p-1">
+                <button onClick={() => fitView({ padding: 0.12, duration: 250 })} className="rounded-[1.15rem] px-3 py-1.5 text-[8px] font-black uppercase text-white/45 hover:text-white leading-none">Fit</button>
               </div>
               {selectedItemCount > 0 && (
-                <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5">
-                  <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/55">
+                <div className="flex items-center gap-2 rounded-[1.15rem] border border-white/10 bg-white/5 px-2.5 py-1.5">
+                  <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/55">
                     {selectedNodeIds.length} Nodes · {selectedEdgeIds.length} Edges Selected
                   </span>
-                  <button onClick={clearSelection} className="rounded-lg border border-white/10 bg-black/20 px-2 py-1 text-[8px] font-black uppercase text-white/45 hover:text-white transition-colors leading-none">
+                  <button onClick={clearSelection} className="rounded-[1.15rem] border border-white/10 bg-black/20 px-2 py-1 text-[8px] font-black uppercase text-white/45 hover:text-white transition-colors leading-none">
                     Clear
                   </button>
                 </div>
               )}
               {draftRestored && (
-                <button onClick={clearBuilderDraft} className="px-3 py-1.5 text-[9px] font-black uppercase rounded-lg transition-all whitespace-nowrap border border-theme-accent/20 bg-theme-accent/10 text-theme-accent hover:bg-theme-accent hover:text-white leading-none">
+                <button onClick={clearBuilderDraft} className="px-2.5 py-1.5 text-[8px] font-black uppercase rounded-[1.15rem] transition-all whitespace-nowrap border border-theme-accent/20 bg-theme-accent/10 text-theme-accent hover:bg-theme-accent hover:text-white leading-none">
                   Clear Draft
                 </button>
               )}
-              <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-1.5">
+              <div className="rounded-[1.15rem] border border-white/10 bg-black/30 px-2.5 py-1.5">
                 <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Draft</p>
                 <p className="text-[9px] font-bold text-white/70 leading-none">{draftSavedAtLabel}</p>
               </div>
-              <div className="rounded-lg border border-white/10 bg-black/30 px-3 py-1.5">
+              <div className="rounded-[1.15rem] border border-white/10 bg-black/30 px-2.5 py-1.5">
                 <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Server</p>
                 <p className="text-[9px] font-bold text-white/70 leading-none">{savedAtLabel}</p>
               </div>
               <div className="ml-auto flex flex-wrap gap-2">
-                <button data-testid="builder-add-task" onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-4 py-2 bg-theme-accent text-white rounded-2xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap leading-none"><Plus size={12} /> Add Task</button>
-                <button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-2xl text-[9px] font-black uppercase hover:scale-[1.05] transition-all whitespace-nowrap leading-none"><Plus size={12} /> Add Condition</button>
+                <button data-testid="builder-add-task" onClick={() => onAddNode('TASK')} className="flex items-center gap-2 px-3 py-2 bg-theme-accent text-white rounded-[1.15rem] text-[8px] font-black uppercase hover:scale-[1.03] transition-all whitespace-nowrap leading-none"><Plus size={12} /> Add Task</button>
+                <button onClick={() => onAddNode('CONDITION')} className="flex items-center gap-2 px-3 py-2 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-[1.15rem] text-[8px] font-black uppercase hover:scale-[1.03] transition-all whitespace-nowrap leading-none"><Plus size={12} /> Add Condition</button>
               </div>
             </div>
           </div>
           {utilityPane && (
-            <div className="shrink-0 border-b border-white/10 bg-[#09111d]/96 backdrop-blur-xl px-4 sm:px-6 py-2">
-              <div className="flex items-center justify-between gap-3">
+            <div className="shrink-0 border-b border-white/10 bg-[#09111d]/96 backdrop-blur-xl px-3 sm:px-4 py-1.5">
+              <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">{utilityPane === 'comments' ? 'Comments' : 'Version History'}</p>
                   <p className="mt-1 text-[11px] font-bold text-white/55 leading-relaxed">
@@ -2636,7 +2998,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       : 'Compare the working draft against the last saved version, approved version, or a chosen version.'}
                   </p>
                 </div>
-                <button onClick={closeUtilityPane} className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white transition-all leading-none">
+                <button onClick={closeUtilityPane} className="rounded-[1.15rem] border border-white/10 bg-white/5 px-2.5 py-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white transition-all leading-none">
                   Close
                 </button>
               </div>
@@ -2687,7 +3049,19 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <X size={11} />
                   </button>
                   <MiniMap
-                    nodeColor={(node) => node.data?.interface === 'TRIGGER' ? '#22d3ee' : node.data?.interface === 'OUTCOME' ? '#fb7185' : node.type === 'diamond' ? '#f59e0b' : '#60a5fa'}
+                    nodeColor={(node) => {
+                      if (selectedTaskId && String(node.id) === String(selectedTaskId)) return '#38bdf8';
+                      if (selectedNeighborNodeIds.has(String(node.id))) return '#34d399';
+                      if (node.data?.interface === 'TRIGGER') return '#22d3ee';
+                      if (node.data?.interface === 'OUTCOME') return '#fb7185';
+                      if (node.type === 'diamond') return '#f59e0b';
+                      return '#60a5fa';
+                    }}
+                    nodeStrokeColor={(node) => {
+                      if (selectedTaskId && String(node.id) === String(selectedTaskId)) return '#93c5fd';
+                      if (selectedNeighborNodeIds.has(String(node.id))) return '#6ee7b7';
+                      return '#1f2937';
+                    }}
                     maskColor="rgba(3, 7, 18, 0.75)"
                     className="!bg-[#0a1120] !border !border-white/10 !rounded-2xl overflow-hidden"
                     pannable
@@ -2715,7 +3089,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
           layoutPrefs.inspectorCollapsed ? "xl:w-[92px]" : "xl:[width:var(--inspector-width)]",
         )} style={{ '--inspector-width': `${inspectorWidth}px` } as React.CSSProperties}>
         <div onMouseDown={handleMouseDown} className="hidden xl:block absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-theme-accent z-50" />
-        <div className="min-h-14 flex border-b border-white/10 bg-white/[0.02] overflow-x-auto">
+        <div className="h-12 flex border-b border-white/10 bg-white/[0.02] overflow-x-auto">
           {[ 
             { id: 'overview', label: 'Overview', icon: <Activity size={12} /> }, 
             { id: 'data', label: 'Data', icon: <Database size={12} />, hidden: isProtected || selectedTask?.task_type === 'LOOP' }, 
@@ -2794,31 +3168,29 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </button>
                   <button onClick={() => {
                     const duplicate = tasks.find((task) => task.id === selectedTask.id);
-                    if (!duplicate || isProtected) return;
+                    if (!duplicate || isProtected || isReadOnlyMode) return;
                     saveToHistory();
                     const newId = `node-${Date.now()}`;
                     const node = nodes.find((entry) => entry.id === selectedTask.id);
-                    const duplicatedTask = {
-                      ...JSON.parse(JSON.stringify(duplicate)),
-                      id: newId,
-                      node_id: newId,
-                      name: `${duplicate.name} Copy`,
-                    };
+                    const duplicatedTask = sanitizeTaskClone(duplicate, newId, `${duplicate.name} Copy`);
                     const duplicatedNode = {
-                      ...JSON.parse(JSON.stringify(node)),
+                      ...(JSON.parse(JSON.stringify(node || {}))),
                       id: newId,
                       position: { ...(node?.position || { x: 0, y: 0 }), x: (node?.position?.x || 0) + 40, y: (node?.position?.y || 0) + 40 },
-                      data: { ...(node?.data || {}), id: newId, label: `${duplicate.name} Copy`, commentSummary: { total: 0, open: 0, resolved: 0 } },
+                      data: { ...(node?.data || {}), id: newId, label: `${duplicate.name} Copy`, commentSummary: { total: 0, open: 0, resolved: 0 }, diagnostics: duplicatedTask.diagnostics },
                     };
                     setTasks((prev) => [...prev, duplicatedTask]);
                     setNodes((prev) => [...prev, duplicatedNode]);
                     setSelectedTaskId(newId);
                     setSelectedNodeIds([newId]);
+                    setSelectedEdgeId(null);
+                    setSelectedEdgeIds([]);
                     setIsDirty?.(true);
                   }} className="rounded-[1.15rem] border border-white/10 bg-white/5 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white">
                     Duplicate
                   </button>
                   <button onClick={() => {
+                    if (isReadOnlyMode) return;
                     if (isProtected) return;
                     updateTask(selectedTask.id, { task_type: 'LOOP' });
                     setNodes((prev) => prev.map((node) => node.id === selectedTask.id ? { ...node, type: 'diamond', data: { ...node.data, task_type: 'LOOP' } } : node));
@@ -2832,12 +3204,51 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <span className="inline-flex items-center gap-1"><Copy size={10} /> Copy ID</span>
                   </button>
                 </div>
+                {reviewMode && (
+                  <div className="rounded-[1.15rem] border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">
+                    Review mode is read only. Use the command palette or toggle the button to return to editing.
+                  </div>
+                )}
+                <div className="flex items-center gap-2 rounded-[1.15rem] border border-white/10 bg-black/20 px-3 py-2">
+                  <Search size={11} className="text-white/35" />
+                  <input
+                    value={inspectorSearch}
+                    onChange={(e) => setInspectorSearch(e.target.value)}
+                    placeholder="Search inspector sections..."
+                    className="min-w-0 flex-1 bg-transparent text-[10px] font-bold text-white/70 outline-none placeholder:text-white/25"
+                  />
+                  {inspectorSearch && (
+                    <button
+                      onClick={() => setInspectorSearch('')}
+                      className="rounded-[1.15rem] border border-white/10 bg-white/5 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/45 hover:text-white"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2 rounded-[1.15rem] border border-white/10 bg-black/20 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                  <span className="text-white/35">Live summary</span>
+                  <span>{selectedTaskDiff.changedFields.length} task changes</span>
+                  <span>{selectedTaskDiff.addedConnections + selectedTaskDiff.removedConnections} route deltas</span>
+                  <span>{commentCountsByTaskId.get(String(selectedTask.id))?.total || 0} comments</span>
+                  <span>{validationErrorCount} errors / {validationWarningCount} warnings</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 rounded-[1.15rem] border border-white/10 bg-black/20 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-white/35">
+                  <span className="text-white/35">Shortcuts</span>
+                  <span>Cmd/Ctrl+C copy</span>
+                  <span>Cmd/Ctrl+V paste</span>
+                  <span>Delete blocked on trigger/output</span>
+                </div>
                 {selectedTaskCompleteness.missing.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {selectedTaskCompleteness.missing.slice(0, 4).map((label) => (
-                      <span key={label} className="rounded-full border border-white/10 bg-black/25 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/40">
+                      <button
+                        key={label}
+                        onClick={() => focusCompletenessSection(label)}
+                        className="rounded-full border border-white/10 bg-black/25 px-2.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/40 hover:text-white hover:border-theme-accent/30 transition-colors"
+                      >
                         Missing {label}
-                      </span>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -2890,7 +3301,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       {selectedTask.interface ? (selectedTask.interface === 'TRIGGER' ? 'Trigger Origin' : 'Outcome Result') : (selectedTask.task_type === 'LOOP' ? 'Condition Nomenclature' : 'Task Nomenclature')}
                     </label>
                     <input 
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-[14px] font-bold text-white outline-none focus:border-theme-accent disabled:opacity-50 disabled:cursor-not-allowed" 
+                      className={cn("w-full bg-white/5 border rounded-[1.15rem] px-3 py-2.5 text-[13px] font-bold text-white outline-none focus:border-theme-accent disabled:opacity-50 disabled:cursor-not-allowed", issuesForField('task.name', selectedTaskId).length > 0 ? "border-status-error/40 bg-status-error/10" : "border-white/10")} 
                       value={selectedTask.name} 
                       onChange={e => updateTask(selectedTaskId, { name: e.target.value })} 
                       disabled={isProtected}
@@ -2908,9 +3319,9 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Contextual Description</label>
-                    <div className={cn("rounded-xl border bg-white/5 p-1", issuesForField('task.description', selectedTaskId).length > 0 ? "border-status-error/40 bg-status-error/10" : "border-white/10")}>
+                    <div className={getDefinitionIssueShell(issuesForField('task.description', selectedTaskId).length > 0)}>
                       <textarea 
-                        className="w-full bg-transparent border-0 rounded-[inherit] px-3 py-3 text-[13px] font-medium text-white/60 outline-none focus:border-theme-accent h-32 resize-none disabled:opacity-50" 
+                        className="w-full bg-transparent border-0 rounded-[inherit] px-3 py-2.5 text-[12px] font-medium text-white/60 outline-none focus:border-theme-accent h-24 resize-none disabled:opacity-50" 
                         value={selectedTask.description} 
                         onChange={e => updateTask(selectedTaskId, { description: e.target.value })} 
                         disabled={isProtected}
@@ -2987,6 +3398,17 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         <p className="mt-1 text-[14px] font-black text-white">{selectedTaskDiff.changedFields.length}</p>
                       </div>
                     </div>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                        {selectedTask.blockers.length} blockers
+                      </span>
+                      <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                        {selectedTask.reference_links.length} references
+                      </span>
+                      <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                        {selectedTask.involved_systems.length} systems
+                      </span>
+                    </div>
                   </div>
 
                   <div className="rounded-[1.15rem] border border-white/5 bg-white/[0.02] p-3 space-y-3">
@@ -3027,7 +3449,9 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <>
                       <div className="space-y-2">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task Logic Type</label>
-                        <select className="w-full bg-white/5 border border-white/10 rounded-xl px-3 h-11 text-[11px] font-black text-white outline-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>{taskTypes.map((t:any) => <option key={t} value={t}>{t}</option>)}</select>
+                        <div className={getDefinitionIssueShell(issuesForField('task.task_type', selectedTaskId).length > 0)}>
+                          <select className="w-full bg-transparent border-0 rounded-[inherit] px-3 h-10 text-[11px] font-black text-white outline-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>{taskTypes.map((t:any) => <option key={t} value={t}>{t}</option>)}</select>
+                        </div>
                         {issuesForField('task.task_type', selectedTaskId).length > 0 && (
                           <div className="flex flex-wrap gap-2">
                             {issuesForField('task.task_type', selectedTaskId).map((issue) => (
@@ -3042,7 +3466,9 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 p-3 bg-white/[0.02] border border-white/5 rounded-[1.15rem]">
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-blue-400 uppercase tracking-widest px-1 text-center block">TAT Manual (m)</label>
-                        <input type="number" className="w-full bg-black/40 border border-white/10 rounded-[1.15rem] px-3 py-2 text-[14px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
+                        <div className={getDefinitionIssueShell(issuesForField('task.manual_time_minutes', selectedTaskId).length > 0)}>
+                          <input type="number" className="w-full bg-black/40 border-0 rounded-[inherit] px-3 py-2 text-[13px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
+                        </div>
                           {issuesForField('task.manual_time_minutes', selectedTaskId).length > 0 && (
                             <div className="flex flex-wrap gap-2">
                               {issuesForField('task.manual_time_minutes', selectedTaskId).map((issue) => (
@@ -3051,9 +3477,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             </div>
                           )}
                         </div>
-                        <div className="space-y-2">
+                      <div className="space-y-2">
                           <label className="text-[9px] font-black text-purple-400 uppercase tracking-widest px-1 text-center block">TAT Machine (m)</label>
-                        <input type="number" className="w-full bg-black/40 border border-white/10 rounded-[1.15rem] px-3 py-2 text-[14px] font-black text-white outline-none focus:border-purple-400 text-center" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
+                        <div className={getDefinitionIssueShell(issuesForField('task.automation_time_minutes', selectedTaskId).length > 0)}>
+                          <input type="number" className="w-full bg-black/40 border-0 rounded-[inherit] px-3 py-2 text-[13px] font-black text-white outline-none focus:border-purple-400 text-center" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
+                        </div>
                           {issuesForField('task.automation_time_minutes', selectedTaskId).length > 0 && (
                             <div className="flex flex-wrap gap-2">
                               {issuesForField('task.automation_time_minutes', selectedTaskId).map((issue) => (
@@ -3090,6 +3518,10 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             title="Position Entries"
                             items={selectedTask.owner_positions || []}
                             onUpdate={(items) => updateTask(selectedTaskId, { owner_positions: items })}
+                            onMoveItem={(index, direction) => {
+                              const nextIndex = index + direction;
+                              updateTask(selectedTaskId, { owner_positions: moveArrayItem(selectedTask.owner_positions || [], index, nextIndex) });
+                            }}
                             placeholder="Add a role title, responsibility, or backup assignment..."
                             icon={<Users size={12} className="text-theme-accent" />}
                             isOpen={!ownerPositionsCollapsed}
@@ -3123,6 +3555,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           <input className={cn(BUILDER_FIELD, "h-10")} value={selectedTaskDiagnostics.taskProfile?.cadence || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { cadence: e.target.value } })} placeholder="Cadence" />
                           <input className={cn(BUILDER_FIELD, "h-10")} value={selectedTaskDiagnostics.taskProfile?.sla || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { sla: e.target.value } })} placeholder="SLA / timing target" />
                         </div>
+                        <div className="flex flex-wrap gap-2">
+                          <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                            Manual {selectedTask.manual_time_minutes}m
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                            Automation {selectedTask.automation_time_minutes}m
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                            Gap {Math.max(selectedTask.manual_time_minutes - selectedTask.automation_time_minutes, 0)}m
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-black/25 px-3 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
+                            Wait {selectedTask.machine_wait_time_minutes}m
+                          </span>
+                        </div>
                       </div>
 
                       <div className="space-y-4">
@@ -3150,8 +3596,16 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         <input className={cn(BUILDER_FIELD, "h-10")} value={selectedTaskDiagnostics.taskProfile?.shadow_it_link || ''} onChange={e => updateTaskDiagnostics(selectedTaskId, { taskProfile: { shadow_it_link: e.target.value } })} placeholder="Shadow IT / workaround link" />
                       )}
                         <div className="space-y-3">
-                          {(selectedTask.involved_systems || []).map(sys => (
-                            <NestedCollapsible key={sys.id} title={sys.name || "New System Entry"} isOpen={openItems[sys.id]} toggle={() => toggleItem(sys.id)} onDelete={() => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.filter(x => x.id !== sys.id) })}>
+                          {(selectedTask.involved_systems || []).map((sys, idx) => (
+                            <NestedCollapsible
+                              key={sys.id}
+                              title={sys.name || "New System Entry"}
+                              isOpen={openItems[sys.id]}
+                              toggle={() => toggleItem(sys.id)}
+                              onMoveUp={idx > 0 ? () => updateTask(selectedTaskId, { involved_systems: moveArrayItem(selectedTask.involved_systems || [], idx, idx - 1) }) : undefined}
+                              onMoveDown={idx < (selectedTask.involved_systems || []).length - 1 ? () => updateTask(selectedTaskId, { involved_systems: moveArrayItem(selectedTask.involved_systems || [], idx, idx + 1) }) : undefined}
+                              onDelete={() => updateTask(selectedTaskId, { involved_systems: selectedTask.involved_systems.filter(x => x.id !== sys.id) })}
+                            >
                               <div className="space-y-4">
                                 <div className="space-y-1">
                                   <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">System Name</label>
@@ -3172,6 +3626,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               </div>
                             </NestedCollapsible>
                           ))}
+                          {(selectedTask.involved_systems || []).length === 0 && (
+                            <div className="rounded-[1.15rem] border border-white/10 bg-black/20 px-3 py-3 text-[11px] font-bold text-white/35">
+                              No systems linked yet. Add only the systems this task truly touches.
+                            </div>
+                          )}
                           <button onClick={() => updateTask(selectedTaskId, { involved_systems: [...(selectedTask.involved_systems || []), { id: Date.now().toString(), name: '', usage: '', figures: [], link: '' }] })} className="w-full py-2.5 bg-white/5 border border-dashed border-white/10 rounded-2xl text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all">+ Add System Dependency</button>
                         </div>
                       </div>
@@ -3191,6 +3650,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         <textarea
                           className="w-full rounded-2xl border border-white/10 bg-black/30 px-3 py-3 text-[12px] font-bold text-white/80 outline-none focus:border-theme-accent min-h-[6.5rem] resize-none"
                           value={commentDraft.scope === 'task' && String(commentDraft.scope_id || '') === String(selectedTask.id) ? commentDraft.message : ''}
+                          disabled={reviewMode}
                           onChange={(e) => setCommentDraft({ ...createWorkflowComment('task', String(selectedTask.id)), message: e.target.value })}
                           placeholder="Write a task comment..."
                         />
@@ -3200,6 +3660,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               setUtilityPaneTaskId(String(selectedTask.id));
                               addWorkflowComment();
                             }}
+                            disabled={reviewMode}
                             className="rounded-2xl border border-theme-accent/20 bg-theme-accent/10 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent"
                           >
                             Add Comment
@@ -3210,6 +3671,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               setUtilityPaneTaskId(String(selectedTask.id));
                               setCommentDraft(createWorkflowComment('task', String(selectedTask.id)));
                             }}
+                            disabled={reviewMode}
                             className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-white/55"
                           >
                             Open Comment List
@@ -3217,13 +3679,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         </div>
                         <div className="space-y-2 max-h-48 overflow-auto pr-1 custom-scrollbar">
                           {selectedTaskComments.slice(0, 3).map((comment) => (
-                            <div key={comment.id} className="rounded-2xl border border-white/10 bg-black/20 p-3 space-y-2">
+                            <div key={comment.id} className="rounded-[1.15rem] border border-white/10 bg-black/20 p-3 space-y-2">
                               <div className="flex items-center justify-between gap-2">
                                 <div>
                                   <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white">{comment.author}</p>
                                   <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/30">{comment.status === 'resolved' ? 'Resolved' : 'Open'}</p>
                                 </div>
-                                <button onClick={() => toggleWorkflowCommentStatus(comment.id)} className="rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/50">
+                                <button onClick={() => toggleWorkflowCommentStatus(comment.id)} disabled={reviewMode} className="rounded-[1.15rem] border border-white/10 bg-white/5 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/50">
                                   {comment.status === 'resolved' ? 'Reopen' : 'Resolve'}
                                 </button>
                               </div>
@@ -3231,8 +3693,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             </div>
                           ))}
                           {selectedTaskComments.length === 0 && (
-                            <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3 text-[11px] font-bold text-white/35">
-                              No comments for this task yet.
+                            <div className="rounded-[1.15rem] border border-white/10 bg-black/20 px-3 py-3 text-[11px] font-bold text-white/35">
+                              No comments for this task yet. Keep comments attached to the actual task so review stays contextual.
                             </div>
                           )}
                         </div>
@@ -3241,7 +3703,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   )}
 
                   {!isProtected && (
-                    <div className="pt-6 border-t border-white/5 space-y-4">
+                    <div className="pt-4 border-t border-white/5 space-y-3">
                       {confirmingDelete === selectedTaskId ? (
                         <ConfirmDeleteOverlay 
                           label={`Delete ${selectedTask.task_type === 'LOOP' ? 'Condition' : 'Task'}?`}
@@ -3251,7 +3713,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       ) : (
                         <button 
                           onClick={() => setConfirmingDelete(selectedTaskId)} 
-                          className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-2xl text-[10px] font-black uppercase hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2"
+                          className="w-full py-3 bg-status-error/10 border border-status-error/20 text-status-error rounded-[1.15rem] text-[10px] font-black uppercase hover:bg-status-error hover:text-white transition-all flex items-center justify-center gap-2"
                         >
                           <Trash size={12} /> Permanent Deletion
                         </button>
@@ -3261,11 +3723,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 </div>
               )}
               {inspectorTab === 'data' && (
-                <div className="space-y-6 animate-apple-in">
+                <div className="space-y-4 animate-apple-in">
                   <CollapsibleSection title="Task Inputs" isOpen={expandedSections.inputs} toggle={() => toggleSection('inputs')} count={selectedTask.source_data_list.length}>
                     <div className="space-y-3 pt-4">
-                      {selectedTask.source_data_list.map((sd) => (
-                        <NestedCollapsible key={sd.id} title={sd.name || "New Input"} isOpen={openItems[sd.id]} toggle={() => toggleItem(sd.id)} onDelete={() => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.filter(x => x.id !== sd.id) })} isLocked={!!sd.from_task_id}>
+                      {selectedTask.source_data_list.map((sd, idx) => (
+                        <NestedCollapsible
+                          key={sd.id}
+                          title={sd.name || "New Input"}
+                          isOpen={openItems[sd.id]}
+                          toggle={() => toggleItem(sd.id)}
+                          onMoveUp={idx > 0 ? () => updateTask(selectedTaskId, { source_data_list: moveArrayItem(selectedTask.source_data_list || [], idx, idx - 1) }) : undefined}
+                          onMoveDown={idx < (selectedTask.source_data_list || []).length - 1 ? () => updateTask(selectedTaskId, { source_data_list: moveArrayItem(selectedTask.source_data_list || [], idx, idx + 1) }) : undefined}
+                          onDelete={() => updateTask(selectedTaskId, { source_data_list: selectedTask.source_data_list.filter(x => x.id !== sd.id) })}
+                          isLocked={!!sd.from_task_id}
+                        >
                           <div className="space-y-4">
                             {sd.from_task_name && (
                               <div className="px-3 py-1 bg-theme-accent/20 border border-theme-accent/30 rounded text-[9px] font-black text-theme-accent uppercase flex items-center gap-2">
@@ -3292,6 +3763,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
+                      {selectedTask.source_data_list.length === 0 && (
+                        <div className="rounded-[1.15rem] border border-white/10 bg-black/20 px-3 py-3 text-[11px] font-bold text-white/35">
+                          No inputs yet. Add manual inputs or pull from the registry when the task depends on another task&apos;s output.
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <button onClick={() => updateTask(selectedTaskId, { source_data_list: [...selectedTask.source_data_list, { id: Date.now().toString(), name: '', description: '', figures: [], link: '', data_example: '' }] })} className="py-3 bg-white/5 border border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-[1.15rem] flex items-center justify-center gap-2"><Plus size={12} /> Add Manual Input</button>
                         <button onClick={() => setIsOutputPickerOpen(true)} className="py-3 bg-theme-accent/10 border border-theme-accent/20 text-[9px] font-black uppercase text-theme-accent hover:bg-theme-accent hover:text-white transition-all rounded-[1.15rem] flex items-center justify-center gap-2"><Search size={12} /> Registry Search</button>
@@ -3301,8 +3777,16 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
 
                   <CollapsibleSection title="Task Outputs" isOpen={expandedSections.outputs} toggle={() => toggleSection('outputs')} count={selectedTask.output_data_list.length}>
                     <div className="space-y-3 pt-4">
-                      {selectedTask.output_data_list.map((od) => (
-                        <NestedCollapsible key={od.id} title={od.name || "New Output"} isOpen={openItems[od.id]} toggle={() => toggleItem(od.id)} onDelete={() => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.filter(x => x.id !== od.id) })}>
+                      {selectedTask.output_data_list.map((od, idx) => (
+                        <NestedCollapsible
+                          key={od.id}
+                          title={od.name || "New Output"}
+                          isOpen={openItems[od.id]}
+                          toggle={() => toggleItem(od.id)}
+                          onMoveUp={idx > 0 ? () => updateTask(selectedTaskId, { output_data_list: moveArrayItem(selectedTask.output_data_list || [], idx, idx - 1) }) : undefined}
+                          onMoveDown={idx < (selectedTask.output_data_list || []).length - 1 ? () => updateTask(selectedTaskId, { output_data_list: moveArrayItem(selectedTask.output_data_list || [], idx, idx + 1) }) : undefined}
+                          onDelete={() => updateTask(selectedTaskId, { output_data_list: selectedTask.output_data_list.filter(x => x.id !== od.id) })}
+                        >
                           <div className="space-y-4">
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Output Name *</label>
@@ -3324,17 +3808,30 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
+                      {selectedTask.output_data_list.length === 0 && (
+                        <div className="rounded-[1.15rem] border border-white/10 bg-black/20 px-3 py-3 text-[11px] font-bold text-white/35">
+                          No outputs yet. Define the artifact this task leaves behind.
+                        </div>
+                      )}
                       <button onClick={() => updateTask(selectedTaskId, { output_data_list: [...selectedTask.output_data_list, { id: Date.now().toString(), name: '', description: '', figures: [], link: '', data_example: '' }] })} className="w-full py-3 bg-white/5 border border-white/10 text-[10px] font-black uppercase text-white/40 hover:text-white hover:bg-white/10 transition-all rounded-[1.15rem] flex items-center justify-center gap-2"><Plus size={12} /> Add Output Artifact</button>
                     </div>
                   </CollapsibleSection>
                 </div>
               )}
               {inspectorTab === 'exceptions' && (
-                <div className="space-y-6">
+                <div className="space-y-4">
                   <CollapsibleSection title="Operational Roadblocks" isOpen={expandedSections.blockers} toggle={() => toggleSection('blockers')} count={selectedTask.blockers.length}>
                     <div className="space-y-3 pt-4">
-                      {selectedTask.blockers.map((b) => (
-                        <NestedCollapsible key={b.id} title={b.blocking_entity || "New Roadblock"} isOpen={openItems[b.id]} toggle={() => toggleItem(b.id)} onDelete={() => updateTask(selectedTaskId, { blockers: selectedTask.blockers.filter(x => x.id !== b.id) })}>
+                      {selectedTask.blockers.map((b, idx) => (
+                        <NestedCollapsible
+                          key={b.id}
+                          title={b.blocking_entity || "New Roadblock"}
+                          isOpen={openItems[b.id]}
+                          toggle={() => toggleItem(b.id)}
+                          onMoveUp={idx > 0 ? () => updateTask(selectedTaskId, { blockers: moveArrayItem(selectedTask.blockers || [], idx, idx - 1) }) : undefined}
+                          onMoveDown={idx < (selectedTask.blockers || []).length - 1 ? () => updateTask(selectedTaskId, { blockers: moveArrayItem(selectedTask.blockers || [], idx, idx + 1) }) : undefined}
+                          onDelete={() => updateTask(selectedTaskId, { blockers: selectedTask.blockers.filter(x => x.id !== b.id) })}
+                        >
                           <div className="space-y-4">
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Roadblock Description *</label>
@@ -3357,14 +3854,27 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
+                      {selectedTask.blockers.length === 0 && (
+                        <div className="rounded-[1.15rem] border border-white/10 bg-black/20 px-3 py-3 text-[11px] font-bold text-white/35">
+                          No blockers logged yet. Capture only the delays that materially affect the task.
+                        </div>
+                      )}
                       <button onClick={() => updateTask(selectedTaskId, { blockers: [...selectedTask.blockers, { id: Date.now().toString(), blocking_entity: '', reason: '', average_delay_minutes: 0, frequency: 1 }] })} className="w-full py-3 bg-amber-500/10 border border-amber-500/20 text-[10px] font-black uppercase text-amber-500 hover:bg-amber-500/20 transition-all rounded-[1.15rem] flex items-center justify-center gap-2"><Plus size={12} /> Add Roadblock</button>
                     </div>
                   </CollapsibleSection>
 
                   <CollapsibleSection title="Human Errors & Recoveries" isOpen={expandedSections.errors} toggle={() => toggleSection('errors')} count={selectedTask.errors.length}>
                     <div className="space-y-3 pt-4">
-                      {selectedTask.errors.map((er) => (
-                        <NestedCollapsible key={er.id} title={er.error_type || "New Error"} isOpen={openItems[er.id]} toggle={() => toggleItem(er.id)} onDelete={() => updateTask(selectedTaskId, { errors: selectedTask.errors.filter(x => x.id !== er.id) })}>
+                      {selectedTask.errors.map((er, idx) => (
+                        <NestedCollapsible
+                          key={er.id}
+                          title={er.error_type || "New Error"}
+                          isOpen={openItems[er.id]}
+                          toggle={() => toggleItem(er.id)}
+                          onMoveUp={idx > 0 ? () => updateTask(selectedTaskId, { errors: moveArrayItem(selectedTask.errors || [], idx, idx - 1) }) : undefined}
+                          onMoveDown={idx < (selectedTask.errors || []).length - 1 ? () => updateTask(selectedTaskId, { errors: moveArrayItem(selectedTask.errors || [], idx, idx + 1) }) : undefined}
+                          onDelete={() => updateTask(selectedTaskId, { errors: selectedTask.errors.filter(x => x.id !== er.id) })}
+                        >
                           <div className="space-y-4">
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Error Description *</label>
@@ -3402,6 +3912,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
+                      {selectedTask.errors.length === 0 && (
+                        <div className="rounded-[1.15rem] border border-white/10 bg-black/20 px-3 py-3 text-[11px] font-bold text-white/35">
+                          No common errors captured yet. Add only repeatable mistakes that need explicit recovery steps.
+                        </div>
+                      )}
                       <button onClick={() => updateTask(selectedTaskId, { errors: [...selectedTask.errors, { id: Date.now().toString(), error_type: '', description: '', recovery_time_minutes: 0, frequency: 1 }] })} className="w-full py-3 bg-status-error/10 border border-status-error/20 text-[10px] font-black uppercase text-status-error hover:bg-status-error/20 transition-all rounded-[1.15rem] flex items-center justify-center gap-2"><Plus size={12} /> Add Human Error</button>
                     </div>
                   </CollapsibleSection>
@@ -3436,7 +3951,15 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     {selectedTask.validation_needed && (
                       <div className="space-y-3 animate-apple-in pt-3 border-t border-white/5">
                         {(selectedTask.validation_procedure_steps || []).map((step, idx) => (
-                          <NestedCollapsible key={step.id} title={`Verification Step ${idx + 1}`} isOpen={openItems[step.id]} toggle={() => toggleItem(step.id)} onDelete={() => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.filter(x => x.id !== step.id) })}>
+                        <NestedCollapsible
+                          key={step.id}
+                          title={`Verification Step ${idx + 1}`}
+                          isOpen={openItems[step.id]}
+                          toggle={() => toggleItem(step.id)}
+                          onMoveUp={idx > 0 ? () => updateTask(selectedTaskId, { validation_procedure_steps: moveArrayItem(selectedTask.validation_procedure_steps || [], idx, idx - 1) }) : undefined}
+                          onMoveDown={idx < (selectedTask.validation_procedure_steps || []).length - 1 ? () => updateTask(selectedTaskId, { validation_procedure_steps: moveArrayItem(selectedTask.validation_procedure_steps || [], idx, idx + 1) }) : undefined}
+                          onDelete={() => updateTask(selectedTaskId, { validation_procedure_steps: selectedTask.validation_procedure_steps.filter(x => x.id !== step.id) })}
+                        >
                             <div className="space-y-4">
                               <div className="space-y-1">
                                 <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Description *</label>
@@ -3478,11 +4001,19 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 </div>
               )}
               {inspectorTab === 'appendix' && (
-                <div className="space-y-12 pb-20">
+                <div className="space-y-4 pb-16">
                   <CollapsibleSection title="Operational References" isOpen={expandedSections.references} toggle={() => toggleSection('references')} count={selectedTask.reference_links.length}>
                     <div className="space-y-3 pt-4">
-                      {selectedTask.reference_links.map(l => (
-                        <NestedCollapsible key={l.id} title={l.label || "New Reference"} isOpen={openItems[l.id]} toggle={() => toggleItem(l.id)} onDelete={() => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.filter(x => x.id !== l.id) })}>
+                      {selectedTask.reference_links.map((l, idx) => (
+                        <NestedCollapsible
+                          key={l.id}
+                          title={l.label || "New Reference"}
+                          isOpen={openItems[l.id]}
+                          toggle={() => toggleItem(l.id)}
+                          onMoveUp={idx > 0 ? () => updateTask(selectedTaskId, { reference_links: moveArrayItem(selectedTask.reference_links || [], idx, idx - 1) }) : undefined}
+                          onMoveDown={idx < (selectedTask.reference_links || []).length - 1 ? () => updateTask(selectedTaskId, { reference_links: moveArrayItem(selectedTask.reference_links || [], idx, idx + 1) }) : undefined}
+                          onDelete={() => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.filter(x => x.id !== l.id) })}
+                        >
                           <div className="space-y-4">
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Reference Label *</label>
@@ -3498,6 +4029,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
+                      {selectedTask.reference_links.length === 0 && (
+                        <div className="rounded-[1.15rem] border border-white/10 bg-black/20 px-3 py-3 text-[11px] font-bold text-white/35">
+                          No references yet. Add SOPs, wikis, or evidence links that support the task.
+                        </div>
+                      )}
                       <button onClick={() => updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, { id: Date.now().toString(), label: '', url: '' }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white transition-all rounded-[1.15rem] mt-2">+ Add Reference Link</button>
                     </div>
                   </CollapsibleSection>
@@ -3511,7 +4047,15 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   <CollapsibleSection title="Step-by-Step Instructions" isOpen={expandedSections.instructions} toggle={() => toggleSection('instructions')} count={selectedTask.instructions.length}>
                     <div className="space-y-4 pt-4">
                       {selectedTask.instructions.map((step, idx) => (
-                        <NestedCollapsible key={step.id} title={`Instruction Step ${idx + 1}`} isOpen={openItems[step.id]} toggle={() => toggleItem(step.id)} onDelete={() => updateTask(selectedTaskId, { instructions: selectedTask.instructions.filter(x => x.id !== step.id) })}>
+                        <NestedCollapsible
+                          key={step.id}
+                          title={`Instruction Step ${idx + 1}`}
+                          isOpen={openItems[step.id]}
+                          toggle={() => toggleItem(step.id)}
+                          onMoveUp={idx > 0 ? () => updateTask(selectedTaskId, { instructions: moveArrayItem(selectedTask.instructions || [], idx, idx - 1) }) : undefined}
+                          onMoveDown={idx < (selectedTask.instructions || []).length - 1 ? () => updateTask(selectedTaskId, { instructions: moveArrayItem(selectedTask.instructions || [], idx, idx + 1) }) : undefined}
+                          onDelete={() => updateTask(selectedTaskId, { instructions: selectedTask.instructions.filter(x => x.id !== step.id) })}
+                        >
                           <div className="space-y-4">
                             <div className="space-y-1">
                               <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Description *</label>
@@ -3526,6 +4070,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           </div>
                         </NestedCollapsible>
                       ))}
+                      {selectedTask.instructions.length === 0 && (
+                        <div className="rounded-[1.15rem] border border-white/10 bg-black/20 px-3 py-3 text-[11px] font-bold text-white/35">
+                          No instruction steps yet. Add only steps that help someone perform the task reliably.
+                        </div>
+                      )}
                       <button onClick={() => updateTask(selectedTaskId, { instructions: [...selectedTask.instructions, { id: Date.now().toString(), description: '', figures: [], links: [] }] })} className="w-full py-3 bg-white/5 border border-dashed border-white/10 text-[9px] font-black uppercase text-white/40 hover:text-white transition-all rounded-[1.15rem]">+ Add Instruction Step</button>
                     </div>
                   </CollapsibleSection>
@@ -3538,16 +4087,16 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 <div className="flex items-center gap-3"><Link2 size={16} className="text-theme-accent" /><span className="text-[14px] font-black text-white uppercase tracking-widest">Edge Configuration</span></div>
                 <div className="flex gap-2">
                   <button onClick={() => swapEdgeDirection(selectedEdgeId)} title="Swap Direction" className="text-white/40 hover:text-white p-2 bg-white/5 border border-white/10 rounded-[1.15rem] transition-all leading-none"><LucideWorkflow size={16} className="rotate-90" /></button>
-                  <button onClick={() => { setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); setIsDirty?.(true); }} className="text-status-error hover:bg-status-error/10 p-2 border border-status-error/20 rounded-[1.15rem] transition-all leading-none"><Trash size={16} /></button>
+                  <button onClick={() => { if (isReadOnlyMode) return; setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); setIsDirty?.(true); }} className="text-status-error hover:bg-status-error/10 p-2 border border-status-error/20 rounded-[1.15rem] transition-all leading-none"><Trash size={16} /></button>
                 </div>
               </div>
-              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4 space-y-2">
+              <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3 space-y-2">
                 <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Route Inspection</p>
                 <div className="flex flex-wrap gap-2 text-[11px] font-bold text-white/65">
-                  <span className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">From: {nodes.find((node) => node.id === selectedEdge.source)?.data?.label || selectedEdge.source}</span>
-                  <span className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">To: {nodes.find((node) => node.id === selectedEdge.target)?.data?.label || selectedEdge.target}</span>
-                  <span className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">Style: {selectedEdge.data?.edgeStyle || 'bezier'}</span>
-                  <span className="rounded-lg border border-white/10 bg-black/25 px-3 py-2">Line: {selectedEdge.data?.lineStyle || 'solid'}</span>
+                  <span className="rounded-[1.15rem] border border-white/10 bg-black/25 px-3 py-2">From: {nodes.find((node) => node.id === selectedEdge.source)?.data?.label || selectedEdge.source}</span>
+                  <span className="rounded-[1.15rem] border border-white/10 bg-black/25 px-3 py-2">To: {nodes.find((node) => node.id === selectedEdge.target)?.data?.label || selectedEdge.target}</span>
+                  <span className="rounded-[1.15rem] border border-white/10 bg-black/25 px-3 py-2">Style: {selectedEdge.data?.edgeStyle || 'bezier'}</span>
+                  <span className="rounded-[1.15rem] border border-white/10 bg-black/25 px-3 py-2">Line: {selectedEdge.data?.lineStyle || 'solid'}</span>
                 </div>
               </div>
               <div className="space-y-4">
@@ -3591,10 +4140,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               <div className="flex items-center gap-2">
                   <span className="text-[9px] text-white/20 font-black uppercase tracking-widest">v{metadata.version}</span>
                   <button 
-                    onClick={() => setIsMetadataEditMode(!isMetadataEditMode)}
-                    className={cn("px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all leading-none", isMetadataEditMode ? "bg-theme-accent text-white" : "bg-white/5 text-white/40 hover:text-white")}
+                    onClick={() => !reviewMode && setIsMetadataEditMode(!isMetadataEditMode)}
+                    disabled={reviewMode}
+                    className={cn("px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all leading-none", reviewMode ? "bg-white/5 text-white/25 cursor-not-allowed" : isMetadataEditMode ? "bg-theme-accent text-white" : "bg-white/5 text-white/40 hover:text-white")}
                   >
-                    {isMetadataEditMode ? "Finish Editing" : "Edit Definition"}
+                    {reviewMode ? "Review Mode" : isMetadataEditMode ? "Finish Editing" : "Edit Definition"}
                   </button>
                 </div>
               </div>
@@ -3647,13 +4197,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 </div>
               )}
               
-              <div className={cn("space-y-3 transition-all", !isMetadataEditMode && "opacity-80 pointer-events-none")}>
+              <div className={cn("space-y-3 transition-all", (!isMetadataEditMode || reviewMode) && "opacity-80 pointer-events-none")}>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-theme-accent font-black px-1">
                     <Cpu size={14} />
                     <span className="text-[10px] tracking-[0.2em] uppercase">Overview</span>
                   </div>
                   <div className={cn(BUILDER_PANEL, "space-y-3 !bg-white/[0.02] border-white/5 p-3")}>
+                    <div className="flex flex-wrap gap-2 rounded-[1.15rem] border border-white/10 bg-black/20 px-3 py-2 text-[8px] font-black uppercase tracking-[0.18em] text-white/40">
+                      <span className="text-white/35">Definition</span>
+                      <span className="truncate max-w-[12rem]">{metadata.purpose_statement || 'No purpose set'}</span>
+                      <span className="border-l border-white/10 pl-2">{metadata.pre_requisites.length} prereqs</span>
+                      <span className="border-l border-white/10 pl-2">{metadata.tool_family.length} families</span>
+                      <span className="border-l border-white/10 pl-2">{metadata.applicable_tools.length} tools</span>
+                    </div>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center px-1">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">Workflow Name</label>
@@ -3680,12 +4237,14 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           <label className="text-[9px] font-black text-white/40 uppercase tracking-widest">{definitionSettings.fieldLabels.purpose_statement}</label>
                           <span className="text-[8px] text-white/10 font-mono">{metadata.purpose_statement.length} / 500</span>
                         </div>
-                        <textarea 
-                          data-testid="builder-workflow-description"
-                          className={cn(BUILDER_FIELD, "text-[12px] font-bold text-white/80 h-28 resize-none leading-relaxed")} 
-                          value={metadata.purpose_statement} 
-                          onChange={e => { saveToHistory(); setMetadata({...metadata, purpose_statement: e.target.value}); }} 
-                        />
+                        <div className={getDefinitionIssueShell(issuesForField('workflow.description').length > 0)}>
+                          <textarea 
+                            data-testid="builder-workflow-description"
+                            className="w-full bg-transparent border-0 rounded-[inherit] px-3 py-2.5 text-[11px] font-bold text-white/80 h-20 resize-none leading-relaxed outline-none" 
+                            value={metadata.purpose_statement} 
+                            onChange={e => { saveToHistory(); setMetadata({...metadata, purpose_statement: e.target.value}); }} 
+                          />
+                        </div>
                         {definitionSettings.fieldVisibility.inline_examples && (
                           <p className="px-1 text-[10px] font-bold leading-relaxed text-white/35">
                             {definitionSettings.fieldExamples.purpose_statement}
@@ -3770,6 +4329,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           value={metadata.prc}
                           onChange={val => { saveToHistory(); setMetadata({...metadata, prc: val}); }}
                           placeholder="SELECT PRC..."
+                          error={issuesForField('workflow.prc').length > 0}
+                          compact
                         />
                       )}
                       {definitionSettings.fieldVisibility.workflow_type && (
@@ -3779,12 +4340,14 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           value={metadata.workflow_type}
                           onChange={val => { saveToHistory(); setMetadata({...metadata, workflow_type: val}); }}
                           placeholder="SELECT TYPE..."
+                          error={issuesForField('workflow.workflow_type').length > 0}
+                          compact
                         />
                       )}
                       {definitionSettings.fieldVisibility.cadence && (
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">{definitionSettings.fieldLabels.cadence}</label>
-                          <div className="flex items-center gap-1 bg-black/40 border border-white/10 rounded-lg p-1 h-[44px]">
+                          <div className={cn("flex items-center gap-1 bg-black/40 rounded-[1.15rem] p-1 h-[44px]", issuesForField('workflow.cadence').length > 0 ? "border border-status-error/40 bg-status-error/10" : "border border-white/10")}>
                             <input 
                               type="number" 
                               step="0.1"
@@ -3812,7 +4375,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
 
                     {(definitionSettings.fieldVisibility.tool_family || definitionSettings.fieldVisibility.applicable_tools) && (
                       <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-white/5 bg-black/20 px-3 py-2">
+                        <div className="flex flex-wrap items-center gap-2 rounded-[1.15rem] border border-white/5 bg-black/20 px-3 py-2">
                           <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Propagation</span>
                           {definitionToolPropagation.familyChips.length > 0 ? (
                             definitionToolPropagation.familyChips.map((chip) => (
@@ -3828,14 +4391,25 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               {definitionToolPropagation.availableTools.length} tools available
                             </span>
                           )}
+                          {metadata.tool_family.length > 0 && (
+                            <button
+                              onClick={() => {
+                                saveToHistory();
+                                setMetadata({ ...metadata, tool_family: [], applicable_tools: [] });
+                              }}
+                              className="ml-auto rounded-[1.15rem] border border-white/10 bg-white/5 px-3 py-1.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/50 hover:text-white"
+                            >
+                              Clear Families
+                            </button>
+                          )}
                         </div>
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                         {definitionSettings.fieldVisibility.tool_family && (
-                          <SearchableSelect 
+                        <SearchableSelect 
                             label={definitionSettings.fieldLabels.tool_family}
                             options={(taxonomy.find(t => t.category === 'ToolType') as any)?.cached_values || []}
                             value={metadata.tool_family}
-                            onChange={vals => {
+                          onChange={vals => {
                               saveToHistory();
                               const nextFamilies = Array.isArray(vals) ? vals : [];
                               const nextPropagation = deriveToolPropagation(definitionToolPropagationSource, nextFamilies, metadata.applicable_tools);
@@ -3847,6 +4421,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             }}
                             placeholder="SELECT FAMILIES..."
                             isMulti
+                            error={issuesForField('workflow.tool_family').length > 0}
+                            compact
                           />
                         )}
                         {definitionSettings.fieldVisibility.applicable_tools && (
@@ -3865,6 +4441,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             placeholder={metadata.tool_family.length === 0 ? "SELECT FAMILIES FIRST..." : "SELECT TOOLS..."}
                             isMulti
                             disabled={metadata.tool_family.length === 0}
+                            error={issuesForField('workflow.applicable_tools').length > 0}
+                            compact
                           />
                         )}
                         </div>
@@ -3897,35 +4475,41 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </div>
                   <div className={cn(BUILDER_PANEL, "space-y-3 !bg-white/[0.02] border-white/5 p-3")}>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                      {definitionSettings.fieldVisibility.trigger_type && (
+                        {definitionSettings.fieldVisibility.trigger_type && (
                         <SearchableSelect 
                           label={definitionSettings.fieldLabels.trigger_type}
                           options={(taxonomy.find(t => t.category === 'TriggerType') as any)?.cached_values || []}
                           value={metadata.trigger_type}
                           onChange={val => { saveToHistory(); setMetadata({...metadata, trigger_type: val}); }}
                           placeholder="SELECT TRIGGER..."
+                          error={issuesForField('workflow.trigger_type').length > 0}
+                          compact
                         />
-                      )}
-                      {definitionSettings.fieldVisibility.output_type && (
+                        )}
+                        {definitionSettings.fieldVisibility.output_type && (
                         <SearchableSelect 
                           label={definitionSettings.fieldLabels.output_type}
                           options={(taxonomy.find(t => t.category === 'OutputType') as any)?.cached_values || []}
                           value={metadata.output_type}
                           onChange={val => { saveToHistory(); setMetadata({...metadata, output_type: val}); }}
                           placeholder="SELECT OUTPUT..."
+                          error={issuesForField('workflow.output_type').length > 0}
+                          compact
                         />
-                      )}
+                        )}
                     </div>
-                    <div className="grid grid-cols-1 gap-4 border-t border-white/5 pt-4">
+                      <div className="grid grid-cols-1 gap-4 border-t border-white/5 pt-4">
                       <div className="space-y-2">
                         {definitionSettings.fieldVisibility.trigger_description && (
                           <>
                             <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">{definitionSettings.fieldLabels.trigger_description}</label>
-                            <textarea 
-                              className={cn(BUILDER_FIELD, "text-[11px] font-bold text-white/80 h-20 resize-none leading-relaxed")} 
-                              value={metadata.trigger_description} 
-                              onChange={e => { saveToHistory(); setMetadata({...metadata, trigger_description: e.target.value}); }} 
-                            />
+                            <div className={getDefinitionIssueShell(issuesForField('workflow.trigger_description').length > 0)}>
+                              <textarea 
+                                className="w-full bg-transparent border-0 rounded-[inherit] px-3 py-2.5 text-[11px] font-bold text-white/80 h-20 resize-none leading-relaxed outline-none" 
+                                value={metadata.trigger_description} 
+                                onChange={e => { saveToHistory(); setMetadata({...metadata, trigger_description: e.target.value}); }} 
+                              />
+                            </div>
                             {definitionSettings.fieldVisibility.inline_examples && (
                               <p className="px-1 text-[9px] font-bold text-white/30 leading-relaxed">{definitionSettings.fieldExamples.trigger_description}</p>
                             )}
@@ -3943,11 +4527,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         {definitionSettings.fieldVisibility.output_description && (
                           <>
                             <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">{definitionSettings.fieldLabels.output_description}</label>
-                            <textarea 
-                              className={cn(BUILDER_FIELD, "text-[11px] font-bold text-white/80 h-20 resize-none leading-relaxed")} 
-                              value={metadata.output_description} 
-                              onChange={e => { saveToHistory(); setMetadata({...metadata, output_description: e.target.value}); }} 
-                            />
+                            <div className={getDefinitionIssueShell(issuesForField('workflow.output_description').length > 0)}>
+                              <textarea 
+                                className="w-full bg-transparent border-0 rounded-[inherit] px-3 py-2.5 text-[11px] font-bold text-white/80 h-20 resize-none leading-relaxed outline-none" 
+                                value={metadata.output_description} 
+                                onChange={e => { saveToHistory(); setMetadata({...metadata, output_description: e.target.value}); }} 
+                              />
+                            </div>
                             {definitionSettings.fieldVisibility.inline_examples && (
                               <p className="px-1 text-[9px] font-bold text-white/30 leading-relaxed">{definitionSettings.fieldExamples.output_description}</p>
                             )}
@@ -3974,5 +4560,5 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
   );
 };
 
-const WrappedWorkflowBuilder: React.FC<WorkflowBuilderProps> = (p) => (<ReactFlowProvider><WorkflowBuilder {...p} /></ReactFlowProvider>);
-export default WrappedWorkflowBuilder;
+const WrappedBuilder2: React.FC<WorkflowBuilderProps> = (p) => (<ReactFlowProvider><Builder2 {...p} /></ReactFlowProvider>);
+export default WrappedBuilder2;

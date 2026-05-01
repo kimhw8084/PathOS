@@ -13,6 +13,7 @@ import {
   TriangleAlert,
   Sparkles,
 } from 'lucide-react';
+import { canApproveWorkflow, canPerformGovernanceAction, canReviewWorkflow } from '../utils/governance';
 
 const Pill = ({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'neutral' | 'accent' | 'warning' | 'success' | 'danger' }) => {
   const tones = {
@@ -26,8 +27,8 @@ const Pill = ({ children, tone = 'neutral' }: { children: React.ReactNode; tone?
 };
 
 const Card = ({ title, icon, hint, children }: { title: string; icon: React.ReactNode; hint?: string; children: React.ReactNode }) => (
-  <section className="rounded-[1.75rem] border border-white/10 bg-[#0a1120]/90 p-6 shadow-2xl">
-    <div className="flex items-start justify-between gap-4">
+  <section className="rounded-[1.25rem] border border-white/10 bg-[#0a1120]/90 p-4 shadow-2xl">
+    <div className="flex items-start justify-between gap-3">
       <div>
         <div className="flex items-center gap-3 text-theme-accent">
           {icon}
@@ -36,7 +37,7 @@ const Card = ({ title, icon, hint, children }: { title: string; icon: React.Reac
         {hint && <p className="mt-2 text-[12px] font-bold leading-relaxed text-white/55">{hint}</p>}
       </div>
     </div>
-    <div className="mt-5">{children}</div>
+    <div className="mt-4">{children}</div>
   </section>
 );
 
@@ -105,6 +106,10 @@ const WorkflowSummaryView = ({
   const changeImpact = analysis?.change_impact || {};
   const diffSummary = analysis?.diff_summary || {};
   const scoreTone = (value: number) => (value >= 80 ? 'success' : value >= 60 ? 'warning' : 'danger') as 'success' | 'warning' | 'danger';
+  const canReview = canReviewWorkflow(currentUser, workflow);
+  const canApprove = canApproveWorkflow(currentUser, workflow);
+  const canCertify = canPerformGovernanceAction(currentUser, workflow, 'certify');
+  const canRequestRecertification = canPerformGovernanceAction(currentUser, workflow, 'request_recertification');
 
   const benchmarkEntry = useMemo(
     () => (presidentInsights?.benchmarking_views || []).find((item: any) => item.workflow_id === workflow?.id),
@@ -124,10 +129,10 @@ const WorkflowSummaryView = ({
   );
 
   return (
-    <div className={`mx-auto space-y-6 ${presentationMode ? 'max-w-[1320px]' : 'max-w-[1480px]'}`}>
-      <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(59,130,246,0.12),rgba(10,17,32,0.95))] p-6 shadow-2xl">
-        <div className="flex items-start justify-between gap-6">
-          <div className="space-y-3">
+    <div className={`mx-auto space-y-4 ${presentationMode ? 'max-w-[1320px]' : 'max-w-[1480px]'}`}>
+      <div className="rounded-[1.35rem] border border-white/10 bg-[linear-gradient(180deg,rgba(59,130,246,0.12),rgba(10,17,32,0.95))] p-4 shadow-2xl">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-3">
               <button onClick={onBack} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/65 transition-all hover:bg-white/10 hover:text-white">
                 <ArrowLeft size={14} /> Back to Repository
@@ -143,9 +148,9 @@ const WorkflowSummaryView = ({
             </div>
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.24em] text-theme-accent">Workflow Summary</p>
-              <h1 className="mt-2 text-[28px] font-black uppercase tracking-tight text-white">{workflow?.name}</h1>
-              <p className="mt-3 max-w-[66rem] text-[13px] font-bold leading-relaxed text-white/65">{storytelling?.headline || workflow?.description || 'No workflow summary available.'}</p>
-              {storytelling?.executive_narrative && <p className="mt-2 max-w-[66rem] text-[12px] font-bold leading-relaxed text-emerald-200/80">{storytelling.executive_narrative}</p>}
+              <h1 className="mt-2 text-[26px] font-black uppercase tracking-tight text-white">{workflow?.name}</h1>
+              <p className="mt-2 max-w-[60rem] text-[13px] font-bold leading-relaxed text-white/65">{storytelling?.headline || workflow?.description || 'No workflow summary available.'}</p>
+              {storytelling?.executive_narrative && <p className="mt-2 max-w-[60rem] text-[12px] font-bold leading-relaxed text-emerald-200/80">{storytelling.executive_narrative}</p>}
             </div>
             <div className="flex flex-wrap gap-2">
               <Pill tone="accent">{workflow?.workflow_type || 'Unclassified'}</Pill>
@@ -158,52 +163,52 @@ const WorkflowSummaryView = ({
               {governance?.lifecycle_stage && <Pill>{governance.lifecycle_stage}</Pill>}
             </div>
           </div>
-          <div className="grid min-w-[380px] grid-cols-2 gap-4">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+          <div className="grid w-full grid-cols-2 gap-2 sm:gap-3 xl:w-[21rem]">
+            <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.04] p-3">
               <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Open Review Requests</p>
-              <p className="mt-3 text-[28px] font-black text-white">{reviewRequests.filter((item: any) => item.status === 'open').length}</p>
+              <p className="mt-2 text-[26px] font-black text-white">{reviewRequests.filter((item: any) => item.status === 'open').length}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.04] p-3">
               <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Notifications</p>
-              <p className="mt-3 text-[28px] font-black text-white">{notifications.filter((item: any) => !item.read).length}</p>
+              <p className="mt-2 text-[26px] font-black text-white">{notifications.filter((item: any) => !item.read).length}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.04] p-3">
               <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Projected ROI (hrs/wk)</p>
-              <p className="mt-3 text-[28px] font-black text-emerald-300">{Number(workflow?.total_roi_saved_hours || 0).toFixed(1)}</p>
+              <p className="mt-2 text-[26px] font-black text-emerald-300">{Number(workflow?.total_roi_saved_hours || 0).toFixed(1)}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+            <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.04] p-3">
               <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Candidate Score</p>
-              <p className="mt-3 text-[28px] font-black text-theme-accent">{Number(candidateEntry?.candidate_score || 0).toFixed(1)}</p>
+              <p className="mt-2 text-[26px] font-black text-theme-accent">{Number(candidateEntry?.candidate_score || 0).toFixed(1)}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <ScoreCard label="Readiness" value={scores?.readiness || 0} hint="Automation readiness of authored systems, I/O, and routing." tone={scoreTone(scores?.readiness || 0)} />
         <ScoreCard label="Standardization" value={scores?.standardization || 0} hint="How consistent, governed, and reusable this workflow is." tone={scoreTone(scores?.standardization || 0)} />
         <ScoreCard label="Documentation" value={scores?.documentation_completeness || 0} hint="Completeness of context, validation, references, and task detail." tone={scoreTone(scores?.documentation_completeness || 0)} />
         <ScoreCard label="Risk" value={scores?.complexity_risk || 0} hint="Complexity and exception burden that will slow reliable automation." tone={scoreTone(100 - (scores?.complexity_risk || 0))} />
       </div>
 
-      <div className={`grid gap-6 ${presentationMode ? 'grid-cols-1' : 'grid-cols-[1.35fr_0.95fr]'}`}>
-        <div className="space-y-6">
+      <div className={`grid gap-4 ${presentationMode ? 'grid-cols-1' : 'grid-cols-1 xl:grid-cols-[1.25fr_0.9fr]'}`}>
+        <div className="space-y-4">
           <Card title="Operational Storytelling" icon={<Sparkles size={16} />} hint="Make the workflow legible to operators, reviewers, and executives in one reading.">
-            <div className="grid grid-cols-[1.2fr_0.8fr] gap-4">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] gap-3">
+              <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Narrative</p>
-                <p className="mt-3 text-[13px] font-bold leading-relaxed text-white/72">{storytelling?.summary || 'No narrative has been generated yet.'}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
+                <p className="mt-2 text-[13px] font-bold leading-relaxed text-white/72">{storytelling?.summary || 'No narrative has been generated yet.'}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Pill tone="accent">{(analysis?.simulation?.critical_path_minutes || 0).toFixed(1)} critical-path min</Pill>
                   <Pill tone="warning">{(analysis?.simulation?.worst_case_minutes || 0).toFixed(1)} worst-case min</Pill>
                   <Pill tone="success">{(analysis?.portfolio_rollup?.projected_weekly_hours_saved || 0).toFixed(1)} projected hrs/wk</Pill>
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Certification</p>
-                <p className="mt-3 text-[22px] font-black text-white">{certification?.state || 'Draft'}</p>
+                <p className="mt-2 text-[20px] font-black text-white">{certification?.state || 'Draft'}</p>
                 <p className="mt-2 text-[11px] font-bold text-white/58">Recertify by {certification?.recertification_due_at ? new Date(certification.recertification_due_at).toLocaleDateString() : 'not scheduled'}</p>
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   {certification?.needs_recertification && <Pill tone="warning">Recertification Needed</Pill>}
                   {workflow?.analysis?.shift_handoff_risk && <Pill tone="warning">Shift Handoff Risk</Pill>}
                   {workflow?.analysis?.has_cycle && <Pill tone="danger">Cycle Detected</Pill>}
@@ -214,10 +219,10 @@ const WorkflowSummaryView = ({
 
           <Card title="Bottlenecks and Diagnostics" icon={<TriangleAlert size={16} />} hint="Show where time, recovery, and automation friction are concentrated.">
             <div className="space-y-3">
-              {bottlenecks.length === 0 && <div className="rounded-2xl border border-dashed border-white/10 p-4 text-[11px] font-bold text-white/45">No bottleneck profile available yet.</div>}
+              {bottlenecks.length === 0 && <div className="rounded-[1.15rem] border border-dashed border-white/10 p-3 text-[11px] font-bold text-white/45">No bottleneck profile available yet.</div>}
               {bottlenecks.map((item: any) => (
-                <div key={item.node_id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <div className="flex items-start justify-between gap-4">
+                <div key={item.node_id} className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
+                  <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{item.task_name}</p>
                       <p className="mt-1 text-[12px] font-bold text-white/60">
@@ -229,20 +234,20 @@ const WorkflowSummaryView = ({
                       {item.owner_team && <Pill>{item.owner_team}</Pill>}
                     </div>
                   </div>
-                  <div className="mt-4 grid grid-cols-4 gap-3">
-                    <div className="rounded-xl border border-white/5 bg-black/20 px-3 py-2">
+                  <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
+                    <div className="rounded-[1rem] border border-white/5 bg-black/20 px-3 py-2">
                       <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/30">Manual</p>
                       <p className="mt-2 text-[14px] font-black text-amber-300">{item.manual_minutes.toFixed(1)}m</p>
                     </div>
-                    <div className="rounded-xl border border-white/5 bg-black/20 px-3 py-2">
+                    <div className="rounded-[1rem] border border-white/5 bg-black/20 px-3 py-2">
                       <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/30">Wait</p>
                       <p className="mt-2 text-[14px] font-black text-cyan-300">{item.wait_minutes.toFixed(1)}m</p>
                     </div>
-                    <div className="rounded-xl border border-white/5 bg-black/20 px-3 py-2">
+                    <div className="rounded-[1rem] border border-white/5 bg-black/20 px-3 py-2">
                       <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/30">Automation</p>
                       <p className="mt-2 text-[14px] font-black text-emerald-300">{item.automation_minutes.toFixed(1)}m</p>
                     </div>
-                    <div className="rounded-xl border border-white/5 bg-black/20 px-3 py-2">
+                    <div className="rounded-[1rem] border border-white/5 bg-black/20 px-3 py-2">
                       <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/30">Recovery Risk</p>
                       <p className="mt-2 text-[14px] font-black text-rose-300">{item.risk_penalty_minutes.toFixed(1)}m</p>
                     </div>
@@ -254,9 +259,9 @@ const WorkflowSummaryView = ({
 
           <Card title="Recommendations and Opportunities" icon={<Gauge size={16} />} hint="Translate workflow insight directly into action that benefits the department.">
             <div className="space-y-3">
-              {recommendations.length === 0 && <div className="rounded-2xl border border-dashed border-white/10 p-4 text-[11px] font-bold text-white/45">No recommendation queue has been generated yet.</div>}
+              {recommendations.length === 0 && <div className="rounded-[1.15rem] border border-dashed border-white/10 p-3 text-[11px] font-bold text-white/45">No recommendation queue has been generated yet.</div>}
               {recommendations.map((item: any, index: number) => (
-                <div key={`${item.kind}-${index}`} className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div key={`${item.kind}-${index}`} className="flex items-start justify-between gap-3 rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{item.title}</p>
                     <p className="mt-1 text-[12px] font-bold text-white/58">{item.detail}</p>
@@ -271,14 +276,14 @@ const WorkflowSummaryView = ({
           </Card>
 
           <Card title="Ownership and Review" icon={<Users size={16} />} hint="Clarify who owns, reviews, and carries the workflow forward.">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Primary Owner</p>
-                <p className="mt-2 text-[16px] font-black text-white">{ownership.owner || workflow?.access_control?.owner || 'Unassigned'}</p>
+                <p className="mt-2 text-[15px] font-black text-white">{ownership.owner || workflow?.access_control?.owner || 'Unassigned'}</p>
                 <p className="mt-4 text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Automation Owner</p>
                 <p className="mt-2 text-[12px] font-bold text-white/65">{ownership.automation_owner || 'Not assigned'}</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Reviewers</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {[...(ownership.reviewers || []), ...(ownership.smes || [])].slice(0, 8).map((item: string) => <Pill key={item}>{item}</Pill>)}
@@ -290,10 +295,10 @@ const WorkflowSummaryView = ({
                 </div>
               </div>
             </div>
-            <div className="mt-4 space-y-3">
-              {reviewRequests.length === 0 && <div className="rounded-2xl border border-dashed border-white/10 p-4 text-[11px] font-bold text-white/45">No active review requests. Use the builder governance panel to request review and assign due dates.</div>}
+            <div className="mt-3 space-y-3">
+              {reviewRequests.length === 0 && <div className="rounded-[1.15rem] border border-dashed border-white/10 p-3 text-[11px] font-bold text-white/45">No active review requests. Use the builder governance panel to request review and assign due dates.</div>}
               {reviewRequests.map((request: any) => (
-                <div key={request.id || `${request.role}-${request.due_at || ''}`} className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                <div key={request.id || `${request.role}-${request.due_at || ''}`} className="flex items-center justify-between gap-3 rounded-[1.15rem] border border-white/10 bg-white/[0.03] px-3 py-2.5">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{request.role}</p>
                     <p className="mt-1 text-[12px] font-bold text-white/55">{request.note || 'No note attached.'}</p>
@@ -301,7 +306,7 @@ const WorkflowSummaryView = ({
                   <div className="flex items-center gap-2 flex-wrap justify-end">
                     <Pill tone={request.status === 'approved' ? 'success' : request.status === 'open' ? 'warning' : 'neutral'}>{request.status || 'open'}</Pill>
                     {request.due_at && <Pill>{new Date(request.due_at).toLocaleDateString()}</Pill>}
-                    {request.status === 'open' && onGovernanceAction && (
+                    {request.status === 'open' && onGovernanceAction && canReview && (
                       <>
                         <button onClick={() => onGovernanceAction('approve_review', request.id)} className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-emerald-300 hover:bg-emerald-500 hover:text-white transition-all">
                           Approve
@@ -318,11 +323,11 @@ const WorkflowSummaryView = ({
           </Card>
 
           <Card title="Workflow Activity and Audit" icon={<Clock3 size={16} />} hint="Keep the operational narrative visible so contributors see momentum, review state, and version change history.">
-            <div className="grid grid-cols-[1.05fr_0.95fr] gap-4">
+            <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.05fr_0.95fr]">
               <div className="space-y-3">
-                {activity.length === 0 && <div className="rounded-2xl border border-dashed border-white/10 p-4 text-[11px] font-bold text-white/45">No activity has been recorded yet.</div>}
+                {activity.length === 0 && <div className="rounded-[1.15rem] border border-dashed border-white/10 p-3 text-[11px] font-bold text-white/45">No activity has been recorded yet.</div>}
                 {activity.map((entry: any) => (
-                  <div key={entry.id || `${entry.type}-${entry.created_at || ''}`} className="flex gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <div key={entry.id || `${entry.type}-${entry.created_at || ''}`} className="flex gap-3 rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                     <div className="mt-1"><CheckCircle2 size={16} className="text-theme-accent" /></div>
                     <div className="min-w-0">
                       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{entry.type}</p>
@@ -333,7 +338,7 @@ const WorkflowSummaryView = ({
                 ))}
               </div>
               <div className="space-y-3">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Version Diff</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Pill tone="success">+{diffSummary?.added_nodes?.length || 0} Added</Pill>
@@ -341,7 +346,7 @@ const WorkflowSummaryView = ({
                     <Pill tone="danger">-{diffSummary?.removed_nodes?.length || 0} Removed</Pill>
                   </div>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Change Impact</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {(changeImpact?.impacted_systems || []).slice(0, 5).map((item: string) => <Pill key={item}>{item}</Pill>)}
@@ -349,7 +354,7 @@ const WorkflowSummaryView = ({
                     {(changeImpact?.impacted_teams || []).slice(0, 3).map((item: string) => <Pill key={item} tone="warning">{item}</Pill>)}
                   </div>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Benchmark</p>
                   <p className="mt-2 text-[18px] font-black text-white">{benchmarkEntry?.measured_saved_minutes?.toFixed?.(1) || '0.0'} measured min saved</p>
                   <p className="mt-1 text-[11px] font-bold text-white/55">{benchmarkEntry?.measured_exception_count || 0} measured exceptions, {benchmarkEntry?.measured_recovery_minutes?.toFixed?.(1) || '0.0'} recovery min</p>
@@ -362,9 +367,9 @@ const WorkflowSummaryView = ({
         <div className="space-y-6">
           <Card title="Workflow Inbox" icon={<Bell size={16} />} hint="Notifications stay developer-quiet unless a user actually needs to take action.">
             <div className="space-y-3">
-              {notifications.length === 0 && <div className="rounded-2xl border border-dashed border-white/10 p-4 text-[11px] font-bold text-white/45">No notifications yet.</div>}
+              {notifications.length === 0 && <div className="rounded-[1.15rem] border border-dashed border-white/10 p-3 text-[11px] font-bold text-white/45">No notifications yet.</div>}
               {notifications.map((entry: any) => (
-                <div key={entry.id || `${entry.kind}-${entry.created_at || ''}`} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div key={entry.id || `${entry.kind}-${entry.created_at || ''}`} className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{entry.title}</p>
                     <Pill tone={entry.read ? 'neutral' : 'warning'}>{entry.read ? 'Read' : 'Unread'}</Pill>
@@ -381,17 +386,17 @@ const WorkflowSummaryView = ({
           </Card>
 
           <Card title="Collaboration Snapshot" icon={<Users size={16} />} hint="Make active review and live participation visible so the workflow does not feel like a single-user artifact.">
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="space-y-3">
+              <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Current Reader / Actor</p>
                 <p className="mt-2 text-[16px] font-black text-white">{currentUser?.full_name || 'Company User'}</p>
                 <p className="mt-1 text-[11px] font-bold text-white/55">{currentUser?.team || 'No team'} • {currentUser?.title || 'No title'}</p>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Active Collaboration Sessions</p>
                 <div className="mt-3 space-y-2">
                   {(activeSessions || []).slice(0, 6).map((session: any) => (
-                    <div key={session.id} className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
+                    <div key={session.id} className="rounded-[1rem] border border-white/10 bg-black/20 px-3 py-2.5">
                       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{session.name || 'Company User'}</p>
                       <p className="mt-1 text-[11px] font-bold text-white/55">{session.viewLabel || session.route}{session.workflowName ? ` • ${session.workflowName}` : ''}</p>
                     </div>
@@ -399,13 +404,13 @@ const WorkflowSummaryView = ({
                   {!(activeSessions || []).length && <p className="text-[11px] font-bold text-white/45">No other active sessions are visible right now.</p>}
                 </div>
               </div>
-              {onGovernanceAction && (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              {onGovernanceAction && (canReview || canApprove || canCertify || canRequestRecertification) && (
+                <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Governance Shortcuts</p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    <button onClick={() => onGovernanceAction('approve_workflow')} className="rounded-lg border border-theme-accent/20 bg-theme-accent/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">Approve Workflow</button>
-                    <button onClick={() => onGovernanceAction('certify')} className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-emerald-300 hover:bg-emerald-500 hover:text-white transition-all">Certify</button>
-                    <button onClick={() => onGovernanceAction('request_recertification')} className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-amber-300 hover:bg-amber-500 hover:text-white transition-all">Need Recertification</button>
+                    {canApprove && !['Approved', 'Certified'].includes(workflow?.approval_state) && <button onClick={() => onGovernanceAction('approve_workflow')} className="rounded-lg border border-theme-accent/20 bg-theme-accent/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">Approve Workflow</button>}
+                    {canCertify && workflow?.approval_state !== 'Certified' && <button onClick={() => onGovernanceAction('certify')} className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-emerald-300 hover:bg-emerald-500 hover:text-white transition-all">Certify</button>}
+                    {canRequestRecertification && <button onClick={() => onGovernanceAction('request_recertification')} className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-amber-300 hover:bg-amber-500 hover:text-white transition-all">Need Recertification</button>}
                   </div>
                 </div>
               )}
@@ -414,12 +419,12 @@ const WorkflowSummaryView = ({
 
           <Card title="Traceability and Benefits" icon={<BriefcaseBusiness size={16} />} hint="Tie the workflow directly to automation projects, benefits realization, and post-deployment learning.">
             <div className="space-y-3">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Linked Projects</p>
                 <div className="mt-3 space-y-3">
                   {linkedProjects.length === 0 && <div className="text-[11px] font-bold text-white/45">No linked automation projects yet.</div>}
                   {linkedProjects.map((project: any) => (
-                    <div key={project.id} className="rounded-2xl border border-white/10 bg-black/20 p-3">
+                    <div key={project.id} className="rounded-[1rem] border border-white/10 bg-black/20 p-3">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-[11px] font-black text-white uppercase tracking-[0.14em]">{project.name}</p>
                         <Pill tone={project.status === 'Deployed' ? 'success' : 'accent'}>{project.status}</Pill>
@@ -431,13 +436,13 @@ const WorkflowSummaryView = ({
                   ))}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Project Traceability</p>
                   <p className="mt-3 text-[22px] font-black text-white">{traceabilityEntry?.project_ids?.length || 0}</p>
                   <p className="mt-2 text-[11px] font-bold text-white/55">linked projects against workflow version {traceabilityEntry?.workflow_version || workflow?.version || 1}</p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Benefits Realization</p>
                   <p className="mt-3 text-[22px] font-black text-emerald-300">{presidentInsights?.benefits_realization?.realization_rate_percent || 0}%</p>
                   <p className="mt-2 text-[11px] font-bold text-white/55">portfolio realization against projected weekly savings</p>
@@ -451,10 +456,10 @@ const WorkflowSummaryView = ({
               <div>
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Related Workflows</p>
                 <div className="mt-3 space-y-3">
-                  {related.length === 0 && <div className="rounded-2xl border border-dashed border-white/10 p-4 text-[11px] font-bold text-white/45">No related workflows found yet.</div>}
+                  {related.length === 0 && <div className="rounded-[1.15rem] border border-dashed border-white/10 p-3 text-[11px] font-bold text-white/45">No related workflows found yet.</div>}
                   {related.map((item: any) => (
-                    <button key={item.id} onClick={() => onOpenWorkflow(item)} className="block w-full rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left transition-all hover:border-theme-accent/30 hover:bg-white/[0.05]">
-                      <div className="flex items-center justify-between gap-4">
+                    <button key={item.id} onClick={() => onOpenWorkflow(item)} className="block w-full rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3 text-left transition-all hover:border-theme-accent/30 hover:bg-white/[0.05]">
+                      <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{item.name}</p>
                           <p className="mt-1 text-[11px] font-bold text-white/52">{item.workflow_type || 'Unclassified'} • {item.prc || 'No PRC'}</p>
@@ -465,7 +470,7 @@ const WorkflowSummaryView = ({
                   ))}
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Reusable Standards Library</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {(analysis?.standards_library_matches || standardsLibrary || []).slice(0, 8).map((item: any) => (
@@ -488,7 +493,7 @@ const WorkflowSummaryView = ({
 
           <Card title="Policy and Reuse Overlays" icon={<Gauge size={16} />} hint="Org, site, and reuse signals that keep the workflow safe to scale across the company.">
             <div className="space-y-4">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Org / Site Policy</p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Pill tone="accent">{policyOverlay?.org || workflow?.org || 'Org Default'}</Pill>
@@ -509,7 +514,7 @@ const WorkflowSummaryView = ({
                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Pattern Surfacing</p>
                 <div className="mt-3 space-y-2">
                   {(discovery?.reuse_patterns || []).slice(0, 4).map((item: any) => (
-                    <div key={`${item.workflow_id}-${item.pattern}`} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                    <div key={`${item.workflow_id}-${item.pattern}`} className="rounded-[1rem] border border-white/10 bg-black/20 p-3">
                       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{item.pattern}</p>
                       <p className="mt-1 text-[11px] font-bold text-white/60">{item.name}</p>
                       <p className="mt-2 text-[11px] font-bold text-white/50">{item.why}</p>
@@ -519,7 +524,7 @@ const WorkflowSummaryView = ({
                 </div>
               </div>
               {rollbackPreview?.available && (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="rounded-[1.15rem] border border-white/10 bg-white/[0.03] p-3">
                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/35">Rollback Guardrails</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Pill tone="warning">Rollback target v{rollbackPreview.target_version}</Pill>

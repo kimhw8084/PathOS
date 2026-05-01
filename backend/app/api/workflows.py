@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload, attributes
@@ -164,7 +165,7 @@ def _matches_tokens(blob: str, query: str) -> bool:
 
 def _matches_member_context(member: Optional[OrgMember], workflow: Workflow, payload: dict) -> bool:
     if not member:
-        return True
+        return False
     roles = set(member.roles or [])
     teams = {member.team} if member.team else set()
     member_names = {member.full_name, member.email}
@@ -185,16 +186,56 @@ def _matches_member_context(member: Optional[OrgMember], workflow: Workflow, pay
     )
 
 
+def _member_permission_set(member: Optional[OrgMember]) -> set[str]:
+    normalized: set[str] = set()
+    for item in _ensure_list(member.permissions if member else []):
+        permission = str(item).strip().lower()
+        if not permission:
+            continue
+        normalized.add(permission)
+        normalized.add(permission.replace(":", "."))
+    return normalized
+
+
+def _member_role_set(member: Optional[OrgMember]) -> set[str]:
+    return {str(item).strip().lower() for item in _ensure_list((member or {}).roles if member else []) if str(item).strip()}
+
+
+def _workflow_reviewer_role_set(workflow: Workflow) -> set[str]:
+    governance = workflow.governance or {}
+    return {
+        str(item).strip().lower()
+        for item in _ensure_list((workflow.required_reviewer_roles or []) + governance.get("required_reviewer_roles", []))
+        if str(item).strip()
+    }
+
+
+def _can_perform_governance_action(member: Optional[OrgMember], workflow: Workflow, action: str) -> bool:
+    if not member or member.status != "active":
+        return False
+    roles = _member_role_set(member)
+    permissions = _member_permission_set(member)
+    reviewer_roles = _workflow_reviewer_role_set(workflow)
+    is_admin = "admin" in roles or "workflow.admin" in permissions
+    if action == "approve_review":
+        return is_admin or bool(permissions & {"workflow.review", "workflow.approve"}) or bool(reviewer_roles & roles)
+    if action in {"approve_workflow", "certify", "request_recertification"}:
+        return is_admin or "workflow.approve" in permissions or bool(reviewer_roles & roles)
+    if action == "request_changes":
+        return is_admin or bool(permissions & {"workflow.review", "workflow.approve"}) or bool(reviewer_roles & roles)
+    return False
+
+
 async def _active_member(db: AsyncSession) -> Optional[OrgMember]:
     config_result = await db.execute(select(AppConfig).where(AppConfig.key == "company_rollout", AppConfig.is_deleted == False))
     config = config_result.scalar_one_or_none()
     active_email = ((config.value or {}) if config else {}).get("active_member_email")
     if active_email:
-        member_result = await db.execute(select(OrgMember).where(OrgMember.email == active_email, OrgMember.is_deleted == False))
+        member_result = await db.execute(select(OrgMember).where(OrgMember.email == active_email, OrgMember.is_deleted == False, OrgMember.status == "active"))
         member = member_result.scalar_one_or_none()
         if member:
             return member
-    member_result = await db.execute(select(OrgMember).where(OrgMember.is_deleted == False).order_by(OrgMember.created_at.asc()))
+    member_result = await db.execute(select(OrgMember).where(OrgMember.is_deleted == False, OrgMember.status == "active").order_by(OrgMember.created_at.asc()))
     return member_result.scalars().first()
 
 
@@ -615,11 +656,21 @@ async def global_search(
 @router.get("/inbox")
 async def workflow_inbox(member_email: Optional[str] = None, db: AsyncSession = Depends(get_db)):
     member = None
+    requested_member = bool(member_email)
     if member_email:
-        member_result = await db.execute(select(OrgMember).where(OrgMember.email == member_email, OrgMember.is_deleted == False))
+        member_result = await db.execute(select(OrgMember).where(OrgMember.email == member_email, OrgMember.is_deleted == False, OrgMember.status == "active"))
         member = member_result.scalar_one_or_none()
-    if not member:
+    if not member and not requested_member:
         member = await _active_member(db)
+    if requested_member and not member:
+        return {
+            "member": None,
+            "items": [],
+            "unread_count": 0,
+            "workflow_count": 0,
+            "project_count": 0,
+            "notification_count": 0,
+        }
 
     workflow_result = await db.execute(_workflow_query().where(Workflow.is_deleted == False))
     project_result = await db.execute(select(AutomationProject).where(AutomationProject.is_deleted == False))
@@ -638,6 +689,7 @@ async def workflow_inbox(member_email: Optional[str] = None, db: AsyncSession = 
                     "kind": "review_request",
                     "workflow_id": workflow.id,
                     "request_id": request.get("id"),
+                    "role": request.get("role"),
                     "title": f"{workflow.name} requires {request.get('role', 'review')} review",
                     "detail": request.get("note") or workflow.description or "Review request pending.",
                     "status": request.get("status"),
@@ -656,8 +708,15 @@ async def workflow_inbox(member_email: Optional[str] = None, db: AsyncSession = 
                     "created_at": notification.get("created_at") or workflow.updated_at,
                 })
 
+    if not member:
+        return {
+            "member": None,
+            "items": [],
+            "unread_count": 0,
+        }
+
     for project in projects:
-        if member and member.full_name not in {project.owner, project.sponsor} and member.team != project.team:
+        if member.full_name not in {project.owner, project.sponsor} and member.team != project.team:
             continue
         items.append({
             "id": f"project-{project.id}",
@@ -911,21 +970,40 @@ async def workflow_governance_action(
         raise HTTPException(status_code=404, detail="Workflow not found")
 
     action = payload.get("action")
-    actor = payload.get("actor") or "system_user"
+    actor = str(payload.get("actor") or "system_user").strip()
     note = payload.get("note") or ""
     request_id = payload.get("request_id")
+    supported_actions = {"approve_review", "request_changes", "approve_workflow", "certify", "request_recertification"}
+    if action not in supported_actions:
+        raise HTTPException(status_code=400, detail="Unsupported governance action")
     governance = workflow.governance or {}
     review_requests = _ensure_list(workflow.review_requests)
+    actor_key = actor.lower()
+    actor_result = await db.execute(
+        select(OrgMember).where(
+            OrgMember.is_deleted == False,
+            OrgMember.status == "active",
+            (func.lower(OrgMember.email) == actor_key) | (func.lower(OrgMember.full_name) == actor_key),
+        )
+    )
+    actor_member = actor_result.scalar_one_or_none()
+    if not _can_perform_governance_action(actor_member, workflow, action):
+        raise HTTPException(status_code=403, detail="You do not have permission to perform this governance action.")
 
+    matched_request = None
     if request_id:
         for request in review_requests:
             if str(request.get("id")) == str(request_id):
+                matched_request = request
                 if action in {"approve_review", "approve_workflow", "certify"}:
                     request["status"] = "approved"
                 elif action in {"request_changes", "request_recertification"}:
                     request["status"] = "changes_requested"
                 request["acted_by"] = actor
                 request["acted_at"] = _iso_now()
+                break
+        if matched_request is None:
+            raise HTTPException(status_code=404, detail="Review request not found")
 
     if action == "approve_review":
         workflow.review_state = "Approved"
@@ -935,21 +1013,30 @@ async def workflow_governance_action(
         workflow.review_state = "Changes Requested"
         governance["review_state"] = "Changes Requested"
     elif action == "approve_workflow":
+        workflow.review_state = "Approved"
         workflow.approval_state = "Approved"
+        governance["review_state"] = "Approved"
         governance["approval_state"] = "Approved"
         governance["last_reviewed_at"] = _iso_now()
+        for request in review_requests:
+            if request.get("status") == "open":
+                request["status"] = "approved"
+                request["acted_by"] = actor
+                request["acted_at"] = _iso_now()
     elif action == "certify":
         workflow.approval_state = "Certified"
         workflow.review_state = "Approved"
         governance["approval_state"] = "Certified"
         governance["review_state"] = "Approved"
         governance["last_reviewed_at"] = _iso_now()
+        for request in review_requests:
+            if request.get("status") == "open":
+                request["status"] = "approved"
+                request["acted_by"] = actor
+                request["acted_at"] = _iso_now()
     elif action == "request_recertification":
         workflow.approval_state = "Needs Recertification"
         governance["approval_state"] = "Needs Recertification"
-    else:
-        raise HTTPException(status_code=400, detail="Unsupported governance action")
-
     workflow.governance = governance
     workflow.review_requests = review_requests
     attributes.flag_modified(workflow, "governance")

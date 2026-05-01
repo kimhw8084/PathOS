@@ -77,7 +77,8 @@ export const SearchableSelect = ({
   isMulti = false,
   icon: Icon,
   error = false,
-  testId
+  testId,
+  compact = false,
 }: { 
   label: string, 
   options: any[], 
@@ -88,7 +89,8 @@ export const SearchableSelect = ({
   isMulti?: boolean,
   icon?: any,
   error?: boolean,
-  testId?: string
+  testId?: string,
+  compact?: boolean,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -143,32 +145,32 @@ export const SearchableSelect = ({
   };
 
   return (
-    <div data-testid={testId} className={cn("space-y-2 relative", disabled && "opacity-30 pointer-events-none")} ref={containerRef} style={{ zIndex: isOpen ? 2000 : 'auto' }}>
-      <label className={cn("text-[9px] font-black uppercase tracking-[0.2em] px-1 transition-colors", error ? "text-status-error" : "text-white/40")}>{label}</label>
+    <div data-testid={testId} className={cn(compact ? "space-y-1.5" : "space-y-2", "relative", disabled && "opacity-30 pointer-events-none")} ref={containerRef} style={{ zIndex: isOpen ? 2000 : 'auto' }}>
+      <label className={cn(compact ? "text-[8px]" : "text-[9px]", "font-black uppercase tracking-[0.2em] px-1 transition-colors", error ? "text-status-error" : "text-white/40")}>{label}</label>
       <div 
         data-testid={testId ? `${testId}-trigger` : undefined}
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={cn(
-          "w-full bg-[#1e293b]/50 border rounded-lg px-4 py-3 min-h-[48px] flex flex-wrap gap-2 items-center cursor-pointer transition-all hover:border-white/20",
+          compact ? "w-full bg-[#1e293b]/50 border rounded-[1.15rem] px-3 py-2.5 min-h-[42px] flex flex-wrap gap-1.5 items-center cursor-pointer transition-all hover:border-white/20" : "w-full bg-[#1e293b]/50 border rounded-lg px-4 py-3 min-h-[48px] flex flex-wrap gap-2 items-center cursor-pointer transition-all hover:border-white/20",
           isOpen ? "border-theme-accent ring-1 ring-theme-accent/20 bg-[#1e293b]" : (error ? "border-status-error/50 bg-status-error/5 shadow-[0_0_10px_rgba(239,68,68,0.2)]" : "border-white/10")
         )}
       >
         <div className="flex-1 flex flex-wrap gap-2 items-center">
           {getDisplayValue() || (
-            <span className="text-white/20 text-[11px] font-black uppercase tracking-widest">{placeholder}</span>
+            <span className={cn(compact ? "text-white/20 text-[10px]" : "text-white/20 text-[11px]", "font-black uppercase tracking-widest")}>{placeholder}</span>
           )}
         </div>
-        {Icon ? <Icon size={14} className={cn("text-white/20", isOpen && "text-theme-accent")} /> : <ChevronDown size={14} className={cn("text-white/20 transition-transform", isOpen && "rotate-180 text-theme-accent")} />}
+        {Icon ? <Icon size={compact ? 12 : 14} className={cn("text-white/20", isOpen && "text-theme-accent")} /> : <ChevronDown size={compact ? 12 : 14} className={cn("text-white/20 transition-transform", isOpen && "rotate-180 text-theme-accent")} />}
       </div>
 
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-[#1e293b] border border-white/10 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-[9999] p-2 animate-apple-in backdrop-blur-3xl">
+        <div className={cn("absolute top-full left-0 right-0 mt-2 bg-[#1e293b] border border-white/10 rounded-[1.15rem] shadow-[0_20px_50px_rgba(0,0,0,0.8)] z-[9999] animate-apple-in backdrop-blur-3xl", compact ? "p-1.5" : "p-2")}>
           <div className="relative mb-2">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" size={14} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-white/20" size={compact ? 12 : 14} />
             <input 
               data-testid={testId ? `${testId}-search` : undefined}
               autoFocus
-              className="w-full bg-black/40 border border-white/5 rounded-lg pl-9 pr-4 py-2 text-[11px] text-white font-bold outline-none focus:border-theme-accent transition-all"
+              className={cn("w-full bg-black/40 border border-white/5 rounded-[1.15rem] pl-9 pr-4 text-white font-bold outline-none focus:border-theme-accent transition-all", compact ? "py-1.5 text-[10px]" : "py-2 text-[11px]")}
               placeholder="Filter list..."
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -189,7 +191,7 @@ export const SearchableSelect = ({
                   data-testid={testId ? `${testId}-option-${String(optValue).replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()}` : undefined}
                   onClick={(e) => { e.stopPropagation(); toggleOption(opt); }}
                   className={cn(
-                    "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-all text-[11px] font-bold uppercase tracking-tight",
+                    compact ? "flex items-center justify-between px-3 py-1.5 rounded-[1.15rem] cursor-pointer transition-all text-[10px] font-bold uppercase tracking-tight" : "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-all text-[11px] font-bold uppercase tracking-tight",
                     isSelected ? "bg-theme-accent/20 text-theme-accent" : "text-white/60 hover:bg-white/5 hover:text-white"
                   )}
                 >

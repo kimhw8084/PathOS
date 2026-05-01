@@ -1,16 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Building2, Save, ShieldCheck, Users, Workflow as WorkflowIcon } from 'lucide-react';
+import { Building2, Code2, History, Play, Save, ShieldCheck, Users, Workflow as WorkflowIcon } from 'lucide-react';
 import { settingsApi } from '../api/client';
 import { toast } from 'react-hot-toast';
 
-const AdminRolloutSettings: React.FC<{ overview: any; onRefresh: () => Promise<void> }> = ({ overview, onRefresh }) => {
+const AdminRolloutSettings: React.FC<{ overview: any; identitySource?: any; onRefresh: () => Promise<void> }> = ({ overview, identitySource, onRefresh }) => {
   const configs = overview?.configs || [];
-  const [activeTab, setActiveTab] = useState<'identity' | 'members' | 'views' | 'policy' | 'projects'>('identity');
+  const [activeTab, setActiveTab] = useState<'identity' | 'members' | 'source' | 'views' | 'policy' | 'projects'>('identity');
   const [members, setMembers] = useState<any[]>(overview?.members || []);
   const [savedViews, setSavedViews] = useState<any[]>(overview?.saved_views || []);
   const [companyRolloutDraft, setCompanyRolloutDraft] = useState<any>({});
   const [governanceDraft, setGovernanceDraft] = useState<any>({});
   const [projectDraft, setProjectDraft] = useState<any>({});
+  const [identityDraft, setIdentityDraft] = useState<any>({});
+  const [identitySnapshots, setIdentitySnapshots] = useState<any[]>([]);
+  const [expandedSnapshotId, setExpandedSnapshotId] = useState<number | null>(null);
 
   const configByKey = useMemo(
     () => Object.fromEntries(configs.map((config: any) => [config.key, config])),
@@ -28,7 +31,9 @@ const AdminRolloutSettings: React.FC<{ overview: any; onRefresh: () => Promise<v
     setCompanyRolloutDraft(companyRollout.value || {});
     setGovernanceDraft(governancePolicy.value || {});
     setProjectDraft(projectGovernance.value || {});
-  }, [overview, companyRollout.value, governancePolicy.value, projectGovernance.value]);
+    setIdentityDraft(identitySource?.source || {});
+    setIdentitySnapshots(identitySource?.snapshots || []);
+  }, [overview, companyRollout.value, governancePolicy.value, projectGovernance.value, identitySource]);
 
   const saveConfig = async (key: string, config: any) => {
     await settingsApi.updateAppConfig(key, config);
@@ -56,9 +61,30 @@ const AdminRolloutSettings: React.FC<{ overview: any; onRefresh: () => Promise<v
     await onRefresh();
   };
 
+  const saveIdentitySource = async () => {
+    try {
+      await settingsApi.updateIdentitySource(identityDraft);
+      toast.success('Identity source updated');
+      await onRefresh();
+    } catch (err) {
+      toast.error('Failed to save identity source');
+    }
+  };
+
+  const syncIdentitySource = async () => {
+    try {
+      const result = await settingsApi.syncIdentitySource();
+      toast.success(result?.message || 'Identity source synchronized');
+      await onRefresh();
+    } catch (err) {
+      toast.error('Failed to run identity sync');
+    }
+  };
+
   const tabs = [
     { id: 'identity', label: 'Identity', icon: Building2 },
     { id: 'members', label: 'Members', icon: Users },
+    { id: 'source', label: 'Identity Source', icon: Code2 },
     { id: 'views', label: 'Saved Views', icon: WorkflowIcon },
     { id: 'policy', label: 'Governance', icon: ShieldCheck },
     { id: 'projects', label: 'Projects', icon: WorkflowIcon },
@@ -141,14 +167,180 @@ const AdminRolloutSettings: React.FC<{ overview: any; onRefresh: () => Promise<v
       {activeTab === 'members' && (
         <div className="space-y-4">
           {members.map((member, index) => (
-            <div key={member.id || index} className="apple-card grid gap-4 lg:grid-cols-5">
-              <input className="input-apple !bg-black/60" value={member.full_name} onChange={(e) => setMembers(members.map((item, itemIndex) => itemIndex === index ? { ...item, full_name: e.target.value } : item))} />
-              <input className="input-apple !bg-black/60" value={member.email} onChange={(e) => setMembers(members.map((item, itemIndex) => itemIndex === index ? { ...item, email: e.target.value } : item))} />
-              <input className="input-apple !bg-black/60" value={member.team || ''} onChange={(e) => setMembers(members.map((item, itemIndex) => itemIndex === index ? { ...item, team: e.target.value } : item))} />
-              <input className="input-apple !bg-black/60" value={member.site || ''} onChange={(e) => setMembers(members.map((item, itemIndex) => itemIndex === index ? { ...item, site: e.target.value } : item))} />
-              <button onClick={() => saveMember(member)} className="btn-apple-primary flex items-center justify-center gap-2"><Save size={14} /> Save Member</button>
+            <div key={member.id || index} className="apple-card space-y-4">
+              <div className="grid gap-3 lg:grid-cols-4">
+                <input className="input-apple !bg-black/60" value={member.full_name || ''} onChange={(e) => setMembers(members.map((item, itemIndex) => itemIndex === index ? { ...item, full_name: e.target.value } : item))} />
+                <input className="input-apple !bg-black/60" value={member.email || ''} onChange={(e) => setMembers(members.map((item, itemIndex) => itemIndex === index ? { ...item, email: e.target.value } : item))} />
+                <input className="input-apple !bg-black/60" value={member.employee_id || ''} placeholder="Employee ID" onChange={(e) => setMembers(members.map((item, itemIndex) => itemIndex === index ? { ...item, employee_id: e.target.value } : item))} />
+                <select className="input-apple !bg-black/60" value={member.status || 'active'} onChange={(e) => setMembers(members.map((item, itemIndex) => itemIndex === index ? { ...item, status: e.target.value } : item))}>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-3">
+                <input className="input-apple !bg-black/60" value={member.title || ''} placeholder="Title" onChange={(e) => setMembers(members.map((item, itemIndex) => itemIndex === index ? { ...item, title: e.target.value } : item))} />
+                <input className="input-apple !bg-black/60" value={member.team || ''} placeholder="Team" onChange={(e) => setMembers(members.map((item, itemIndex) => itemIndex === index ? { ...item, team: e.target.value } : item))} />
+                <input className="input-apple !bg-black/60" value={member.site || ''} placeholder="Site" onChange={(e) => setMembers(members.map((item, itemIndex) => itemIndex === index ? { ...item, site: e.target.value } : item))} />
+              </div>
+              <div className="grid gap-3 lg:grid-cols-[1fr_1fr_auto]">
+                <textarea className="input-apple !bg-black/60 !h-24" value={(member.roles || []).join('\n')} onChange={(e) => setMembers(members.map((item, itemIndex) => itemIndex === index ? { ...item, roles: e.target.value.split('\n').filter(Boolean) } : item))} />
+                <textarea className="input-apple !bg-black/60 !h-24" value={(member.permissions || []).join('\n')} onChange={(e) => setMembers(members.map((item, itemIndex) => itemIndex === index ? { ...item, permissions: e.target.value.split('\n').filter(Boolean) } : item))} />
+                <button onClick={() => saveMember(member)} className="btn-apple-primary flex items-center justify-center gap-2 self-start"><Save size={14} /> Save Member</button>
+              </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {activeTab === 'source' && (
+        <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="apple-card space-y-4">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-4">
+              <div>
+                <p className="text-hint text-theme-secondary font-black">Identity Source</p>
+                <p className="text-[11px] text-white/45">Python script, venv, and working directory used to materialize the roster.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={syncIdentitySource} className="btn-apple-secondary flex items-center gap-2"><Play size={14} /> Sync Now</button>
+                <button onClick={saveIdentitySource} className="btn-apple-primary flex items-center gap-2"><Save size={14} /> Save Source</button>
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block space-y-2">
+                <span className="text-hint text-theme-secondary font-black">Source Name</span>
+                <input className="input-apple !bg-black/60" value={identityDraft.name || ''} onChange={(e) => setIdentityDraft({ ...identityDraft, name: e.target.value })} />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-hint text-theme-secondary font-black">Provider</span>
+                <input className="input-apple !bg-black/60" value={identityDraft.provider || 'python_script'} onChange={(e) => setIdentityDraft({ ...identityDraft, provider: e.target.value })} />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-hint text-theme-secondary font-black">Working Directory</span>
+                <input className="input-apple !bg-black/60" value={identityDraft.working_dir || ''} onChange={(e) => setIdentityDraft({ ...identityDraft, working_dir: e.target.value })} />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-hint text-theme-secondary font-black">Project Venv Path</span>
+                <input className="input-apple !bg-black/60" value={identityDraft.venv_path || ''} onChange={(e) => setIdentityDraft({ ...identityDraft, venv_path: e.target.value })} />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-hint text-theme-secondary font-black">Script Path</span>
+                <input className="input-apple !bg-black/60" value={identityDraft.script_path || ''} onChange={(e) => setIdentityDraft({ ...identityDraft, script_path: e.target.value })} />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-hint text-theme-secondary font-black">Schedule</span>
+                <input className="input-apple !bg-black/60" value={identityDraft.schedule || ''} onChange={(e) => setIdentityDraft({ ...identityDraft, schedule: e.target.value })} />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-hint text-theme-secondary font-black">Schema Version</span>
+                <input className="input-apple !bg-black/60" value={identityDraft.schema_version || '1'} onChange={(e) => setIdentityDraft({ ...identityDraft, schema_version: e.target.value })} />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-hint text-theme-secondary font-black">Active</span>
+                <select className="input-apple !bg-black/60" value={identityDraft.is_active ? 'true' : 'false'} onChange={(e) => setIdentityDraft({ ...identityDraft, is_active: e.target.value === 'true' })}>
+                  <option value="true">Active</option>
+                  <option value="false">Disabled</option>
+                </select>
+              </label>
+            </div>
+            <label className="block space-y-2">
+              <span className="text-hint text-theme-secondary font-black">Python Script</span>
+              <textarea
+                className="input-apple !bg-black/60 !h-[28rem] font-mono text-[11px] leading-relaxed"
+                value={identityDraft.script_content || ''}
+                onChange={(e) => setIdentityDraft({ ...identityDraft, script_content: e.target.value })}
+              />
+            </label>
+          </div>
+
+          <div className="space-y-6">
+            <div className="apple-card space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-hint text-theme-secondary font-black">Roster Status</p>
+                <History size={16} className="text-theme-accent" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Current Version</p>
+                  <p className="mt-2 text-[22px] font-black text-white">{identityDraft.current_version || 0}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Last Run</p>
+                  <p className="mt-2 text-[11px] font-bold text-white/70">{identityDraft.last_run_at ? new Date(identityDraft.last_run_at).toLocaleString() : 'Never'}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Rows</p>
+                  <p className="mt-2 text-[22px] font-black text-theme-accent">{identityDraft.last_run_row_count || 0}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/35">Status</p>
+                  <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-white">{identityDraft.last_run_status || 'never'}</p>
+                </div>
+              </div>
+              <p className="text-[11px] font-bold text-white/55">{identityDraft.last_run_message || 'Run the script to materialize the current roster and create a versioned snapshot.'}</p>
+            </div>
+
+            <div className="apple-card space-y-4">
+              <p className="text-hint text-theme-secondary font-black">Current Active Members</p>
+              <div className="space-y-3 max-h-[18rem] overflow-auto custom-scrollbar pr-1">
+                {(identitySource?.members || []).map((member: any) => (
+                  <div key={member.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-black text-white">{member.full_name}</p>
+                        <p className="text-[10px] font-bold text-white/45">{member.email}</p>
+                      </div>
+                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent">{member.status}</p>
+                    </div>
+                    <p className="mt-2 text-[10px] font-bold text-white/45">{member.title || 'No title'} • {member.team || 'No team'} • {member.site || 'No site'}</p>
+                  </div>
+                ))}
+                {(identitySource?.members || []).length === 0 && <p className="text-[11px] font-bold text-white/40">No active roster rows yet. Run the identity source to populate the table.</p>}
+              </div>
+            </div>
+
+            <div className="apple-card space-y-4">
+              <p className="text-hint text-theme-secondary font-black">Version History</p>
+              <div className="space-y-3 max-h-[24rem] overflow-auto custom-scrollbar pr-1">
+                {identitySnapshots.map((snapshot: any) => (
+                  <button
+                    key={snapshot.id}
+                    onClick={() => setExpandedSnapshotId(expandedSnapshotId === snapshot.id ? null : snapshot.id)}
+                    className="w-full rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left transition-all hover:border-theme-accent/30"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">Version {snapshot.version}</p>
+                        <p className="mt-1 text-[11px] font-bold text-white/55">{snapshot.message || 'Roster snapshot'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-theme-accent">{snapshot.status}</p>
+                        <p className="mt-1 text-[10px] font-bold text-white/45">{snapshot.row_count} rows</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">+{snapshot.added_count}</span>
+                      <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">~{snapshot.updated_count}</span>
+                      <span className="rounded-full border border-white/10 bg-black/20 px-2 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/55">-{snapshot.removed_count}</span>
+                    </div>
+                    {expandedSnapshotId === snapshot.id && (
+                      <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+                        {(snapshot.rows || []).slice(0, 8).map((row: any) => (
+                          <div key={row.id} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{row.full_name}</p>
+                              <p className="text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent">{row.row_state}</p>
+                            </div>
+                            <p className="mt-1 text-[10px] font-bold text-white/50">{row.email} • {row.team || 'No team'} • {row.status}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                ))}
+                {identitySnapshots.length === 0 && <p className="text-[11px] font-bold text-white/40">No roster snapshots yet. Save and sync the source to create version history.</p>}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Bell, Clock3, GitBranch, ShieldCheck, Users } from 'lucide-react';
+import { canActOnReviewRequest } from '../utils/governance';
 
 const toneClass = (tone: 'accent' | 'warning' | 'success' | 'neutral' = 'neutral') => ({
   accent: 'border-theme-accent/20 bg-theme-accent/10 text-theme-accent',
@@ -36,7 +37,6 @@ const CollaborationDrawer = ({
   onMarkNotificationRead: (workflowId: number, notificationId: string) => void;
 }) => {
   if (!isOpen) return null;
-
   const inboxItems = inbox?.items || [];
   const reviewQueue = governance?.review_queue || [];
   const staleQueue = governance?.stale_workflows || [];
@@ -101,7 +101,7 @@ const CollaborationDrawer = ({
                         Open Workflow
                       </button>
                     )}
-                    {item.kind === 'review_request' && item.workflow_id && (
+                    {item.kind === 'review_request' && item.workflow_id && canActOnReviewRequest(currentUser, item.role) && (
                       <>
                         <button onClick={() => onGovernanceAction(item.workflow_id, 'approve_review', item.request_id)} className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.18em] text-emerald-300 hover:bg-emerald-500 hover:text-white transition-all">
                           Approve Review

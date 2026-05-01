@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Bell, Search, ShieldCheck, Sparkles, Users } from 'lucide-react';
 import { workflowsApi } from '../api/client';
+import { canReviewWorkflow } from '../utils/governance';
 
 const card = "apple-card !bg-[#111827]/40 border-white/10 p-6";
 
@@ -34,6 +35,7 @@ const CompanyRolloutCenter: React.FC<CompanyRolloutCenterProps> = ({
 }) => {
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any>({ workflows: [], projects: [], executions: [], saved_views: [] });
+  const canReview = canReviewWorkflow(currentUser);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,7 +158,7 @@ const CompanyRolloutCenter: React.FC<CompanyRolloutCenterProps> = ({
                   </div>
                   <Pill label={item.status || 'open'} tone={item.status === 'approved' ? 'success' : item.status === 'read' ? 'neutral' : 'warning'} />
                 </div>
-                {item.workflow_id && onGovernanceAction && (
+                {item.workflow_id && onGovernanceAction && canReview && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button onClick={() => onGovernanceAction(item.workflow_id, 'approve_review')} className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-300">Approve Review</button>
                     <button onClick={() => onGovernanceAction(item.workflow_id, 'request_changes')} className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">Request Changes</button>

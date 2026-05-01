@@ -1,7 +1,7 @@
 from copy import deepcopy
 from typing import Any
 
-from .config import config_value, get_profile_config
+from .config import ROOT_DIR, config_value, get_profile_config
 
 
 def get_fixed_parameters() -> list[str]:
@@ -75,6 +75,20 @@ def get_rollout_default_configs() -> dict[str, dict[str, Any]]:
 
 def get_default_org_members() -> list[dict[str, Any]]:
     return deepcopy(config_value("organization", "directory_seed", default=[]))
+
+
+def get_default_identity_source() -> dict[str, Any]:
+    return {
+        "name": "Local Python Roster Source",
+        "provider": "python_script",
+        "working_dir": str(ROOT_DIR),
+        "venv_path": str(config_value("organization", "identity_venv_path", default=".venv")),
+        "script_path": "",
+        "script_content": """import pandas as pd\n\n# Return a dataframe with one row per user.\n# Required columns: employee_id, full_name, email, title, org, team, site, manager, roles, permissions, status.\n# The backend will version the resulting roster and materialize the current active users.\n\ndef build_user_table():\n    return pd.DataFrame([\n        {\n            "employee_id": "USER-001",\n            "full_name": "System User",\n            "email": "system_user@example.com",\n            "title": "System User",\n            "org": "PathOS",\n            "team": "Platform",\n            "site": "Local",\n            "manager": "",\n            "roles": ["admin"],\n            "permissions": ["workflow.write", "workflow.approve"],\n            "status": "active",\n        }\n    ])\n\n\ndf = build_user_table()\n""",
+        "schedule": "daily",
+        "schema_version": "1",
+        "is_active": True,
+    }
 
 
 def get_workflow_templates() -> list[dict[str, Any]]:

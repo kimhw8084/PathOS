@@ -164,6 +164,7 @@
     "approval_states": [
       "Draft",
       "Pending Review",
+      "Approved",
       "Certified",
       "Needs Recertification"
     ],
