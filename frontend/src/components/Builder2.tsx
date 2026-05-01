@@ -1772,7 +1772,8 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
   );
 
   const openCommentsForTask = useCallback((taskId?: string | null) => {
-    const nextTaskId = taskId || selectedTaskId || null;
+    const requestedTaskId = taskId || selectedTaskId || null;
+    const nextTaskId = requestedTaskId && tasks.some((task) => String(task.id) === String(requestedTaskId)) ? String(requestedTaskId) : null;
     setUtilityPane('comments');
     setUtilityPaneTaskId(nextTaskId);
     setUtilityPaneSectionId(null);
@@ -1783,8 +1784,8 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
       setSelectedNodeIds([nextTaskId]);
       setSelectedEdgeIds([]);
     }
-    setCommentDraft(createWorkflowComment('task', nextTaskId || ''));
-  }, [selectedTaskId]);
+    setCommentDraft(createWorkflowComment(nextTaskId ? 'task' : 'workflow', nextTaskId || ''));
+  }, [selectedTaskId, tasks]);
 
   const openHistoryPane = useCallback(() => {
     setUtilityPane('history');
@@ -2225,7 +2226,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
           )}
         </div>
         {rollbackPreview?.available && onCreateRollbackDraft && (
-          <button onClick={onCreateRollbackDraft} className="w-full rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">
+          <button onClick={onCreateRollbackDraft} className="w-full rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-[3px] text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white transition-all">
             Create Rollback Draft
           </button>
         )}
@@ -2253,7 +2254,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
     const openCount = scopedComments.filter((comment) => comment.status !== 'resolved').length;
     const resolvedCount = scopedComments.filter((comment) => comment.status === 'resolved').length;
     const jumpToCommentScope = (comment: WorkflowComment) => {
-      if (comment.scope === 'task' && comment.scope_id) {
+      if (comment.scope === 'task' && comment.scope_id && tasks.some((task) => String(task.id) === String(comment.scope_id))) {
         openCommentsForTask(String(comment.scope_id));
         return;
       }
@@ -2310,7 +2311,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
             <button
               onClick={addWorkflowComment}
               disabled={reviewMode}
-              className="rounded-[8px] border border-sky-500/15 bg-sky-500/10 px-1.5 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-sky-100 hover:bg-sky-500/20 hover:text-white transition-all"
+              className="rounded-[8px] border border-sky-500/15 bg-sky-500/10 px-1.5 py-[3px] text-[9px] font-black uppercase tracking-[0.18em] text-sky-100 hover:bg-sky-500/20 hover:text-white transition-all"
             >
               Save Note
             </button>
@@ -2337,7 +2338,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                     <button
                       onClick={() => jumpToCommentScope(comment)}
                       disabled={reviewMode}
-                      className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/45 hover:text-white"
+                      className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45 hover:text-white"
                     >
                       Jump
                     </button>
@@ -2347,7 +2348,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                       setEditingCommentDraft(comment.message);
                     }}
                     disabled={reviewMode}
-                    className="rounded-[8px] border border-sky-500/15 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-sky-100 hover:text-white"
+                    className="rounded-[8px] border border-sky-500/15 bg-sky-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-sky-100 hover:text-white"
                   >
                     Edit
                   </button>
@@ -2355,7 +2356,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                     onClick={() => toggleWorkflowCommentStatus(comment.id)}
                     disabled={reviewMode}
                     className={cn(
-                      "rounded-[8px] border px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em]",
+                      "rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]",
                       comment.status === 'resolved'
                         ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
                         : "border-sky-500/15 bg-black/20 text-sky-100 hover:text-white"
@@ -2366,7 +2367,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                   <button
                     onClick={() => deleteWorkflowComment(comment.id)}
                     disabled={reviewMode}
-                    className="rounded-[8px] border border-rose-500/20 bg-rose-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-rose-300"
+                    className="rounded-[8px] border border-rose-500/20 bg-rose-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-rose-300"
                   >
                     Remove
                   </button>
@@ -2388,7 +2389,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                             setEditingCommentDraft('');
                           }}
                           disabled={reviewMode}
-                          className="rounded-[8px] border border-sky-500/15 bg-sky-500/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-sky-100"
+                          className="rounded-[8px] border border-sky-500/15 bg-sky-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-sky-100"
                         >
                         Save
                       </button>
@@ -2398,7 +2399,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
                             setEditingCommentDraft('');
                           }}
                           disabled={reviewMode}
-                          className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/55"
+                          className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/55"
                         >
                         Cancel
                       </button>
@@ -2461,27 +2462,27 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
           </div>
           <div className="flex flex-wrap gap-1.5">
             {onGovernanceAction && canReviewWorkflowState && workflow?.review_state !== 'Approved' && (
-              <button onClick={() => onGovernanceAction('approve_review')} className="rounded-[8px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-[4px] text-[8px] font-black uppercase tracking-[0.18em] text-emerald-100 hover:bg-emerald-500/20">
+              <button onClick={() => onGovernanceAction('approve_review')} className="rounded-[8px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-emerald-100 hover:bg-emerald-500/20">
                 Approve Review
               </button>
             )}
             {onGovernanceAction && canApproveWorkflowState && !['Approved', 'Certified'].includes(workflow?.approval_state) && (
-              <button onClick={() => onGovernanceAction('approve_workflow')} className="rounded-[8px] border border-sky-500/20 bg-sky-500/10 px-1.5 py-[4px] text-[8px] font-black uppercase tracking-[0.18em] text-sky-100 hover:bg-sky-500/20">
+              <button onClick={() => onGovernanceAction('approve_workflow')} className="rounded-[8px] border border-sky-500/20 bg-sky-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-sky-100 hover:bg-sky-500/20">
                 Approve Workflow
               </button>
             )}
             {onGovernanceAction && canCertifyWorkflowState && workflow?.approval_state !== 'Certified' && (
-              <button onClick={() => onGovernanceAction('certify')} className="rounded-[8px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-[4px] text-[8px] font-black uppercase tracking-[0.18em] text-emerald-100 hover:bg-emerald-500/20">
+              <button onClick={() => onGovernanceAction('certify')} className="rounded-[8px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-emerald-100 hover:bg-emerald-500/20">
                 Certify
               </button>
             )}
             {onGovernanceAction && canRequestChangesState && workflow?.review_state !== 'Changes Requested' && (
-              <button onClick={() => onGovernanceAction('request_changes')} className="rounded-[8px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-[4px] text-[8px] font-black uppercase tracking-[0.18em] text-amber-100 hover:bg-amber-500/20">
+              <button onClick={() => onGovernanceAction('request_changes')} className="rounded-[8px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-amber-100 hover:bg-amber-500/20">
                 Request Changes
               </button>
             )}
             {onGovernanceAction && canRequestRecertificationState && (
-              <button onClick={() => onGovernanceAction('request_recertification')} className="rounded-[8px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-[4px] text-[8px] font-black uppercase tracking-[0.18em] text-amber-100 hover:bg-amber-500/20">
+              <button onClick={() => onGovernanceAction('request_recertification')} className="rounded-[8px] border border-amber-500/20 bg-amber-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-amber-100 hover:bg-amber-500/20">
                 Need Recertification
               </button>
             )}
