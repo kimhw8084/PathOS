@@ -3862,7 +3862,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 <div ref={(el) => { taskSectionRefs.current.overview = el; }} className={cn(taskPaneCompact ? "space-y-1.5" : "space-y-6", isReadOnlyMode && "pointer-events-none select-none opacity-80")} data-section="overview">
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">
-                      {selectedTask.interface ? (selectedTask.interface === 'TRIGGER' ? 'Trigger Origin' : 'Outcome Result') : (selectedTask.task_type === 'LOOP' ? 'Condition Nomenclature' : 'Task Nomenclature')}
+                      {selectedTask.interface ? (selectedTask.interface === 'TRIGGER' ? 'Start task' : 'End task') : (selectedTask.task_type === 'LOOP' ? 'Decision name' : 'Task name')}
                     </label>
                     <input 
                       data-builder-field="task.name"
@@ -3883,7 +3883,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </div>
                   
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">Contextual Description</label>
+                    <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">What it does</label>
                     <div className={getDefinitionIssueShell(issuesForField('task.description', selectedTaskId).length > 0)} data-builder-field="task.description">
                       <textarea 
                         className="w-full bg-transparent border-0 rounded-[inherit] px-1.5 py-1 text-[11px] font-medium text-white/60 outline-none focus:border-theme-accent h-24 resize-none disabled:opacity-50" 
@@ -3911,13 +3911,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <div className="flex items-center justify-between gap-1.5">
                       <div>
                         <p className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-100">Dependencies</p>
-                        <p className="mt-1 text-[11px] font-bold text-white/45">Routes, handoffs, blockers, and upstream/downstream links.</p>
+                        <p className="mt-1 text-[11px] font-bold text-white/45">Where this task comes from, where it goes, and what slows it down.</p>
                       </div>
                       <MapPinned size={14} className="text-cyan-100" />
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
                       <div className="rounded-[8px] border border-cyan-500/15 bg-cyan-500/5 p-1 space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Upstream tasks</p>
+                        <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Before this task</p>
                         <div className="flex flex-wrap gap-1">
                           {selectedTaskIncomingTasks.length > 0 ? selectedTaskIncomingTasks.map((task) => (
                             <button
@@ -3927,11 +3927,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             >
                               {task.name || 'Untitled'}
                             </button>
-                          )) : <span className="text-[10px] font-bold text-white/25">No upstream tasks.</span>}
+                          )) : <span className="text-[10px] font-bold text-white/25">No tasks before this one.</span>}
                         </div>
                       </div>
                       <div className="rounded-[8px] border border-cyan-500/15 bg-cyan-500/5 p-1 space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Downstream tasks</p>
+                        <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">After this task</p>
                         <div className="flex flex-wrap gap-1">
                           {selectedTaskOutgoingTasks.length > 0 ? selectedTaskOutgoingTasks.map((task) => (
                             <button
@@ -3941,7 +3941,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             >
                               {task.name || 'Untitled'}
                             </button>
-                          )) : <span className="text-[10px] font-bold text-white/25">No downstream tasks.</span>}
+                          )) : <span className="text-[10px] font-bold text-white/25">No tasks after this one.</span>}
                         </div>
                       </div>
                     </div>
@@ -3965,7 +3965,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
-                        {selectedTask.blockers.length} blockers
+                        {selectedTask.blockers.length} slowdowns
                       </span>
                       <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
                         {selectedTask.reference_links.length} references
@@ -3979,14 +3979,14 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   <div className="rounded-[8px] border border-slate-500/15 bg-slate-500/5 p-1.5 space-y-1.5">
                     <div className="flex items-center justify-between gap-1.5">
                       <div>
-                        <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-100">Task change summary</p>
-                        <p className="mt-1 text-[11px] font-bold text-white/45">What changed since the saved baseline.</p>
+                        <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-100">What changed</p>
+                        <p className="mt-1 text-[11px] font-bold text-white/45">Compare this task against the saved version.</p>
                       </div>
                       <Clock3 size={14} className="text-slate-100" />
                     </div>
                     {selectedTaskDiff.changedFields.length === 0 ? (
                       <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1 text-[10px] font-bold text-white/35">
-                        No task-level field changes detected.
+                        No task-level changes yet.
                       </div>
                     ) : (
                       <div className="flex flex-wrap gap-1">
@@ -3999,10 +3999,10 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     )}
                     <div className="flex flex-wrap gap-1.5">
                       <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
-                        {selectedTaskDiff.addedConnections} added connections
+                        {selectedTaskDiff.addedConnections} added links
                       </span>
                       <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/45">
-                        {selectedTaskDiff.removedConnections} removed connections
+                        {selectedTaskDiff.removedConnections} removed links
                       </span>
                     </div>
                   </div>
@@ -4010,7 +4010,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   {!isProtected && selectedTask.task_type !== 'LOOP' && (
                     <>
                       <div className="space-y-1.5">
-                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task Logic Type</label>
+                        <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task kind</label>
                         <div className={getDefinitionIssueShell(issuesForField('task.task_type', selectedTaskId).length > 0)}>
                           <select data-builder-field="task.task_type" className="w-full bg-transparent border-0 rounded-[inherit] px-3 h-10 text-[11px] font-black text-white outline-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>{taskTypes.map((t:any) => <option key={t} value={t}>{t}</option>)}</select>
                         </div>
@@ -4497,8 +4497,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   <div className="p-1.5 bg-white/[0.02] border border-white/5 rounded-[8px] space-y-1.5">
                     <div className="flex items-center justify-between gap-1.5">
                       <div className="space-y-1">
-                        <h3 className="text-[14px] font-black text-white uppercase tracking-tight">Post-Task Validation</h3>
-                        <p className="text-[10px] text-white/40 font-bold uppercase">Validation state is shown inline on the affected fields and sections.</p>
+                        <h3 className="text-[14px] font-black text-white uppercase tracking-tight">Verification</h3>
+                        <p className="text-[10px] text-white/40 font-bold uppercase">Validation stays on the fields it affects.</p>
                       </div>
                       <button 
                         onClick={() => updateTask(selectedTaskId, { validation_needed: !selectedTask.validation_needed })} 
@@ -4532,7 +4532,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                 />
                                 {!step.description && issuesForField('task.validation_step', selectedTaskId).length > 0 && (
                                   <p className={cn("mt-2 rounded-[8px] border px-1.5 py-1 text-[10px] font-bold leading-relaxed", compactIssueTone('error'))}>
-                                    Validation step description is required.
+                                    Verification step description is required.
                                   </p>
                                 )}
                               </div>
@@ -4546,13 +4546,13 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </div>
                   <div className="rounded-[8px] border border-amber-500/15 bg-amber-500/5 p-1.5 space-y-1.5">
                     <div className="flex items-center justify-between gap-1.5">
-                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-100">Issue map</p>
+                      <p className="text-[9px] font-black uppercase tracking-[0.18em] text-amber-100">What needs fixing</p>
                       <button onClick={() => blockingValidationIssues[0] && focusAuditIssue(blockingValidationIssues[0])} className="rounded-[8px] border border-amber-500/15 bg-black/20 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-amber-100 hover:text-white leading-none">
-                        Jump to first issue
+                        Jump to first fix
                       </button>
                     </div>
                     <p className="text-[11px] font-bold text-white/55 leading-relaxed">
-                      Errors and warnings stay on the field they belong to.
+                      Each issue stays attached to the exact field or section that needs attention.
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       <span className="rounded-[8px] border border-rose-500/20 bg-rose-500/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-rose-200">{validationErrorCount} errors</span>
@@ -4568,7 +4568,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       {selectedTask.reference_links.map((l, idx) => (
                         <NestedCollapsible
                           key={l.id}
-                          title={l.label || "New Reference"}
+                          title={l.label || "New Link"}
                           isOpen={openItems[l.id]}
                           toggle={() => toggleItem(l.id)}
                           onMoveUp={idx > 0 ? () => updateTask(selectedTaskId, { reference_links: moveArrayItem(selectedTask.reference_links || [], idx, idx - 1) }) : undefined}
@@ -4577,11 +4577,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         >
                           <div className="space-y-1.5">
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Reference Label *</label>
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Link label *</label>
                               <input data-builder-field="task.reference_links" className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-white outline-none focus:border-theme-accent" value={l.label} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(x => x.id === l.id ? { ...x, label: e.target.value } : x) })} placeholder="e.g., SOP v1.2" />
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Target URL / Path</label>
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Where it points</label>
                               <div className="flex items-center gap-1.5 bg-black/40 border border-white/10 rounded-[8px] px-1.5 py-1">
                                 <Link2 size={12} className="text-theme-accent" />
                                 <input className="flex-1 bg-transparent border-none p-0 text-[11px] text-theme-accent underline outline-none" value={l.url} onChange={e => updateTask(selectedTaskId, { reference_links: selectedTask.reference_links.map(x => x.id === l.id ? { ...x, url: e.target.value } : x) })} placeholder="https://..." />
@@ -4592,16 +4592,16 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       ))}
                       {selectedTask.reference_links.length === 0 && (
                         <div className="rounded-[8px] border border-emerald-500/15 bg-emerald-500/5 px-1.5 py-1.5 text-[11px] font-bold text-emerald-100">
-                          No references yet. Add the SOP, wiki, or evidence link that supports the task.
+                          No links yet. Add the SOP, wiki, or evidence link that supports the task.
                         </div>
                       )}
-                      <button onClick={() => updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, { id: Date.now().toString(), label: '', url: '' }] })} className="w-full py-1.5 bg-emerald-500/10 border border-emerald-500/15 text-[9px] font-black uppercase text-emerald-100 hover:bg-emerald-500/20 transition-all rounded-[8px] mt-2">+ Add Reference Link</button>
+                      <button onClick={() => updateTask(selectedTaskId, { reference_links: [...selectedTask.reference_links, { id: Date.now().toString(), label: '', url: '' }] })} className="w-full py-1.5 bg-emerald-500/10 border border-emerald-500/15 text-[9px] font-black uppercase text-emerald-100 hover:bg-emerald-500/20 transition-all rounded-[8px] mt-2">+ Add Link</button>
                     </div>
                   </CollapsibleSection>
 
-                  <CollapsibleSection title="Task Visual Assets" isOpen={expandedSections.assets} toggle={() => toggleSection('assets')} count={selectedTask.media.length}>
+                  <CollapsibleSection title="Visual Notes" isOpen={expandedSections.assets} toggle={() => toggleSection('assets')} count={selectedTask.media.length}>
                     <div className="pt-4">
-                      <ImagePasteField figures={selectedTask.media.map(m => m.url)} onPaste={(figs) => updateTask(selectedTaskId, { media: figs.map(f => ({ id: Date.now().toString(), type: 'image', url: f, label: 'Pasted Asset' })) })} label="Visual Assets (Ctrl+V)" />
+                      <ImagePasteField figures={selectedTask.media.map(m => m.url)} onPaste={(figs) => updateTask(selectedTaskId, { media: figs.map(f => ({ id: Date.now().toString(), type: 'image', url: f, label: 'Pasted Note' })) })} label="Visual Notes (Ctrl+V)" />
                     </div>
                   </CollapsibleSection>
 
@@ -4610,7 +4610,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       {selectedTask.instructions.map((step, idx) => (
                         <NestedCollapsible
                           key={step.id}
-                          title={`Instruction Step ${idx + 1}`}
+                          title={`Step ${idx + 1}`}
                           isOpen={openItems[step.id]}
                           toggle={() => toggleItem(step.id)}
                           onMoveUp={idx > 0 ? () => updateTask(selectedTaskId, { instructions: moveArrayItem(selectedTask.instructions || [], idx, idx - 1) }) : undefined}
@@ -4619,7 +4619,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         >
                           <div className="space-y-1.5">
                             <div className="space-y-1">
-                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">Description *</label>
+                              <label className="text-[9px] font-black text-white/20 uppercase tracking-widest">What to do *</label>
                               <textarea 
                                 data-builder-field="task.instructions"
                                 className="w-full bg-black/40 border border-white/10 rounded-[8px] p-1.5 text-[11px] text-white/80 h-28 resize-none outline-none focus:border-theme-accent transition-all" 
@@ -4628,33 +4628,33 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                 placeholder="Describe the action..."
                               />
                             </div>
-                            <ImagePasteField figures={step.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { instructions: selectedTask.instructions.map(x => x.id === step.id ? { ...x, figures: figs } : x) })} label="Step Figures (Ctrl+V)" />
+                            <ImagePasteField figures={step.figures || []} onPaste={(figs) => updateTask(selectedTaskId, { instructions: selectedTask.instructions.map(x => x.id === step.id ? { ...x, figures: figs } : x) })} label="Step notes (Ctrl+V)" />
                           </div>
                         </NestedCollapsible>
                       ))}
                       {selectedTask.instructions.length === 0 && (
                         <div className="rounded-[8px] border border-cyan-500/15 bg-cyan-500/5 px-1.5 py-1.5 text-[11px] font-bold text-cyan-100">
-                          No instruction steps yet. Add only steps that help someone perform the task reliably.
+                          No steps yet. Add only steps that help someone perform the task reliably.
                         </div>
                       )}
-                      <button onClick={() => updateTask(selectedTaskId, { instructions: [...selectedTask.instructions, { id: Date.now().toString(), description: '', figures: [], links: [] }] })} className="w-full py-1.5 bg-cyan-500/10 border border-cyan-500/15 text-[9px] font-black uppercase text-cyan-100 hover:bg-cyan-500/20 transition-all rounded-[8px]">+ Add Instruction Step</button>
+                      <button onClick={() => updateTask(selectedTaskId, { instructions: [...selectedTask.instructions, { id: Date.now().toString(), description: '', figures: [], links: [] }] })} className="w-full py-1.5 bg-cyan-500/10 border border-cyan-500/15 text-[9px] font-black uppercase text-cyan-100 hover:bg-cyan-500/20 transition-all rounded-[8px]">+ Add Step</button>
                     </div>
                   </CollapsibleSection>
                 </div>
               )}
             </div>
           ) : selectedEdgeId && selectedEdge ? (
-            <div className={cn("p-1.5 space-y-1.5 animate-apple-in", isReadOnlyMode && "pointer-events-none select-none opacity-80")}>
+                <div className={cn("p-1.5 space-y-1.5 animate-apple-in", isReadOnlyMode && "pointer-events-none select-none opacity-80")}>
               <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                <div className="flex items-center gap-1.5"><Link2 size={16} className="text-theme-accent" /><span className="text-[14px] font-black text-white uppercase tracking-widest">Edge Configuration</span></div>
+                <div className="flex items-center gap-1.5"><Link2 size={16} className="text-theme-accent" /><span className="text-[14px] font-black text-white uppercase tracking-widest">Route details</span></div>
                 <div className="flex gap-1.5">
-                  <button onClick={() => centerOnEdgeRoute(selectedEdgeId)} title="Center Route" className="text-white/40 hover:text-white p-1.5 bg-white/5 border border-white/10 rounded-[8px] transition-all leading-none"><MapPinned size={16} /></button>
-                  <button onClick={() => swapEdgeDirection(selectedEdgeId)} title="Swap Direction" className="text-white/40 hover:text-white p-1.5 bg-white/5 border border-white/10 rounded-[8px] transition-all leading-none"><LucideWorkflow size={16} className="rotate-90" /></button>
+                  <button onClick={() => centerOnEdgeRoute(selectedEdgeId)} title="Center route" className="text-white/40 hover:text-white p-1.5 bg-white/5 border border-white/10 rounded-[8px] transition-all leading-none"><MapPinned size={16} /></button>
+                  <button onClick={() => swapEdgeDirection(selectedEdgeId)} title="Swap direction" className="text-white/40 hover:text-white p-1.5 bg-white/5 border border-white/10 rounded-[8px] transition-all leading-none"><LucideWorkflow size={16} className="rotate-90" /></button>
                   <button onClick={() => { if (isReadOnlyMode) return; setEdges(eds => eds.filter(e => e.id !== selectedEdgeId)); setSelectedEdgeId(null); setIsDirty?.(true); }} className="text-status-error hover:bg-status-error/10 p-1.5 border border-status-error/20 rounded-[8px] transition-all leading-none"><Trash size={16} /></button>
                 </div>
               </div>
               <div className="rounded-[8px] border border-white/10 bg-white/[0.03] p-1.5 space-y-1.5">
-                <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Route Inspection</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Route summary</p>
                 <div className="flex flex-wrap gap-1.5 text-[11px] font-bold text-white/65">
                   <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-1">From: {nodes.find((node) => node.id === selectedEdge.source)?.data?.label || selectedEdge.source}</span>
                   <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-1">To: {nodes.find((node) => node.id === selectedEdge.target)?.data?.label || selectedEdge.target}</span>
@@ -4668,7 +4668,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   <input data-builder-field="edge.label" className="w-full bg-white/5 border border-white/10 rounded-[8px] px-1.5 py-1 text-[11px] font-black text-white uppercase outline-none focus:border-theme-accent transition-all" value={selectedEdge.data?.label || ''} onChange={e => updateEdge(selectedEdgeId, { label: e.target.value })} />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Style</label>
+                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Route style</label>
                   <div className="flex bg-white/5 p-1 rounded-[8px] border border-white/10">
                     {(['smoothstep', 'bezier', 'straight'] as const).map((s) => (
                       <button key={s} disabled={isReadOnlyMode} onClick={() => { if (isReadOnlyMode) return; updateEdge(selectedEdgeId, { edgeStyle: s }); }} className={cn("flex-1 py-1.5 text-[9px] font-black uppercase rounded-[8px] transition-all leading-none", isReadOnlyMode ? "opacity-35 cursor-not-allowed" : (selectedEdge.data?.edgeStyle || 'bezier') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
@@ -4676,7 +4676,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Line Style</label>
+                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Line style</label>
                   <div className="flex bg-white/5 p-1 rounded-[8px] border border-white/10">
                     {(['solid', 'dashed'] as const).map((s) => (
                       <button key={s} disabled={isReadOnlyMode} onClick={() => { if (isReadOnlyMode) return; updateEdge(selectedEdgeId, { lineStyle: s }); }} className={cn("flex-1 py-1.5 text-[9px] font-black uppercase rounded-[8px] transition-all leading-none", isReadOnlyMode ? "opacity-35 cursor-not-allowed" : (selectedEdge.data?.lineStyle || 'solid') === s ? "bg-theme-accent text-white" : "text-white/40 hover:text-white")}>{s}</button>
@@ -4684,7 +4684,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Color Palette</label>
+                  <label className="text-[9px] font-black text-white/40 uppercase px-1">Color</label>
                   <div className="flex flex-wrap gap-1.5">
                     {['#ffffff', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'].map((c) => (
                       <button key={c} onClick={() => updateEdge(selectedEdgeId, { color: c })} className={cn("w-6 h-6 rounded-[8px] border transition-all", (selectedEdge.data?.color || '#ffffff') === c ? "border-white scale-125" : "border-transparent hover:scale-110")} style={{ backgroundColor: c }} />
@@ -4945,7 +4945,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     {(definitionSettings.fieldVisibility.tool_family || definitionSettings.fieldVisibility.applicable_tools) && (
                       <div className="space-y-1.5">
                         <div className="flex flex-wrap items-center gap-1.5 rounded-[8px] border border-white/5 bg-black/20 px-1.5 py-1">
-                          <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Tool family to tools</span>
+                          <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/35">Tool families and tools</span>
                           {definitionToolPropagation.familyChips.length > 0 ? (
                             definitionToolPropagation.familyChips.map((chip) => (
                               <span key={chip.family} className="rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-[3px] text-[7px] font-black uppercase tracking-[0.18em] text-theme-accent">
@@ -5040,7 +5040,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5 text-theme-accent font-black px-1">
                     <Zap size={13} />
-                    <span className="text-[9px] tracking-[0.2em] uppercase">Trigger & Output</span>
+                    <span className="text-[9px] tracking-[0.2em] uppercase">Start & Finish</span>
                   </div>
                   <div className={cn(BUILDER_PANEL, definitionCompactMode ? "space-y-1.5 !bg-white/[0.02] border-white/5 p-1.5" : "space-y-1.5 !bg-white/[0.02] border-white/5 p-1.5")}>
                     <div className={cn("grid grid-cols-1 lg:grid-cols-2 gap-1.5", definitionCompactMode && "gap-1.5")}>
