@@ -4,7 +4,6 @@ import ReactFlow, {
   Handle, 
   Position, 
   Background, 
-  MiniMap,
   addEdge, 
   useNodesState, 
   useEdgesState,
@@ -45,7 +44,6 @@ import {
   MessageSquare,
   History,
   Users,
-  Satellite,
   Copy,
   ArrowRightLeft,
   Gauge,
@@ -758,20 +756,6 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
           VERIFY
         </div>
       )}
-      {data.commentSummary?.total > 0 && (
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            data.onOpenComments?.(data.id);
-          }}
-          className="absolute -top-1.5 right-4 flex items-center gap-1.5 rounded-[8px] border border-white/10 bg-[#0b1221]/96 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/60 shadow-lg transition-colors hover:text-white"
-          title={`${data.commentSummary.open || 0} open, ${data.commentSummary.resolved || 0} resolved comments`}
-        >
-          <Satellite size={10} className="text-theme-accent" />
-          {data.commentSummary.open || 0}/{data.commentSummary.resolved || 0}
-        </button>
-      )}
       <div className="flex flex-col gap-1.5 h-full">
         <div className="flex items-center justify-between gap-1.5">
           <div className={cn("px-1.5 py-[3px] rounded-[8px] text-[10px] font-black uppercase tracking-widest border", typeColor)}>
@@ -855,14 +839,6 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
           </div>
       {selected && (
             <div className="absolute left-1/2 top-full mt-1.5 z-30 flex -translate-x-1/2 flex-wrap justify-center gap-1.5 pointer-events-auto">
-              <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-1.5 rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent shadow-lg shadow-black/30">
-                <MessageSquare size={10} /> Notes
-              </button>
-              {data.commentSummary?.total > 0 && (
-                <button onClick={(event) => { event.stopPropagation(); data.onOpenComments?.(data.id); }} className="flex items-center gap-1.5 rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 shadow-lg shadow-black/30">
-                  <Satellite size={10} /> {data.commentSummary.open || 0}/{data.commentSummary.resolved || 0}
-                </button>
-              )}
             </div>
           )}
         </div>
@@ -1017,7 +993,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
     inspectorCollapsed: false,
     showMiniMap: false,
   });
-  const [definitionCompactMode, setDefinitionCompactMode] = useState(true);
+  const definitionCompactMode = true;
   const [baseFontSize] = useState(13);
   const [defaultEdgeStyle, setDefaultEdgeStyle] = useState<'bezier' | 'smoothstep' | 'straight'>('smoothstep');
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
@@ -1101,7 +1077,7 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
       trigger_description: settings?.field_visibility?.trigger_description ?? true,
       output_type: settings?.field_visibility?.output_type ?? true,
       output_description: settings?.field_visibility?.output_description ?? true,
-      inline_examples: settings?.field_visibility?.inline_examples ?? true,
+      inline_examples: false,
     };
     const fieldLabels = {
       purpose_statement: settings?.field_labels?.purpose_statement || 'Purpose Statement',
@@ -1407,13 +1383,6 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setCommandPaletteOpen((current) => !current);
-        return;
-      }
-      if (e.key === 'Escape' && commandPaletteOpen) {
-        e.preventDefault();
-        setCommandPaletteOpen(false);
-        setCommandPaletteQuery('');
         return;
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -1441,30 +1410,9 @@ const Builder2: React.FC<WorkflowBuilderProps> = ({ workflow, taxonomy, relatedW
         onAddNode('CONDITION');
         return;
       }
-      if (e.altKey && e.shiftKey && e.key.toLowerCase() === 'h') {
-        e.preventDefault();
-        openHistoryPane();
-        return;
-      }
-      if (e.altKey && e.shiftKey && e.key.toLowerCase() === 'm') {
-        e.preventDefault();
-        updateLayoutPrefs({ showMiniMap: !layoutPrefs.showMiniMap });
-        return;
-      }
       if (e.altKey && e.shiftKey && e.key.toLowerCase() === 'i') {
         e.preventDefault();
         updateLayoutPrefs({ inspectorCollapsed: !layoutPrefs.inspectorCollapsed });
-        return;
-      }
-      if (e.altKey && e.shiftKey && e.key.toLowerCase() === 'r') {
-        e.preventDefault();
-        setReviewMode((current) => !current);
-        return;
-      }
-      if (e.altKey && e.shiftKey && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setCommandPaletteOpen(true);
-        setCommandPaletteIndex(0);
         return;
       }
       // Don't trigger structural shortcuts if typing in an input/textarea
@@ -3257,81 +3205,27 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
     }
   }, [saveToHistory, setTasks, setNodes, setEdges, setIsDirty]);
 
+  void [
+    utilityPane,
+    selectedNodesAreProtected,
+    selectedItemCount,
+    selectedNeighborNodeIds,
+    selectedTaskComments,
+    openReviewPane,
+    closeUtilityPane,
+    renderHistorySurface,
+    renderCommentsSurface,
+    renderReviewSurface,
+    groupedCommandActions,
+    executeCommandAction,
+    updateSelectedTasksDiagnostics,
+    updateSelectedTasks,
+    alignSelectedNodes,
+    clearBuilderDraft,
+  ];
+
   return (
     <div className="flex h-full min-h-0 w-full bg-[#050914] overflow-hidden">
-      {commandPaletteOpen && (
-        <div className="fixed inset-0 z-[1100] flex items-start justify-center bg-black/70 backdrop-blur-sm px-3 pt-[12vh]">
-          <div className="w-[min(34rem,96vw)] rounded-[8px] border border-white/10 bg-[#0a1120] shadow-2xl">
-            <div className="flex items-center gap-1.5 border-b border-white/10 px-1.5 py-1.5">
-              <Search size={14} className="text-theme-accent" />
-              <input
-                autoFocus
-                value={commandPaletteQuery}
-                onChange={(e) => setCommandPaletteQuery(e.target.value)}
-                placeholder="Search actions..."
-                onKeyDown={(e) => {
-                  if (e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    setCommandPaletteIndex((current) => Math.min(current + 1, prioritizedCommandActions.length - 1));
-                  } else if (e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    setCommandPaletteIndex((current) => Math.max(current - 1, 0));
-                  } else if (e.key === 'Enter' && prioritizedCommandActions[commandPaletteIndex]) {
-                    e.preventDefault();
-                    executeCommandAction(prioritizedCommandActions[commandPaletteIndex]);
-                  }
-                }}
-                className="min-w-0 flex-1 bg-transparent text-[11px] font-bold text-white outline-none placeholder:text-white/25"
-              />
-              <button
-                onClick={() => {
-                  setCommandPaletteOpen(false);
-                  setCommandPaletteQuery('');
-                  setCommandPaletteIndex(0);
-                }}
-                className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/50 hover:text-white"
-              >
-                Close
-              </button>
-            </div>
-            <div className="max-h-[24rem] overflow-auto custom-scrollbar p-1.5">
-              {prioritizedCommandActions.length === 0 ? (
-                <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1.5 text-[10px] font-bold text-white/35">
-                      No matching actions. Try a shorter command or a different keyword.
-                </div>
-              ) : groupedCommandActions.map(({ group, actions }) => (
-                <div key={group} className="space-y-1.5 pb-2">
-                  <p className="px-1 text-[8px] font-black uppercase tracking-[0.2em] text-white/25">{group}</p>
-                  {actions.map((action) => {
-                    const actionIndex = prioritizedCommandActions.findIndex((candidate) => candidate.id === action.id);
-                    const isActive = actionIndex === commandPaletteIndex;
-                    return (
-                      <button
-                        key={action.id}
-                        onClick={() => executeCommandAction(action)}
-                        className={cn(
-                          "flex w-full items-center justify-between gap-1.5 rounded-[8px] border px-1.5 py-1 text-left transition-colors",
-                          isActive
-                            ? "border-theme-accent/30 bg-theme-accent/10"
-                            : "border-white/5 bg-white/[0.03] hover:border-theme-accent/20 hover:bg-theme-accent/10"
-                        )}
-                      >
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{action.label}</p>
-                          <p className="mt-0.5 text-[9px] font-bold text-white/35">{action.hint}</p>
-                        </div>
-                        <span className="rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-[0.18em] text-white/45">
-                          {action.id}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
       {/* Existing Output Picker Modal */}
       {isOutputPickerOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-8 bg-black/80 backdrop-blur-sm animate-apple-in">
@@ -3357,31 +3251,24 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 </button>
               )}
             </div>
-            <div className="flex-1 overflow-auto p-0 custom-scrollbar">
-              <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 bg-[#0f172a] z-10 shadow-lg shadow-black/20">
-                  <tr className="border-b border-white/10">
-                    <th className="px-1.5 py-1.5 text-[8px] font-black text-white/40 uppercase tracking-widest">From task</th>
-                    <th className="px-1.5 py-1.5 text-[8px] font-black text-white/40 uppercase tracking-widest">Output</th>
-                    <th className="px-1.5 py-1.5 text-[8px] font-black text-white/40 uppercase tracking-widest">What it is</th>
-                    <th className="px-1.5 py-1.5"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {tasks
-                    .filter(t => t.id !== selectedTaskId)
-                    .flatMap(t => (t.output_data_list || []).map(o => ({ ...o, taskName: t.name, taskId: t.id })))
-                    .filter((output) => {
-                      const query = outputPickerSearch.trim().toLowerCase();
-                      if (!query) return true;
-                      return [output.taskName, output.name, output.description].some((value) => String(value || '').toLowerCase().includes(query));
-                    })
-                    .map((output, idx) => (
-                    <tr key={idx} className="hover:bg-white/[0.02] transition-colors group">
-                      <td className="px-1.5 py-1.5 text-[9px] font-bold text-theme-accent uppercase">{output.taskName}</td>
-                      <td className="px-1.5 py-1.5 text-[9px] font-bold text-white uppercase">{output.name}</td>
-                      <td className="px-1.5 py-1.5 text-[8px] text-white/40 line-clamp-1">{output.description || 'No description'}</td>
-                      <td className="px-1.5 py-1.5 text-right">
+            <div className="flex-1 overflow-auto p-1.5 custom-scrollbar">
+              <div className="space-y-1.5">
+                {tasks
+                  .filter((task) => task.id !== selectedTaskId)
+                  .flatMap((task) => (task.output_data_list || []).map((output) => ({ ...output, taskName: task.name, taskId: task.id })))
+                  .filter((output) => {
+                    const query = outputPickerSearch.trim().toLowerCase();
+                    if (!query) return true;
+                    return [output.taskName, output.name, output.description].some((value) => String(value || '').toLowerCase().includes(query));
+                  })
+                  .map((output, idx) => (
+                    <div key={idx} className="rounded-[8px] border border-white/10 bg-black/20 p-1.5">
+                      <div className="flex flex-wrap items-start justify-between gap-1.5">
+                        <div className="min-w-0 space-y-0.5">
+                          <p className="text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent">{output.taskName}</p>
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white">{output.name}</p>
+                          <p className="text-[9px] font-bold text-white/40 leading-relaxed">{output.description || 'No description'}</p>
+                        </div>
                         <button 
                           onClick={() => {
                             updateTask(selectedTaskId!, { 
@@ -3398,28 +3285,31 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             });
                             setIsOutputPickerOpen(false);
                           }}
-                          className="px-1.5 py-1 bg-theme-accent text-white text-[8px] font-black uppercase rounded-[8px] opacity-0 group-hover:opacity-100 hover:scale-105 transition-all"
+                          className="shrink-0 rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white"
                         >
                           Use Output
                         </button>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   ))}
-                  {tasks.every(t => (t.output_data_list || []).length === 0) && (
-                    <tr><td colSpan={4} className="px-4 py-8 text-center text-white/20 italic text-[10px]">No outputs yet. Add one to any task, then come back here.</td></tr>
-                  )}
-                  {tasks.some(t => (t.output_data_list || []).length > 0) && tasks
-                    .filter(t => t.id !== selectedTaskId)
-                    .flatMap(t => (t.output_data_list || []).map(o => ({ ...o, taskName: t.name, taskId: t.id })))
-                    .filter((output) => {
-                      const query = outputPickerSearch.trim().toLowerCase();
-                      if (!query) return true;
-                      return [output.taskName, output.name, output.description].some((value) => String(value || '').toLowerCase().includes(query));
-                    }).length === 0 && (
-                    <tr><td colSpan={4} className="px-4 py-8 text-center text-white/20 italic text-[10px]">No outputs match this search.</td></tr>
-                  )}
-                </tbody>
-              </table>
+                {tasks.every((task) => (task.output_data_list || []).length === 0) && (
+                  <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1.5 text-[10px] font-bold text-white/20 italic">
+                    No outputs yet. Add one to any task, then come back here.
+                  </div>
+                )}
+                {tasks.some((task) => (task.output_data_list || []).length > 0) && tasks
+                  .filter((task) => task.id !== selectedTaskId)
+                  .flatMap((task) => (task.output_data_list || []).map((output) => ({ ...output, taskName: task.name, taskId: task.id })))
+                  .filter((output) => {
+                    const query = outputPickerSearch.trim().toLowerCase();
+                    if (!query) return true;
+                    return [output.taskName, output.name, output.description].some((value) => String(value || '').toLowerCase().includes(query));
+                  }).length === 0 && (
+                  <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1.5 text-[10px] font-bold text-white/20 italic">
+                    No outputs match this search.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -3450,7 +3340,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       setDefaultEdgeStyle(s);
                       setEdges(eds => eds.map(e => ({ ...e, data: { ...e.data, edgeStyle: s } })));
                     }} 
-                    className={cn("px-1.5 h-full text-[8px] font-black uppercase rounded-[0.85rem] transition-all", isReadOnlyMode ? "opacity-35 cursor-not-allowed" : defaultEdgeStyle === s ? "bg-theme-accent text-white" : "text-white/20 hover:text-white/40")}
+                    className={cn("px-1.5 h-full text-[8px] font-black uppercase rounded-[8px] transition-all", isReadOnlyMode ? "opacity-35 cursor-not-allowed" : defaultEdgeStyle === s ? "bg-theme-accent text-white" : "text-white/20 hover:text-white/40")}
                   >
                     {s === 'smoothstep' ? 'Angled' : s === 'bezier' ? 'Smooth' : 'Straight'}
                   </button>
@@ -3481,48 +3371,12 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 <p className="text-[8px] font-mono leading-none text-white/35">{draftSavedAtLabel}</p>
                 <p className="text-[8px] font-mono leading-none text-white/35">{savedAtLabel}</p>
               </div>
-              {draftRestored && (
-                <div className="rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-[4px]">
-                  <p className="text-[7px] font-black uppercase tracking-[0.18em] text-theme-accent">Recovered</p>
-                  <p className="text-[8px] font-bold leading-none text-white/70">Local draft</p>
-                </div>
-              )}
-              <button onClick={openHistoryPane} className={cn("px-[9px] py-[5px] text-[8px] font-black uppercase rounded-[8px] transition-all whitespace-nowrap border leading-none", utilityPane === 'history' ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
-                History
-              </button>
-              <button onClick={openReviewPane} className={cn("px-[9px] py-[5px] text-[8px] font-black uppercase rounded-[8px] transition-all whitespace-nowrap border leading-none", utilityPane === 'review' ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
-                Review
-              </button>
-              <button onClick={() => setReviewMode((current) => !current)} className={cn("px-[9px] py-[5px] text-[8px] font-black uppercase rounded-[8px] transition-all whitespace-nowrap border leading-none", reviewMode ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
-                {reviewMode ? 'Review Mode On' : 'Review Mode'}
-              </button>
-              <button onClick={() => { setCommandPaletteOpen(true); setCommandPaletteIndex(0); }} className="px-[9px] py-[5px] text-[8px] font-black uppercase rounded-[8px] transition-all whitespace-nowrap border border-white/10 bg-white/5 text-white/50 hover:text-white leading-none">
-                Cmd/Ctrl+K
-              </button>
               <button onClick={() => updateLayoutPrefs({ inspectorCollapsed: !layoutPrefs.inspectorCollapsed })} className={cn("px-[9px] py-[5px] text-[8px] font-black uppercase rounded-[8px] transition-all whitespace-nowrap border leading-none", layoutPrefs.inspectorCollapsed ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
                 {layoutPrefs.inspectorCollapsed ? 'Expand Inspector' : 'Collapse Inspector'}
-              </button>
-              <button onClick={() => updateLayoutPrefs({ showMiniMap: !layoutPrefs.showMiniMap })} className={cn("px-[9px] py-[5px] text-[8px] font-black uppercase rounded-[8px] transition-all whitespace-nowrap border leading-none", layoutPrefs.showMiniMap ? "border-theme-accent/30 bg-theme-accent/10 text-theme-accent" : "border-white/10 bg-white/5 text-white/50 hover:text-white")}>
-                {layoutPrefs.showMiniMap ? 'Hide MiniMap' : 'Show MiniMap'}
               </button>
               <div className="flex items-center gap-1 rounded-[8px] border border-white/10 bg-white/5 p-0.5">
                 <button onClick={() => fitView({ padding: 0.12, duration: 250 })} className="rounded-[8px] px-1.5 py-[4px] text-[8px] font-black uppercase text-white/45 hover:text-white leading-none">Fit</button>
               </div>
-              {selectedItemCount > 0 && (
-                <div className="flex items-center gap-1.5 rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-[4px]">
-                  <span className="text-[8px] font-black uppercase tracking-[0.18em] text-white/55">
-                    {selectedNodeIds.length} Nodes · {selectedEdgeIds.length} Edges Selected
-                  </span>
-                  <button onClick={clearSelection} className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1 text-[8px] font-black uppercase text-white/45 hover:text-white transition-colors leading-none">
-                    Clear
-                  </button>
-                </div>
-              )}
-              {draftRestored && (
-                <button onClick={clearBuilderDraft} className="px-[9px] py-[5px] text-[8px] font-black uppercase rounded-[8px] transition-all whitespace-nowrap border border-theme-accent/20 bg-theme-accent/10 text-theme-accent hover:bg-theme-accent hover:text-white leading-none">
-                  Clear Draft
-                </button>
-              )}
               {!reviewMode && (
                 <div className="ml-auto flex flex-wrap gap-1.5">
                 <button data-testid="builder-add-task" disabled={isReadOnlyMode} onClick={() => { if (isReadOnlyMode) return; onAddNode('TASK'); }} className={cn("flex items-center gap-1.5 px-1.5 py-[5px] bg-theme-accent text-white rounded-[8px] text-[8px] font-black uppercase hover:scale-[1.03] transition-all whitespace-nowrap leading-none", isReadOnlyMode && "opacity-35 cursor-not-allowed")}><Plus size={12} /> Add Task</button>
@@ -3531,33 +3385,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
               )}
             </div>
           </div>
-          {utilityPane && (
-            <div className="shrink-0 border-b border-white/10 bg-[#09111d]/96 backdrop-blur-xl px-3 sm:px-1.5 py-0.5">
-              <div className="flex items-center justify-between gap-1.5">
-                <div className="min-w-0">
-                  <p className={cn("text-[9px] font-black uppercase tracking-[0.22em]", utilityPane === 'comments' ? "text-sky-100" : utilityPane === 'review' ? "text-emerald-100" : "text-slate-100")}>{utilityPane === 'comments' ? 'Notes' : utilityPane === 'review' ? 'Review' : 'Version History'}</p>
-                  <p className="mt-1 text-[11px] font-bold text-white/55 leading-relaxed">
-                    {utilityPane === 'comments'
-                      ? 'Short, anchored notes for the workflow, a task, or a section.'
-                      : utilityPane === 'review'
-                        ? 'Read the draft, compare the states, and act with review permissions only.'
-                        : 'Compare the working draft against a saved, approved, or selected version.'}
-                  </p>
-                </div>
-                <button onClick={closeUtilityPane} className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white transition-all leading-none">
-                  Close
-                </button>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                <button onClick={() => openCommentsForTask()} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", utilityPane === 'comments' ? "border-sky-500/20 bg-sky-500/10 text-sky-100" : "border-white/10 bg-black/20 text-white/45 hover:text-white")}>Notes</button>
-              <button onClick={openHistoryPane} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", utilityPane === 'history' ? "border-slate-300/20 bg-slate-300/10 text-white" : "border-white/10 bg-black/20 text-white/45 hover:text-white")}>Compare</button>
-                <button onClick={openReviewPane} className={cn("rounded-[8px] border px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em]", utilityPane === 'review' ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-100" : "border-white/10 bg-black/20 text-white/45 hover:text-white")}>Review</button>
-              </div>
-              <div className="mt-3">
-                {utilityPane === 'comments' ? renderCommentsSurface() : utilityPane === 'review' ? renderReviewSurface() : renderHistorySurface()}
-              </div>
-            </div>
-          )}
           <div className="relative flex-1 min-h-0">
             <ReactFlow 
             nodes={nodes} 
@@ -3590,36 +3417,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             className="react-flow-industrial"
             >
               <Background color="#1e293b" gap={30} size={1} />
-              {layoutPrefs.showMiniMap && (
-                <div className="absolute bottom-4 right-4 z-20">
-                  <button
-                    onClick={() => updateLayoutPrefs({ showMiniMap: false })}
-                    className="absolute -top-1.5 -right-2 z-30 flex h-5 w-5 items-center justify-center rounded-[8px] border border-white/10 bg-[#09111d] text-white/50 shadow-lg hover:text-white"
-                    aria-label="Close minimap"
-                  >
-                    <X size={11} />
-                  </button>
-                  <MiniMap
-                    nodeColor={(node) => {
-                      if (selectedTaskId && String(node.id) === String(selectedTaskId)) return '#38bdf8';
-                      if (selectedNeighborNodeIds.has(String(node.id))) return '#34d399';
-                      if (node.data?.interface === 'TRIGGER') return '#22d3ee';
-                      if (node.data?.interface === 'OUTCOME') return '#fb7185';
-                      if (node.type === 'diamond') return '#f59e0b';
-                      return '#60a5fa';
-                    }}
-                    nodeStrokeColor={(node) => {
-                      if (selectedTaskId && String(node.id) === String(selectedTaskId)) return '#93c5fd';
-                      if (selectedNeighborNodeIds.has(String(node.id))) return '#6ee7b7';
-                      return '#1f2937';
-                    }}
-                    maskColor="rgba(3, 7, 18, 0.75)"
-                    className="!bg-[#0a1120] !border !border-white/10 !rounded-[8px] overflow-hidden"
-                    pannable
-                    zoomable
-                  />
-                </div>
-              )}
             </ReactFlow>
           </div>
           {saveStatus === 'conflict' && saveConflict && (
@@ -3657,9 +3454,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             <div className="flex flex-col items-stretch gap-1.5 w-full">
               <button onClick={() => updateLayoutPrefs({ inspectorCollapsed: false })} className="rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-theme-accent hover:bg-theme-accent hover:text-white">
                 Open Inspector
-              </button>
-              <button onClick={() => updateLayoutPrefs({ showMiniMap: !layoutPrefs.showMiniMap })} className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/45 hover:text-white">
-                {layoutPrefs.showMiniMap ? 'Hide' : 'Show'} MiniMap
               </button>
             </div>
           </div>
@@ -3699,14 +3493,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         <div className="h-full rounded-[8px] bg-theme-accent" style={{ width: `${selectedTaskCompleteness.score}%` }} />
                       </div>
                     </button>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setUtilityPane('comments')} className="rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent">
-                        Comments {commentCountsByTaskId.get(String(selectedTask.id))?.total ? `(${commentCountsByTaskId.get(String(selectedTask.id))?.open || 0}/${commentCountsByTaskId.get(String(selectedTask.id))?.resolved || 0})` : ''}
-                      </button>
-                      <button onClick={openHistoryPane} className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-[3px] text-[8px] font-black uppercase tracking-[0.18em] text-white/55 hover:text-white">
-                        History
-                      </button>
-                    </div>
                   </div>
                 </div>
                 {taskCompletenessOpen && (
@@ -3805,11 +3591,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <span className="inline-flex items-center gap-1"><Copy size={10} /> Copy ID</span>
                   </button>
                 </div>
-                {reviewMode && (
-                  <div className="rounded-[8px] border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">
-                    Review mode is read only. Use the command palette or toggle the button to return to editing.
-                  </div>
-                )}
                 <div className="flex items-center gap-1.5 rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1">
                   <Search size={11} className="text-white/35" />
                   <input
@@ -3828,37 +3609,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                   )}
                 </div>
               </div>
-              {selectedNodeIds.length > 1 && !selectedNodesAreProtected && (
-                <div className="rounded-[8px] border border-white/10 bg-white/[0.03] p-1.5 space-y-1.5">
-                  <div className="flex items-start justify-between gap-1.5">
-                    <div>
-                      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Bulk Edit</p>
-                      <p className="mt-1 text-[12px] font-bold text-white/55">{selectedNodeIds.length} nodes selected. Apply shared changes or align them as a group.</p>
-                    </div>
-                    <button onClick={() => { setSelectedNodeIds([]); setSelectedTaskId(null); }} className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-1 text-[9px] font-black uppercase text-white/45">Clear</button>
-                  </div>
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-1.5">
-                    <input className="w-full bg-black/40 border border-white/10 rounded-[8px] px-1.5 py-1.5 text-[11px] text-white outline-none focus:border-theme-accent" placeholder="Bulk owner team" value={selectedTask.owning_team || ''} onChange={e => updateSelectedTasks({ owning_team: e.target.value })} />
-                    <select className="w-full bg-black/40 border border-white/10 rounded-[8px] px-1.5 py-1.5 text-[11px] font-black text-white outline-none focus:border-theme-accent" value={selectedTask.task_type} onChange={e => updateSelectedTasks({ task_type: e.target.value })}>
-                      {taskTypes.map((type: any) => <option key={type} value={type}>{type}</option>)}
-                    </select>
-                    <button onClick={() => updateSelectedTasks({ validation_needed: !selectedTask.validation_needed })} className={cn("rounded-[8px] border px-1.5 py-1.5 text-[10px] font-black uppercase transition-all", selectedTask.validation_needed ? "border-orange-500/30 bg-orange-500/10 text-orange-400" : "border-white/10 bg-white/5 text-white/45 hover:text-white")}>
-                      Toggle Validation
-                    </button>
-                    <input className="w-full bg-black/40 border border-white/10 rounded-[8px] px-1.5 py-1.5 text-[11px] text-white outline-none focus:border-theme-accent" placeholder="Bulk backup owner" value={selectedTaskDiagnostics.taskManagement?.backup_owner || ''} onChange={e => updateSelectedTasksDiagnostics({ taskManagement: { backup_owner: e.target.value } })} />
-                    <input className="w-full bg-black/40 border border-white/10 rounded-[8px] px-1.5 py-1.5 text-[11px] text-white outline-none focus:border-theme-accent" placeholder="Bulk reviewer" value={selectedTaskDiagnostics.taskManagement?.reviewer || ''} onChange={e => updateSelectedTasksDiagnostics({ taskManagement: { reviewer: e.target.value } })} />
-                    <input type="number" className="w-full bg-black/40 border border-white/10 rounded-[8px] px-1.5 py-1.5 text-[11px] text-white outline-none focus:border-theme-accent" placeholder="Bulk manual minutes" value={selectedTask.manual_time_minutes || 0} onChange={e => updateSelectedTasks({ manual_time_minutes: parseFloat(e.target.value) || 0 })} />
-                    <input type="number" className="w-full bg-black/40 border border-white/10 rounded-[8px] px-1.5 py-1.5 text-[11px] text-white outline-none focus:border-theme-accent" placeholder="Bulk automation minutes" value={selectedTask.automation_time_minutes || 0} onChange={e => updateSelectedTasks({ automation_time_minutes: parseFloat(e.target.value) || 0 })} />
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <button onClick={() => alignSelectedNodes('left')} className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-1 text-[9px] font-black uppercase text-white/50 hover:text-white">Align Left</button>
-                    <button onClick={() => alignSelectedNodes('top')} className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-1 text-[9px] font-black uppercase text-white/50 hover:text-white">Align Top</button>
-                    <button onClick={() => alignSelectedNodes('center')} className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-1 text-[9px] font-black uppercase text-white/50 hover:text-white">Center X</button>
-                    <button onClick={() => alignSelectedNodes('horizontal')} className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-1 text-[9px] font-black uppercase text-white/50 hover:text-white">Line Up</button>
-                    <button onClick={() => alignSelectedNodes('vertical')} className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-1 text-[9px] font-black uppercase text-white/50 hover:text-white">Stack</button>
-                  </div>
-                </div>
-              )}
               {inspectorTab === 'overview' && (
                 <div ref={(el) => { taskSectionRefs.current.overview = el; }} className={cn(taskPaneCompact ? "space-y-1.5" : "space-y-6", isReadOnlyMode && "pointer-events-none select-none opacity-80")} data-section="overview">
                   <div className="space-y-1.5">
@@ -3887,7 +3637,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <label className="text-[10px] font-black text-white/40 uppercase tracking-widest px-1">What it does</label>
                     <div className={getDefinitionIssueShell(issuesForField('task.description', selectedTaskId).length > 0)} data-builder-field="task.description">
                       <textarea 
-                        className="w-full bg-transparent border-0 rounded-[inherit] px-1.5 py-1 text-[11px] font-medium text-white/60 outline-none focus:border-theme-accent h-24 resize-none disabled:opacity-50" 
+                        className="w-full bg-transparent border-0 rounded-[8px] px-1.5 py-1 text-[11px] font-medium text-white/60 outline-none focus:border-theme-accent h-24 resize-none disabled:opacity-50" 
                         value={selectedTask.description} 
                         onChange={e => updateTask(selectedTaskId, { description: e.target.value })} 
                         disabled={isProtected}
@@ -4013,7 +3763,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                       <div className="space-y-1.5">
                         <label className="text-[9px] font-black text-white/40 uppercase tracking-widest px-1">Task kind</label>
                         <div className={getDefinitionIssueShell(issuesForField('task.task_type', selectedTaskId).length > 0)}>
-                          <select data-builder-field="task.task_type" className="w-full bg-transparent border-0 rounded-[inherit] px-3 h-10 text-[11px] font-black text-white outline-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>{taskTypes.map((t:any) => <option key={t} value={t}>{t}</option>)}</select>
+                          <select data-builder-field="task.task_type" className="w-full bg-transparent border-0 rounded-[8px] px-3 h-10 text-[11px] font-black text-white outline-none" value={selectedTask.task_type} onChange={e => updateTask(selectedTaskId, { task_type: e.target.value })}>{taskTypes.map((t:any) => <option key={t} value={t}>{t}</option>)}</select>
                         </div>
                         {issuesForField('task.task_type', selectedTaskId).length > 0 && (
                           <div className="flex flex-wrap gap-1.5">
@@ -4030,7 +3780,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         <div className="space-y-1">
                           <label className="text-[8px] font-black text-blue-300 uppercase tracking-widest px-1 text-center block leading-none">Manual time (m)</label>
                           <div className={getDefinitionIssueShell(issuesForField('task.manual_time_minutes', selectedTaskId).length > 0)} data-builder-field="task.manual_time_minutes">
-                            <input type="number" className="w-full bg-black/40 border-0 rounded-[inherit] px-1.5 py-[2px] text-[12px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
+                            <input type="number" className="w-full bg-black/40 border-0 rounded-[8px] px-1.5 py-[2px] text-[12px] font-black text-white outline-none focus:border-blue-400 text-center" value={selectedTask.manual_time_minutes} onChange={e => updateTask(selectedTaskId, { manual_time_minutes: parseFloat(e.target.value) || 0 })} />
                           </div>
                           {issuesForField('task.manual_time_minutes', selectedTaskId).length > 0 && (
                             <div className="flex flex-wrap gap-1.5">
@@ -4043,7 +3793,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         <div className="space-y-1">
                           <label className="text-[8px] font-black text-purple-300 uppercase tracking-widest px-1 text-center block leading-none">Machine time (m)</label>
                           <div className={getDefinitionIssueShell(issuesForField('task.automation_time_minutes', selectedTaskId).length > 0)} data-builder-field="task.automation_time_minutes">
-                            <input type="number" className="w-full bg-black/40 border-0 rounded-[inherit] px-1.5 py-[2px] text-[12px] font-black text-white outline-none focus:border-purple-400 text-center" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
+                            <input type="number" className="w-full bg-black/40 border-0 rounded-[8px] px-1.5 py-[2px] text-[12px] font-black text-white outline-none focus:border-purple-400 text-center" value={selectedTask.automation_time_minutes} onChange={e => updateTask(selectedTaskId, { automation_time_minutes: parseFloat(e.target.value) || 0 })} />
                           </div>
                           {issuesForField('task.automation_time_minutes', selectedTaskId).length > 0 && (
                             <div className="flex flex-wrap gap-1.5">
@@ -4196,70 +3946,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         </div>
                       </div>
 
-                      <div
-                        ref={(el) => { taskSectionRefs.current.comments = el; }}
-                        className="rounded-[8px] border border-white/5 bg-white/[0.02] p-1.5 space-y-1.5"
-                        data-section="comments"
-                      >
-                        <div className="flex items-center justify-between gap-1.5">
-                          <div>
-                            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-theme-accent">Notes</p>
-                            <p className="mt-1 text-[11px] font-bold text-white/45">Simple notes only. Open and resolved states are tracked on the task node.</p>
-                          </div>
-                          <MessageSquare size={14} className="text-theme-accent" />
-                        </div>
-                        <textarea
-                          className="w-full rounded-[8px] border border-white/10 bg-black/30 px-1.5 py-1.5 text-[11px] font-bold text-white/80 outline-none focus:border-theme-accent min-h-[5.5rem] resize-none"
-                          value={commentDraft.scope === 'task' && String(commentDraft.scope_id || '') === String(selectedTask.id) ? commentDraft.message : ''}
-                          disabled={reviewMode}
-                          onChange={(e) => setCommentDraft({ ...createWorkflowComment('task', String(selectedTask.id)), message: e.target.value })}
-                          placeholder="Write a note for this task..."
-                        />
-                        <div className="flex flex-wrap gap-1.5">
-                          <button
-                            onClick={() => {
-                              setUtilityPaneTaskId(String(selectedTask.id));
-                              addWorkflowComment();
-                            }}
-                            disabled={reviewMode}
-                            className="rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-theme-accent"
-                          >
-                            Add Note
-                          </button>
-                          <button
-                            onClick={() => {
-                              setUtilityPane('comments');
-                              setUtilityPaneTaskId(String(selectedTask.id));
-                              setCommentDraft(createWorkflowComment('task', String(selectedTask.id)));
-                            }}
-                            disabled={reviewMode}
-                            className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/55"
-                          >
-                            Open Notes
-                          </button>
-                        </div>
-                        <div className="space-y-1.5 max-h-48 overflow-auto pr-1 custom-scrollbar">
-                          {selectedTaskComments.slice(0, 3).map((comment) => (
-                            <div key={comment.id} className="rounded-[8px] border border-white/10 bg-black/20 p-1.5 space-y-1.5">
-                              <div className="flex items-center justify-between gap-1.5">
-                                <div>
-                                  <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white">{comment.author}</p>
-                                  <p className="text-[8px] font-black uppercase tracking-[0.18em] text-white/30">{comment.status === 'resolved' ? 'Resolved' : 'Open'}</p>
-                                </div>
-                                <button onClick={() => toggleWorkflowCommentStatus(comment.id)} disabled={reviewMode} className="rounded-[8px] border border-white/10 bg-white/5 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/50">
-                                  {comment.status === 'resolved' ? 'Reopen' : 'Resolve'}
-                                </button>
-                              </div>
-                              <p className="text-[11px] font-bold text-white/70 leading-relaxed whitespace-pre-wrap">{comment.message}</p>
-                            </div>
-                          ))}
-                          {selectedTaskComments.length === 0 && (
-                            <div className="rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1 text-[10px] font-bold text-white/35">
-                            No notes for this task yet. Keep notes attached to the actual task so review stays contextual.
-                            </div>
-                          )}
-                        </div>
-                      </div>
                     </>
                   )}
 
@@ -4300,7 +3986,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         >
                           <div className="space-y-1.5">
                             {sd.from_task_name && (
-                              <div className="px-1.5 py-[3px] bg-theme-accent/20 border border-theme-accent/30 rounded text-[9px] font-black text-theme-accent uppercase flex items-center gap-1.5">
+                              <div className="px-1.5 py-[3px] bg-theme-accent/20 border border-theme-accent/30 rounded-[8px] text-[9px] font-black text-theme-accent uppercase flex items-center gap-1.5">
                                 <Link2 size={10} /> Referenced from: {sd.from_task_name}
                               </div>
                             )}
@@ -4703,18 +4389,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 </div>
               <div className="flex items-center gap-1.5">
                   <span className="text-[8px] text-white/20 font-black uppercase tracking-widest">v{metadata.version}</span>
-                  <button
-                    onClick={() => setDefinitionCompactMode((current) => !current)}
-                    className={cn("px-1.5 py-[3px] rounded-[8px] text-[8px] font-black uppercase transition-all leading-none", definitionCompactMode ? "bg-theme-accent/10 text-theme-accent border border-theme-accent/20" : "bg-white/5 text-white/40 border border-white/10 hover:text-white")}
-                  >
-                    {definitionCompactMode ? 'Compact' : 'Dense'}
-                  </button>
                   <button 
-                    onClick={() => !reviewMode && setIsMetadataEditMode(!isMetadataEditMode)}
-                    disabled={reviewMode}
-                    className={cn("px-1.5 py-[3px] rounded-[8px] text-[8px] font-black uppercase transition-all leading-none", reviewMode ? "hidden bg-white/5 text-white/25 cursor-not-allowed" : isMetadataEditMode ? "bg-theme-accent text-white" : "bg-white/5 text-white/40 hover:text-white")}
+                    onClick={() => setIsMetadataEditMode(!isMetadataEditMode)}
+                    className={cn("px-1.5 py-[3px] rounded-[8px] text-[8px] font-black uppercase transition-all leading-none", isMetadataEditMode ? "bg-theme-accent text-white" : "bg-white/5 text-white/40 hover:text-white")}
                   >
-                    {reviewMode ? "Review Mode" : isMetadataEditMode ? "Finish Editing" : "Edit Definition"}
+                    {isMetadataEditMode ? "Finish Editing" : "Edit Definition"}
                   </button>
                 </div>
               </div>
@@ -4810,7 +4489,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         <div className={getDefinitionIssueShell(issuesForField('workflow.description').length > 0)}>
                           <textarea 
                             data-testid="builder-workflow-description"
-                            className={cn("w-full bg-transparent border-0 rounded-[inherit] px-1.5 py-1.5 text-[10px] font-bold text-white/80 h-[4.5rem] resize-none leading-relaxed outline-none", definitionCompactMode && "h-16") } 
+                            className={cn("w-full bg-transparent border-0 rounded-[8px] px-1.5 py-1.5 text-[10px] font-bold text-white/80 h-[4.5rem] resize-none leading-relaxed outline-none", definitionCompactMode && "h-16") } 
                             value={metadata.purpose_statement} 
                             onChange={e => { saveToHistory(); setMetadata({...metadata, purpose_statement: e.target.value}); }} 
                           />
@@ -4921,7 +4600,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             <input 
                               type="number" 
                               step="0.1"
-                              className="w-11 bg-black/40 font-black text-[10px] text-white text-center py-1.5 rounded-[0.85rem] outline-none" 
+                              className="w-11 bg-black/40 font-black text-[10px] text-white text-center py-1.5 rounded-[8px] outline-none" 
                               value={metadata.cadence_count} 
                               onChange={e => { saveToHistory(); setMetadata({...metadata, cadence_count: parseFloat(e.target.value) || 1}); }} 
                             />
@@ -5075,7 +4754,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             <label className="text-[8px] font-black text-white/40 uppercase tracking-widest px-1">{definitionSettings.fieldLabels.trigger_description}</label>
                             <div className={getDefinitionIssueShell(issuesForField('workflow.trigger_description').length > 0)}>
                               <textarea 
-                                className="w-full bg-transparent border-0 rounded-[inherit] px-1.5 py-1.5 text-[10px] font-bold text-white/80 h-[4.5rem] resize-none leading-relaxed outline-none" 
+                                className="w-full bg-transparent border-0 rounded-[8px] px-1.5 py-1.5 text-[10px] font-bold text-white/80 h-[4.5rem] resize-none leading-relaxed outline-none" 
                                 value={metadata.trigger_description} 
                                 onChange={e => { saveToHistory(); setMetadata({...metadata, trigger_description: e.target.value}); }} 
                               />
@@ -5099,7 +4778,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             <label className="text-[8px] font-black text-white/40 uppercase tracking-widest px-1">{definitionSettings.fieldLabels.output_description}</label>
                             <div className={getDefinitionIssueShell(issuesForField('workflow.output_description').length > 0)}>
                               <textarea 
-                                className="w-full bg-transparent border-0 rounded-[inherit] px-1.5 py-1.5 text-[10px] font-bold text-white/80 h-[4.5rem] resize-none leading-relaxed outline-none" 
+                                className="w-full bg-transparent border-0 rounded-[8px] px-1.5 py-1.5 text-[10px] font-bold text-white/80 h-[4.5rem] resize-none leading-relaxed outline-none" 
                                 value={metadata.output_description} 
                                 onChange={e => { saveToHistory(); setMetadata({...metadata, output_description: e.target.value}); }} 
                               />
