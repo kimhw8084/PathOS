@@ -716,7 +716,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
   if (isTemplate) {
     return (
       <div className={cn(
-        `apple-glass !bg-[#0b1221]/96 !${BUILDER_RADIUS} px-5 sm:px-6 py-4 sm:py-5 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center w-[clamp(180px,22vw,260px)] max-w-[90vw] h-auto hover:z-[1000]`,
+        `apple-glass !bg-[#0b1221]/96 !${BUILDER_RADIUS} px-4 py-3 shadow-2xl transition-all duration-300 group relative border-2 flex flex-col items-center justify-center w-[clamp(160px,20vw,220px)] max-w-[90vw] h-auto hover:z-[1000]`,
         selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : (isTrigger ? "border-cyan-500/40" : "border-rose-500/40"),
       )}>
         <div className={cn("absolute -top-1.5 left-4 px-1.5 py-0.5 rounded-[8px] text-[8px] font-black uppercase tracking-[0.2em] border z-20 shadow-lg", isTrigger ? "bg-cyan-500 border-cyan-400 text-white" : "bg-rose-500 border-rose-400 text-white")}>
@@ -747,7 +747,7 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
 
   return (
     <div className={cn(
-      `apple-glass !bg-[#0f172a]/95 !${BUILDER_RADIUS} px-3 sm:px-1.5 py-1.5 sm:py-4 w-[clamp(300px,31vw,430px)] max-w-[92vw] shadow-2xl transition-all duration-300 relative border-2 h-auto min-h-[300px] hover:z-[1000]`,
+    `apple-glass !bg-[#0f172a]/95 !${BUILDER_RADIUS} px-2.5 py-1.5 w-[clamp(280px,28vw,390px)] max-w-[92vw] shadow-2xl transition-all duration-300 relative border-2 h-auto min-h-[280px] hover:z-[1000]`,
       selected ? 'border-theme-accent shadow-[0_0_30px_rgba(59,130,246,0.4)] scale-[1.02]' : 'border-white/10 hover:border-white/20',
       data.validation_needed && "border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.15)]"
     )}>
@@ -794,11 +794,11 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
             <div className="bg-black/40 rounded-[8px] p-1.5 border border-white/5 flex flex-col items-center justify-center">
                <span className="text-[10px] font-black uppercase text-blue-400/40 tracking-[0.2em] mb-1">Manual time</span>
-               <span className="text-[24px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
+               <span className="text-[19px] font-black text-white leading-none">{(data.manual_time || 0).toFixed(0)}m</span>
             </div>
             <div className="bg-black/40 rounded-[8px] p-1.5 border border-white/5 flex flex-col items-center justify-center">
                <span className="text-[10px] font-black uppercase text-purple-400/40 tracking-[0.2em] mb-1">Automated time</span>
-               <span className="text-[24px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
+               <span className="text-[19px] font-black text-white leading-none">{(data.automation_time || 0).toFixed(0)}m</span>
             </div>
           </div>
 
@@ -806,12 +806,12 @@ const MatrixNode = ({ data, selected }: { data: any, selected: boolean }) => {
              <div className="flex items-center gap-1.5 flex-1 justify-center min-w-0">
                <div className="flex flex-col items-center">
                  <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Inputs</span>
-                 <span className="text-[16px] font-black text-white leading-none">{data.sourceCount || 0}</span>
+                 <span className="text-[14px] font-black text-white leading-none">{data.sourceCount || 0}</span>
                </div>
                <div className="w-px h-6 bg-white/5" />
                <div className="flex flex-col items-center">
                  <span className="text-[10px] font-black text-white/20 uppercase tracking-widest">Outputs</span>
-                 <span className="text-[16px] font-black text-white leading-none">{data.outputCount || 0}</span>
+                 <span className="text-[14px] font-black text-white leading-none">{data.outputCount || 0}</span>
                </div>
              </div>
              <div className="text-right flex flex-col items-end">
@@ -3316,21 +3316,20 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
       )}
 
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative overflow-hidden">
-        <div className={cn("min-h-10 border-b border-white/10 bg-[#0a1120]/92 backdrop-blur-xl flex flex-wrap items-center justify-between gap-1.5 px-3 sm:px-1.5 py-1 relative z-[100]")}>
+        <div className={cn("min-h-9 border-b border-white/10 bg-[#0a1120]/92 backdrop-blur-xl flex flex-wrap items-center justify-between gap-1 px-2 sm:px-1.5 py-0.5 relative z-[100]")}>
           <div className="flex items-center gap-1.5 min-w-0">
             <button onClick={() => onBack(metadata)} className="p-1.5 hover:bg-white/5 rounded-[8px] transition-colors text-white/40 hover:text-white"><ChevronLeft size={18} /></button>
             <div className="flex flex-col min-w-0">
-              <span className="text-[10px] font-black text-theme-accent uppercase tracking-widest mb-1">Workflow Builder</span>
-              <h1 className="text-[14px] font-black text-white uppercase truncate max-w-[55vw] sm:max-w-[300px]">{workflow?.name}</h1>
-              <span className="text-[9px] font-black uppercase tracking-[0.24em] text-theme-accent/80">Define the workflow</span>
+              <span className="text-[9px] font-black text-theme-accent uppercase tracking-widest leading-none">Workflow Builder</span>
+              <h1 className="text-[13px] font-black text-white uppercase truncate max-w-[55vw] sm:max-w-[300px] leading-none">{workflow?.name}</h1>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-1.5 flex-wrap justify-end">
-          <div className="flex bg-white/5 border border-white/10 rounded-[8px] p-0.5 mr-2 h-[24px] items-center">
-            <button onClick={undo} disabled={history.length === 0 || isReadOnlyMode} className="px-1.5 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all border-r border-white/5"><RefreshCw size={13} className="-scale-x-100" /></button>
-            <button onClick={redo} disabled={redoStack.length === 0 || isReadOnlyMode} className="px-1.5 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all"><RefreshCw size={13} /></button>
+          <div className="flex items-center gap-1 sm:gap-1 flex-wrap justify-end">
+          <div className="flex bg-white/5 border border-white/10 rounded-[8px] p-0.5 h-[22px] items-center">
+            <button onClick={undo} disabled={history.length === 0 || isReadOnlyMode} className="px-1.5 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all border-r border-white/5"><RefreshCw size={12} className="-scale-x-100" /></button>
+            <button onClick={redo} disabled={redoStack.length === 0 || isReadOnlyMode} className="px-1.5 h-full text-white/40 hover:text-white disabled:opacity-20 transition-all"><RefreshCw size={12} /></button>
           </div>
-              <div className="flex bg-white/5 border border-white/10 rounded-[8px] p-0.5 mr-2 h-[24px] items-center">
+              <div className="flex bg-white/5 border border-white/10 rounded-[8px] p-0.5 h-[22px] items-center">
                 {(['bezier', 'smoothstep', 'straight'] as const).map(s => (
                   <button 
                     key={s} 
@@ -3347,10 +3346,10 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                 ))}
               </div>
           {!reviewMode && (
-            <button disabled={isReadOnlyMode} onClick={() => { if (isReadOnlyMode) return; handleLayout(nodes, edges); }} className={cn(BUILDER_BUTTON, "flex items-center gap-1.5 px-1.5 h-[24px] bg-white/5 border border-white/10 text-white uppercase hover:bg-white/10 transition-all", isReadOnlyMode && "opacity-35 cursor-not-allowed")}><RefreshCw size={12} className="text-theme-accent" /> Auto Layout</button>
+            <button disabled={isReadOnlyMode} onClick={() => { if (isReadOnlyMode) return; handleLayout(nodes, edges); }} className={cn(BUILDER_BUTTON, "flex items-center gap-1 px-1.5 h-[22px] bg-white/5 border border-white/10 text-white uppercase hover:bg-white/10 transition-all", isReadOnlyMode && "opacity-35 cursor-not-allowed")}><RefreshCw size={11} className="text-theme-accent" /> Auto Layout</button>
           )}
           {!reviewMode && (
-            <button data-testid="builder-commit" disabled={isReadOnlyMode} onClick={handleSave} className={cn(BUILDER_BUTTON, "flex items-center gap-1.5 px-1.5 h-[24px] bg-theme-accent text-white shadow-xl shadow-theme-accent/20 hover:scale-[1.02] leading-none", isReadOnlyMode && "opacity-35 cursor-not-allowed")}><Save size={12} /> Commit Changes</button>
+            <button data-testid="builder-commit" disabled={isReadOnlyMode} onClick={handleSave} className={cn(BUILDER_BUTTON, "flex items-center gap-1 px-1.5 h-[22px] bg-theme-accent text-white shadow-xl shadow-theme-accent/20 hover:scale-[1.02] leading-none", isReadOnlyMode && "opacity-35 cursor-not-allowed")}><Save size={11} /> Commit Changes</button>
           )}
           <button onClick={onExit} className="p-1.5 text-white/20 hover:text-status-error"><X size={16} /></button>
         </div>
@@ -3458,7 +3457,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
             </div>
           </div>
         ) : (
-          <div ref={taskPaneScrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar p-1.5 sm:p-4">
+          <div ref={taskPaneScrollRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar p-1.5 sm:p-2">
           {selectedTaskId && selectedTask ? (
             <div className={cn(taskPaneCompact ? "space-y-1.5" : "space-y-1.5", "animate-apple-in")}>
               <div className={cn(BUILDER_PANEL, "p-1.5 space-y-1.5")}>
@@ -3480,7 +3479,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <button
                       onClick={() => setTaskCompletenessOpen((current) => !current)}
                       title="Show done and missing fields"
-                      className="min-w-[118px] rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-[3px] text-left transition-colors hover:border-theme-accent/30 hover:bg-black/30"
+                      className="min-w-[104px] rounded-[8px] border border-white/10 bg-black/25 px-1.5 py-[3px] text-left transition-colors hover:border-theme-accent/30 hover:bg-black/30"
                     >
                       <div className="flex items-center justify-between gap-1">
                         <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/35">
@@ -3662,7 +3661,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <div className="flex items-center justify-between gap-1.5">
                       <div>
                         <p className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-100">Dependencies</p>
-                        <p className="mt-1 text-[11px] font-bold text-white/45">Where this task comes from, where it goes, and what slows it down.</p>
+                        <p className="mt-1 text-[10px] font-bold text-white/40">Upstream, downstream, and slowdowns.</p>
                       </div>
                       <MapPinned size={14} className="text-cyan-100" />
                     </div>
@@ -4453,13 +4452,6 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <span className="text-[9px] tracking-[0.2em] uppercase">Overview</span>
                   </div>
                 <div className={cn(BUILDER_PANEL, definitionCompactMode ? "space-y-1.5 !bg-white/[0.02] border-white/5 p-1.5" : "space-y-1.5 !bg-white/[0.02] border-white/5 p-1.5")}>
-                    <div className="flex flex-wrap gap-1.5 rounded-[8px] border border-white/10 bg-black/20 px-1.5 py-1 text-[8px] font-black uppercase tracking-[0.18em] text-white/40">
-                      <span className="text-white/35">Definition</span>
-                      <span className="truncate max-w-[12rem]">{metadata.purpose_statement || 'No purpose set'}</span>
-                      <span className="border-l border-white/10 pl-2">{metadata.pre_requisites.length} prereqs</span>
-                      <span className="border-l border-white/10 pl-2">{metadata.tool_family.length} families</span>
-                      <span className="border-l border-white/10 pl-2">{metadata.applicable_tools.length} tools</span>
-                    </div>
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center px-1">
                         <label className="text-[8px] font-black text-white/40 uppercase tracking-widest">Workflow Name</label>
@@ -4494,11 +4486,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             onChange={e => { saveToHistory(); setMetadata({...metadata, purpose_statement: e.target.value}); }} 
                           />
                         </div>
-                        {definitionSettings.fieldVisibility.inline_examples && (
-                          <p className="px-1 text-[9px] font-bold leading-relaxed text-white/35">
-                            {definitionSettings.fieldExamples.purpose_statement}
-                          </p>
-                        )}
+                        {/* compact surface intentionally omits helper copy */}
                         {issuesForField('workflow.description').length > 0 && (
                           <div className="flex flex-wrap gap-1.5">
                             {issuesForField('workflow.description').map((issue) => (
@@ -4515,9 +4503,9 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         <label className="text-[8px] font-black text-white/40 uppercase tracking-widest">{definitionSettings.fieldLabels.pre_requisites}</label>
                         <span className="text-[8px] text-white/10 font-mono">{metadata.pre_requisites.length}</span>
                       </div>
-                      <div className="space-y-1.5 rounded-[8px] border border-white/5 bg-black/20 p-1.5">
+                      <div className="space-y-1.5 rounded-[8px] border border-white/5 bg-black/20 p-1">
                         {metadata.pre_requisites.length === 0 ? (
-                          <p className="px-1 py-0.5 text-[9px] font-bold text-white/30 leading-relaxed">
+                          <p className="px-1 py-0.5 text-[8px] font-bold text-white/30 leading-relaxed">
                             {definitionSettings.fieldExamples.pre_requisites}
                           </p>
                         ) : (
@@ -4544,10 +4532,10 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             ))}
                           </div>
                         )}
-                        <div className="flex items-center gap-1.5">
-                          <input
-                            className={cn(BUILDER_FIELD, "h-8 text-[10px]")}
-                            placeholder="Add prerequisite..."
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              className={cn(BUILDER_FIELD, "h-8 text-[10px]")}
+                              placeholder="Add prerequisite..."
                             value={definitionPrereqDraft}
                             onChange={e => setDefinitionPrereqDraft(e.target.value)}
                           />
@@ -4615,9 +4603,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                               <option value="year">YEARLY</option>
                             </select>
                           </div>
-                          {definitionSettings.fieldVisibility.inline_examples && (
-                            <p className="px-1 text-[8px] font-bold text-white/30 leading-relaxed">{definitionSettings.fieldExamples.cadence}</p>
-                          )}
+                          {/* compact surface intentionally omits helper copy */}
                         </div>
                       )}
                     </div>
@@ -4629,16 +4615,11 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                           {definitionToolPropagation.familyChips.length > 0 ? (
                             definitionToolPropagation.familyChips.map((chip) => (
                               <span key={chip.family} className="rounded-[8px] border border-theme-accent/20 bg-theme-accent/10 px-1.5 py-[3px] text-[7px] font-black uppercase tracking-[0.18em] text-theme-accent">
-                                {chip.family} <span className="text-white/35">({chip.toolCount})</span>
+                                {chip.family}
                               </span>
                             ))
                           ) : (
-                            <span className="text-[8px] font-bold text-white/35">Select a tool family to reveal applicable tools.</span>
-                          )}
-                          {definitionToolPropagation.availableTools.length > 0 && (
-                            <span className="ml-auto text-[8px] font-black uppercase tracking-[0.18em] text-emerald-300">
-                              {definitionToolPropagation.availableTools.length} tools available
-                            </span>
+                            <span className="text-[8px] font-bold text-white/35">Select a tool family to reveal tools.</span>
                           )}
                           {metadata.tool_family.length > 0 && (
                             <button
@@ -4652,7 +4633,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             </button>
                           )}
                         </div>
-                        <div className={cn("grid grid-cols-1 lg:grid-cols-2 gap-1.5", definitionCompactMode && "gap-1.5")}>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
                         {definitionSettings.fieldVisibility.tool_family && (
                         <SearchableSelect 
                             label={definitionSettings.fieldLabels.tool_family}
@@ -4709,9 +4690,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                             ))}
                           </div>
                         )}
-                        {definitionSettings.fieldVisibility.inline_examples && (
-                          <p className="px-1 text-[8px] font-bold text-white/30 leading-relaxed">{definitionSettings.fieldExamples.tool_family}</p>
-                        )}
+                        {/* compact surface intentionally omits helper copy */}
                       </div>
                     )}
                   </div>
@@ -4722,8 +4701,8 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                     <Zap size={13} />
                     <span className="text-[9px] tracking-[0.2em] uppercase">Start & Finish</span>
                   </div>
-                  <div className={cn(BUILDER_PANEL, definitionCompactMode ? "space-y-1.5 !bg-white/[0.02] border-white/5 p-1.5" : "space-y-1.5 !bg-white/[0.02] border-white/5 p-1.5")}>
-                    <div className={cn("grid grid-cols-1 lg:grid-cols-2 gap-1.5", definitionCompactMode && "gap-1.5")}>
+                  <div className={cn(BUILDER_PANEL, "space-y-1.5 !bg-white/[0.02] border-white/5 p-1.5")}>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5">
                         {definitionSettings.fieldVisibility.trigger_type && (
                         <SearchableSelect 
                           label={definitionSettings.fieldLabels.trigger_type}
@@ -4747,7 +4726,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                         />
                         )}
                     </div>
-                      <div className={cn("grid grid-cols-1 gap-1.5 border-t border-white/5 pt-4", definitionCompactMode && "gap-1.5 pt-3")}>
+                      <div className="grid grid-cols-1 gap-1.5 border-t border-white/5 pt-3">
                       <div className="space-y-1.5">
                         {definitionSettings.fieldVisibility.trigger_description && (
                           <>
@@ -4759,9 +4738,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                 onChange={e => { saveToHistory(); setMetadata({...metadata, trigger_description: e.target.value}); }} 
                               />
                             </div>
-                            {definitionSettings.fieldVisibility.inline_examples && (
-                              <p className="px-1 text-[8px] font-bold text-white/30 leading-relaxed">{definitionSettings.fieldExamples.trigger_description}</p>
-                            )}
+                            {/* compact surface intentionally omits helper copy */}
                           </>
                         )}
                         {issuesForField('workflow.trigger_description').length > 0 && (
@@ -4783,9 +4760,7 @@ const onAddNode = (type: 'TASK' | 'CONDITION') => {
                                 onChange={e => { saveToHistory(); setMetadata({...metadata, output_description: e.target.value}); }} 
                               />
                             </div>
-                            {definitionSettings.fieldVisibility.inline_examples && (
-                              <p className="px-1 text-[8px] font-bold text-white/30 leading-relaxed">{definitionSettings.fieldExamples.output_description}</p>
-                            )}
+                            {/* compact surface intentionally omits helper copy */}
                           </>
                         )}
                         {issuesForField('workflow.output_description').length > 0 && (
